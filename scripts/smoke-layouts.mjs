@@ -1,0 +1,7 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { _electron as electron } from 'playwright-core'
+
+const root=await mkdtemp(join(tmpdir(),'moliu-layout-smoke-'));const executablePath=process.env.MOLIU_EXECUTABLE?resolve(process.env.MOLIU_EXECUTABLE):resolve('node_modules/electron/dist/electron.exe');const app=await electron.launch({executablePath,args:process.env.MOLIU_EXECUTABLE?[]:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root}})
+try{const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');const data=await page.evaluate(async()=>{const article=await window.moliu.articles.save({materialIds:[],manualOutline:'',status:'locked',rawMarkdown:'# 排版测试\n\n## 小标题\n\n一段正文。\n\n- 要点一',source:'manual'});const layout=await window.moliu.layouts.create({articleId:article.id,platform:'wechat'});const rows=await window.moliu.layouts.list(article.id);return {title:layout.title,html:layout.html,plain:layout.plainText,version:layout.articleVersionId===article.currentVersionId,status:layout.articleStatusSnapshot,saved:rows.length}});if(data.title!=='排版测试'||!data.html.includes('<h2')||!data.plain.includes('一段正文')||!data.version||data.status!=='locked'||data.saved!==1)throw new Error('Layout workflow failed');console.log('Layout smoke passed')}finally{await app.close();await rm(root,{recursive:true,force:true})}

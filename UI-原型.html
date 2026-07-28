@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>墨流 · 内容生产流水线 — 视觉原型</title>
+<style>
+  /* ============================================================
+     设计令牌 (Design Tokens) — 墨流 Design System v0.1
+     ============================================================ */
+  :root {
+    /* 品牌主色：靛蓝/紫，传递 AI + 创意 */
+    --brand-50:  #EEF0FF;
+    --brand-100: #E0E3FF;
+    --brand-300: #A5A8F5;
+    --brand-500: #4F46E5;
+    --brand-600: #4338CA;
+    --brand-700: #3730A3;
+    --brand-grad: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+
+    /* 语义色 */
+    --ok:    #10B981;
+    --ok-bg: #ECFDF5;
+    --warn:  #F59E0B;
+    --warn-bg:#FFFBEB;
+    --err:   #EF4444;
+    --err-bg:#FEF2F2;
+    --info:  #3B82F6;
+
+    /* 中性（亮） */
+    --bg:        #F6F7F9;
+    --bg-sunken: #EEF0F3;
+    --surface:   #FFFFFF;
+    --surface-2: #FAFBFC;
+    --border:    #E7E9EE;
+    --border-strong:#D6D9E0;
+    --text:      #1E2230;
+    --text-2:    #5B6472;
+    --text-3:    #9AA1AE;
+
+    /* 字体 */
+    --font-sans: "PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-mono: "JetBrains Mono","Fira Code",Consolas,monospace;
+
+    /* 字号 */
+    --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-16:16px;
+    --fs-18:18px; --fs-20:20px; --fs-24:24px; --fs-30:30px;
+
+    /* 间距（4px 基准） */
+    --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px;
+    --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px;
+
+    /* 圆角 */
+    --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:20px;
+
+    /* 阴影 */
+    --sh-sm: 0 1px 2px rgba(16,24,40,.06);
+    --sh-md: 0 4px 14px rgba(16,24,40,.08);
+    --sh-lg: 0 12px 32px rgba(16,24,40,.12);
+
+    --sidebar-w: 232px;
+  }
+
+  [data-theme="dark"] {
+    --bg:        #0E1015;
+    --bg-sunken: #0A0C10;
+    --surface:   #171B24;
+    --surface-2: #1C212C;
+    --border:    #272D3A;
+    --border-strong:#333B4C;
+    --text:      #E6E8EC;
+    --text-2:    #A2A9B6;
+    --text-3:    #6E7686;
+    --brand-50:  #1E1B3A;
+    --brand-100: #2A2658;
+    --brand-500: #6366F1;
+    --brand-600: #818CF8;
+    --sh-sm: 0 1px 2px rgba(0,0,0,.4);
+    --sh-md: 0 4px 14px rgba(0,0,0,.5);
+    --sh-lg: 0 12px 32px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html,body { height:100%; }
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--fs-14);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------- 布局骨架 ---------- */
+  .app { display:flex; height:100vh; overflow:hidden; }
+
+  /* 侧边栏 */
+  .sidebar {
+    width: var(--sidebar-w); flex: 0 0 var(--sidebar-w);
+    background: var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding: var(--s-4) var(--s-3);
+  }
+  .brand { display:flex; align-items:center; gap:10px; padding: 6px 8px 18px; }
+  .brand .logo {
+    width:34px; height:34px; border-radius:9px; background: var(--brand-grad);
+    display:grid; place-items:center; color:#fff; font-weight:700; font-size:18px;
+    box-shadow: var(--sh-sm);
+  }
+  .brand .name { font-size: var(--fs-16); font-weight:700; letter-spacing:.5px; }
+  .brand .sub { font-size: var(--fs-12); color: var(--text-3); }
+
+  .nav-group { font-size: var(--fs-12); color: var(--text-3); padding: 14px 10px 6px; letter-spacing:.8px; }
+  .nav-item {
+    display:flex; align-items:center; gap:10px; padding: 9px 10px; border-radius: var(--r-sm);
+    color: var(--text-2); cursor:pointer; font-size: var(--fs-14); margin-bottom:2px;
+    transition: background .15s, color .15s; position:relative; user-select:none;
+  }
+  .nav-item:hover { background: var(--bg-sunken); color: var(--text); }
+  .nav-item.active { background: var(--brand-50); color: var(--brand-600); font-weight:600; }
+  [data-theme="dark"] .nav-item.active { background: rgba(99,102,241,.16); color: var(--brand-600); }
+  .nav-item .ico { width:18px; text-align:center; opacity:.9; }
+  .nav-item .num {
+    margin-left:auto; font-size: var(--fs-11,11px); background: var(--bg-sunken);
+    color: var(--text-3); border-radius: 20px; padding: 1px 7px; font-weight:600;
+  }
+  .nav-item.active .num { background: #fff; color: var(--brand-600); }
+  [data-theme="dark"] .nav-item.active .num { background: var(--brand-600); color:#fff; }
+
+  .side-foot { margin-top:auto; border-top:1px solid var(--border); padding-top: var(--s-3); }
+  .model-pill {
+    display:flex; align-items:center; gap:8px; font-size: var(--fs-12); color: var(--text-2);
+    padding: 8px 10px; background: var(--surface-2); border:1px solid var(--border); border-radius: var(--r-sm);
+  }
+  .dot { width:8px; height:8px; border-radius:50%; background: var(--ok); box-shadow:0 0 0 3px var(--ok-bg); }
+
+  /* 主区 */
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar {
+    height:56px; flex:0 0 56px; background: var(--surface); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap: var(--s-4); padding: 0 var(--s-6);
+  }
+  .topbar .title { font-size: var(--fs-16); font-weight:600; }
+  .topbar .crumb { color: var(--text-3); font-size: var(--fs-13); }
+  .topbar .spacer { flex:1; }
+  .account-chip {
+    display:flex; align-items:center; gap:8px; padding:5px 10px 5px 6px; border:1px solid var(--border);
+    border-radius: 30px; background: var(--surface-2); cursor:pointer; font-size: var(--fs-13);
+  }
+  .account-chip .av { width:24px; height:24px; border-radius:50%; background: var(--brand-grad); color:#fff;
+    display:grid; place-items:center; font-size: var(--fs-12); font-weight:700; }
+  .icon-btn {
+    width:34px; height:34px; border-radius: var(--r-sm); border:1px solid var(--border); background: var(--surface-2);
+    cursor:pointer; display:grid; place-items:center; color: var(--text-2); font-size:16px; transition:.15s;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+  .content { flex:1; overflow:auto; padding: var(--s-6); }
+  .view { display:none; }
+  .view.active { display:block; animation: fade .25s ease; }
+  @keyframes fade { from { opacity:0; transform: translateY(4px);} to {opacity:1; transform:none;} }
+
+  /* ---------- 通用组件 ---------- */
+  .card { background: var(--surface); border:1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-sm); }
+  .btn {
+    display:inline-flex; align-items:center; gap:7px; padding: 9px 16px; border-radius: var(--r-sm);
+    font-size: var(--fs-14); font-weight:600; cursor:pointer; border:1px solid transparent; transition:.15s; font-family:inherit;
+  }
+  .btn-primary { background: var(--brand-grad); color:#fff; box-shadow: var(--sh-sm); }
+  .btn-primary:hover { filter:brightness(1.05); transform: translateY(-1px); box-shadow: var(--sh-md); }
+  .btn-ghost { background: var(--surface); border-color: var(--border); color: var(--text); }
+  .btn-ghost:hover { background: var(--bg-sunken); }
+  .btn-sm { padding:6px 12px; font-size: var(--fs-13); }
+
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:20px;
+    font-size: var(--fs-12); background: var(--bg-sunken); color: var(--text-2); border:1px solid var(--border); }
+  .chip.brand { background: var(--brand-50); color: var(--brand-600); border-color: transparent; }
+  [data-theme="dark"] .chip.brand { background: rgba(99,102,241,.16); }
+
+  .badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size: var(--fs-12); font-weight:600; }
+  .badge.done { background: var(--ok-bg); color: var(--ok); }
+  .badge.active { background: var(--brand-50); color: var(--brand-600); }
+  [data-theme="dark"] .badge.active { background: rgba(99,102,241,.16); }
+  .badge.todo { background: var(--bg-sunken); color: var(--text-3); }
+
+  .section-h { font-size: var(--fs-13); color: var(--text-3); letter-spacing:.6px; margin: 4px 0 12px; text-transform:none; }
+
+  /* =========================================================
+     视图 1：流水线总览
+     ========================================================= */
+  .kpi-row { display:grid; grid-template-columns: repeat(4,1fr); gap: var(--s-4); margin-bottom: var(--s-6); }
+  .kpi { padding: var(--s-4); }
+  .kpi .v { font-size: var(--fs-24); font-weight:700; }
+  .kpi .l { font-size: var(--fs-12); color: var(--text-3); margin-top:2px; }
+  .kpi .v small { font-size: var(--fs-13); color: var(--ok); font-weight:600; margin-left:6px; }
+
+  .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-4); }
+  .stage {
+    padding: var(--s-4); cursor:pointer; transition: .18s; position:relative; overflow:hidden;
+  }
+  .stage:hover { transform: translateY(-3px); box-shadow: var(--sh-md); border-color: var(--brand-300); }
+  .stage .top { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .stage .sx {
+    width:38px; height:38px; border-radius:10px; background: var(--bg-sunken); display:grid; place-items:center;
+    font-size:18px; flex:0 0 38px;
+  }
+  .stage .nm { font-weight:600; font-size: var(--fs-15); }
+  .stage .st { font-size: var(--fs-12); color: var(--text-3); }
+  .stage .desc { font-size: var(--fs-13); color: var(--text-2); min-height:38px; }
+  .stage .flow { display:flex; align-items:center; gap:5px; margin-top:10px; font-size: var(--fs-12); color: var(--text-3); }
+  .stage .bar { position:absolute; left:0; top:0; bottom:0; width:4px; background: var(--brand-500); opacity:0; }
+  .stage.done .bar { opacity:1; background: var(--ok); }
+  .stage.active .bar { opacity:1; }
+
+  .two-col { display:grid; grid-template-columns: 1fr 320px; gap: var(--s-4); margin-top: var(--s-6); }
+  .acct-card { padding: var(--s-4); }
+  .acct-card .av-lg { width:46px; height:46px; border-radius:12px; background: var(--brand-grad); color:#fff;
+    display:grid; place-items:center; font-weight:700; font-size:20px; float:left; margin-right:12px; }
+  .acct-card .field { display:flex; gap:8px; padding:5px 0; font-size: var(--fs-13); border-bottom:1px dashed var(--border); }
+  .acct-card .field:last-child { border-bottom:none; }
+  .acct-card .fk { color: var(--text-3); flex:0 0 64px; }
+  .acct-card .fv { color: var(--text); }
+
+  .feed { padding: var(--s-2) var(--s-4); }
+  .feed .it { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size: var(--fs-13); }
+  .feed .it:last-child { border-bottom:none; }
+  .feed .t { color: var(--text-3); font-size: var(--fs-12); white-space:nowrap; }
+
+  /* =========================================================
+     视图 2/3：工作台（三栏）
+     ========================================================= */
+  .workbench { display:grid; grid-template-columns: 248px 1fr 300px; gap: var(--s-4); align-items:start; }
+  .col { min-width:0; }
+  .col-card { padding: var(--s-4); margin-bottom: var(--s-4); }
+  .col-h { font-size: var(--fs-13); font-weight:600; color: var(--text-2); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+
+  .ctx-item { padding:10px; border:1px solid var(--border); border-radius: var(--r-md); margin-bottom:10px; background: var(--surface-2); }
+  .ctx-item .t { font-weight:600; font-size: var(--fs-13); margin-bottom:4px; }
+  .ctx-item .b { font-size: var(--fs-12); color: var(--text-2); }
+  .skeleton-line { height:9px; border-radius:5px; background: var(--bg-sunken); margin:6px 0; }
+
+  /* 编辑器 */
+  .editor { padding: 0; overflow:hidden; }
+  .editor .toolbar {
+    display:flex; align-items:center; gap:4px; padding:10px 14px; border-bottom:1px solid var(--border);
+    background: var(--surface-2); flex-wrap:wrap;
+  }
+  .tool { width:30px; height:30px; border:none; background:transparent; border-radius:6px; cursor:pointer; color: var(--text-2); font-size:14px; }
+  .tool:hover { background: var(--bg-sunken); color: var(--text); }
+  .editor .doc { padding: var(--s-6); max-width: 720px; margin:0 auto; }
+  .editor .doc h1 { font-size: var(--fs-24); margin-bottom: 6px; line-height:1.4; }
+  .editor .doc .meta { color: var(--text-3); font-size: var(--fs-13); margin-bottom: 20px; }
+  .editor .doc h2 { font-size: var(--fs-18); margin: 22px 0 10px; }
+  .editor .doc p { margin-bottom: 14px; color: var(--text); }
+  .editor .doc blockquote { border-left:3px solid var(--brand-300); padding:4px 14px; color: var(--text-2); background: var(--brand-50); border-radius:0 8px 8px 0; margin:14px 0; }
+  [data-theme="dark"] .editor .doc blockquote { background: rgba(99,102,241,.1); }
+  .editor .doc ul { margin: 0 0 14px 20px; }
+  .editor .doc pre { background: var(--bg-sunken); border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-family:var(--font-mono); font-size: var(--fs-13); overflow:auto; margin:14px 0; }
+  .editor .doc .imgph { border:1.5px dashed var(--border-strong); border-radius:10px; height:150px; display:grid; place-items:center; color: var(--text-3); margin:16px 0; background: var(--surface-2); }
+
+  /* 右栏 AI 面板 */
+  .ai-act { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .ver { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size: var(--fs-13); }
+  .ver.cur { border-color: var(--brand-300); background: var(--brand-50); }
+  [data-theme="dark"] .ver.cur { background: rgba(99,102,241,.12); }
+  .ver .vt { font-weight:600; }
+  .ver .vm { color: var(--text-3); font-size: var(--fs-12); margin-left:auto; }
+
+  .opinion { border:1px solid var(--border); border-left:3px solid var(--warn); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size: var(--fs-13); }
+  .opinion .oh { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .opinion .sev { font-size: var(--fs-11); padding:1px 7px; border-radius:10px; font-weight:700; }
+  .sev.mid { background: var(--warn-bg); color: var(--warn); }
+  .sev.low { background: var(--bg-sunken); color: var(--text-3); }
+  .sev.high { background: var(--err-bg); color: var(--err); }
+
+  /* 排版专用 */
+  .asset-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:8px; }
+  .asset { border:1px solid var(--border); border-radius:8px; height:64px; background: var(--surface-2); display:grid; place-items:center; color: var(--text-3); font-size: var(--fs-11); position:relative; overflow:hidden; }
+  .asset.cover { grid-column: span 2; height:54px; }
+  .asset .tag { position:absolute; top:4px; left:4px; background: rgba(0,0,0,.5); color:#fff; font-size:10px; padding:1px 6px; border-radius:6px; }
+
+  .plan-row { display:flex; align-items:flex-start; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; font-size: var(--fs-13); }
+  .plan-row .pin { color: var(--brand-600); flex:0 0 auto; }
+  .plan-row .pos { font-weight:600; }
+  .plan-row input { border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size: var(--fs-12); width:90px; font-family:inherit; background: var(--surface-2); color: var(--text); }
+
+  .tmpl-sel { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size: var(--fs-13); background: var(--surface-2); color: var(--text); font-family:inherit; margin-bottom:10px; }
+  .ta { width:100%; border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size: var(--fs-13); font-family:inherit; resize:vertical; background: var(--surface-2); color: var(--text); min-height:54px; }
+
+  .render { padding: var(--s-5); background: #fff; color:#1E2230; border-radius: var(--r-md); }
+  [data-theme="dark"] .render { background:#fff; }
+  .render .cover-img { height:120px; border-radius:10px; background: var(--brand-grad); display:grid; place-items:center; color:#fff; font-weight:600; margin-bottom:16px; }
+  .render h1 { font-size:22px; color: var(--brand-600); }
+  .render h2 { font-size:17px; border-left:4px solid var(--brand-500); padding-left:10px; margin:18px 0 8px; }
+  .render p { font-size:14px; color:#333; margin-bottom:12px; }
+  .render .xcard { background: var(--brand-50); border-radius:10px; padding:12px 14px; font-size:14px; color:#333; margin:12px 0; border:1px solid var(--brand-100); }
+
+  .export-row { display:flex; gap:8px; margin-bottom:10px; }
+  .export-row .btn { flex:1; justify-content:center; }
+
+  .placeholder { padding: 60px 20px; text-align:center; color: var(--text-3); }
+  .placeholder .big { font-size: 40px; margin-bottom:12px; }
+
+  /* 主题切换态 */
+  .seg { display:inline-flex; background: var(--bg-sunken); border-radius:8px; padding:3px; }
+  .seg button { border:none; background:transparent; padding:5px 12px; border-radius:6px; cursor:pointer; font-size: var(--fs-13); color: var(--text-2); font-family:inherit; }
+  .seg button.on { background: var(--surface); color: var(--text); box-shadow: var(--sh-sm); font-weight:600; }
+
+  .skeleton-pulse { animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ 侧边栏 ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">墨</div>
+      <div>
+        <div class="name">墨流</div>
+        <div class="sub">内容生产流水线</div>
+      </div>
+    </div>
+
+    <div class="nav-group">流水线</div>
+    <div class="nav-item active" data-view="overview"><span class="ico">▦</span>流水线总览<span class="num">9</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">◎</span>账号定位<span class="num">1</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">🔥</span>热点抓取<span class="num">2</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">✦</span>选题<span class="num">3</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">▤</span>框架<span class="num">4</span></div>
+    <div class="nav-item" data-view="writing"><span class="ico">✎</span>写文章<span class="num">5</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">⧉</span>素材<span class="num">6</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">✓</span>评审<span class="num">8</span></div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">🖼</span>配图<span class="num">9-11</span></div>
+    <div class="nav-item" data-view="layout"><span class="ico">❖</span>排版<span class="num">12</span></div>
+
+    <div class="nav-group">系统</div>
+    <div class="nav-item" data-view="placeholder"><span class="ico">⚙</span>设置 / 模型网关</div>
+
+    <div class="side-foot">
+      <div class="model-pill"><span class="dot"></span>模型网关已连接 · 6 提供商</div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="title" id="viewTitle">流水线总览</div>
+        <div class="crumb">本地私有 · 账号驱动 · 每环节可干预</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="seg" id="themeSeg">
+        <button class="on" data-theme="light">☀ 亮</button>
+        <button data-theme="dark">☾ 暗</button>
+      </div>
+      <div class="account-chip"><span class="av">科</span>科技洞察局</div>
+      <div class="icon-btn" title="新流水线">＋</div>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== 视图：总览 ===== -->
+      <section class="view active" id="view-overview">
+        <div class="kpi-row">
+          <div class="card kpi"><div class="v">3</div><div class="l">已配置账号</div></div>
+          <div class="card kpi"><div class="v">7 <small>↑2</small></div><div class="l">本周进行中流水线</div></div>
+          <div class="card kpi"><div class="v">12 <small>✓</small></div><div class="l">全部模块已封板</div></div>
+          <div class="card kpi"><div class="v">1.8k</div><div class="l">本周产出字数(均值)</div></div>
+        </div>
+
+        <div class="section-h">内容生产流水线 · 9 个阶段</div>
+        <div class="grid3">
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">◎</div><div><div class="nm">账号定位</div><div class="st">模块一 · 已封板</div></div></div>
+            <div class="desc">定义账号人设/风格/价值主张，贯穿全链路的一致性源头。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">🔥</div><div><div class="nm">热点抓取</div><div class="st">模块二 · 已封板</div></div></div>
+            <div class="desc">DailyHotApi 聚合 40+ 平台，收藏后关联账号筛选。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">✦</div><div><div class="nm">选题</div><div class="st">模块三 · 已封板</div></div></div>
+            <div class="desc">收藏热点 + 账号定位 → 选题决策实体（可配置 schema）。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">▤</div><div><div class="nm">框架</div><div class="st">模块四 · 已封板</div></div></div>
+            <div class="desc">可编辑模板驱动，提纲式骨架（标题/论点/结尾）。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage active" data-view="writing"><div class="bar"></div>
+            <div class="top"><div class="sx">✎</div><div><div class="nm">写文章</div><div class="st">模块五 · 进行中</div></div></div>
+            <div class="desc">写 + 改双职责，Markdown 成稿，所见即所得，版本管理。</div>
+            <div class="flow"><span class="badge active">● 进行中</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">⧉</div><div><div class="nm">素材搜索</div><div class="st">模块六 · 已封板</div></div></div>
+            <div class="desc">SearXNG 本地抓取 + 上传，全文保留，累加语义。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">✓</div><div><div class="nm">评审</div><div class="st">模块八 · 已封板</div></div></div>
+            <div class="desc">多角色并行（自建），一轮即终，对齐改稿契约。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="placeholder"><div class="bar"></div>
+            <div class="top"><div class="sx">🖼</div><div><div class="nm">配图三件套</div><div class="st">模块九~十一 · 已封板</div></div></div>
+            <div class="desc">策略 → 提示词 → 生成，走网关 generateImage，本地资产。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+          <div class="card stage done" data-view="layout"><div class="bar"></div>
+            <div class="top"><div class="sx">❖</div><div><div class="nm">排版</div><div class="st">模块十二 · 已封板</div></div></div>
+            <div class="desc">md2wechat 渲染 + AI 轻编排，公众号 HTML 一键复制。</div>
+            <div class="flow"><span class="badge done">✓ 已完成</span></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card acct-card">
+            <div class="av-lg">科</div>
+            <div style="overflow:hidden">
+              <div style="font-weight:700;font-size:var(--fs-16)">科技洞察局</div>
+              <div style="font-size:var(--fs-12);color:var(--text-3)">当前主线账号 · 科技理性风</div>
+            </div>
+            <div style="clear:both;padding-top:14px">
+              <div class="field"><span class="fk">领域</span><span class="fv">AI / 大模型 / 科技趋势</span></div>
+              <div class="field"><span class="fk">风格</span><span class="fv">理性克制、有数据、带一点反常识</span></div>
+              <div class="field"><span class="fk">人设</span><span class="fv">陪你清醒看技术革命的同路人</span></div>
+              <div class="field"><span class="fk">差异化</span><span class="fv">不追热点口水，做"为什么"</span></div>
+            </div>
+          </div>
+          <div class="card feed">
+            <div class="section-h">最近动态</div>
+            <div class="it"><span class="t">10:24</span><span>写文章 · 《大模型又进化了》成稿 v3 已锁定</span></div>
+            <div class="it"><span class="t">10:02</span><span>配图 · 2 张候选已生成，封面 2.35:1 待选</span></div>
+            <div class="it"><span class="t">09:41</span><span>评审 · 事实核查官 提交 2 条中危意见（已采纳）</span></div>
+            <div class="it"><span class="t">09:18</span><span>框架 · 采用「标准五段」模板</span></div>
+            <div class="it"><span class="t">08:55</span><span>选题 · 新选题入库《普通人该慌吗》</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：写文章工作台 ===== -->
+      <section class="view" id="view-writing">
+        <div class="workbench">
+          <!-- 左：上下文 -->
+          <div class="col">
+            <div class="card col-card">
+              <div class="col-h">📐 框架（模板驱动）</div>
+              <div class="ctx-item"><div class="t">标题</div><div class="b">大模型又进化了，普通人该慌吗？</div></div>
+              <div class="ctx-item"><div class="t">论点一</div><div class="b">AI 不是来抢饭碗，是放大普通人的杠杆</div></div>
+              <div class="ctx-item"><div class="t">论点二</div><div class="b">焦虑的解药是"人机协作"方法论</div></div>
+              <div class="ctx-item"><div class="t">论点三</div><div class="b">护城河是"定义问题"的能力</div></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">⧉ 关联素材（3）</div>
+              <div class="ctx-item"><div class="t">斯坦福 2025 AI 指数</div><div class="b">摘要级 · 来源 stanford.edu</div></div>
+              <div class="ctx-item"><div class="t">麦肯锡生产力报告</div><div class="b">摘要级 · 来源 mckinsey.com</div></div>
+              <div class="skeleton-line" style="width:70%"></div>
+              <div class="skeleton-line" style="width:50%"></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">◎ 账号定位</div>
+              <div class="ctx-item"><div class="t">科技洞察局</div><div class="b">理性克制 · 有数据 · 反常识</div></div>
+            </div>
+          </div>
+
+          <!-- 中：编辑器 -->
+          <div class="col">
+            <div class="card editor">
+              <div class="toolbar">
+                <button class="tool">B</button><button class="tool"><i>I</i></button>
+                <button class="tool">H1</button><button class="tool">H2</button>
+                <button class="tool">❝</button><button class="tool">•</button>
+                <button class="tool">1.</button><button class="tool">{" }</button>
+                <button class="tool">🖼</button><span style="flex:1"></span>
+                <button class="tool" title="源码">⟨⟩</button>
+              </div>
+              <div class="doc">
+                <h1>大模型又进化了，普通人该慌吗？</h1>
+                <div class="meta">科技洞察局 · 草稿 v3 · 1,842 字</div>
+                <p>上周同事被"AI 替代"的传闻刷屏，我反问了一句——被替代的，真的是人吗？</p>
+                <h2>AI 不是来抢饭碗，是来放大普通人的杠杆</h2>
+                <p>历史规律表明，每一次生产力革命短期取代岗位、长期创造新职业。真正被放大的，是"会用工具的人"与"不会用的人"之间的差距。</p>
+                <blockquote>最该怕的，不是 AI 太强，是不会用 AI 的自己。</blockquote>
+                <div class="imgph">🖼 配图点：信息图解释"注意力机制三步"</div>
+                <h2>焦虑的解药是"人机协作"的方法论</h2>
+                <p>把 AI 当协作者而非替代者，关键是建立可复用的工作流：定义问题 → 拆解 → 让 AI 起草 → 人做判断与收敛。</p>
+                <h2>普通人的护城河，是"定义问题"的能力</h2>
+                <p>工具会迭代，人的价值在于提出"该问什么"。以下是一段最小可复用范式：</p>
+                <pre>问题 → 约束 → AI 起草 → 人校验 → 收敛定稿</pre>
+                <p>工具会迭代，人的价值在"定义问题"。</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：AI 面板 -->
+          <div class="col">
+            <div class="card col-card">
+              <div class="col-h">✨ AI 写 / 改</div>
+              <div class="ai-act">
+                <button class="btn btn-primary btn-sm">✎ 改写</button>
+                <button class="btn btn-ghost btn-sm">↻ 换模型重生成</button>
+              </div>
+              <select class="tmpl-sel"><option>默认 · 豆包-pro</option><option>DeepSeek-V3</option><option>GPT-4o</option></select>
+              <div style="font-size:var(--fs-12);color:var(--text-3);margin-bottom:6px">修改指令</div>
+              <textarea class="ta" placeholder="如：开头改犀利些；第二段补充数据来源…">开头改犀利些；第二段补充数据来源</textarea>
+              <div style="margin-top:10px"><button class="btn btn-primary" style="width:100%;justify-content:center">⚡ 生成改稿（count 1）</button></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">🕑 版本历史</div>
+              <div class="ver cur"><span class="vt">v3 成稿</span><span class="vm">锁定</span></div>
+              <div class="ver"><span class="vt">v2 改写</span><span class="vm">09:30</span></div>
+              <div class="ver"><span class="vt">v1 初稿</span><span class="vm">08:55</span></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">✓ 评审意见（已采纳 2）</div>
+              <div class="opinion"><div class="oh"><span class="sev mid">中</span><b>事实核查官</b></div>第二段数据无来源 → 已补充 stanford 链接</div>
+              <div class="opinion"><div class="oh"><span class="sev low">低</span><b>传播专家</b></div>标题钩子偏弱 → 保留，人工判断</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视图：排版工作台 ===== -->
+      <section class="view" id="view-layout">
+        <div class="workbench">
+          <!-- 左：成稿 + 资产 -->
+          <div class="col">
+            <div class="card col-card">
+              <div class="col-h">✎ 成稿（已锁定 v3）</div>
+              <div class="ctx-item"><div class="t">大模型又进化了，普通人该慌吗？</div><div class="b">1,842 字 · 科技洞察局 · 含 1 配图点</div></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">🖼 配图资产</div>
+              <div class="asset-grid">
+                <div class="asset cover">2.35:1 封面<span class="tag">封面</span></div>
+                <div class="asset">信息图 · 注意力机制</div>
+                <div class="asset">金句卡片</div>
+              </div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">❖ 排版模板</div>
+              <select class="tmpl-sel"><option>科技蓝（默认）</option><option>极简白</option><option>温暖橙</option><option>+ 新建模板</option></select>
+            </div>
+          </div>
+
+          <!-- 中：排版方案 + 渲染预览 -->
+          <div class="col">
+            <div class="card col-card">
+              <div class="col-h">📋 排版方案（AI 轻编排 · 可改）</div>
+              <div class="plan-row"><span class="pin">🖼</span><div><span class="pos">信息图</span> → 第 2 段之后<input value="P2"></div></div>
+              <div class="plan-row"><span class="pin">🖼</span><div><span class="pos">金句卡片</span> → 结尾之前<input value="P-end"></div></div>
+              <div style="font-size:var(--fs-12);color:var(--text-3);margin:4px 0 6px">导读（文首）</div>
+              <textarea class="ta">大模型又进化了，普通人该慌吗？先别急——这篇文章给你三个视角的答案。</textarea>
+              <div style="font-size:var(--fs-12);color:var(--text-3);margin:10px 0 6px">结尾互动语（文末）</div>
+              <textarea class="ta">你最担心被 AI 替代的是哪部分工作？评论区聊聊。</textarea>
+              <div style="margin-top:12px;display:flex;gap:8px">
+                <button class="btn btn-primary btn-sm" id="renderBtn">⚡ 渲染预览</button>
+                <button class="btn btn-ghost btn-sm">让 AI 推荐模板</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="col-h" style="padding:14px 16px 0">👁 渲染预览（md2wechat 内核）</div>
+              <div class="render" id="renderArea">
+                <div class="cover-img">🖼 封面 · 2.35:1</div>
+                <h1>大模型又进化了，普通人该慌吗？</h1>
+                <p style="color:#666;font-size:13px">大模型又进化了，普通人该慌吗？先别急——这篇文章给你三个视角的答案。</p>
+                <h2>AI 不是来抢饭碗，是来放大普通人的杠杆</h2>
+                <p>历史规律表明，每一次生产力革命短期取代岗位、长期创造新职业。真正被放大的，是"会用工具的人"与"不会用的人"之间的差距。</p>
+                <div class="xcard">最该怕的，不是 AI 太强，是不会用 AI 的自己。</div>
+                <h2>焦虑的解药是"人机协作"的方法论</h2>
+                <p>把 AI 当协作者而非替代者，关键是建立可复用的工作流。</p>
+                <h2>普通人的护城河，是"定义问题"的能力</h2>
+                <p>工具会迭代，人的价值在"定义问题"。</p>
+                <p style="color:#666;font-size:13px;border-top:1px solid #eee;padding-top:12px;margin-top:14px">你最担心被 AI 替代的是哪部分工作？评论区聊聊。</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右：导出 -->
+          <div class="col">
+            <div class="card col-card">
+              <div class="col-h">📤 导出 / 发布</div>
+              <div class="export-row"><button class="btn btn-primary btn-sm">📋 复制到公众号</button></div>
+              <div class="export-row">
+                <button class="btn btn-ghost btn-sm">⬇ MD</button>
+                <button class="btn btn-ghost btn-sm">⬇ HTML</button>
+              </div>
+              <div style="font-size:var(--fs-12);color:var(--text-3);margin-top:6px">小红书长图（HTML→图）· 留 P2</div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">✓ 排版状态</div>
+              <div class="ver cur"><span class="vt">方案 v1</span><span class="vm">草稿</span></div>
+              <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center">🔒 锁定排版稿</button></div>
+            </div>
+            <div class="card col-card">
+              <div class="col-h">🎨 模板样式</div>
+              <div class="ctx-item"><div class="t">科技蓝</div><div class="b">正文 15px · 行距 1.75 · 卡片圆角 · 靛蓝标题</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 占位视图 ===== -->
+      <section class="view" id="view-placeholder">
+        <div class="card placeholder">
+          <div class="big">🛠️</div>
+          <div style="font-size:var(--fs-16);color:var(--text-2);font-weight:600" id="phName">该模块工作台</div>
+          <div style="margin-top:6px;max-width:420px;margin-left:auto;margin-right:auto">同一套设计系统（令牌 / 组件 / 间距 / 状态），各模块工作台结构一致：左栏上下文 · 中栏主编辑/画布 · 右栏 AI 动作与版本。此处为示意占位，可按对应 PRD 直接套用。</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // 视图切换
+  const titles = { overview:"流水线总览", writing:"写文章 · 工作台", layout:"排版 · 工作台", placeholder:"模块工作台" };
+  const phNames = { "账号定位":"账号定位 · 工作台（模块一）","热点抓取":"热点抓取 · 工作台（模块二）","选题":"选题 · 工作台（模块三）","框架":"框架 · 工作台（模块四）","素材":"素材搜索 · 工作台（模块六）","评审":"评审 · 工作台（模块八）","配图":"配图三件套 · 工作台（模块九~十一）" };
+
+  function showView(v, label){
+    document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    document.getElementById('viewTitle').textContent = titles[v] || label || '工作台';
+    if(v==='placeholder'){ document.getElementById('phName').textContent = label || '模块工作台'; }
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.addEventListener('click', ()=>{
+      const v = n.dataset.view;
+      const label = n.textContent.replace(/[0-9]/g,'').replace('·','').trim();
+      showView(v, phNames[label] || label);
+    });
+  });
+
+  // 主题切换
+  const seg = document.getElementById('themeSeg');
+  seg.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.documentElement.setAttribute('data-theme', b.dataset.theme);
+      seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+    });
+  });
+
+  // 渲染预览演示（骨架脉冲）
+  const rb = document.getElementById('renderBtn');
+  rb && rb.addEventListener('click', ()=>{
+    const area = document.getElementById('renderArea');
+    area.style.opacity = .4; area.classList.add('skeleton-pulse');
+    setTimeout(()=>{ area.style.opacity = 1; area.classList.remove('skeleton-pulse'); }, 700);
+  });
+</script>
+</body>
+</html>

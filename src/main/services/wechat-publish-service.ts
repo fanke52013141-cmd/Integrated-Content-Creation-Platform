@@ -1,0 +1,13 @@
+import type { PushWechatDraftInput } from '../../shared/contracts.js'
+import type { AppDatabase } from '../database.js'
+import type { KeyStore } from '../security/key-store.js'
+
+export class WechatPublishService {
+  constructor(private readonly database: AppDatabase, private readonly keyStore: KeyStore, private readonly apiBase='https://api.weixin.qq.com') {}
+  async test():Promise<{ok:true;latencyMs:number;message:string}>{const started=performance.now();await this.token();return {ok:true,latencyMs:Math.round(performance.now()-started),message:'公众号凭证验证成功'}}
+  async pushDraft(input:PushWechatDraftInput) {
+    const article=this.database.getArticle(input.articleId);if(!article)throw new Error('文章不存在');const layout=this.database.listArticleLayouts(article.id).find(item=>item.id===input.layoutId);if(!layout)throw new Error('排版稿不存在或不属于该文章');const base={articleId:article.id,articleVersionId:layout.articleVersionId,layoutId:layout.id,channelId:'wechat-official' as const,title:layout.title,thumbMediaId:input.thumbMediaId.trim()};
+    try { const token=await this.token();const response=await fetch(`${this.apiBase}/cgi-bin/draft/add?access_token=${encodeURIComponent(token)}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({articles:[{title:layout.title,author:input.author?.trim()||undefined,digest:input.digest?.trim()||undefined,content:layout.html,content_source_url:input.contentSourceUrl?.trim()||undefined,thumb_media_id:base.thumbMediaId,show_cover_pic:1,need_open_comment:0,only_fans_can_comment:0}]})});const payload=await response.json() as {media_id?:string;errcode?:number;errmsg?:string};if(!response.ok||payload.errcode||!payload.media_id)throw new Error(payload.errmsg||`公众号草稿箱请求失败（HTTP ${response.status}）`);return this.database.createPublication({...base,externalDraftId:payload.media_id,status:'draft'}) } catch(error) { return this.database.createPublication({...base,status:'failed',errorMessage:error instanceof Error?error.message:'推送失败'}) }
+  }
+  private async token():Promise<string>{const channel=this.database.getWechatPublishChannel();if(!channel.enabled||!channel.appId.trim())throw new Error('微信公众号发布通道尚未启用或未填写 AppID');const secret=this.keyStore.readWechatPublishSecret();const response=await fetch(`${this.apiBase}/cgi-bin/token?grant_type=client_credential&appid=${encodeURIComponent(channel.appId)}&secret=${encodeURIComponent(secret)}`);const payload=await response.json() as {access_token?:string;errcode?:number;errmsg?:string};if(!response.ok||payload.errcode||!payload.access_token)throw new Error(payload.errmsg||`公众号凭证验证失败（HTTP ${response.status}）`);return payload.access_token}
+}

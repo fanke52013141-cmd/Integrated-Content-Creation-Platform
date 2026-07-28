@@ -1,0 +1,82 @@
+{
+  "name": "moliu-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "墨流：本地优先的自媒体 AI 创作桌面应用",
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "npm run build && node scripts/smoke-electron.mjs",
+    "test:hotspots": "npm run build && node scripts/smoke-hotspots.mjs",
+    "test:topics": "npm run build && node scripts/smoke-topics.mjs",
+    "test:materials": "npm run build && node scripts/smoke-materials.mjs",
+    "test:frameworks": "npm run build && node scripts/smoke-frameworks.mjs",
+    "test:articles": "npm run build && node scripts/smoke-articles.mjs",
+    "test:reviews": "npm run build && node scripts/smoke-reviews.mjs",
+    "test:visuals": "npm run build && node scripts/smoke-visuals.mjs",
+    "test:layouts": "npm run build && node scripts/smoke-layouts.mjs",
+    "test:publishing": "npm run build && node scripts/smoke-publishing.mjs",
+    "test:live": "node scripts/live-provider-smoke.mjs",
+    "package:win": "npm run build && electron-builder --win --x64",
+    "postinstall": "node node_modules/electron/install.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.0.12",
+    "dailyhot-api": "2.0.8",
+    "lucide-react": "^1.27.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
+  },
+  "overrides": {
+    "dailyhot-api": {
+      "@hono/node-server": "2.0.12"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "playwright-core": "^1.62.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "build": {
+    "appId": "com.moliu.desktop",
+    "productName": "墨流",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
