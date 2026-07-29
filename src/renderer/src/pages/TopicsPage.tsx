@@ -28,6 +28,8 @@ import type {
 } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { useConfirm } from '../components/useConfirm'
+import { VirtualList } from '../components/VirtualList'
 import { errorMessage, formatDate } from '../lib'
 
 type TopicView = 'drafts' | 'library'
@@ -47,6 +49,7 @@ export function TopicsPage({
   onNavigate,
   showToast
 }: TopicsPageProps): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [topics, setTopics] = useState<Topic[]>([])
   const [schema, setSchema] = useState<TopicSchemaField[]>([])
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
@@ -125,9 +128,9 @@ export function TopicsPage({
       await refresh()
       setView('drafts')
       if (result.failed.length) {
-        showToast({ type: 'error', message: `已生成 ${result.topics.length} 条；${result.failed.length} 条失败，可再次生成补齐` })
+        showToast({ type: 'error', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可再次生成补齐` })
       } else {
-        showToast({ type: 'success', message: `已生成 ${result.topics.length} 条选题草稿` })
+        showToast({ type: 'success', message: `已生成 ${result.topics.length}\u00A0条选题草稿` })
       }
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
@@ -168,7 +171,7 @@ export function TopicsPage({
   }
 
   async function remove(topic: Topic): Promise<void> {
-    if (!window.confirm(`确定删除「${topic.fields['选题主题'] || '未命名选题'}」吗？`)) return
+    if (!(await confirm({ title: '确认操作', message: `确定删除「${topic.fields['选题主题'] || '未命名选题'}」吗？`, danger: true, confirmLabel: '确认' }))) return
     try {
       await window.moliu.topics.remove(topic.id)
       await refresh()
@@ -210,7 +213,7 @@ export function TopicsPage({
             <div className="topic-compose-grid">
               <label className="field">
                 <span>锁定账号定位</span>
-                <select value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                <select name="accountId" autoComplete="off" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
                   {lockedAccounts.map((account) => (
                     <option key={account.id} value={account.id}>{account.name} · v{account.versionCount}</option>
                   ))}
@@ -218,7 +221,7 @@ export function TopicsPage({
               </label>
               <label className="field">
                 <span>生成模型</span>
-                <select value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
+                <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
                   {availableModels.map(({ provider, model }) => (
                     <option key={`${provider.id}:${model.id}`} value={encodeModelTarget(provider.id, model.modelId)}>
                       {model.displayName} · {provider.displayName}
@@ -228,7 +231,7 @@ export function TopicsPage({
               </label>
               <label className="field topic-count-field">
                 <span>生成数量</span>
-                <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
+                <select name="topicCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
                   {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 条独立草稿</option>)}
                 </select>
               </label>
@@ -236,9 +239,11 @@ export function TopicsPage({
             <label className="field topic-keyword-field">
               <span>热点关键词 / 手动主题</span>
               <textarea
+                name="seedKeyword"
+                autoComplete="off"
                 value={seedKeyword}
                 onChange={(event) => setSeedKeyword(event.target.value)}
-                placeholder="例如：AI Agent 的工作流落地，或概括下方选择的热点"
+                placeholder="例如：AI Agent 的工作流落地，或概括下方选择的热点…"
                 rows={3}
               />
             </label>
@@ -253,6 +258,8 @@ export function TopicsPage({
                     <label key={favorite.id} className={favoriteIds.has(favorite.id) ? 'selected' : ''}>
                       <input
                         type="checkbox"
+                        name="favoriteId"
+                        autoComplete="off"
                         checked={favoriteIds.has(favorite.id)}
                         onChange={(event) => setFavoriteIds((current) => {
                           const next = new Set(current)
@@ -274,7 +281,7 @@ export function TopicsPage({
               <span><Link2 size={14} />已关联 {selectedFavorites.length} 条收藏快照</span>
               <button className="button primary" disabled={generating || !availableModels.length} onClick={() => void generate()}>
                 {generating ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
-                {generating ? `正在独立生成 ${count} 条…` : `生成 ${count} 条选题`}
+                {generating ? `正在独立生成 ${count}\u00A0条…` : `生成 ${count}\u00A0条选题`}
               </button>
             </footer>
           </>
@@ -295,21 +302,25 @@ export function TopicsPage({
         </header>
         {displayedTopics.length ? (
           <div className="topic-card-list">
-            {displayedTopics.map((topic) => (
-              <TopicCard
-                key={topic.id}
-                topic={topic}
-                schema={schema}
-                onEdit={setEditing}
-                onToggleLibrary={() => void toggleLibrary(topic)}
-                onToggleLocked={() => void toggleLocked(topic)}
-                onRemove={() => void remove(topic)}
-                onOpenMaterials={() => {
-                  localStorage.setItem('moliu:material-related-topic-id', topic.id)
-                  onNavigate('materials')
-                }}
-              />
-            ))}
+            <VirtualList
+              items={displayedTopics}
+              estimateSize={() => 110}
+              renderItem={(topic) => (
+                <TopicCard
+                  key={topic.id}
+                  topic={topic}
+                  schema={schema}
+                  onEdit={setEditing}
+                  onToggleLibrary={() => void toggleLibrary(topic)}
+                  onToggleLocked={() => void toggleLocked(topic)}
+                  onRemove={() => void remove(topic)}
+                  onOpenMaterials={() => {
+                    localStorage.setItem('moliu:material-related-topic-id', topic.id)
+                    onNavigate('materials')
+                  }}
+                />
+              )}
+            />
           </div>
         ) : (
           <div className="large-empty topic-empty">
@@ -334,6 +345,7 @@ export function TopicsPage({
           showToast={showToast}
         />
       )}
+      {ConfirmPortal}
     </div>
   )
 }
@@ -374,15 +386,15 @@ function TopicCard({
           {draftReference && <span className="badge warning">引用草稿账号</span>}
         </div>
         <div className="topic-card-actions">
-          <button className="icon-button" title="编辑" onClick={() => onEdit(topic)}><Pencil size={15} /></button>
-          <button className="icon-button" title={topic.isInLibrary ? '移出选题库' : '加入选题库'} onClick={onToggleLibrary}>
+          <button className="icon-button" title="编辑" aria-label="编辑" onClick={() => onEdit(topic)}><Pencil size={15} /></button>
+          <button className="icon-button" title={topic.isInLibrary ? '移出选题库' : '加入选题库'} aria-label={topic.isInLibrary ? '移出选题库' : '加入选题库'} onClick={onToggleLibrary}>
             {topic.isInLibrary ? <BookmarkCheck size={15} /> : <LibraryBig size={15} />}
           </button>
-          <button className="icon-button" title={topic.status === 'locked' ? '解锁编辑' : '锁定选题'} onClick={onToggleLocked}>
+          <button className="icon-button" title={topic.status === 'locked' ? '解锁编辑' : '锁定选题'} aria-label={topic.status === 'locked' ? '解锁编辑' : '锁定选题'} onClick={onToggleLocked}>
             {topic.status === 'locked' ? <LockOpen size={15} /> : <Lock size={15} />}
           </button>
-          <button className="icon-button" title="搜集素材" onClick={onOpenMaterials}><FolderHeart size={15} /></button>
-          <button className="icon-button danger" title="删除" onClick={onRemove}><Trash2 size={15} /></button>
+          <button className="icon-button" title="搜集素材" aria-label="搜集素材" onClick={onOpenMaterials}><FolderHeart size={15} /></button>
+          <button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button>
         </div>
       </header>
       <div className="topic-card-title">
@@ -399,7 +411,7 @@ function TopicCard({
       {orderedFields.length > 4 && (
         <button className="topic-expand" onClick={() => setExpanded((value) => !value)}>
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          {expanded ? '收起字段' : `展开其余 ${orderedFields.length - 4} 个字段`}
+          {expanded ? '收起字段' : `展开其余 ${orderedFields.length - 4}\u00A0个字段`}
         </button>
       )}
       <footer>
@@ -423,6 +435,7 @@ function SchemaDialog({
   onSave(fields: TopicSchemaField[]): Promise<void>
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [fields, setFields] = useState<TopicSchemaField[]>(schema)
   function update(index: number, patch: Partial<TopicSchemaField>): void {
     setFields((current) => current.map((field, currentIndex) => currentIndex === index ? { ...field, ...patch } : field))
@@ -438,7 +451,7 @@ function SchemaDialog({
     })
   }
   async function reset(): Promise<void> {
-    if (!window.confirm('恢复默认的 7 个选题字段？当前自定义字段不会保留。')) return
+    if (!(await confirm({ title: '确认操作', message: '恢复默认的 7\u00A0个选题字段？当前自定义字段不会保留。', danger: true, confirmLabel: '确认' }))) return
     try {
       const restored = await window.moliu.topics.resetSchema()
       setFields(restored)
@@ -450,22 +463,23 @@ function SchemaDialog({
   return (
     <div className="modal-overlay" role="presentation">
       <section className="topic-schema-dialog" role="dialog" aria-modal="true">
-        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2>配置选题字段</h2><p>字段会立即成为后续 AI 生成的 JSON 模板；已有选题保持自己的历史结构。</p></div><button className="icon-button" onClick={onClose}><X size={18} /></button></header>
+        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2>配置选题字段</h2><p>字段会立即成为后续 AI 生成的 JSON 模板；已有选题保持自己的历史结构。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">
               <strong>{index + 1}</strong>
-              <input value={field.name} maxLength={50} onChange={(event) => update(index, { name: event.target.value })} />
-              <label><input type="checkbox" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} />必填</label>
-              <button className="icon-button" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={15} /></button>
-              <button className="icon-button" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ChevronDown size={15} /></button>
-              <button className="icon-button danger" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, currentIndex) => currentIndex !== index))}><Trash2 size={15} /></button>
+              <input name="schemaFieldName" autoComplete="off" value={field.name} maxLength={50} onChange={(event) => update(index, { name: event.target.value })} />
+              <label><input type="checkbox" name="fieldRequired" autoComplete="off" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} />必填</label>
+              <button className="icon-button" aria-label="上移" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={15} /></button>
+              <button className="icon-button" aria-label="下移" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ChevronDown size={15} /></button>
+              <button className="icon-button danger" aria-label="删除字段" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, currentIndex) => currentIndex !== index))}><Trash2 size={15} /></button>
             </div>
           ))}
         </div>
         <button className="button ghost compact" disabled={fields.length >= 20} onClick={() => setFields((current) => [...current, { id: crypto.randomUUID(), name: '', required: false, sortOrder: current.length }])}><Plus size={15} />添加字段</button>
         <footer><button className="button ghost" onClick={() => void reset()}><RotateCcw size={15} />恢复默认</button><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" onClick={() => void onSave(fields)}>保存字段</button></footer>
       </section>
+      {ConfirmPortal}
     </div>
   )
 }
@@ -508,10 +522,10 @@ function TopicEditor({
   return (
     <div className="modal-overlay" role="presentation">
       <section className="topic-editor-dialog" role="dialog" aria-modal="true">
-        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2>打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" onClick={onClose}><X size={18} /></button></header>
+        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2>打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
         <div className="topic-editor-fields">
           {Object.entries(fields).map(([name, value]) => (
-            <label className="field" key={name}><span>{name}</span><textarea rows={name === '选题主题' ? 2 : 3} value={value} onChange={(event) => setFields((current) => ({ ...current, [name]: event.target.value }))} /></label>
+            <label className="field" key={name}><span>{name}</span><textarea name="topicField" autoComplete="off" rows={name === '选题主题' ? 2 : 3} value={value} onChange={(event) => setFields((current) => ({ ...current, [name]: event.target.value }))} /></label>
           ))}
         </div>
         <footer><span>关联 {topic.relatedHotIds.length} 条热点快照</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Save size={15} />}保存新版本</button></footer>

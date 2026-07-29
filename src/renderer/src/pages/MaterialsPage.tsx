@@ -26,7 +26,10 @@ import type {
 } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
-import { errorMessage, formatDate } from '../lib'
+import { useConfirm } from '../components/useConfirm'
+import { FieldError, useFormErrors } from '../components/useFormErrors'
+import { VirtualList } from '../components/VirtualList'
+import { errorMessage, formatDate, isSafeUrl } from '../lib'
 
 interface MaterialsPageProps {
   searchService: SearchServiceSummary
@@ -39,6 +42,7 @@ export function MaterialsPage({
   onNavigate,
   showToast
 }: MaterialsPageProps): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [view, setView] = useState<'search' | 'collection'>('search')
   const [materials, setMaterials] = useState<Material[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
@@ -122,7 +126,12 @@ export function MaterialsPage({
   }
 
   async function remove(material: Material): Promise<void> {
-    if (!window.confirm(`确定删除素材「${material.title}」吗？`)) return
+    if (!(await confirm({
+      title: `删除素材「${material.title}」？`,
+      message: '此操作不可撤销。',
+      danger: true,
+      confirmLabel: '删除'
+    }))) return
     try {
       await window.moliu.materials.remove(material.id)
       await refresh()
@@ -163,15 +172,15 @@ export function MaterialsPage({
                   <button className={type === 'web' ? 'active' : ''} onClick={() => setType('web')}><FileText size={15} />网页</button>
                   <button className={type === 'image' ? 'active' : ''} onClick={() => setType('image')}><Image size={15} />图片</button>
                 </div>
-                <label className="material-query-input"><Search size={17} /><input value={query} maxLength={100} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void search()} placeholder={type === 'web' ? '输入一个主题、人物、案例或事实关键词' : '输入一个图片参考关键词'} /></label>
-                <select value={count} onChange={(event) => setCount(Number(event.target.value))}>
+                <label className="material-query-input"><Search size={17} /><input type="search" inputMode="search" name="query" autoComplete="off" value={query} maxLength={100} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void search()} placeholder={type === 'web' ? '输入一个主题、人物、案例或事实关键词…' : '输入一个图片参考关键词…'} /></label>
+                <select name="resultCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
                   {(type === 'web' ? [5, 10, 20, 30, 50] : [1, 3, 5]).map((item) => <option key={item} value={item}>{item} 条</option>)}
                 </select>
                 <button className="button primary" disabled={searching} onClick={() => void search()}>{searching ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />}{searching ? '搜索中…' : '开始搜索'}</button>
               </div>
               <div className="material-search-context">
                 <span><Link2 size={14} />关联选题（可选）</span>
-                <select value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}>
+                <select name="relatedTopicId" autoComplete="off" value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}>
                   <option value="">不关联选题</option>
                   {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.fields['选题主题'] || topic.seedKeyword}</option>)}
                 </select>
@@ -194,7 +203,7 @@ export function MaterialsPage({
                     <div className="image-material-results">
                       {(searchResult.results as MaterialSearchImageResult[]).map((result) => {
                         const saved = savedKeys.has(`doubao_image:${result.id}`)
-                        return <article key={result.id} className="image-material-result"><img src={result.imageUrl} alt="" /><div><strong>{result.title}</strong><p>{result.sourceName || '未知来源'} · {result.imageWidth ?? '?'} × {result.imageHeight ?? '?'} · {result.watermark === '1' ? '有水印' : '水印未知/无'}</p><button className="button ghost compact" onClick={() => void window.moliu.hotspots.openSource(result.sourceUrl)}>查看来源 <ArrowUpRight size={13} /></button></div><button className={`button compact ${saved ? 'secondary' : 'primary'}`} disabled={saved} onClick={() => void addSearchResult(result)}>{saved ? <Check size={14} /> : <Plus size={14} />}{saved ? '已入库' : '保存参考'}</button></article>
+                        return <article key={result.id} className="image-material-result"><img src={result.imageUrl} alt="" loading="lazy" decoding="async" width={result.imageWidth ?? 120} height={result.imageHeight ?? 120} /><div><strong>{result.title}</strong><p>{result.sourceName || '未知来源'} · {result.imageWidth ?? '?'} × {result.imageHeight ?? '?'} · {result.watermark === '1' ? '有水印' : '水印未知/无'}</p><button className="button ghost compact" onClick={() => void window.moliu.hotspots.openSource(result.sourceUrl)}>查看来源 <ArrowUpRight size={13} /></button></div><button className={`button compact ${saved ? 'secondary' : 'primary'}`} disabled={saved} onClick={() => void addSearchResult(result)}>{saved ? <Check size={14} /> : <Plus size={14} />}{saved ? '已入库' : '保存参考'}</button></article>
                       })}
                     </div>
                   )}
@@ -205,12 +214,13 @@ export function MaterialsPage({
         </section>
       ) : (
         <section className="material-collection-workspace">
-          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div><button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={14} />添加文字</button></header>
-          {filteredMaterials.length ? <div className="material-collection-list">{filteredMaterials.map((material) => <MaterialRow key={material.id} material={material} onRemove={() => void remove(material)} />)}</div> : <div className="large-empty"><FolderHeart size={34} /><h3>{materials.length ? '没有匹配的素材' : '素材集合还是空的'}</h3><p>{materials.length ? '换个筛选条件试试。' : '搜索网页、图片，或直接添加自己的笔记与访谈摘录。'}</p></div>}
+          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input type="search" inputMode="search" name="collectionQuery" autoComplete="off" value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源…" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div><button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={14} />添加文字</button></header>
+          {filteredMaterials.length ? <div className="material-collection-list"><VirtualList items={filteredMaterials} estimateSize={() => 100} renderItem={(material) => <MaterialRow key={material.id} material={material} onRemove={() => void remove(material)} />} /></div> : <div className="large-empty"><FolderHeart size={34} /><h3>{materials.length ? '没有匹配的素材' : '素材集合还是空的'}</h3><p>{materials.length ? '换个筛选条件试试。' : '搜索网页、图片，或直接添加自己的笔记与访谈摘录。'}</p></div>}
         </section>
       )}
 
       {manualOpen && <ManualMaterialDialog topics={topics} onClose={() => setManualOpen(false)} onSaved={async () => { setManualOpen(false); await refresh() }} showToast={showToast} />}
+      {ConfirmPortal}
     </div>
   )
 }
@@ -219,7 +229,7 @@ function MaterialRow({ material, onRemove }: { material: Material; onRemove(): v
   return <article className="material-row">
     <span className={`material-kind-mark ${material.kind}`}>{material.kind === 'web' ? <FileText size={16} /> : material.kind === 'image' ? <Image size={16} /> : <BookOpenText size={16} />}</span>
     <div className="material-row-main"><div><strong>{material.title}</strong><span className="material-origin">{material.origin === 'manual_text' ? '手动文字' : material.kind === 'image' ? '图片参考' : '网页 Summary'}</span></div><p>{material.kind === 'image' ? `${material.imageWidth ?? '?'} × ${material.imageHeight ?? '?'} · ${material.watermark === '1' ? '有水印' : '授权需确认'}` : material.summary}</p><small>{material.sourceName || material.sourceNote || '个人整理'} · {formatDate(material.createdAt)}</small></div>
-    <div className="material-row-actions">{material.sourceUrl && <button className="icon-button" title="打开来源" onClick={() => void window.moliu.hotspots.openSource(material.sourceUrl!)}><ExternalLink size={15} /></button>}<button className="icon-button danger" title="删除" onClick={onRemove}><Trash2 size={15} /></button></div>
+    <div className="material-row-actions">{material.sourceUrl && <button className="icon-button" title="打开来源" aria-label="打开来源" onClick={() => void window.moliu.hotspots.openSource(material.sourceUrl!)}><ExternalLink size={15} /></button>}<button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div>
   </article>
 }
 
@@ -230,7 +240,17 @@ function ManualMaterialDialog({ topics, onClose, onSaved, showToast }: { topics:
   const [sourceNote, setSourceNote] = useState('')
   const [relatedTopicId, setRelatedTopicId] = useState('')
   const [saving, setSaving] = useState(false)
+  const { validate, errorOf, clearError, setErrorRef } = useFormErrors<{ title: string; summary: string; sourceUrl: string }>()
+
   async function save(): Promise<void> {
+    if (!validate(
+      { title, summary, sourceUrl },
+      {
+        title: (value) => value.trim() ? null : '请填写标题',
+        summary: (value) => value.trim() ? null : '请填写摘要或摘录',
+        sourceUrl: (value) => !value || isSafeUrl(value) ? null : '请填写有效的 http(s) URL'
+      }
+    )) return
     setSaving(true)
     try {
       await window.moliu.materials.addManual({ title, summary, sourceUrl: sourceUrl || undefined, sourceNote: sourceNote || undefined, relatedTopicId: relatedTopicId || undefined })
@@ -238,5 +258,5 @@ function ManualMaterialDialog({ topics, onClose, onSaved, showToast }: { topics:
       showToast({ type: 'success', message: '文字素材已加入可复用集合' })
     } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setSaving(false) }
   }
-  return <div className="modal-overlay" role="presentation"><section className="manual-material-dialog" role="dialog" aria-modal="true"><header><div><span className="eyebrow">MANUAL MATERIAL</span><h2>添加文字素材</h2><p>填写给 AI 使用的摘要或摘录；原始全文不作为默认上下文。</p></div><button className="icon-button" onClick={onClose}><X size={18} /></button></header><div className="manual-material-fields"><label className="field"><span>标题</span><input value={title} maxLength={500} onChange={(event) => setTitle(event.target.value)} placeholder="例如：专家访谈摘录" /></label><label className="field"><span>供 AI 使用的摘要 / 摘录</span><textarea value={summary} maxLength={3_000} onChange={(event) => setSummary(event.target.value)} rows={8} placeholder="粘贴与你要创作内容直接相关的笔记、观点、事实或访谈摘录" /><small>{summary.length}/3000</small></label><label className="field"><span>来源 URL（可选）</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://..." /></label><label className="field"><span>来源说明（可选）</span><input value={sourceNote} maxLength={500} onChange={(event) => setSourceNote(event.target.value)} placeholder="例如：个人访谈整理" /></label><label className="field"><span>关联选题（可选）</span><select value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}><option value="">不关联选题</option>{topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.fields['选题主题'] || topic.seedKeyword}</option>)}</select></label></div><footer><span>没有来源 URL 时会标记为“个人整理”</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !title.trim() || !summary.trim()} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Upload size={15} />}加入素材库</button></footer></section></div>
+  return <div className="modal-overlay" role="presentation"><section className="manual-material-dialog" role="dialog" aria-modal="true"><header><div><span className="eyebrow">MANUAL MATERIAL</span><h2>添加文字素材</h2><p>填写给 AI 使用的摘要或摘录；原始全文不作为默认上下文。</p></div><button className="icon-button" onClick={onClose}><X size={18} /></button></header><div className="manual-material-fields"><label className={`field ${errorOf('title') ? 'has-error' : ''}`}><span>标题</span><input name="title" autoComplete="off" ref={setErrorRef('title')} value={title} maxLength={500} onChange={(event) => { setTitle(event.target.value); clearError('title') }} placeholder="例如：专家访谈摘录…" /><FieldError message={errorOf('title')} /></label><label className={`field ${errorOf('summary') ? 'has-error' : ''}`}><span>供 AI 使用的摘要 / 摘录</span><textarea name="summary" autoComplete="off" ref={setErrorRef('summary')} value={summary} maxLength={3_000} onChange={(event) => { setSummary(event.target.value); clearError('summary') }} rows={8} placeholder="粘贴与你要创作内容直接相关的笔记、观点、事实或访谈摘录…" /><small>{summary.length}/3000</small><FieldError message={errorOf('summary')} /></label><label className={`field ${errorOf('sourceUrl') ? 'has-error' : ''}`}><span>来源 URL（可选）</span><input type="url" inputMode="url" name="sourceUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" ref={setErrorRef('sourceUrl')} value={sourceUrl} onChange={(event) => { setSourceUrl(event.target.value); clearError('sourceUrl') }} placeholder="https://…" /><FieldError message={errorOf('sourceUrl')} /></label><label className="field"><span>来源说明（可选）</span><input name="sourceNote" autoComplete="off" value={sourceNote} maxLength={500} onChange={(event) => setSourceNote(event.target.value)} placeholder="例如：个人访谈整理…" /></label><label className="field"><span>关联选题（可选）</span><select name="manualRelatedTopicId" autoComplete="off" value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}><option value="">不关联选题</option>{topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.fields['选题主题'] || topic.seedKeyword}</option>)}</select></label></div><footer><span>没有来源 URL 时会标记为“个人整理”</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Upload size={15} />}加入素材库</button></footer></section></div>
 }

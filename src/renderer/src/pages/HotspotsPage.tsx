@@ -38,6 +38,8 @@ import type {
 import { errorMessage } from '../lib'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { useConfirm } from '../components/useConfirm'
+import { VirtualList } from '../components/VirtualList'
 
 const BATCH_SIZE = 8
 
@@ -54,6 +56,7 @@ export function HotspotsPage({
   onNavigate(route: RouteId): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [view, setView] = useState<'wall' | 'favorites' | 'filter'>('wall')
   const [service, setService] = useState<HotServiceStatus>()
   const [sources, setSources] = useState<HotSource[]>([])
@@ -301,7 +304,7 @@ export function HotspotsPage({
     }
     showToast({
       type: 'success',
-      message: created ? `已收藏 ${created} 条热点，源数据均已锁定` : '前 10 条热点均已收藏'
+      message: created ? `已收藏 ${created}\u00A0条热点，源数据均已锁定` : '前 10\u00A0条热点均已收藏'
     })
   }
 
@@ -323,6 +326,7 @@ export function HotspotsPage({
   }
 
   async function removeFavorite(favorite: HotFavorite): Promise<void> {
+    if (!(await confirm({ title: '取消收藏？', message: '将从此收藏夹中移除该热点。', danger: true, confirmLabel: '移除' }))) return
     try {
       await window.moliu.hotspots.removeFavorite(favorite.id)
       setFavorites((current) => current.filter((item) => item.id !== favorite.id))
@@ -414,7 +418,7 @@ export function HotspotsPage({
       return
     }
     if (filterCandidates.length > 200) {
-      showToast({ type: 'error', message: '单次最多筛选 200 条，请减少平台或前 N 名' })
+      showToast({ type: 'error', message: '单次最多筛选 200\u00A0条，请减少平台或前 N 名' })
       return
     }
 
@@ -433,7 +437,7 @@ export function HotspotsPage({
       setFilterDialogOpen(false)
       showToast({
         type: 'success',
-        message: `已完成 ${result.assessments.length} 条热点筛选 · ${result.latencyMs}ms`
+        message: `已完成 ${result.assessments.length}\u00A0条热点筛选 · ${result.latencyMs}ms`
       })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
@@ -453,7 +457,7 @@ export function HotspotsPage({
     }
     showToast({
       type: 'success',
-      message: created ? `已采纳并锁定 ${created} 条高契合热点` : '高契合热点均已采纳'
+      message: created ? `已采纳并锁定 ${created}\u00A0条高契合热点` : '高契合热点均已采纳'
     })
   }
 
@@ -576,7 +580,8 @@ export function HotspotsPage({
                       {result?.status === 'ready' && (
                         <button
                           className="icon-button"
-                          title="收藏前 10 条"
+                          title={`收藏前 10\u00A0条`}
+                          aria-label={`收藏前 10\u00A0条`}
                           onClick={() => void addSourceBatch(result.items)}
                         >
                           <Bookmark size={15} />
@@ -585,6 +590,7 @@ export function HotspotsPage({
                       <button
                         className="icon-button"
                         title="刷新此平台"
+                        aria-label="刷新此平台"
                         disabled={loading}
                         onClick={() => void refreshBatch([source.id])}
                       >
@@ -633,6 +639,7 @@ export function HotspotsPage({
                                 className={`hot-favorite-button ${favorited ? 'active' : ''}`}
                                 disabled={favorited || saving}
                                 title={favorited ? '已收藏' : '收藏并锁定源数据'}
+                                aria-label={favorited ? '已收藏' : '收藏并锁定源数据'}
                                 onClick={() => void addFavorite(item)}
                               >
                                 {saving
@@ -662,9 +669,13 @@ export function HotspotsPage({
             <label className="search-field">
               <Search size={16} />
               <input
+                type="search"
+                inputMode="search"
+                name="favoriteSearch"
+                autoComplete="off"
                 value={favoriteSearch}
                 onChange={(event) => setFavoriteSearch(event.target.value)}
-                placeholder="搜索收藏热点"
+                placeholder="搜索收藏热点…"
               />
             </label>
             <div className="favorite-tag-filters">
@@ -685,6 +696,8 @@ export function HotspotsPage({
             <label className="favorite-platform-filter">
               <span>平台</span>
               <select
+                name="favoriteSourceFilter"
+                autoComplete="off"
                 value={favoriteSourceFilter}
                 onChange={(event) => setFavoriteSourceFilter(event.target.value)}
               >
@@ -713,49 +726,54 @@ export function HotspotsPage({
 
           {filteredFavorites.length ? (
             <div className="favorite-list">
-              {filteredFavorites.map((favorite) => (
-                <article className="favorite-row" key={favorite.id}>
-                  <span className="favorite-source-mark">
-                    {favorite.hotItem.sourceTitle.slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="favorite-main">
-                    <button
-                      className="favorite-title"
-                      disabled={!favorite.hotItem.url}
-                      onClick={() => void openSource(favorite.hotItem.url)}
-                    >
-                      {favorite.hotItem.title}
-                      {favorite.hotItem.url && <ArrowUpRight size={14} />}
-                    </button>
-                    <div className="favorite-meta">
-                      <span>{favorite.hotItem.sourceTitle} · 第 {favorite.hotItem.rank} 名</span>
-                      {favorite.hotItem.hotValue && <span>{favorite.hotItem.hotValue}</span>}
-                      <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
-                      <span className="locked-snapshot"><BookmarkCheck size={12} />源快照已锁定</span>
-                    </div>
-                    {favorite.hotItem.desc && <p>{favorite.hotItem.desc}</p>}
-                  </div>
-                  <div className="favorite-tags">
-                    <span><Tags size={13} />标签</span>
-                    {(['待选题', '已用'] as HotFavoriteTag[]).map((tag) => (
+              <VirtualList
+                items={filteredFavorites}
+                estimateSize={() => 80}
+                renderItem={(favorite) => (
+                  <article className="favorite-row" key={favorite.id}>
+                    <span className="favorite-source-mark">
+                      {favorite.hotItem.sourceTitle.slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="favorite-main">
                       <button
-                        key={tag}
-                        className={favorite.tags.includes(tag) ? 'active' : ''}
-                        onClick={() => void toggleFavoriteTag(favorite, tag)}
+                        className="favorite-title"
+                        disabled={!favorite.hotItem.url}
+                        onClick={() => void openSource(favorite.hotItem.url)}
                       >
-                        {tag}
+                        {favorite.hotItem.title}
+                        {favorite.hotItem.url && <ArrowUpRight size={14} />}
                       </button>
-                    ))}
-                  </div>
-                  <button
-                    className="icon-button favorite-remove"
-                    title="取消收藏"
-                    onClick={() => void removeFavorite(favorite)}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </article>
-              ))}
+                      <div className="favorite-meta">
+                        <span>{favorite.hotItem.sourceTitle} · 第 {favorite.hotItem.rank} 名</span>
+                        {favorite.hotItem.hotValue && <span>{favorite.hotItem.hotValue}</span>}
+                        <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
+                        <span className="locked-snapshot"><BookmarkCheck size={12} />源快照已锁定</span>
+                      </div>
+                      {favorite.hotItem.desc && <p>{favorite.hotItem.desc}</p>}
+                    </div>
+                    <div className="favorite-tags">
+                      <span><Tags size={13} />标签</span>
+                      {(['待选题', '已用'] as HotFavoriteTag[]).map((tag) => (
+                        <button
+                          key={tag}
+                          className={favorite.tags.includes(tag) ? 'active' : ''}
+                          onClick={() => void toggleFavoriteTag(favorite, tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      className="icon-button favorite-remove"
+                      title="取消收藏"
+                      aria-label="取消收藏"
+                      onClick={() => void removeFavorite(favorite)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </article>
+                )}
+              />
             </div>
           ) : (
             <div className="favorite-empty">
@@ -914,6 +932,8 @@ export function HotspotsPage({
                     <label>
                       <input
                         type="checkbox"
+                        name="sourceVisible"
+                        autoComplete="off"
                         checked={visible}
                         onChange={(event) => {
                           setSourceManagerHidden((current) => {
@@ -968,6 +988,8 @@ export function HotspotsPage({
               <label className="field">
                 <span>已锁定账号</span>
                 <select
+                  name="filterAccountId"
+                  autoComplete="off"
                   value={filterAccountId}
                   onChange={(event) => setFilterAccountId(event.target.value)}
                 >
@@ -979,6 +1001,8 @@ export function HotspotsPage({
               <label className="field">
                 <span>筛选模型</span>
                 <select
+                  name="filterModelTarget"
+                  autoComplete="off"
                   value={filterModelTarget}
                   onChange={(event) => setFilterModelTarget(event.target.value)}
                 >
@@ -996,6 +1020,9 @@ export function HotspotsPage({
                 <span>每个平台取前 N 名</span>
                 <input
                   type="number"
+                  inputMode="numeric"
+                  name="filterTopN"
+                  autoComplete="off"
                   min="10"
                   max="100"
                   value={filterTopN}
@@ -1008,7 +1035,7 @@ export function HotspotsPage({
                 <SlidersHorizontal size={17} />
                 <span>
                   <strong>{filterCandidates.length} 条热点</strong>
-                  <small>{filterCandidates.length > 200 ? '超过单次 200 条上限' : '将一次性发送给所选模型'}</small>
+                  <small>{filterCandidates.length > 200 ? '超过单次 200\u00A0条上限' : '将一次性发送给所选模型'}</small>
                 </span>
               </div>
             </div>
@@ -1027,6 +1054,8 @@ export function HotspotsPage({
                     <label key={source.id}>
                       <input
                         type="checkbox"
+                        name="filterSourceId"
+                        autoComplete="off"
                         checked={filterSourceIds.has(source.id)}
                         onChange={(event) => {
                           setFilterSourceIds((current) => {
@@ -1067,6 +1096,7 @@ export function HotspotsPage({
           </section>
         </div>
       )}
+      {ConfirmPortal}
     </div>
   )
 }

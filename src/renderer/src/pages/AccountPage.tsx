@@ -32,6 +32,8 @@ import {
 } from '../../../shared/contracts'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
+import { VirtualList } from '../components/VirtualList'
+import { useConfirm } from '../components/useConfirm'
 import type { ToastState } from '../components/Toast'
 import { errorMessage, formatDate, formatFullDate } from '../lib'
 
@@ -158,40 +160,48 @@ function AccountList({
             <label className="search-field">
               <Search size={16} />
               <input
+                type="search"
+                inputMode="search"
+                name="searchKeyword"
+                autoComplete="off"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索账号名称"
+                placeholder="搜索账号名称…"
               />
             </label>
             <span>{filtered.length} 个账号</span>
           </div>
           <section className="account-card-grid">
-            {filtered.map((account) => (
-              <button
-                key={account.id}
-                className={`account-card ${selectedId === account.id ? 'selected' : ''}`}
-                onClick={() => onOpen(account.id)}
-              >
-                <div className="account-card-head">
-                  <span className="profile-avatar">{account.name.slice(0, 1)}</span>
-                  <div className="account-badges">
-                    {account.isCurrent && <span className="badge primary">当前</span>}
-                    <span className={`badge ${account.status === 'locked' ? 'success' : 'neutral'}`}>
-                      {account.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
-                      {account.status === 'locked' ? '已锁定' : '草稿'}
-                    </span>
+            <VirtualList
+              items={filtered}
+              estimateSize={() => 90}
+              renderItem={(account) => (
+                <button
+                  key={account.id}
+                  className={`account-card ${selectedId === account.id ? 'selected' : ''}`}
+                  onClick={() => onOpen(account.id)}
+                >
+                  <div className="account-card-head">
+                    <span className="profile-avatar">{account.name.slice(0, 1)}</span>
+                    <div className="account-badges">
+                      {account.isCurrent && <span className="badge primary">当前</span>}
+                      <span className={`badge ${account.status === 'locked' ? 'success' : 'neutral'}`}>
+                        {account.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
+                        {account.status === 'locked' ? '已锁定' : '草稿'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <h3>{account.name}</h3>
-                <p>{account.intro || '暂未填写账号简介'}</p>
-                <div className="account-card-domain">{account.domain || '未设置领域'}</div>
-                <footer>
-                  <span>v{account.versionCount}</span>
-                  <span>{formatDate(account.updatedAt)}</span>
-                  <ChevronRight size={16} />
-                </footer>
-              </button>
-            ))}
+                  <h3>{account.name}</h3>
+                  <p>{account.intro || '暂未填写账号简介'}</p>
+                  <div className="account-card-domain">{account.domain || '未设置领域'}</div>
+                  <footer>
+                    <span>v{account.versionCount}</span>
+                    <span>{formatDate(account.updatedAt)}</span>
+                    <ChevronRight size={16} />
+                  </footer>
+                </button>
+              )}
+            />
           </section>
           {!filtered.length && (
             <div className="center-empty"><Search size={25} /><strong>没有匹配的账号</strong></div>
@@ -366,6 +376,8 @@ function AccountWizard({
               <p>{currentQuestion.hint}</p>
               <label className="textarea-field">
                 <textarea
+                  name="wizardAnswer"
+                  autoComplete="off"
                   autoFocus
                   value={answers[step].answer}
                   onChange={(event) => updateAnswer(event.target.value)}
@@ -416,15 +428,17 @@ function AccountWizard({
               <label className="field">
                 <span>补充说明（可选）</span>
                 <textarea
+                  name="extraContext"
+                  autoComplete="off"
                   value={extraContext}
                   onChange={(event) => setExtraContext(event.target.value)}
-                  placeholder="还有哪些边界、偏好或背景需要告诉 AI？"
+                  placeholder="还有哪些边界、偏好或背景需要告诉 AI？…"
                 />
               </label>
               <div className="generation-controls">
                 <label className="field">
                   <span>生成模型</span>
-                  <select value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
+                  <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
                     <option value="">请选择模型</option>
                     {availableModels.map(({ provider, model }) => (
                       <option
@@ -468,7 +482,7 @@ function AccountWizard({
             )}
             <label className="field regenerate-model-select">
               <span>重新生成模型</span>
-              <select value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
+              <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
                 {availableModels.map(({ provider, model }) => (
                   <option
                     key={`${provider.id}:${model.id}`}
@@ -525,10 +539,10 @@ function AccountEditor({
   onDeleted(): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [fields, setFields] = useState<AccountField[]>([])
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [restoreVersionId, setRestoreVersionId] = useState<string>()
 
   useEffect(() => {
@@ -677,6 +691,7 @@ function AccountEditor({
               <button
                 className="icon-button"
                 title="复制"
+                aria-label="复制"
                 onClick={() => {
                   void navigator.clipboard.writeText(serializePreview(fields))
                   showToast({ type: 'success', message: 'XML 已复制' })
@@ -713,21 +728,21 @@ function AccountEditor({
             </div>
           </section>
 
-          <button className="danger-zone-button" onClick={() => setConfirmDelete(true)}>
+          <button className="danger-zone-button" onClick={async () => {
+            if (await confirm({
+              title: '删除这个账号？',
+              message: `“${loadedAccount.name}”及其全部版本将被永久删除，且无法恢复。`,
+              danger: true,
+              confirmLabel: '永久删除'
+            })) {
+              await remove()
+            }
+          }}>
             <Trash2 size={16} />删除账号
           </button>
         </aside>
       </section>
 
-      <ConfirmDialog
-        open={confirmDelete}
-        title="删除这个账号？"
-        message={`“${loadedAccount.name}”及其全部版本将被永久删除，且无法恢复。`}
-        confirmLabel="永久删除"
-        danger
-        onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => void remove()}
-      />
       <ConfirmDialog
         open={Boolean(restoreVersionId)}
         title="恢复历史版本？"
@@ -736,6 +751,7 @@ function AccountEditor({
         onCancel={() => setRestoreVersionId(undefined)}
         onConfirm={() => void restore()}
       />
+      {ConfirmPortal}
     </div>
   )
 }
@@ -765,21 +781,25 @@ function GeneratedFields({
           <div>
             <input
               className="field-name-input"
+              name="fieldName"
+              autoComplete="off"
               value={field.name}
               readOnly={locked}
               onChange={(event) => update(field.id, { name: event.target.value })}
               aria-label={`字段 ${index + 1} 名称`}
             />
             <textarea
+              name="fieldValue"
+              autoComplete="off"
               value={field.value}
               readOnly={locked}
               onChange={(event) => update(field.id, { value: event.target.value })}
-              placeholder="填写字段内容"
+              placeholder="填写字段内容…"
               aria-label={`${field.name || `字段 ${index + 1}`}内容`}
             />
           </div>
           {!locked && (
-            <button className="icon-button field-remove" onClick={() => onRemove(field.id)} title="删除字段">
+            <button className="icon-button field-remove" onClick={() => onRemove(field.id)} title="删除字段" aria-label="删除字段">
               <Trash2 size={15} />
             </button>
           )}

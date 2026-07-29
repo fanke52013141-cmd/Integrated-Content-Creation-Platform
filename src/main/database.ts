@@ -447,7 +447,9 @@ export class AppDatabase {
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS frameworks (
-        id TEXT PRIMARY KEY, topic_id TEXT, account_id TEXT, material_ids_json TEXT NOT NULL DEFAULT '[]', template_id TEXT,
+        id TEXT PRIMARY KEY, topic_id TEXT,
+        account_id TEXT REFERENCES account_profiles(id) ON DELETE SET NULL,
+        material_ids_json TEXT NOT NULL DEFAULT '[]', template_id TEXT,
         manual_topic TEXT NOT NULL DEFAULT '', status TEXT NOT NULL CHECK(status IN ('draft','locked')),
         current_version_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
@@ -524,6 +526,7 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_article_layouts_article ON article_layouts(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_publications_article ON publications(article_id, created_at DESC);
     `)
+    this.migrateFrameworksAccountIdFk()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
@@ -637,7 +640,27 @@ export class AppDatabase {
   }
 
   removeProvider(id: string): void {
-    this.db.prepare('DELETE FROM providers WHERE id = ?').run(id)
+    // 检查是否有版本记录或配置引用了该供应商
+    const hasReferences = this.db.prepare(`
+      SELECT 1 FROM (
+        SELECT provider_id FROM account_profile_versions WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM topic_versions WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM framework_versions WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM article_versions WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM visual_packs WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM review_roles WHERE provider_id = ?
+        UNION ALL SELECT provider_id FROM review_opinions WHERE provider_id = ?
+      ) LIMIT 1
+    `).get(id, id, id, id, id, id, id)
+
+    if (hasReferences) {
+      // 软删除：保留供应商行但标记为已禁用，UI 可据此显示「供应商已失效」。
+      // 版本表的 ON DELETE SET NULL 是兜底保护，防止绕过应用层直接删表。
+      this.db.prepare('UPDATE providers SET enabled = 0, updated_at = ? WHERE id = ?')
+        .run(new Date().toISOString(), id)
+    } else {
+      this.db.prepare('DELETE FROM providers WHERE id = ?').run(id)
+    }
   }
 
   listProviderModels(providerId: string): ProviderModel[] {
@@ -1355,6 +1378,32 @@ export class AppDatabase {
       createdAt: row.created_at, updatedAt: row.updated_at,
       versions: versions.map(mapArticleVersion),
       references: this.listArtifactReferencesForTarget('article', row.id)
+    }
+  }
+
+  // 方案 A 迁移：为已存在的 frameworks 表补加 account_id 的 ON DELETE SET NULL FK。
+  // CREATE TABLE IF NOT EXISTS 不会修改已存在的表，因此对旧库需要重建表结构。
+  private migrateFrameworksAccountIdFk(): void {
+    const fks = this.db.prepare('PRAGMA foreign_key_list(frameworks)').all() as Array<{ from: string }>
+    if (fks.some((fk) => fk.from === 'account_id')) return
+
+    this.db.exec('PRAGMA foreign_keys = OFF;')
+    try {
+      this.db.exec(`
+        CREATE TABLE frameworks_new (
+          id TEXT PRIMARY KEY, topic_id TEXT,
+          account_id TEXT REFERENCES account_profiles(id) ON DELETE SET NULL,
+          material_ids_json TEXT NOT NULL DEFAULT '[]', template_id TEXT,
+          manual_topic TEXT NOT NULL DEFAULT '', status TEXT NOT NULL CHECK(status IN ('draft','locked')),
+          current_version_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        );
+        INSERT INTO frameworks_new SELECT * FROM frameworks;
+        DROP TABLE frameworks;
+        ALTER TABLE frameworks_new RENAME TO frameworks;
+        CREATE INDEX IF NOT EXISTS idx_frameworks_updated ON frameworks(updated_at DESC);
+      `)
+    } finally {
+      this.db.exec('PRAGMA foreign_keys = ON;')
     }
   }
 

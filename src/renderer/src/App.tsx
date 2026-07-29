@@ -6,6 +6,7 @@ import type {
 } from '../../shared/contracts'
 import { Layout, type RouteId } from './components/Layout'
 import { Toast, type ToastState } from './components/Toast'
+import { useAutoAriaHidden } from './components/Icon'
 import { errorMessage } from './lib'
 import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -33,14 +34,39 @@ const initialBootstrap: AppBootstrap = {
 }
 
 export function App(): React.JSX.Element {
-  const [route, setRoute] = useState<RouteId>('dashboard')
+  useAutoAriaHidden()
+  // P1-1: 路由与 URL hash 同步，支持深链/刷新保留路由/浏览器前进后退
+  const [route, setRoute] = useState<RouteId>(() => {
+    const hash = window.location.hash.replace(/^#\/?/, '')
+    const valid: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
+    return (valid as string[]).includes(hash) ? (hash as RouteId) : 'dashboard'
+  })
+
+  const navigate = useCallback((next: RouteId): void => {
+    setRoute(next)
+    if (window.location.hash !== `#/${next}`) {
+      window.history.pushState(null, '', `#/${next}`)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handlePopState = (): void => {
+      const hash = window.location.hash.replace(/^#\/?/, '')
+      const valid: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
+      if ((valid as string[]).includes(hash)) setRoute(hash as RouteId)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
   const [data, setData] = useState<AppBootstrap>(initialBootstrap)
   const [loading, setLoading] = useState(true)
   const [fatalError, setFatalError] = useState<string>()
   const [toast, setToast] = useState<ToastState>()
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    localStorage.getItem('moliu:theme') === 'dark' ? 'dark' : 'light'
-  )
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // P1-8: 从 DOM 读取由 theme-init.js 预设的 data-theme，避免与初始 HTML 不一致
+    const preset = document.documentElement.dataset.theme
+    return preset === 'dark' ? 'dark' : 'light'
+  })
 
   const refresh = useCallback(async (): Promise<void> => {
     try {

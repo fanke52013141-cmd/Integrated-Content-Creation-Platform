@@ -20,6 +20,7 @@ import type {
   SearchServiceSummary
 } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
+import { useConfirm } from '../components/useConfirm'
 import { errorMessage, formatDate } from '../lib'
 
 interface ProvidersPageProps {
@@ -63,6 +64,7 @@ export function ProvidersPage({
   onRefresh,
   showToast
 }: ProvidersPageProps): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [presets, setPresets] = useState<ProviderPreset[]>([])
   const [form, setForm] = useState<SaveProviderInput>(emptyForm)
   const [selectedId, setSelectedId] = useState<string>()
@@ -191,7 +193,12 @@ export function ProvidersPage({
   }
 
   async function remove(): Promise<void> {
-    if (!selected || !window.confirm(`删除供应商“${selected.displayName}”？加密密钥也会一并删除。`)) {
+    if (!selected || !(await confirm({
+      title: `删除供应商“${selected.displayName}”？`,
+      message: '加密密钥也会一并删除。此操作不可撤销。',
+      danger: true,
+      confirmLabel: '删除'
+    }))) {
       return
     }
     try {
@@ -289,6 +296,7 @@ export function ProvidersPage({
                       void test(provider)
                     }}
                     title="测试连接"
+                    aria-label="测试连接"
                   >
                     {testingId === provider.id ? <span className="spinner tiny" /> : <Zap size={16} />}
                   </button>
@@ -317,7 +325,7 @@ export function ProvidersPage({
               <h3>{form.id ? '编辑连接' : '新建连接'}</h3>
             </div>
             {form.id && (
-              <button className="icon-button danger-text" onClick={() => void remove()} title="删除">
+              <button className="icon-button danger-text" onClick={() => void remove()} title="删除" aria-label="删除">
                 <Trash2 size={17} />
               </button>
             )}
@@ -335,17 +343,26 @@ export function ProvidersPage({
             <label className="field full">
               <span>显示名称</span>
               <input
+                name="displayName"
+                autoComplete="off"
                 value={form.displayName}
                 onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-                placeholder="例如：DeepSeek 主账号"
+                placeholder="例如：DeepSeek 主账号…"
               />
             </label>
             <label className="field full">
               <span>Base URL</span>
               <input
+                type="url"
+                inputMode="url"
+                name="baseUrl"
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
                 value={form.baseUrl}
                 onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
-                placeholder="https://api.example.com/v1"
+                placeholder="https://api.example.com/v1…"
               />
               <small>系统会调用该地址下的 `/chat/completions`。</small>
             </label>
@@ -353,10 +370,14 @@ export function ProvidersPage({
               <span>API Key {form.id && <em>留空表示不修改</em>}</span>
               <input
                 type="password"
+                name="apiKey"
                 autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
                 value={form.apiKey ?? ''}
                 onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
-                placeholder={form.id && selected?.hasApiKey ? '••••••••••••••••' : 'sk-...'}
+                placeholder={form.id && selected?.hasApiKey ? '••••••••••••••••' : 'sk-…'}
               />
             </label>
           </div>
@@ -385,6 +406,7 @@ export function ProvidersPage({
                       <input
                         type="radio"
                         name="default-model"
+                        autoComplete="off"
                         checked={model.isDefault}
                         onChange={() => updateModel(index, { isDefault: true })}
                       />
@@ -393,6 +415,8 @@ export function ProvidersPage({
                     <label className="model-enabled">
                       <input
                         type="checkbox"
+                        name="modelEnabled"
+                        autoComplete="off"
                         checked={model.enabled}
                         onChange={(event) => updateModel(index, { enabled: event.target.checked })}
                       />
@@ -403,6 +427,7 @@ export function ProvidersPage({
                       disabled={form.models.length === 1}
                       onClick={() => removeModel(index)}
                       title="移除模型"
+                      aria-label="移除模型"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -411,17 +436,24 @@ export function ProvidersPage({
                     <label className="field">
                       <span>显示别名</span>
                       <input
+                        name="modelDisplayName"
+                        autoComplete="off"
                         value={model.displayName}
                         onChange={(event) => updateModel(index, { displayName: event.target.value })}
-                        placeholder="GPT-5.4 Mini"
+                        placeholder="GPT-5.4 Mini…"
                       />
                     </label>
                     <label className="field">
                       <span>API 模型 ID</span>
                       <input
+                        name="modelId"
+                        autoComplete="off"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
                         value={model.modelId}
                         onChange={(event) => updateModel(index, { modelId: event.target.value })}
-                        placeholder="gpt-5.4-mini"
+                        placeholder="gpt-5.4-mini…"
                       />
                     </label>
                   </div>
@@ -430,29 +462,40 @@ export function ProvidersPage({
                       <span>上下文上限</span>
                       <input
                         type="number"
+                        inputMode="numeric"
+                        name="contextLimit"
+                        autoComplete="off"
                         min="1"
                         value={model.contextLimit ?? ''}
                         onChange={(event) => updateModel(index, {
                           contextLimit: event.target.value ? Number(event.target.value) : undefined
                         })}
-                        placeholder="400000"
+                        placeholder="400000…"
                       />
                     </label>
                     <label className="field">
                       <span>输出上限</span>
                       <input
                         type="number"
+                        inputMode="numeric"
+                        name="outputLimit"
+                        autoComplete="off"
                         min="1"
                         value={model.outputLimit ?? ''}
                         onChange={(event) => updateModel(index, {
                           outputLimit: event.target.value ? Number(event.target.value) : undefined
                         })}
-                        placeholder="128000"
+                        placeholder="128000…"
                       />
                     </label>
                     <label className="field">
                       <span>推理档位</span>
                       <input
+                        name="reasoningVariants"
+                        autoComplete="off"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
                         value={model.reasoningVariants.join(', ')}
                         onChange={(event) => updateModel(index, {
                           reasoningVariants: event.target.value
@@ -460,7 +503,7 @@ export function ProvidersPage({
                             .map((item) => item.trim())
                             .filter(Boolean)
                         })}
-                        placeholder="low, medium, high"
+                        placeholder="low, medium, high…"
                       />
                     </label>
                   </div>
@@ -473,6 +516,8 @@ export function ProvidersPage({
             <label className="switch-row">
               <input
                 type="checkbox"
+                name="jsonMode"
+                autoComplete="off"
                 checked={form.capabilities.jsonMode}
                 onChange={(event) => setForm({
                   ...form,
@@ -484,6 +529,8 @@ export function ProvidersPage({
             <label className="switch-row">
               <input
                 type="checkbox"
+                name="providerEnabled"
+                autoComplete="off"
                 checked={form.enabled}
                 onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
               />
@@ -509,6 +556,7 @@ export function ProvidersPage({
         onRefresh={onRefresh}
         showToast={showToast}
       />
+      {ConfirmPortal}
     </div>
   )
 }
@@ -573,15 +621,15 @@ function SearchServicePanel({
       <div className="search-service-fields">
         <label className="field">
           <span>API Key {service.hasApiKey && <em>留空表示不修改</em>}</span>
-          <input type="password" autoComplete="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={service.hasApiKey ? '••••••••••••••••' : '请粘贴豆包搜索 API Key'} />
+          <input type="password" name="searchApiKey" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={service.hasApiKey ? '••••••••••••••••' : '请粘贴豆包搜索 API Key…'} />
         </label>
         <label className="switch-row">
-          <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+          <input type="checkbox" name="searchEnabled" autoComplete="off" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
           <span><strong>启用搜索服务</strong><small>停用后素材搜索入口不可用</small></span>
         </label>
       </div>
       <footer>
-        <span>{status || '测试连接会消耗 1 次豆包搜索额度'}</span>
+        <span>{status || '测试连接会消耗 1\u00A0次豆包搜索额度'}</span>
         <button className="button secondary" disabled={!service.hasApiKey || testing} onClick={() => void test()}>{testing ? <span className="spinner tiny" /> : <Zap size={15} />}测试连接</button>
         <button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <span className="spinner tiny" /> : <ShieldCheck size={15} />}加密保存</button>
       </footer>

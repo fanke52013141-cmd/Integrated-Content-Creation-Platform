@@ -6,11 +6,11 @@
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "dev": "node node_modules/electron-vite/bin/electron-vite.js dev",
+    "build": "npm run typecheck && node node_modules/electron-vite/bin/electron-vite.js build",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.node.json && node node_modules/typescript/bin/tsc --noEmit -p tsconfig.web.json",
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "test:watch": "node node_modules/vitest/vitest.mjs",
     "test:smoke": "npm run build && node scripts/smoke-electron.mjs",
     "test:hotspots": "npm run build && node scripts/smoke-hotspots.mjs",
     "test:topics": "npm run build && node scripts/smoke-topics.mjs",
@@ -22,15 +22,18 @@
     "test:layouts": "npm run build && node scripts/smoke-layouts.mjs",
     "test:publishing": "npm run build && node scripts/smoke-publishing.mjs",
     "test:live": "node scripts/live-provider-smoke.mjs",
-    "package:win": "npm run build && electron-builder --win --x64",
+    "package:win": "npm run build && node node_modules/electron-builder/out/cli/cli.js --win --x64",
     "postinstall": "node node_modules/electron/install.js"
   },
   "dependencies": {
     "@hono/node-server": "2.0.12",
+    "@tanstack/react-virtual": "^3.14.9",
     "dailyhot-api": "2.0.8",
+    "dompurify": "^3.4.12",
     "lucide-react": "^1.27.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
     "zod": "^4.4.3"
   },
   "overrides": {
@@ -39,6 +42,7 @@
     }
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",

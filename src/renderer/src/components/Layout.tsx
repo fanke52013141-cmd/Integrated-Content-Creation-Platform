@@ -71,6 +71,7 @@ export function Layout({
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
   return (
     <div className="app-shell">
+      <a href="#main" className="skip-link">跳到主内容</a>
       <aside className="sidebar">
         <button className="brand" onClick={() => onNavigate('dashboard')}>
           <span className="brand-mark"><Bot size={22} /></span>
@@ -114,7 +115,7 @@ export function Layout({
               <strong>{usableProviders.length ? '网关可用' : '尚未配置'}</strong>
               <small>
                 {usableProviders.length
-                  ? `${usableProviders.length} 个供应商已就绪`
+                  ? `${usableProviders.length}\u00A0个供应商已就绪`
                   : '配置后启用 AI 生成'}
               </small>
             </div>
@@ -153,7 +154,7 @@ export function Layout({
           </button>
         )}
 
-        <main className="content">{children}</main>
+        <main id="main" className="content">{children}</main>
       </section>
     </div>
   )

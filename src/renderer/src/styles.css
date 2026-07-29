@@ -46,6 +46,10 @@
   --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
   --shadow-2: 0 8px 24px -12px rgba(15, 23, 42, 0.18);
   --shadow-3: 0 18px 46px -18px rgba(15, 23, 42, 0.28);
+  /* P0-3: 别名修复此前未定义的 --shadow-sm/md/lg */
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -73,6 +77,9 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.22);
   --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.48);
   --shadow-3: 0 18px 46px -18px rgba(0, 0, 0, 0.6);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
 }
 
 * {
@@ -1034,8 +1041,14 @@ p {
   background: var(--surface-muted);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  outline: 0;
+  outline: none;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* P0-5: 配套 :focus-visible 焦点替代 */
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  outline: none;
 }
 
 .field input,
@@ -1063,6 +1076,26 @@ p {
 .field small {
   color: var(--text-tertiary);
   font-size: 9px;
+}
+
+/* P2-5: 表单内联错误 */
+.field-error {
+  color: var(--red-600);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.field.has-error input,
+.field.has-error select,
+.field.has-error textarea {
+  border-color: var(--red-600);
+}
+
+.field.has-error input:focus,
+.field.has-error textarea:focus,
+.field.has-error select:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red-600) 14%, transparent);
 }
 
 /* Providers */
@@ -1986,12 +2019,12 @@ p {
   background: transparent;
   border: 0;
   border-bottom: 1px solid transparent;
-  outline: 0;
+  outline: none;
   font-size: 11px;
   font-weight: 700;
 }
 
-.field-name-input:not(:read-only):focus {
+.field-name-input:not(:read-only):focus-visible {
   border-bottom-color: var(--purple-300);
 }
 
@@ -2002,10 +2035,16 @@ p {
   color: var(--text-secondary);
   background: transparent;
   border: 0;
-  outline: 0;
+  outline: none;
   resize: vertical;
   font-size: 11px;
   line-height: 1.65;
+}
+/* P0-5: 补缺失的焦点替代 */
+.generated-field textarea:not(:read-only):focus-visible {
+  border-bottom-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--primary) 50%, transparent);
+  outline: none;
 }
 
 .generated-field textarea:read-only {
@@ -3705,7 +3744,7 @@ p {
 .article-markdown-preview li { margin: 3px 0 3px 18px; }
 .article-markdown-preview blockquote { margin: 14px 0; padding: 7px 13px; border-left: 3px solid var(--primary); color: var(--text-secondary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
 .article-rich-editor { outline: none; cursor: text; }
-.article-rich-editor:focus { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+.article-rich-editor:focus-visible { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
 .article-rich-editor .rich-list { margin: 4px 0 4px 18px; }
 .article-revision, .article-history { margin-top: 18px; padding: 17px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-subtle); }
 .article-revision > header { justify-content: space-between; }
@@ -3794,3 +3833,45 @@ p {
   .material-search-disabled { align-items: flex-start; flex-wrap: wrap; }
   .material-search-disabled .button { margin-left: 36px; }
 }
+
+/* P1-7: 全局 prefers-reduced-motion 兜底，对前庭敏感用户禁用动画 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* P2-2: 数字列等宽数字工具类，避免数字跳动 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* P2-3: 标题文本平衡换行，避免孤行 */
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+/* P2-4: skip link，键盘用户跳过导航直达主内容 */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  z-index: 999;
+  padding: 10px 16px;
+  color: white;
+  background: var(--purple-700);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+  outline: 2px solid var(--purple-200);
+  outline-offset: 2px;
+}
+
