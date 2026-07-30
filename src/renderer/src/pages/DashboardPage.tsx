@@ -1,12 +1,14 @@
 import {
   ArrowRight,
-  Bot,
   Check,
   CircleUserRound,
-  Database,
+  ClipboardList,
   KeyRound,
   Layers3,
+  Lightbulb,
   LockKeyhole,
+  PenLine,
+  Send,
   Sparkles
 } from 'lucide-react'
 import type { AccountProfileSummary, ProviderSummary } from '../../../shared/contracts'
@@ -28,18 +30,21 @@ export function DashboardPage({
 }: DashboardPageProps): React.JSX.Element {
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
   const completed = Number(usableProviders.length > 0) + Number(accounts.length > 0)
+  const workflow = [
+    { label: '准备', icon: ClipboardList, done: accounts.length > 0 },
+    { label: '选题', icon: Lightbulb, done: false },
+    { label: '写作', icon: PenLine, done: false },
+    { label: '优化', icon: Sparkles, done: false },
+    { label: '发布', icon: Send, done: false }
+  ]
 
   return (
     <div className="page dashboard-page">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <span className="eyebrow"><Sparkles size={14} /> FIRST WORKING SLICE</span>
-          <h2>先把账号定位，做成可靠的创作基线。</h2>
-          <p>
-            模型调用、密钥、本地数据与版本记录都收进同一个闭环。
-            当前版本专注一件事：让每次创作都有清晰、一致、可追溯的账号方向。
-          </p>
-          <div className="hero-actions">
+      <section className="workflow-overview panel">
+        <div className="workflow-welcome">
+          <span className="eyebrow"><Sparkles size={14} /> 欢迎使用心流</span>
+          <h2>开始创作</h2>
+          <div className="workflow-actions">
             <button className="button primary" onClick={() => onNavigate('accounts')}>
               {accounts.length ? '管理账号定位' : '创建第一个账号'}
               <ArrowRight size={16} />
@@ -49,13 +54,21 @@ export function DashboardPage({
             </button>
           </div>
         </div>
-        <div className="hero-orbit" aria-hidden="true">
-          <div className="orbit-ring ring-one" />
-          <div className="orbit-ring ring-two" />
-          <span className="orbit-core"><Bot size={30} /></span>
-          <span className="orbit-node node-a"><KeyRound size={17} /></span>
-          <span className="orbit-node node-b"><Database size={17} /></span>
-          <span className="orbit-node node-c"><CircleUserRound size={17} /></span>
+        <div className="workflow-pipeline">
+          <span className="workflow-label">内容创作流程</span>
+          <div className="workflow-steps">
+            {workflow.map((step, index) => {
+              const Icon = step.icon
+              return (
+                <div className={`workflow-step ${step.done ? 'done' : ''}`} key={step.label}>
+                  <span className="workflow-step-icon"><Icon size={20} /></span>
+                  <small>{String(index + 1).padStart(2, '0')}</small>
+                  <strong>{step.label}</strong>
+                  <em>{step.done ? '已完成' : '未开始'}</em>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </section>
 
@@ -96,7 +109,6 @@ export function DashboardPage({
               </span>
               <span>
                 <strong>连接一个模型供应商</strong>
-                <small>API Key 仅在本机加密保存</small>
               </span>
               <ArrowRight size={16} />
             </button>
@@ -106,7 +118,6 @@ export function DashboardPage({
               </span>
               <span>
                 <strong>生成并锁定账号定位</strong>
-                <small>回答七个问题，得到八项创作基线</small>
               </span>
               <ArrowRight size={16} />
             </button>
@@ -144,10 +155,15 @@ export function DashboardPage({
               <span><CircleUserRound size={25} /></span>
               <div>
                 <strong>还没有账号定位</strong>
-                <p>创建后，这里会显示当前创作基线。</p>
               </div>
+              <button className="button secondary compact" onClick={() => onNavigate('accounts')}>去创建</button>
             </div>
           )}
+          <div className="account-status-row">
+            <span><KeyRound size={15} /><small>模型网关</small><strong>{usableProviders.length ? '已连接' : '未配置'}</strong></span>
+            <span><CircleUserRound size={15} /><small>账号定位</small><strong>{accounts.length ? '已创建' : '未创建'}</strong></span>
+            <span><PenLine size={15} /><small>最近创作</small><strong>暂无记录</strong></span>
+          </div>
         </article>
       </section>
     </div>

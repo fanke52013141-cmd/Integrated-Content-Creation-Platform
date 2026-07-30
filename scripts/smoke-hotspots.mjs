@@ -28,10 +28,9 @@ try {
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '热点洞察' }).click()
-  await window.getByText('今天，什么正在发生？').waitFor()
-  await window.getByText('DailyHotApi v2.0.8', { exact: true }).waitFor()
+  await window.getByRole('heading', { name: '热点雷达' }).waitFor()
 
-  const sourceCards = window.locator('.hot-source-card')
+  const sourceCards = window.locator('.hotspot-source-rail > div > button')
   await sourceCards.nth(39).waitFor({ timeout: 20_000 })
   const sourceCount = await sourceCards.count()
   if (sourceCount < 40) {
@@ -58,8 +57,9 @@ try {
     throw new Error('Hidden platform remained visible on the hotspot wall')
   }
 
-  await window.locator('.hot-item-list').first().waitFor({ timeout: 90_000 })
-  const readyCount = await window.locator('.hot-item-list').count()
+  await window.locator('.hotspot-source-rail').getByRole('button', { name: '知乎', exact: true }).click()
+  await window.locator('.hotspot-feed > ol').waitFor({ timeout: 90_000 })
+  const readyCount = await window.locator('.hotspot-feed > ol').count()
   if (!readyCount) throw new Error('No embedded hotspot source loaded successfully')
 
   await window.screenshot({

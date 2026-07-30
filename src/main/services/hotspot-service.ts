@@ -187,10 +187,62 @@ export class HotspotService {
         items
       }
     } catch (error) {
+      if (source.id === 'baidu') {
+        try {
+          return await this.fetchBaiduFallback(source)
+        } catch {
+          // Keep the original adapter error when the fallback also fails.
+        }
+      }
+      const message = error instanceof Error ? error.message : '平台暂时无法获取'
       return {
         ...fallback,
-        error: error instanceof Error ? error.message : '平台暂时无法获取'
+        error: source.id === 'weibo' && message.includes('500')
+          ? '微博限制匿名访问'
+          : message
       }
+    }
+  }
+
+  private async fetchBaiduFallback(source: HotSource): Promise<HotSourceResult> {
+    const response = await fetch('https://top.baidu.com/board?tab=realtime', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
+      },
+      signal: AbortSignal.timeout(16_000)
+    })
+    if (!response.ok) throw new Error(`百度备用源请求失败（${response.status}）`)
+    const html = await response.text()
+    const match = html.match(/<!--s-data:(.*?)-->/s)
+    if (!match?.[1]) throw new Error('百度页面结构已变化')
+    const state = JSON.parse(match[1]) as unknown
+    const rows = collectBaiduRows(state).slice(0, 20)
+    if (!rows.length) throw new Error('百度备用源没有返回热点')
+    const updateTime = new Date().toISOString()
+    const items = rows.map((row, index): HotItem => {
+      const title = text(row.word)
+      const url = text(row.url) || `https://www.baidu.com/s?wd=${encodeURIComponent(title)}`
+      const rawId = text(row.index)
+      return {
+        id: rawId || createHash('sha1').update(`baidu\n${title}\n${url}`).digest('hex').slice(0, 20),
+        title,
+        desc: text(row.desc),
+        url,
+        source: source.id,
+        sourceTitle: source.displayName,
+        subtitle: '热搜榜',
+        updateTime,
+        hotValue: formatHotValue(row.hotScore),
+        rank: index + 1,
+        rawJson: JSON.stringify(row)
+      }
+    })
+    return {
+      source,
+      status: 'ready',
+      subtitle: '热搜榜',
+      updateTime,
+      items
     }
   }
 
@@ -232,6 +284,22 @@ function text(value: unknown): string {
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return ''
+}
+
+function collectBaiduRows(value: unknown): UpstreamItem[] {
+  const rows: UpstreamItem[] = []
+  const visit = (current: unknown): void => {
+    if (Array.isArray(current)) {
+      for (const item of current) visit(item)
+      return
+    }
+    if (!current || typeof current !== 'object') return
+    const record = current as UpstreamItem
+    if (text(record.word)) rows.push(record)
+    for (const nested of Object.values(record)) visit(nested)
+  }
+  visit(value)
+  return rows
 }
 
 function formatHotValue(value: unknown): string | undefined {

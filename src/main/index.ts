@@ -32,7 +32,7 @@ function createWindow(): void {
     minHeight: 720,
     show: false,
     backgroundColor: '#f5f7fa',
-    title: '墨流',
+    title: '心流',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

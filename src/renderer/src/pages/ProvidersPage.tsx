@@ -73,6 +73,7 @@ export function ProvidersPage({
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<string>()
   const [testStatus, setTestStatus] = useState<Record<string, string>>({})
+  const [view, setView] = useState<'models' | 'search'>('models')
 
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
@@ -143,13 +144,13 @@ export function ProvidersPage({
       { displayName: form.displayName, baseUrl: form.baseUrl, apiKey: form.apiKey ?? '' },
       {
         displayName: (value) => value.trim() ? null : '请填写连接显示名称',
-        baseUrl: (value) => !value.trim() ? '请填写 Base URL' : isSafeUrl(value) ? null : 'Base URL 必须是有效的 http(s) 地址',
-        apiKey: (value) => !form.id && !value.trim() ? '首次创建时需要填写 API Key' : null
+        baseUrl: (value) => !value.trim() ? '请填写接口地址' : isSafeUrl(value) ? null : '接口地址必须是有效的网址',
+        apiKey: (value) => !form.id && !value.trim() ? '首次创建时需要填写密钥' : null
       }
     )
     if (!valid) return
     if (!models.length || models.some((model) => !model.modelId || !model.displayName)) {
-      showToast({ type: 'error', message: '每个模型都需要填写别名和 API 模型 ID' })
+      showToast({ type: 'error', message: '每个模型都需要填写别名和模型标识' })
       return
     }
     if (!defaultModel) {
@@ -157,7 +158,7 @@ export function ProvidersPage({
       return
     }
     if (new Set(models.map((model) => model.modelId)).size !== models.length) {
-      showToast({ type: 'error', message: '同一连接内的 API 模型 ID 不能重复' })
+      showToast({ type: 'error', message: '同一连接内的模型标识不能重复' })
       return
     }
     setSaving(true)
@@ -252,11 +253,9 @@ export function ProvidersPage({
     <div className="page providers-page">
       <section className="page-intro">
         <div>
-          <span className="eyebrow"><ShieldCheck size={14} /> LOCAL FIRST</span>
-          <h2>连接模型，不交出密钥。</h2>
-          <p>Renderer 无法读取 Key；密钥在主进程中由 Windows DPAPI 加密，仅调用时短暂解密。</p>
+          <h2>服务配置</h2>
         </div>
-        <button
+        {view === 'models' && <button
           className="button secondary"
           onClick={() => {
             setSelectedId(undefined)
@@ -264,10 +263,19 @@ export function ProvidersPage({
           }}
         >
           <Plus size={16} />空白配置
+        </button>}
+      </section>
+
+      <section className="provider-tabs">
+        <button className={view === 'models' ? 'active' : ''} onClick={() => setView('models')}>
+          模型服务
+        </button>
+        <button className={view === 'search' ? 'active' : ''} onClick={() => setView('search')}>
+          素材搜索
         </button>
       </section>
 
-      <section className="provider-layout">
+      {view === 'models' ? <section className="provider-layout">
         <div className="provider-list-column">
           <div className="section-heading">
             <div><span className="eyebrow">PROVIDERS</span><h3>已配置供应商</h3></div>
@@ -311,15 +319,14 @@ export function ProvidersPage({
             )) : (
               <div className="provider-empty">
                 <Unplug size={25} />
-                <strong>还没有供应商</strong>
-                <p>从右侧预设选择一个开始。</p>
+                <strong>暂无供应商</strong>
               </div>
             )}
           </div>
 
           <div className="security-note">
             <KeyRound size={18} />
-            <div><strong>密钥不会出现在配置导出中</strong><p>日志只记录模型、延迟和 Token，不记录对话内容。</p></div>
+            <div><strong>本机加密存储</strong></div>
           </div>
         </div>
 
@@ -358,7 +365,7 @@ export function ProvidersPage({
               <FieldError message={errorOf('displayName')} />
             </label>
             <label className={`field full ${errorOf('baseUrl') ? 'has-error' : ''}`}>
-              <span>Base URL</span>
+              <span>接口地址</span>
               <input
                 type="url"
                 inputMode="url"
@@ -372,11 +379,10 @@ export function ProvidersPage({
                 onChange={(event) => { setForm({ ...form, baseUrl: event.target.value }); clearError('baseUrl') }}
                 placeholder="https://api.example.com/v1…"
               />
-              <small>系统会调用该地址下的 `/chat/completions`。</small>
               <FieldError message={errorOf('baseUrl')} />
             </label>
             <label className={`field full ${errorOf('apiKey') ? 'has-error' : ''}`}>
-              <span>API Key {form.id && <em>留空表示不修改</em>}</span>
+              <span>访问密钥 {form.id && <em>留空表示不修改</em>}</span>
               <input
                 type="password"
                 name="apiKey"
@@ -455,7 +461,7 @@ export function ProvidersPage({
                       />
                     </label>
                     <label className="field">
-                      <span>API 模型 ID</span>
+                      <span>模型标识</span>
                       <input
                         name="modelId"
                         autoComplete="off"
@@ -535,7 +541,7 @@ export function ProvidersPage({
                   capabilities: { ...form.capabilities, jsonMode: event.target.checked }
                 })}
               />
-              <span><strong>支持 JSON Mode</strong><small>账号定位优先使用结构化输出</small></span>
+              <span><strong>结构化输出</strong></span>
             </label>
             <label className="switch-row">
               <input
@@ -545,7 +551,7 @@ export function ProvidersPage({
                 checked={form.enabled}
                 onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
               />
-              <span><strong>启用供应商</strong><small>停用后不会出现在模型选择中</small></span>
+              <span><strong>启用供应商</strong></span>
             </label>
           </div>
 
@@ -561,12 +567,11 @@ export function ProvidersPage({
             </button>
           </div>
         </div>
-      </section>
-      <SearchServicePanel
+      </section> : <SearchServicePanel
         service={searchService}
         onRefresh={onRefresh}
         showToast={showToast}
-      />
+      />}
       {ConfirmPortal}
     </div>
   )
@@ -591,7 +596,7 @@ function SearchServicePanel({
 
   async function save(): Promise<void> {
     if (!service.hasApiKey && !apiKey.trim()) {
-      showToast({ type: 'error', message: '首次配置豆包搜索需要 API Key' })
+      showToast({ type: 'error', message: '首次配置豆包搜索需要访问密钥' })
       return
     }
     setSaving(true)
@@ -599,7 +604,7 @@ function SearchServicePanel({
       await window.moliu.searchService.save({ apiKey: apiKey.trim() || undefined, enabled })
       setApiKey('')
       await onRefresh()
-      showToast({ type: 'success', message: '豆包搜索 API Key 已加密保存' })
+      showToast({ type: 'success', message: '豆包搜索密钥已加密保存' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     } finally {
@@ -623,24 +628,23 @@ function SearchServicePanel({
   return (
     <section className="search-service-panel panel">
       <div className="section-heading">
-        <div><span className="eyebrow">SEARCH SERVICE</span><h3>豆包搜索 Custom 版</h3></div>
+        <div><h3>豆包搜索</h3></div>
         <span className={`status-pill ${service.enabled && service.hasApiKey ? 'success' : ''}`}>
           {service.enabled && service.hasApiKey ? '可用' : '未就绪'}
         </span>
       </div>
-      <p>用于素材库的网页和图片搜索；密钥只在主进程调用时短暂解密。</p>
       <div className="search-service-fields">
         <label className="field">
-          <span>API Key {service.hasApiKey && <em>留空表示不修改</em>}</span>
-          <input type="password" name="searchApiKey" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={service.hasApiKey ? '••••••••••••••••' : '请粘贴豆包搜索 API Key…'} />
+          <span>访问密钥 {service.hasApiKey && <em>留空表示不修改</em>}</span>
+          <input type="password" name="searchApiKey" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={service.hasApiKey ? '••••••••••••••••' : '粘贴豆包搜索密钥'} />
         </label>
         <label className="switch-row">
           <input type="checkbox" name="searchEnabled" autoComplete="off" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-          <span><strong>启用搜索服务</strong><small>停用后素材搜索入口不可用</small></span>
+          <span><strong>启用搜索服务</strong></span>
         </label>
       </div>
       <footer>
-        <span>{status || '测试连接会消耗 1\u00A0次豆包搜索额度'}</span>
+        <span>{status}</span>
         <button className="button secondary" disabled={!service.hasApiKey || testing} onClick={() => void test()}>{testing ? <span className="spinner tiny" /> : <Zap size={15} />}测试连接</button>
         <button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <span className="spinner tiny" /> : <ShieldCheck size={15} />}加密保存</button>
       </footer>

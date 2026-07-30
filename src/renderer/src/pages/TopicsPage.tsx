@@ -187,8 +187,7 @@ export function TopicsPage({
       <section className="page-intro topics-intro">
         <div>
           <span className="eyebrow"><Sparkles size={14} /> TOPIC LAB</span>
-          <h2>让热点成为你自己的内容方向。</h2>
-          <p>选题始终引用锁定账号版本与收藏快照；草稿可编辑，入库后供下游创作使用。</p>
+          <h2>生成选题</h2>
         </div>
         <button className="button secondary" onClick={() => setSchemaOpen(true)}>
           <FilePenLine size={16} />配置选题字段
@@ -211,75 +210,84 @@ export function TopicsPage({
           </div>
         ) : (
           <>
-            <div className="topic-compose-grid">
-              <label className="field">
-                <span>锁定账号定位</span>
-                <select name="accountId" autoComplete="off" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                  {lockedAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>{account.name} · v{account.versionCount}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>生成模型</span>
-                <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
-                  {availableModels.map(({ provider, model }) => (
-                    <option key={`${provider.id}:${model.id}`} value={encodeModelTarget(provider.id, model.modelId)}>
-                      {model.displayName} · {provider.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field topic-count-field">
-                <span>生成数量</span>
-                <select name="topicCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
-                  {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 条独立草稿</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="field topic-keyword-field">
-              <span>热点关键词 / 手动主题</span>
-              <textarea
-                name="seedKeyword"
-                autoComplete="off"
-                value={seedKeyword}
-                onChange={(event) => setSeedKeyword(event.target.value)}
-                placeholder="例如：AI Agent 的工作流落地，或概括下方选择的热点…"
-                rows={3}
-              />
-            </label>
-            <div className="topic-favorites-picker">
-              <div className="topic-favorites-heading">
-                <div><FolderHeart size={17} /><strong>关联收藏热点</strong><span>可选；将以不可变快照参与生成</span></div>
-                <button className="button ghost compact" onClick={() => onNavigate('hotspots')}>管理收藏</button>
-              </div>
-              {favorites.length ? (
-                <div className="topic-favorite-options">
-                  {favorites.map((favorite) => (
-                    <label key={favorite.id} className={favoriteIds.has(favorite.id) ? 'selected' : ''}>
-                      <input
-                        type="checkbox"
-                        name="favoriteId"
-                        autoComplete="off"
-                        checked={favoriteIds.has(favorite.id)}
-                        onChange={(event) => setFavoriteIds((current) => {
-                          const next = new Set(current)
-                          if (event.target.checked) next.add(favorite.id)
-                          else next.delete(favorite.id)
-                          return next
-                        })}
-                      />
-                      <span className="favorite-source-mark">{favorite.hotItem.sourceTitle.slice(0, 1)}</span>
-                      <span>{favorite.hotItem.title}</span>
-                    </label>
-                  ))}
+            <div className="topic-generation-layout">
+              <div className="topic-generation-main">
+                <label className="field">
+                  <span>账号定位</span>
+                  <select name="accountId" autoComplete="off" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                    {lockedAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>{account.name} · v{account.versionCount}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field topic-keyword-field">
+                  <span>主题</span>
+                  <textarea
+                    name="seedKeyword"
+                    autoComplete="off"
+                    value={seedKeyword}
+                    onChange={(event) => setSeedKeyword(event.target.value)}
+                    placeholder="输入热点关键词或内容方向"
+                    rows={4}
+                  />
+                </label>
+                <div className="topic-favorites-picker">
+                  <div className="topic-favorites-heading">
+                    <div><FolderHeart size={17} /><strong>关联热点</strong></div>
+                    <button className="button ghost compact" onClick={() => onNavigate('hotspots')}>管理</button>
+                  </div>
+                  {favorites.length ? (
+                    <div className="topic-favorite-options">
+                      {favorites.map((favorite) => (
+                        <label key={favorite.id} className={favoriteIds.has(favorite.id) ? 'selected' : ''}>
+                          <input
+                            type="checkbox"
+                            name="favoriteId"
+                            autoComplete="off"
+                            checked={favoriteIds.has(favorite.id)}
+                            onChange={(event) => setFavoriteIds((current) => {
+                              const next = new Set(current)
+                              if (event.target.checked) next.add(favorite.id)
+                              else next.delete(favorite.id)
+                              return next
+                            })}
+                          />
+                          <span className="favorite-source-mark">{favorite.hotItem.sourceTitle.slice(0, 1)}</span>
+                          <span>{favorite.hotItem.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="topic-no-favorites">暂无收藏</p>
+                  )}
                 </div>
-              ) : (
-                <p className="topic-no-favorites">暂无收藏热点。也可以只用手动主题生成选题。</p>
-              )}
+              </div>
+              <aside className="topic-generation-settings">
+                <label className="field">
+                  <span>模型</span>
+                  <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
+                    {availableModels.map(({ provider, model }) => (
+                      <option key={`${provider.id}:${model.id}`} value={encodeModelTarget(provider.id, model.modelId)}>
+                        {model.displayName} · {provider.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field topic-count-field">
+                  <span>数量</span>
+                  <select name="topicCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
+                    {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 条</option>)}
+                  </select>
+                </label>
+                <div className="topic-template-summary">
+                  <span>输出模板</span>
+                  <strong>{schema.length} 个字段</strong>
+                  <button className="button ghost compact" onClick={() => setSchemaOpen(true)}>编辑模板</button>
+                </div>
+              </aside>
             </div>
             <footer className="topic-compose-footer">
-              <span><Link2 size={14} />已关联 {selectedFavorites.length} 条收藏快照</span>
+              <span><Link2 size={14} />{selectedFavorites.length} 条热点</span>
               <button className="button primary" disabled={generating || !availableModels.length} onClick={() => void generate()}>
                 {generating ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
                 {generating ? `正在独立生成 ${count}\u00A0条…` : `生成 ${count}\u00A0条选题`}
@@ -299,7 +307,6 @@ export function TopicsPage({
               <LibraryBig size={15} />我的选题库 <small>{topics.filter((topic) => topic.isInLibrary).length}</small>
             </button>
           </div>
-          <span>{view === 'drafts' ? '最新生成排在最前' : '平铺展示，供内容框架继续使用'}</span>
         </header>
         {displayedTopics.length ? (
           <div className="topic-card-list">
@@ -327,7 +334,6 @@ export function TopicsPage({
           <div className="large-empty topic-empty">
             {view === 'drafts' ? <Sparkles size={34} /> : <LibraryBig size={34} />}
             <h3>{view === 'drafts' ? '还没有选题草稿' : '选题库还是空的'}</h3>
-            <p>{view === 'drafts' ? '填写一个热点关键词，生成第一批可以继续打磨的内容方向。' : '把合适的草稿加入选题库，后续可以直接用于内容框架。'}</p>
           </div>
         )}
       </section>
@@ -463,7 +469,7 @@ function SchemaDialog({
   }
   return (
     <ModalBase open onClose={onClose} titleId="topic-schema-title" bare className="topic-schema-dialog">
-        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2><p>字段会立即成为后续 AI 生成的 JSON 模板；已有选题保持自己的历史结构。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
+        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">

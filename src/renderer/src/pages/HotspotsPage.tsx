@@ -6,11 +6,18 @@ import {
   BookmarkCheck,
   Check,
   CheckCircle2,
+  CircleHelp,
+  Code2,
   EyeOff,
   Flame,
   FolderHeart,
   GripVertical,
+  Laptop,
   LoaderCircle,
+  MessageCircleMore,
+  Music2,
+  Newspaper,
+  Rss,
   RefreshCw,
   RotateCcw,
   Search,
@@ -20,6 +27,7 @@ import {
   Sparkles,
   Tags,
   Trash2,
+  Tv2,
   X
 } from 'lucide-react'
 import type {
@@ -66,6 +74,7 @@ export function HotspotsPage({
   const [sourceManagerOrder, setSourceManagerOrder] = useState<HotSource[]>([])
   const [sourceManagerHidden, setSourceManagerHidden] = useState<Set<string>>(new Set())
   const [draggedSourceId, setDraggedSourceId] = useState<string>()
+  const [activeSourceId, setActiveSourceId] = useState<string>()
   const [results, setResults] = useState<Record<string, HotSourceResult>>({})
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const [bootError, setBootError] = useState<string>()
@@ -111,6 +120,14 @@ export function HotspotsPage({
     () => sources.filter((source) => !hiddenSourceIds.has(source.id)),
     [hiddenSourceIds, sources]
   )
+  const activeSource = visibleSources.find((source) => source.id === activeSourceId) ?? visibleSources[0]
+  const activeResult = activeSource ? results[activeSource.id] : undefined
+  useEffect(() => {
+    if (!activeSourceId && visibleSources[0]) setActiveSourceId(visibleSources[0].id)
+    if (activeSourceId && !visibleSources.some((source) => source.id === activeSourceId)) {
+      setActiveSourceId(visibleSources[0]?.id)
+    }
+  }, [activeSourceId, visibleSources])
   const favoritePlatforms = useMemo(() => {
     const platforms = new Map<string, string>()
     for (const favorite of favorites) {
@@ -486,25 +503,18 @@ export function HotspotsPage({
           <span className="eyebrow">LIVE SIGNALS</span>
           <h2>
             {view === 'wall'
-              ? '今天，什么正在发生？'
+              ? '热点雷达'
               : view === 'favorites'
-                ? '锁定值得继续追踪的信号'
-                : '让账号定位帮你过滤噪音'}
+                ? '热点收藏'
+                : '智能筛选'}
           </h2>
-          <p>
-            {view === 'wall'
-              ? '跨平台浏览实时热榜。热点原文保持只读，点击后在系统浏览器核实来源。'
-              : view === 'favorites'
-                ? '收藏源数据不可编辑，标签只用于组织。这里是后续选题模块的原料池。'
-                : '筛选结果保持草稿态，只有人工采纳后才会进入锁定收藏。'}
-          </p>
         </div>
         <div className="hotspot-hero-actions">
           <div className={`embedded-service-pill ${service?.state === 'ready' ? 'ready' : ''}`}>
             <Server size={15} />
             <span>
               <strong>内置数据服务</strong>
-              <small>DailyHotApi v{service?.version ?? '2.0.8'}</small>
+              <small>本地运行</small>
             </span>
           </div>
           <button className="button secondary" onClick={() =>
@@ -516,7 +526,7 @@ export function HotspotsPage({
           {view === 'wall' && (
             <>
               <button className="button secondary" onClick={() => openFilterDialog('wall')}>
-                <Sparkles size={16} />AI 筛选
+                <Sparkles size={16} />智能筛选
               </button>
               <button className="button secondary" onClick={openSourceManager}>
                 <Settings2 size={16} />平台设置
@@ -536,10 +546,7 @@ export function HotspotsPage({
 
       <section className="hotspot-draft-warning">
         <AlertTriangle size={16} />
-        <span>
-          <strong>草稿数据源</strong>
-          当前引用 DailyHotApi v2.0.8。榜单来自公开渠道，可能延迟、失效或不准确，使用前请打开原链接核实。
-        </span>
+        <span><strong>数据源</strong> 内置热点服务</span>
       </section>
 
       {view === 'wall' ? (
@@ -552,7 +559,90 @@ export function HotspotsPage({
             {refreshingAll && <span><LoaderCircle size={15} className="spin" />后台分批加载中</span>}
           </section>
 
-          <section className="hotspot-grid">
+          <section className="hotspot-radar-layout">
+            <aside className="hotspot-source-rail">
+              <header><span className="eyebrow">SOURCES</span><strong>信号源</strong></header>
+              <div>
+                {visibleSources.map((source) => {
+                  const result = results[source.id]
+                  return (
+                    <button
+                      key={source.id}
+                      className={activeSource?.id === source.id ? 'active' : ''}
+                      onClick={() => setActiveSourceId(source.id)}
+                    >
+                      <span className={`source-mark source-${source.id}`}><SourcePlatformIcon source={source} /></span>
+                      <strong>{source.displayName}</strong>
+                      <small className={result?.status === 'error' ? 'source-status-error' : ''}>
+                        {result?.status === 'ready' ? '可用' : result?.status === 'error' ? '受限' : ''}
+                      </small>
+                    </button>
+                  )
+                })}
+              </div>
+            </aside>
+            <main className="hotspot-feed">
+              <header>
+                <div><span className="eyebrow">TRENDING</span><h3>{activeSource?.displayName || '实时榜单'}</h3></div>
+                {activeSource && (
+                  <button className="icon-button" aria-label="刷新当前平台" onClick={() => void refreshBatch([activeSource.id])}>
+                    <RefreshCw size={15} className={loadingIds.has(activeSource.id) ? 'spin' : ''} />
+                  </button>
+                )}
+              </header>
+              {activeResult?.status === 'ready' ? (
+                <ol>
+                  {activeResult.items.map((item) => {
+                    const key = hotItemKey(item)
+                    const favorited = favoriteKeys.has(key)
+                    return (
+                      <li key={item.id}>
+                        <span className={`hot-rank rank-${item.rank}`}>{item.rank}</span>
+                        <button className="hot-item-link" disabled={!item.url} onClick={() => void openSource(item.url)}>
+                          <span>{item.title}</span>
+                        </button>
+                        <span className="hot-value">{item.hotValue || '—'}</span>
+                        <button
+                          className={`hot-favorite-button ${favorited ? 'active' : ''}`}
+                          disabled={favorited || savingFavoriteKeys.has(key)}
+                          aria-label={favorited ? '已收藏' : '收藏'}
+                          onClick={() => void addFavorite(item)}
+                        >
+                          {favorited ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ol>
+              ) : (
+                <div className="source-loading">
+                  {activeResult?.status === 'error' ? <AlertTriangle size={22} /> : <LoaderCircle size={22} className="spin" />}
+                  <strong>{activeResult?.status === 'error' ? '暂不可用' : '正在获取榜单'}</strong>
+                  {activeResult?.status === 'error' && <small>{activeResult.error}</small>}
+                </div>
+              )}
+            </main>
+            <aside className="hotspot-insight-rail">
+              <header><span className="eyebrow">SAVED</span><strong>收藏 {favorites.length}</strong></header>
+              <div className="hotspot-mini-favorites">
+                {favorites.slice(0, 5).map((favorite) => (
+                  <article key={favorite.id}>
+                    <span>{favorite.hotItem.sourceTitle.slice(0, 1)}</span>
+                    <strong>{favorite.hotItem.title}</strong>
+                  </article>
+                ))}
+                {!favorites.length && <div className="hotspot-mini-empty">暂无收藏</div>}
+              </div>
+              <button className="button secondary" disabled={!favorites.length} onClick={() => openFilterDialog('favorites')}>
+                <Sparkles size={15} />智能筛选
+              </button>
+              <button className="button primary" disabled={!favorites.length} onClick={openTopicsFromFavorites}>
+                生成选题
+              </button>
+            </aside>
+          </section>
+
+          <section className="hotspot-grid legacy-source-grid">
             {visibleSources.map((source) => {
               const result = results[source.id]
               const loading = loadingIds.has(source.id)
@@ -568,7 +658,7 @@ export function HotspotsPage({
                 >
                   <header>
                     <div className="source-identity">
-                      <span className="source-mark">{source.displayName.slice(0, 1).toUpperCase()}</span>
+                      <span className={`source-mark source-${source.id}`}><SourcePlatformIcon source={source} /></span>
                       <span>
                         <strong>{result?.source.displayName || source.displayName}</strong>
                         <small>{result?.subtitle || '实时榜单'}</small>
@@ -713,7 +803,7 @@ export function HotspotsPage({
               disabled={!favorites.length}
               onClick={() => openFilterDialog('favorites')}
             >
-              <Sparkles size={14} />AI 筛选收藏
+              <Sparkles size={14} />智能筛选收藏
             </button>
             <button
               className="button primary compact"
@@ -750,7 +840,6 @@ export function HotspotsPage({
                         <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
                         <span className="locked-snapshot"><BookmarkCheck size={12} />源快照已锁定</span>
                       </div>
-                      {favorite.hotItem.desc && <p>{favorite.hotItem.desc}</p>}
                     </div>
                     <div className="favorite-tags">
                       <span><Tags size={13} />标签</span>
@@ -780,7 +869,6 @@ export function HotspotsPage({
             <div className="favorite-empty">
               <FolderHeart size={30} />
               <h3>{favorites.length ? '没有匹配的收藏' : '收藏夹还是空的'}</h3>
-              <p>{favorites.length ? '换个标签或关键词试试。' : '回到热榜墙，把值得继续追踪的热点锁定下来。'}</p>
               <button className="button primary" onClick={() => setView('wall')}>浏览热榜</button>
             </div>
           )}
@@ -870,7 +958,7 @@ export function HotspotsPage({
             <div className="favorite-empty">
               <Sparkles size={30} />
               <h3>还没有筛选结果</h3>
-              <button className="button primary" onClick={() => openFilterDialog('wall')}>开始 AI 筛选</button>
+              <button className="button primary" onClick={() => openFilterDialog('wall')}>开始智能筛选</button>
             </div>
           )}
         </section>
@@ -882,7 +970,6 @@ export function HotspotsPage({
               <div>
                 <span className="eyebrow">PLATFORM DISPLAY</span>
                 <h2 id="source-manager-title">管理热榜平台</h2>
-                <p>拖拽调整顺序；隐藏只影响热榜墙，平台仍可参与 AI 筛选。</p>
               </div>
               <button
                 className="icon-button"
@@ -923,10 +1010,9 @@ export function HotspotsPage({
                     }}
                   >
                     <GripVertical size={16} />
-                    <span className="source-mark">{source.displayName.slice(0, 1).toUpperCase()}</span>
+                    <span className={`source-mark source-${source.id}`}><SourcePlatformIcon source={source} /></span>
                     <span className="source-manager-name">
                       <strong>{source.displayName}</strong>
-                      <small>{source.id}</small>
                     </span>
                     <small className="source-manager-order">{index + 1}</small>
                     <label>
@@ -1072,9 +1158,7 @@ export function HotspotsPage({
             </div>
 
             <footer>
-              <span className="filter-security-note">
-                <CheckCircle2 size={14} />输入严格包裹为账号定位 XML + 热搜列表 XML
-              </span>
+              <span />
               <button
                 className="button secondary"
                 disabled={filtering}
@@ -1113,6 +1197,21 @@ function formatDateTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function SourcePlatformIcon({ source }: { source: HotSource }): React.JSX.Element {
+  const key = `${source.id} ${source.displayName}`.toLowerCase()
+  if (key.includes('weibo') || key.includes('微博')) return <MessageCircleMore size={16} />
+  if (key.includes('zhihu') || key.includes('知乎')) return <CircleHelp size={16} />
+  if (key.includes('baidu') || key.includes('百度')) return <Search size={16} />
+  if (key.includes('douyin') || key.includes('抖音')) return <Music2 size={16} />
+  if (key.includes('bilibili') || key.includes('哔哩')) return <Tv2 size={16} />
+  if (key.includes('news') || key.includes('新闻') || key.includes('头条')) return <Newspaper size={16} />
+  if (key.includes('ithome') || key.includes('it之家')) return <Laptop size={16} />
+  if (key.includes('github') || key.includes('csdn') || key.includes('51cto') || key.includes('36kr')) {
+    return <Code2 size={16} />
+  }
+  return <Rss size={16} />
 }
 
 function hotItemKey(item: HotItem): string {

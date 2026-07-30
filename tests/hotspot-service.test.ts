@@ -90,6 +90,36 @@ describe('HotspotService', () => {
 
     expect(result.status).toBe('error')
     expect(result.items).toEqual([])
-    expect(result.error).toContain('500')
+    expect(result.error).toBe('微博限制匿名访问')
+  })
+
+  it('falls back to the current Baidu page structure when the bundled parser returns no items', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.endsWith('/all')) {
+        return jsonResponse({
+          code: 200,
+          routes: [{ name: 'baidu', path: '/baidu' }]
+        })
+      }
+      if (url.includes('top.baidu.com')) {
+        return new Response(
+          '<!--s-data:{"currentBoard":{"cards":[{"content":[{"content":[{"index":1,"word":"百度热点","url":"https://m.baidu.com/s?word=test","hotScore":123456}]}]}]}}-->',
+          { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } }
+        )
+      }
+      return jsonResponse({ code: 200, title: '百度', data: [] })
+    }))
+
+    const service = new HotspotService(embeddedStub())
+    await service.bootstrap()
+    const [result] = await service.refresh(['baidu'])
+
+    expect(result.status).toBe('ready')
+    expect(result.items[0]).toMatchObject({
+      title: '百度热点',
+      rank: 1,
+      hotValue: '12万'
+    })
   })
 })

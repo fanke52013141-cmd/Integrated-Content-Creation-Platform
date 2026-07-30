@@ -2,7 +2,7 @@
   "name": "moliu-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "墨流：本地优先的自媒体 AI 创作桌面应用",
+  "description": "心流：本地优先的自媒体 AI 创作桌面应用",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
@@ -57,7 +57,7 @@
   },
   "build": {
     "appId": "com.moliu.desktop",
-    "productName": "墨流",
+    "productName": "心流",
     "directories": {
       "output": "release"
     },
