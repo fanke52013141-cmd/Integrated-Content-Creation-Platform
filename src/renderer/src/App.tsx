@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate as useRouterNavigate } from 'react-router-dom'
 import type {
   AccountProfileSummary,
   AppBootstrap,
@@ -33,31 +34,20 @@ const initialBootstrap: AppBootstrap = {
   accounts: []
 }
 
+const ROUTE_IDS: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
+
 export function App(): React.JSX.Element {
   useAutoAriaHidden()
-  // P1-1: 路由与 URL hash 同步，支持深链/刷新保留路由/浏览器前进后退
-  const [route, setRoute] = useState<RouteId>(() => {
-    const hash = window.location.hash.replace(/^#\/?/, '')
-    const valid: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
-    return (valid as string[]).includes(hash) ? (hash as RouteId) : 'dashboard'
-  })
+  const location = useLocation()
+  const routerNavigate = useRouterNavigate()
+  const route: RouteId = useMemo(() => {
+    const pathname = location.pathname.replace(/^\//, '')
+    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'dashboard'
+  }, [location.pathname])
 
   const navigate = useCallback((next: RouteId): void => {
-    setRoute(next)
-    if (window.location.hash !== `#/${next}`) {
-      window.history.pushState(null, '', `#/${next}`)
-    }
-  }, [])
-
-  useEffect(() => {
-    const handlePopState = (): void => {
-      const hash = window.location.hash.replace(/^#\/?/, '')
-      const valid: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
-      if ((valid as string[]).includes(hash)) setRoute(hash as RouteId)
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+    routerNavigate(`/${next}`)
+  }, [routerNavigate])
   const [data, setData] = useState<AppBootstrap>(initialBootstrap)
   const [loading, setLoading] = useState(true)
   const [fatalError, setFatalError] = useState<string>()
@@ -128,7 +118,7 @@ export function App(): React.JSX.Element {
         theme={theme}
         providers={data.providers}
         currentAccount={currentAccount}
-        onNavigate={setRoute}
+        onNavigate={navigate}
         onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
       >
         {route === 'dashboard' && (
@@ -136,7 +126,7 @@ export function App(): React.JSX.Element {
             providers={data.providers}
             accounts={data.accounts}
             currentAccount={currentAccount}
-            onNavigate={setRoute}
+            onNavigate={navigate}
           />
         )}
         {route === 'accounts' && (
@@ -144,7 +134,7 @@ export function App(): React.JSX.Element {
             accounts={data.accounts}
             providers={data.providers}
             onRefresh={refresh}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}
@@ -161,7 +151,7 @@ export function App(): React.JSX.Element {
             accounts={data.accounts}
             providers={data.providers}
             currentAccountId={currentAccount?.id}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}
@@ -170,14 +160,14 @@ export function App(): React.JSX.Element {
             accounts={data.accounts}
             providers={data.providers}
             currentAccountId={currentAccount?.id}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}
         {route === 'materials' && (
           <MaterialsPage
             searchService={data.searchService}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}
@@ -186,7 +176,7 @@ export function App(): React.JSX.Element {
             accounts={data.accounts}
             providers={data.providers}
             currentAccountId={currentAccount?.id}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}
@@ -195,7 +185,7 @@ export function App(): React.JSX.Element {
             accounts={data.accounts}
             providers={data.providers}
             currentAccountId={currentAccount?.id}
-            onNavigate={setRoute}
+            onNavigate={navigate}
             showToast={setToast}
           />
         )}

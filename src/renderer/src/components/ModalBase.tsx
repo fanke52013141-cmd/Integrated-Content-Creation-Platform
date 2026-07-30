@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * P1-6: 模态弹窗基础组件，统一提供：
@@ -118,7 +119,9 @@ export function ModalBase({
 
   if (!open) return null
 
-  return (
+  // v1.1: 使用 createPortal 渲染到 body，避免 ModalBase 设置 main inert 时把对话框自身
+  // （如 MaterialsPage 内嵌的 ManualMaterialDialog）一并拦截
+  return createPortal(
     <div
       className="modal-overlay"
       role="presentation"
@@ -138,6 +141,7 @@ export function ModalBase({
       >
         {children}
       </section>
-    </div>
+    </div>,
+    document.body
   )
 }
