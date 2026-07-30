@@ -110,7 +110,7 @@ try {
   await saveButton.click()
   await window.waitForTimeout(300)
   const nameFieldError = await window.locator('.provider-editor .field-error').count()
-  record('P2', 'providers', `provider 表单空提交后的内联错误数量: ${nameFieldError}（P2-5 若为 0 说明该表单尚未接入 useFormErrors）`)
+  check(nameFieldError >= 1, 'P1', 'providers', `provider 表单空提交后内联错误数量 ${nameFieldError}（应为 ≥1，提示 API Key 必填）`)
 
   // --- 关键交互: 素材页手动添加空提交, 验证 P2-5 表单内联错误 + 首错误聚焦 ---
   await window.evaluate(() => { window.location.hash = '#/materials' })
@@ -134,13 +134,18 @@ try {
   // --- 关键交互: skip link ---
   const skipLink = window.locator('.skip-link')
   check(await skipLink.count() === 1, 'P1', 'global', 'skip link 不存在')
+  await window.evaluate(() => document.body.focus())
+  await window.waitForTimeout(100)
   await window.keyboard.press('Tab')
   await window.waitForTimeout(200)
   const skipFocused = await window.evaluate(() => document.activeElement?.classList.contains('skip-link'))
-  // skip link 是否焦点首个元素取决于 DOM 顺序, 记录即可
-  record('P2', 'global', `首个 Tab 焦点落在 skip-link: ${skipFocused === true}`)
+  check(skipFocused === true, 'P2', 'global', '首个 Tab 焦点未落在 skip-link 上')
 
-  // --- 关键交互: 大列表(素材库空状态) ---
+  // --- 关键交互: 素材库空状态（切换到“我的素材”标签页） ---
+  await window.evaluate(() => { window.location.hash = '#/materials' })
+  await window.waitForTimeout(400)
+  await window.getByRole('button', { name: /我的素材/ }).first().click()
+  await window.waitForTimeout(400)
   const emptyState = await window.getByText('素材集合还是空的', { exact: false }).count()
   check(emptyState === 1, 'P2', 'materials', '素材库空状态未显示')
 

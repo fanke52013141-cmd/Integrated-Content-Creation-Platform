@@ -21,7 +21,8 @@ import type {
 } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
-import { errorMessage, formatDate } from '../lib'
+import { FieldError, useFormErrors } from '../components/useFormErrors'
+import { errorMessage, formatDate, isSafeUrl } from '../lib'
 
 interface ProvidersPageProps {
   providers: ProviderSummary[]
@@ -65,6 +66,7 @@ export function ProvidersPage({
   showToast
 }: ProvidersPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
+  const { validate, errorOf, clearError, clearAll, setErrorRef } = useFormErrors<{ displayName: string; baseUrl: string; apiKey: string }>()
   const [presets, setPresets] = useState<ProviderPreset[]>([])
   const [form, setForm] = useState<SaveProviderInput>(emptyForm)
   const [selectedId, setSelectedId] = useState<string>()
@@ -82,6 +84,7 @@ export function ProvidersPage({
   )
 
   function chooseProvider(provider: ProviderSummary): void {
+    clearAll()
     setSelectedId(provider.id)
     setForm({
       id: provider.id,
@@ -107,6 +110,7 @@ export function ProvidersPage({
   }
 
   function choosePreset(preset: ProviderPreset): void {
+    clearAll()
     setSelectedId(undefined)
     setForm({
       ...emptyForm(),
@@ -135,10 +139,15 @@ export function ProvidersPage({
     }))
     const enabledModels = models.filter((model) => model.enabled)
     const defaultModel = enabledModels.find((model) => model.isDefault)
-    if (!form.displayName.trim() || !form.baseUrl.trim()) {
-      showToast({ type: 'error', message: '请完整填写连接名称和 Base URL' })
-      return
-    }
+    const valid = validate(
+      { displayName: form.displayName, baseUrl: form.baseUrl, apiKey: form.apiKey ?? '' },
+      {
+        displayName: (value) => value.trim() ? null : '请填写连接显示名称',
+        baseUrl: (value) => !value.trim() ? '请填写 Base URL' : isSafeUrl(value) ? null : 'Base URL 必须是有效的 http(s) 地址',
+        apiKey: (value) => !form.id && !value.trim() ? '首次创建时需要填写 API Key' : null
+      }
+    )
+    if (!valid) return
     if (!models.length || models.some((model) => !model.modelId || !model.displayName)) {
       showToast({ type: 'error', message: '每个模型都需要填写别名和 API 模型 ID' })
       return
@@ -149,10 +158,6 @@ export function ProvidersPage({
     }
     if (new Set(models.map((model) => model.modelId)).size !== models.length) {
       showToast({ type: 'error', message: '同一连接内的 API 模型 ID 不能重复' })
-      return
-    }
-    if (!form.id && !form.apiKey?.trim()) {
-      showToast({ type: 'error', message: '首次创建供应商时需要填写 API Key' })
       return
     }
     setSaving(true)
@@ -340,17 +345,19 @@ export function ProvidersPage({
           </div>
 
           <div className="form-grid">
-            <label className="field full">
+            <label className={`field full ${errorOf('displayName') ? 'has-error' : ''}`}>
               <span>显示名称</span>
               <input
                 name="displayName"
                 autoComplete="off"
+                ref={setErrorRef('displayName')}
                 value={form.displayName}
-                onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+                onChange={(event) => { setForm({ ...form, displayName: event.target.value }); clearError('displayName') }}
                 placeholder="例如：DeepSeek 主账号…"
               />
+              <FieldError message={errorOf('displayName')} />
             </label>
-            <label className="field full">
+            <label className={`field full ${errorOf('baseUrl') ? 'has-error' : ''}`}>
               <span>Base URL</span>
               <input
                 type="url"
@@ -360,13 +367,15 @@ export function ProvidersPage({
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
+                ref={setErrorRef('baseUrl')}
                 value={form.baseUrl}
-                onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
+                onChange={(event) => { setForm({ ...form, baseUrl: event.target.value }); clearError('baseUrl') }}
                 placeholder="https://api.example.com/v1…"
               />
               <small>系统会调用该地址下的 `/chat/completions`。</small>
+              <FieldError message={errorOf('baseUrl')} />
             </label>
-            <label className="field full">
+            <label className={`field full ${errorOf('apiKey') ? 'has-error' : ''}`}>
               <span>API Key {form.id && <em>留空表示不修改</em>}</span>
               <input
                 type="password"
@@ -375,10 +384,12 @@ export function ProvidersPage({
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
+                ref={setErrorRef('apiKey')}
                 value={form.apiKey ?? ''}
-                onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
+                onChange={(event) => { setForm({ ...form, apiKey: event.target.value }); clearError('apiKey') }}
                 placeholder={form.id && selected?.hasApiKey ? '••••••••••••••••' : 'sk-…'}
               />
+              <FieldError message={errorOf('apiKey')} />
             </label>
           </div>
 
