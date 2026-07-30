@@ -29,6 +29,7 @@ import type {
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
+import { ModalBase } from '../components/ModalBase'
 import { VirtualList } from '../components/VirtualList'
 import { errorMessage, formatDate } from '../lib'
 
@@ -461,9 +462,8 @@ function SchemaDialog({
     }
   }
   return (
-    <div className="modal-overlay" role="presentation">
-      <section className="topic-schema-dialog" role="dialog" aria-modal="true">
-        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2>配置选题字段</h2><p>字段会立即成为后续 AI 生成的 JSON 模板；已有选题保持自己的历史结构。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
+    <ModalBase open onClose={onClose} titleId="topic-schema-title" bare className="topic-schema-dialog">
+        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2><p>字段会立即成为后续 AI 生成的 JSON 模板；已有选题保持自己的历史结构。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">
@@ -478,9 +478,8 @@ function SchemaDialog({
         </div>
         <button className="button ghost compact" disabled={fields.length >= 20} onClick={() => setFields((current) => [...current, { id: crypto.randomUUID(), name: '', required: false, sortOrder: current.length }])}><Plus size={15} />添加字段</button>
         <footer><button className="button ghost" onClick={() => void reset()}><RotateCcw size={15} />恢复默认</button><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" onClick={() => void onSave(fields)}>保存字段</button></footer>
-      </section>
       {ConfirmPortal}
-    </div>
+    </ModalBase>
   )
 }
 
@@ -520,17 +519,15 @@ function TopicEditor({
     }
   }
   return (
-    <div className="modal-overlay" role="presentation">
-      <section className="topic-editor-dialog" role="dialog" aria-modal="true">
-        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2>打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
+    <ModalBase open onClose={onClose} titleId="topic-editor-title" bare className="topic-editor-dialog">
+        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2 id="topic-editor-title">打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
         <div className="topic-editor-fields">
           {Object.entries(fields).map(([name, value]) => (
             <label className="field" key={name}><span>{name}</span><textarea name="topicField" autoComplete="off" rows={name === '选题主题' ? 2 : 3} value={value} onChange={(event) => setFields((current) => ({ ...current, [name]: event.target.value }))} /></label>
           ))}
         </div>
         <footer><span>关联 {topic.relatedHotIds.length} 条热点快照</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Save size={15} />}保存新版本</button></footer>
-      </section>
-    </div>
+    </ModalBase>
   )
 }
 

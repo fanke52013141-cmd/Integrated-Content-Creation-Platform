@@ -39,6 +39,7 @@ import { errorMessage } from '../lib'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
+import { ModalBase } from '../components/ModalBase'
 import { VirtualList } from '../components/VirtualList'
 
 const BATCH_SIZE = 8
@@ -876,12 +877,11 @@ export function HotspotsPage({
       )}
 
       {sourceManagerOpen && (
-        <div className="modal-overlay" role="presentation">
-          <section className="source-manager-dialog" role="dialog" aria-modal="true">
+        <ModalBase open onClose={() => setSourceManagerOpen(false)} titleId="source-manager-title" bare className="source-manager-dialog">
             <header>
               <div>
                 <span className="eyebrow">PLATFORM DISPLAY</span>
-                <h2>管理热榜平台</h2>
+                <h2 id="source-manager-title">管理热榜平台</h2>
                 <p>拖拽调整顺序；隐藏只影响热榜墙，平台仍可参与 AI 筛选。</p>
               </div>
               <button
@@ -958,17 +958,15 @@ export function HotspotsPage({
                 保存设置
               </button>
             </footer>
-          </section>
-        </div>
+        </ModalBase>
       )}
 
       {filterDialogOpen && (
-        <div className="modal-overlay" role="presentation">
-          <section className="hotspot-filter-dialog" role="dialog" aria-modal="true">
+        <ModalBase open onClose={() => { if (!filtering) setFilterDialogOpen(false) }} titleId="hotspot-filter-title" bare className="hotspot-filter-dialog">
             <header>
               <div>
                 <span className="eyebrow">AI HOTSPOT SCREENING</span>
-                <h2>{filterScope === 'favorites' ? '筛选收藏热点' : '配置热点筛选'}</h2>
+                <h2 id="hotspot-filter-title">{filterScope === 'favorites' ? '筛选收藏热点' : '配置热点筛选'}</h2>
                 <p>
                   {filterScope === 'favorites' ? '范围：当前收藏夹。' : '范围：已加载实时热榜。'}
                   仅使用已锁定账号定位，不叠加关键词过滤。
@@ -1093,8 +1091,7 @@ export function HotspotsPage({
                 {filtering ? '正在筛选' : '开始筛选'}
               </button>
             </footer>
-          </section>
-        </div>
+        </ModalBase>
       )}
       {ConfirmPortal}
     </div>

@@ -21,6 +21,7 @@ export interface ModalBaseProps {
   describedBy?: string
   className?: string
   closeOnOverlay?: boolean
+  bare?: boolean
 }
 
 const FOCUSABLE_SELECTOR =
@@ -34,7 +35,8 @@ export function ModalBase({
   labelledBy,
   describedBy,
   className,
-  closeOnOverlay = true
+  closeOnOverlay = true,
+  bare = false
 }: ModalBaseProps): React.JSX.Element | null {
   const dialogRef = useRef<HTMLElement>(null)
   const previousActiveElement = useRef<Element | null>(null)
@@ -131,7 +133,7 @@ export function ModalBase({
     >
       <section
         ref={dialogRef}
-        className={`modal ${className ?? ''}`}
+        className={bare ? (className ?? '') : `modal ${className ?? ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? titleId}

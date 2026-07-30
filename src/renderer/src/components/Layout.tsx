@@ -154,7 +154,7 @@ export function Layout({
           </button>
         )}
 
-        <main id="main" className="content">{children}</main>
+        <main id="main" className="content" tabIndex={-1}>{children}</main>
       </section>
     </div>
   )
