@@ -140,14 +140,14 @@ function AccountList({
   const filtered = accounts.filter((account) =>
     account.name.toLowerCase().includes(search.trim().toLowerCase())
   )
+  const outputFields = ['账号名称', '内容领域', '目标读者', '核心价值', '内容角度', '表达语气', '内容形式', '差异化优势']
 
   return (
     <div className="page account-list-page">
       <section className="page-intro">
         <div>
           <span className="eyebrow"><CircleUserRound size={14} /> IDENTITY SYSTEM</span>
-          <h2>先定义“这个号是谁”。</h2>
-          <p>定位会成为后续选题、写作、评审和配图共同读取的创作基线。</p>
+          <h2>账号定位</h2>
         </div>
         <button className="button primary" onClick={onCreate}>
           <Plus size={16} />新建账号
@@ -208,21 +208,40 @@ function AccountList({
           )}
         </>
       ) : (
-        <section className="large-empty">
-          <div className="empty-art">
-            <span className="empty-orbit" />
-            <CircleUserRound size={38} />
+        <section className="account-onboarding-grid">
+          <article className="account-onboarding-card panel">
+            <header><CircleUserRound size={20} /><h3>建立你的内容基线</h3></header>
+            <div className="account-onboarding-steps">
+              <div><b>1</b><span><ClipboardStep icon={<FileClock size={18} />} label="回答 7 个问题" time="约 3 分钟" /></span></div>
+              <div><b>2</b><span><ClipboardStep icon={<Sparkles size={18} />} label="智能整理定位" time="约 1 分钟" /></span></div>
+              <div><b>3</b><span><ClipboardStep icon={<Lock size={18} />} label="确认并锁定" time="约 1 分钟" /></span></div>
+            </div>
+            <span className="account-update-chip"><RotateCcw size={14} />可随时更新</span>
+            <button className="button primary large" onClick={onCreate}>
+              <WandSparkles size={17} />开始定位
+            </button>
+          </article>
+          <div className="account-onboarding-side">
+            <article className="account-output-card panel">
+              <header><FileClock size={20} /><h3>最终会得到</h3></header>
+              <div className="account-output-list">
+                {outputFields.map((field) => <span key={field}><strong>{field}</strong><i /></span>)}
+              </div>
+            </article>
+            <article className="account-local-card panel"><KeyRound size={19} /><strong>数据仅保存在本机</strong></article>
           </div>
-          <span className="eyebrow">START HERE</span>
-          <h3>账号定位是整个流程的起点</h3>
-          <p>回答七个问题，AI 会整理为八个可编辑字段。你仍然拥有最终决定权。</p>
-          <button className="button primary" onClick={onCreate}>
-            <WandSparkles size={16} />开始定位
-          </button>
+          <article className="account-drafts-card panel">
+            <header><h3>最近草稿</h3></header>
+            <div><FileClock size={25} /><span>暂无草稿</span></div>
+          </article>
         </section>
       )}
     </div>
   )
+}
+
+function ClipboardStep({ icon, label, time }: { icon: React.ReactNode; label: string; time: string }): React.JSX.Element {
+  return <>{icon}<strong>{label}</strong><small>{time}</small></>
 }
 
 function AccountWizard({
@@ -351,7 +370,6 @@ function AccountWizard({
         <aside className="wizard-steps">
           <span className="eyebrow">ACCOUNT FOUNDATION</span>
           <h2>建立账号基线</h2>
-          <p>答案可以简短，也可以跳过。AI 会补全，但不会替你做最终决定。</p>
           <ol>
             {WIZARD_QUESTIONS.map((question, index) => (
               <li
@@ -373,7 +391,6 @@ function AccountWizard({
             <div className="question-card">
               <span className="question-number">问题 {String(step + 1).padStart(2, '0')}</span>
               <h3>{currentQuestion.question}</h3>
-              <p>{currentQuestion.hint}</p>
               <label className="textarea-field">
                 <textarea
                   name="wizardAnswer"
@@ -415,8 +432,7 @@ function AccountWizard({
             <div className="generation-ready">
               <span className="generation-symbol"><WandSparkles size={28} /></span>
               <span className="eyebrow">READY TO GENERATE</span>
-              <h3>把七段回答，整理成一套定位。</h3>
-              <p>AI 将生成八个字段。生成结果仍可逐项编辑、增删和保存。</p>
+              <h3>生成账号定位</h3>
               <div className="answer-summary">
                 {answers.map((item, index) => (
                   <div key={item.questionId}>
@@ -432,7 +448,7 @@ function AccountWizard({
                   autoComplete="off"
                   value={extraContext}
                   onChange={(event) => setExtraContext(event.target.value)}
-                  placeholder="还有哪些边界、偏好或背景需要告诉 AI？…"
+                  placeholder="补充边界、偏好或背景"
                 />
               </label>
               <div className="generation-controls">
@@ -464,7 +480,7 @@ function AccountWizard({
                   <KeyRound size={16} />需要先配置模型网关 <ChevronRight size={15} />
                 </button>
               )}
-              <button className="text-button" onClick={startManual}>跳过 AI，手动填写字段</button>
+              <button className="text-button" onClick={startManual}>手动填写字段</button>
             </div>
           )}
         </div>
@@ -473,7 +489,6 @@ function AccountWizard({
           <aside className="wizard-actions-panel">
             <span className="eyebrow">GENERATED DRAFT</span>
             <h3>人工确认</h3>
-            <p>定位已生成。请逐项检查，再决定保存为草稿或锁定。</p>
             {generated && (
               <div className="generation-meta">
                 <span><Sparkles size={14} />{generated.model}</span>
@@ -687,14 +702,14 @@ function AccountEditor({
         <aside className="account-context">
           <section className="panel xml-panel">
             <div className="section-heading">
-              <div><span className="eyebrow">DOWNSTREAM PAYLOAD</span><h3>XML 预览</h3></div>
+              <div><span className="eyebrow">DOWNSTREAM PAYLOAD</span><h3>结构预览</h3></div>
               <button
                 className="icon-button"
                 title="复制"
                 aria-label="复制"
                 onClick={() => {
                   void navigator.clipboard.writeText(serializePreview(fields))
-                  showToast({ type: 'success', message: 'XML 已复制' })
+                  showToast({ type: 'success', message: '结构内容已复制' })
                 }}
               >
                 <Copy size={16} />
@@ -836,7 +851,7 @@ function escapeXml(value: string): string {
 }
 
 function sourceLabel(source: 'ai' | 'manual' | 'restore'): string {
-  return source === 'ai' ? 'AI 生成' : source === 'restore' ? '版本恢复' : '手动保存'
+  return source === 'ai' ? '智能生成' : source === 'restore' ? '版本恢复' : '手动保存'
 }
 
 function encodeModelTarget(providerId: string, modelId: string): string {
