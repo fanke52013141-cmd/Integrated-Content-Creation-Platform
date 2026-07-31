@@ -31,7 +31,7 @@ function createWindow(): void {
     minWidth: 1180,
     minHeight: 720,
     show: false,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#f5f5f7',
     title: '心流',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -43,6 +43,12 @@ function createWindow(): void {
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event) => event.preventDefault())
+  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    console.error('[did-fail-load]', errorCode, errorDescription)
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[render-process-gone]', JSON.stringify(details))
+  })
   window.once('ready-to-show', () => window.show())
 
   const rendererUrl = process.env.ELECTRON_RENDERER_URL
@@ -66,51 +72,57 @@ if (!hasLock) {
   })
 
   app.whenReady().then(() => {
-    const dataPath = app.getPath('userData')
-    database = new AppDatabase(join(dataPath, 'moliu.db'))
-    const keyStore = new KeyStore(database)
-    const gateway = new ModelGateway(database, keyStore)
-    const accountGenerator = new AccountGenerator(gateway)
-    embeddedHotService = new EmbeddedHotService()
-    const hotspotService = new HotspotService(embeddedHotService, database)
-    const hotspotFilter = new HotspotFilter(database, gateway)
-    const topicGenerator = new TopicGenerator(database, gateway)
-    const materialSearchService = new MaterialSearchService(
-      database,
-      keyStore,
-      process.env.MOLIU_DOUBAO_SEARCH_ENDPOINT || undefined
-    )
-    const frameworkGenerator = new FrameworkGenerator(database, gateway)
-    const articleGenerator = new ArticleGenerator(database, gateway)
-    const reviewService = new ReviewService(database, gateway, articleGenerator)
-    const visualPackGenerator = new VisualPackGenerator(database, gateway)
-    const articleLayoutService = new ArticleLayoutService(database)
-    const wechatPublishService = new WechatPublishService(database, keyStore, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
-    registerIpc({
-      database,
-      keyStore,
-      gateway,
-      accountGenerator,
-      hotspotFilter,
-      hotspotService,
-      topicGenerator,
-      materialSearchService,
-      frameworkGenerator,
-      articleGenerator,
-      reviewService,
-      visualPackGenerator,
-      articleLayoutService,
-      wechatPublishService,
-      dataPath
-    })
-    createWindow()
-    void embeddedHotService.start().catch((error) => {
+    try {
+      const dataPath = app.getPath('userData')
+      database = new AppDatabase(join(dataPath, 'moliu.db'))
+      const keyStore = new KeyStore(database)
+      const gateway = new ModelGateway(database, keyStore)
+      const accountGenerator = new AccountGenerator(gateway)
+      embeddedHotService = new EmbeddedHotService()
+      const hotspotService = new HotspotService(embeddedHotService, database)
+      const hotspotFilter = new HotspotFilter(database, gateway)
+      const topicGenerator = new TopicGenerator(database, gateway)
+      const materialSearchService = new MaterialSearchService(
+        database,
+        keyStore,
+        process.env.MOLIU_DOUBAO_SEARCH_ENDPOINT || undefined
+      )
+      const frameworkGenerator = new FrameworkGenerator(database, gateway)
+      const articleGenerator = new ArticleGenerator(database, gateway)
+      const reviewService = new ReviewService(database, gateway, articleGenerator)
+      const visualPackGenerator = new VisualPackGenerator(database, gateway)
+      const articleLayoutService = new ArticleLayoutService(database)
+      const wechatPublishService = new WechatPublishService(database, keyStore, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
+      registerIpc({
+        database,
+        keyStore,
+        gateway,
+        accountGenerator,
+        hotspotFilter,
+        hotspotService,
+        topicGenerator,
+        materialSearchService,
+        frameworkGenerator,
+        articleGenerator,
+        reviewService,
+        visualPackGenerator,
+        articleLayoutService,
+        wechatPublishService,
+        dataPath
+      })
+      createWindow()
+    } catch (initError) {
+      console.error('[main] initialization failed:', initError)
+    }
+    void embeddedHotService?.start().catch((error) => {
       console.error('Embedded DailyHotApi failed to start:', error)
     })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })
+  }).catch((readyError) => {
+    console.error('[main] app.whenReady failed:', readyError)
   })
 }
 
