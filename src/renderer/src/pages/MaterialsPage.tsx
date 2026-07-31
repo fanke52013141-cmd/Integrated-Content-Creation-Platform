@@ -29,6 +29,7 @@ import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { FieldError, useFormErrors } from '../components/useFormErrors'
 import { ModalBase } from '../components/ModalBase'
+import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { errorMessage, formatDate, isSafeUrl } from '../lib'
 
@@ -174,17 +175,23 @@ export function MaterialsPage({
                   <button className={type === 'image' ? 'active' : ''} onClick={() => setType('image')}><Image size={15} />图片</button>
                 </div>
                 <label className="material-query-input"><Search size={17} /><input type="search" inputMode="search" name="query" autoComplete="off" value={query} maxLength={100} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void search()} placeholder={type === 'web' ? '输入一个主题、人物、案例或事实关键词…' : '输入一个图片参考关键词…'} /></label>
-                <select name="resultCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
-                  {(type === 'web' ? [5, 10, 20, 30, 50] : [1, 3, 5]).map((item) => <option key={item} value={item}>{item} 条</option>)}
-                </select>
+                <Select
+                  value={String(count)}
+                  onChange={(value) => setCount(Number(value))}
+                  ariaLabel="结果数量"
+                  options={(type === 'web' ? [5, 10, 20, 30, 50] : [1, 3, 5]).map((item) => ({ value: String(item), label: `${item} 条` }))}
+                />
                 <button className="button primary" disabled={searching} onClick={() => void search()}>{searching ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />}{searching ? '搜索中…' : '开始搜索'}</button>
               </div>
               <div className="material-search-context">
                 <span><Link2 size={14} />关联选题（可选）</span>
-                <select name="relatedTopicId" autoComplete="off" value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}>
-                  <option value="">不关联选题</option>
-                  {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.fields['选题主题'] || topic.seedKeyword}</option>)}
-                </select>
+                <Select
+                  value={relatedTopicId}
+                  onChange={setRelatedTopicId}
+                  placeholder="不关联选题"
+                  ariaLabel="关联选题（可选）"
+                  options={[{ value: '', label: '不关联选题' }, ...topics.map((topic) => ({ value: topic.id, label: topic.fields['选题主题'] || topic.seedKeyword }))]}
+                />
               </div>
               {searchResult ? (
                 <div className="material-search-results">
@@ -271,5 +278,5 @@ function ManualMaterialDialog({ topics, onClose, onSaved, showToast }: { topics:
       showToast({ type: 'success', message: '文字素材已加入可复用集合' })
     } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setSaving(false) }
   }
-  return <ModalBase open onClose={onClose} titleId="manual-material-title" className="manual-material-dialog"><header><div><span className="eyebrow">MANUAL MATERIAL</span><h2 id="manual-material-title">添加文字素材</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={18} /></button></header><div className="manual-material-fields"><label className={`field ${errorOf('title') ? 'has-error' : ''}`}><span>标题</span><input name="title" autoComplete="off" ref={setErrorRef('title')} value={title} maxLength={500} onChange={(event) => { setTitle(event.target.value); clearError('title') }} placeholder="例如：专家访谈摘录…" /><FieldError message={errorOf('title')} /></label><label className={`field ${errorOf('summary') ? 'has-error' : ''}`}><span>摘要 / 摘录</span><textarea name="summary" autoComplete="off" ref={setErrorRef('summary')} value={summary} maxLength={3_000} onChange={(event) => { setSummary(event.target.value); clearError('summary') }} rows={8} placeholder="粘贴相关笔记、观点、事实或访谈摘录…" /><small>{summary.length}/3000</small><FieldError message={errorOf('summary')} /></label><label className={`field ${errorOf('sourceUrl') ? 'has-error' : ''}`}><span>来源链接（可选）</span><input type="url" inputMode="url" name="sourceUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" ref={setErrorRef('sourceUrl')} value={sourceUrl} onChange={(event) => { setSourceUrl(event.target.value); clearError('sourceUrl') }} placeholder="https://…" /><FieldError message={errorOf('sourceUrl')} /></label><label className="field"><span>来源说明（可选）</span><input name="sourceNote" autoComplete="off" value={sourceNote} maxLength={500} onChange={(event) => setSourceNote(event.target.value)} placeholder="例如：个人访谈整理…" /></label><label className="field"><span>关联选题（可选）</span><select name="manualRelatedTopicId" autoComplete="off" value={relatedTopicId} onChange={(event) => setRelatedTopicId(event.target.value)}><option value="">不关联选题</option>{topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.fields['选题主题'] || topic.seedKeyword}</option>)}</select></label></div><footer><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Upload size={15} />}加入素材库</button></footer></ModalBase>
+  return <ModalBase open onClose={onClose} titleId="manual-material-title" className="manual-material-dialog"><header><div><span className="eyebrow">MANUAL MATERIAL</span><h2 id="manual-material-title">添加文字素材</h2></div><button className="icon-button" onClick={onClose} aria-label="关闭"><X size={18} /></button></header><div className="manual-material-fields"><label className={`field ${errorOf('title') ? 'has-error' : ''}`}><span>标题</span><input name="title" autoComplete="off" ref={setErrorRef('title')} value={title} maxLength={500} onChange={(event) => { setTitle(event.target.value); clearError('title') }} placeholder="例如：专家访谈摘录…" /><FieldError message={errorOf('title')} /></label><label className={`field ${errorOf('summary') ? 'has-error' : ''}`}><span>摘要 / 摘录</span><textarea name="summary" autoComplete="off" ref={setErrorRef('summary')} value={summary} maxLength={3_000} onChange={(event) => { setSummary(event.target.value); clearError('summary') }} rows={8} placeholder="粘贴相关笔记、观点、事实或访谈摘录…" /><small>{summary.length}/3000</small><FieldError message={errorOf('summary')} /></label><label className={`field ${errorOf('sourceUrl') ? 'has-error' : ''}`}><span>来源链接（可选）</span><input type="url" inputMode="url" name="sourceUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" ref={setErrorRef('sourceUrl')} value={sourceUrl} onChange={(event) => { setSourceUrl(event.target.value); clearError('sourceUrl') }} placeholder="https://…" /><FieldError message={errorOf('sourceUrl')} /></label><label className="field"><span>来源说明（可选）</span><input name="sourceNote" autoComplete="off" value={sourceNote} maxLength={500} onChange={(event) => setSourceNote(event.target.value)} placeholder="例如：个人访谈整理…" /></label><label className="field"><span>关联选题（可选）</span><Select value={relatedTopicId} onChange={setRelatedTopicId} placeholder="不关联选题" ariaLabel="关联选题（可选）" options={[{ value: '', label: '不关联选题' }, ...topics.map((topic) => ({ value: topic.id, label: topic.fields['选题主题'] || topic.seedKeyword }))]} /></label></div><footer><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Upload size={15} />}加入素材库</button></footer></ModalBase>
 }

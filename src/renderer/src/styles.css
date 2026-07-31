@@ -1,4 +1,4 @@
-/* Golden Time signature typeface — Fraunces (bundled locally, CSP-safe) */
+﻿/* Golden Time signature typeface — Fraunces (bundled locally, CSP-safe) */
 @font-face {
   font-family: 'Fraunces';
   font-style: normal;
@@ -81,11 +81,11 @@
   --accent: #d1d1d6;
   --accent-strong: #007aff;
   --warm-glow: #ff9500;
-  --focus: rgba(0, 0, 0, 0.2);
+  --focus: rgba(0, 122, 255, 0.16);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.03);
   --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.16);
   --shadow-3: 0 18px 46px -18px rgba(0, 0, 0, 0.24);
-  /* P0-3: 鍒悕淇姝ゅ墠鏈畾涔夌殑 --shadow-sm/md/lg */
+  /* P0-3: 别名修复此前未定义的 --shadow-sm/md/lg */
   --shadow-sm: var(--shadow-1);
   --shadow-md: var(--shadow-2);
   --shadow-lg: var(--shadow-3);
@@ -128,7 +128,7 @@
   --accent: #636366;
   --accent-strong: #aeaeb2;
   --warm-glow: #ff9500;
-  --focus: rgba(0, 122, 255, undefined);
+  --focus: rgba(10, 132, 255, 0.25);
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.6);
   --shadow-3: 0 18px 46px -18px rgba(0, 0, 0, 0.7);
@@ -145,7 +145,7 @@ html,
 body,
 #root {
   width: 100%;
-  min-width: 1180px;
+  min-width: 1040px;
   height: 100%;
   margin: 0;
   overflow: hidden;
@@ -1141,7 +1141,7 @@ p {
   font-size: 9px;
 }
 
-/* P2-5: 琛ㄥ崟鍐呰仈閿欒 */
+/* P2-5: 表单内联错误 */
 .field-error {
   color: var(--red-600);
   font-size: 11px;
@@ -2852,26 +2852,137 @@ p {
 .favorite-toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
   background: var(--surface-subtle);
   border-bottom: 1px solid var(--border);
 }
 
-.favorite-toolbar .search-field {
-  width: min(360px, 35%);
-  background: var(--surface-solid);
-}
-
-.favorite-tag-filters {
+.favorite-filters {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.favorite-tag-filters button,
+.favorite-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* 工具栏内搜索框统一为 32px 高，与紧凑按钮对齐 */
+.favorite-toolbar .search-field {
+  width: 220px;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.favorite-toolbar .search-field svg {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.favorite-toolbar .search-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* 抵消 refresh.css 给 input 加的边框/背景，让外层 label 的单一边框定义搜索框 */
+.favorite-toolbar .search-field input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.favorite-toolbar .search-field input:focus {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+/* 标签筛选：Apple 风格分段控件 */
+.favorite-tag-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.favorite-tag-filters button {
+  height: 24px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.favorite-tag-filters button:hover:not(.active) {
+  color: var(--text);
+}
+
+.favorite-tag-filters button.active {
+  color: var(--text);
+  background: var(--surface-solid);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="dark"] .favorite-tag-filters button.active {
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/* 平台筛选：内联标签 + 下拉，与搜索框同高 */
+.favorite-platform-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 4px 0 11px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.favorite-platform-filter > span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.favorite-platform-filter .select-trigger {
+  width: auto;
+  min-width: 120px;
+  height: 30px;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+}
+
+.favorite-platform-filter:has(.select-trigger.open),
+.favorite-platform-filter:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* 单行标签切换保持胶囊样式 */
 .favorite-tags button {
-  padding: 6px 10px;
+  padding: 5px 10px;
   color: var(--text-secondary);
   background: var(--surface-solid);
   border: 1px solid var(--border);
@@ -2880,23 +2991,21 @@ p {
   font-weight: 600;
 }
 
-.favorite-tag-filters button.active,
 .favorite-tags button.active {
   color: var(--primary);
   background: var(--purple-50);
   border-color: var(--purple-200);
 }
 
-:root[data-theme="dark"] .favorite-tag-filters button.active,
 :root[data-theme="dark"] .favorite-tags button.active {
   background: rgba(0, 0, 0, 0.14);
   border-color: rgba(203, 192, 170, 0.28);
 }
 
 .favorite-count {
-  margin-left: auto;
   color: var(--text-tertiary);
   font-size: 11px;
+  font-weight: 600;
 }
 
 .favorite-list {
@@ -3139,7 +3248,7 @@ p {
 .filter-source-options {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   max-height: 280px;
   padding: 2px;
   overflow-y: auto;
@@ -3237,32 +3346,61 @@ p {
 .fit-filter-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   padding: 11px 18px;
   background: var(--surface-subtle);
   border-bottom: 1px solid var(--border);
 }
 
-.fit-filter-bar button {
-  padding: 6px 10px;
-  color: var(--text-secondary);
-  background: var(--surface-solid);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  font-size: 10px;
+.fit-filter-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
   font-weight: 600;
 }
 
-.fit-filter-bar button.active {
-  color: var(--primary);
-  background: var(--purple-50);
-  border-color: var(--purple-200);
+.fit-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
-.fit-filter-bar > span {
+.fit-segment button {
+  height: 24px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.fit-segment button:hover:not(.active) {
+  color: var(--text);
+}
+
+.fit-segment button.active {
+  color: var(--text);
+  background: var(--surface-solid);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="dark"] .fit-segment button.active {
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.fit-filter-count {
   margin-left: auto;
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .filter-assessment-list {
@@ -3568,7 +3706,7 @@ p {
 .topic-favorites-heading > div { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .topic-favorites-heading strong { font-size: 13px; }
 .topic-favorites-heading span { color: var(--text-tertiary); font-size: 11px; }
-.topic-favorite-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 176px; gap: 7px; overflow: auto; margin-top: 12px; padding-right: 3px; }
+.topic-favorite-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 176px; gap: 10px; overflow: auto; margin-top: 12px; padding-right: 3px; }
 .topic-favorite-options label { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; border: 1px solid transparent; border-radius: 9px; cursor: pointer; }
 .topic-favorite-options label:hover,
 .topic-favorite-options label.selected { border-color: color-mix(in srgb, var(--primary) 36%, var(--border)); background: var(--surface); }
@@ -3716,7 +3854,7 @@ p {
 .framework-material-picker strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .framework-material-picker > div:first-child span { color: var(--text-tertiary); font-size: 12px; }
 .framework-material-picker > .button { float: right; margin-top: -22px; }
-.framework-material-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.framework-material-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 .framework-material-options label { display: flex; min-width: 0; align-items: center; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--surface); }
 .framework-material-options label.selected { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
 .framework-material-options span { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
@@ -3770,7 +3908,7 @@ p {
 .article-material-picker strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .article-material-picker > div:first-child span { color: var(--text-tertiary); font-size: 12px; }
 .article-material-picker > .button { float: right; margin-top: -22px; }
-.article-material-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
+.article-material-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 .article-material-options label { display: flex; min-width: 0; align-items: center; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--surface); }
 .article-material-options label.selected { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); }
 .article-material-options span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
@@ -3897,7 +4035,7 @@ p {
   .material-search-disabled .button { margin-left: 36px; }
 }
 
-/* P1-7: 鍏ㄥ眬 prefers-reduced-motion 鍏滃簳锛屽鍓嶅涵鏁忔劅鐢ㄦ埛绂佺敤鍔ㄧ敾 */
+/* P1-7: 全局 prefers-reduced-motion 兜底，对前庭敏感用户禁用动画 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -3907,17 +4045,17 @@ p {
   }
 }
 
-/* P2-2: 鏁板瓧鍒楃瓑瀹芥暟瀛楀伐鍏风被锛岄伩鍏嶆暟瀛楄烦鍔?*/
+/* P2-2: 数字列等宽数字工具类，避免数字跳动 */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* P2-3: 鏍囬鏂囨湰骞宠　鎹㈣锛岄伩鍏嶅琛?*/
+/* P2-3: 标题文本平衡换行，避免寡行 */
 h1, h2, h3 {
   text-wrap: balance;
 }
 
-/* P2-4: skip link锛岄敭鐩樼敤鎴疯烦杩囧鑸洿杈句富鍐呭 */
+/* P2-4: skip link，键盘用户跳过导航直达主内容 */
 .skip-link {
   position: absolute;
   top: -48px;

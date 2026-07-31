@@ -30,6 +30,7 @@ import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { ModalBase } from '../components/ModalBase'
+import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { errorMessage, formatDate } from '../lib'
 
@@ -214,11 +215,7 @@ export function TopicsPage({
               <div className="topic-generation-main">
                 <label className="field">
                   <span>账号定位</span>
-                  <select name="accountId" autoComplete="off" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                    {lockedAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>{account.name} · v{account.versionCount}</option>
-                    ))}
-                  </select>
+                  <Select value={accountId} onChange={setAccountId} placeholder="选择账号" options={lockedAccounts.map((account) => ({ value: account.id, label: account.name, hint: `v${account.versionCount}` }))} ariaLabel="账号定位" />
                 </label>
                 <label className="field topic-keyword-field">
                   <span>主题</span>
@@ -265,19 +262,11 @@ export function TopicsPage({
               <aside className="topic-generation-settings">
                 <label className="field">
                   <span>模型</span>
-                  <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
-                    {availableModels.map(({ provider, model }) => (
-                      <option key={`${provider.id}:${model.id}`} value={encodeModelTarget(provider.id, model.modelId)}>
-                        {model.displayName} · {provider.displayName}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={availableModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} ariaLabel="模型" />
                 </label>
                 <label className="field topic-count-field">
                   <span>数量</span>
-                  <select name="topicCount" autoComplete="off" value={count} onChange={(event) => setCount(Number(event.target.value))}>
-                    {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} 条</option>)}
-                  </select>
+                  <Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 条` }))} ariaLabel="数量" />
                 </label>
                 <div className="topic-template-summary">
                   <span>输出模板</span>

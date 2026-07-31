@@ -48,6 +48,7 @@ import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { ModalBase } from '../components/ModalBase'
+import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 
 const BATCH_SIZE = 8
@@ -757,62 +758,61 @@ export function HotspotsPage({
       ) : view === 'favorites' ? (
         <section className="favorite-workspace">
           <div className="favorite-toolbar">
-            <label className="search-field">
-              <Search size={16} />
-              <input
-                type="search"
-                inputMode="search"
-                name="favoriteSearch"
-                autoComplete="off"
-                value={favoriteSearch}
-                onChange={(event) => setFavoriteSearch(event.target.value)}
-                placeholder="搜索收藏热点…"
-              />
-            </label>
-            <div className="favorite-tag-filters">
-              {([
-                ['all', '全部'],
-                ['待选题', '待选题'],
-                ['已用', '已用']
-              ] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  className={favoriteFilter === value ? 'active' : ''}
-                  onClick={() => setFavoriteFilter(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <label className="favorite-platform-filter">
-              <span>平台</span>
-              <select
-                name="favoriteSourceFilter"
-                autoComplete="off"
-                value={favoriteSourceFilter}
-                onChange={(event) => setFavoriteSourceFilter(event.target.value)}
-              >
-                <option value="all">全部平台</option>
-                {favoritePlatforms.map((platform) => (
-                  <option key={platform.id} value={platform.id}>{platform.name}</option>
+            <div className="favorite-filters">
+              <label className="search-field">
+                <Search size={15} />
+                <input
+                  type="search"
+                  inputMode="search"
+                  name="favoriteSearch"
+                  autoComplete="off"
+                  value={favoriteSearch}
+                  onChange={(event) => setFavoriteSearch(event.target.value)}
+                  placeholder="搜索收藏热点…"
+                />
+              </label>
+              <div className="favorite-tag-filters" role="group" aria-label="标签筛选">
+                {([
+                  ['all', '全部'],
+                  ['待选题', '待选题'],
+                  ['已用', '已用']
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={favoriteFilter === value ? 'active' : ''}
+                    onClick={() => setFavoriteFilter(value)}
+                  >
+                    {label}
+                  </button>
                 ))}
-              </select>
-            </label>
-            <button
-              className="button secondary compact"
-              disabled={!favorites.length}
-              onClick={() => openFilterDialog('favorites')}
-            >
-              <Sparkles size={14} />智能筛选收藏
-            </button>
-            <button
-              className="button primary compact"
-              disabled={!filteredFavorites.length}
-              onClick={openTopicsFromFavorites}
-            >
-              <Sparkles size={14} />用收藏生成选题
-            </button>
-            <span className="favorite-count">{filteredFavorites.length} 条</span>
+              </div>
+              <label className="favorite-platform-filter">
+                <span>平台</span>
+                <Select
+                  value={favoriteSourceFilter}
+                  onChange={setFavoriteSourceFilter}
+                  ariaLabel="平台"
+                  options={[{ value: 'all', label: '全部平台' }, ...favoritePlatforms.map((platform) => ({ value: platform.id, label: platform.name }))]}
+                />
+              </label>
+            </div>
+            <div className="favorite-actions">
+              <span className="favorite-count">{filteredFavorites.length} 条</span>
+              <button
+                className="button secondary compact"
+                disabled={!favorites.length}
+                onClick={() => openFilterDialog('favorites')}
+              >
+                <Sparkles size={14} />智能筛选收藏
+              </button>
+              <button
+                className="button primary compact"
+                disabled={!filteredFavorites.length}
+                onClick={openTopicsFromFavorites}
+              >
+                <Sparkles size={14} />用收藏生成选题
+              </button>
+            </div>
           </div>
 
           {filteredFavorites.length ? (
@@ -895,20 +895,23 @@ export function HotspotsPage({
                 </div>
               </div>
               <div className="fit-filter-bar">
-                {([
-                  ['all', '全部'],
-                  ['high', '仅高契合'],
-                  ['high-medium', '高 + 中']
-                ] as const).map(([value, label]) => (
-                  <button
-                    key={value}
-                    className={fitFilter === value ? 'active' : ''}
-                    onClick={() => setFitFilter(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <span>{visibleAssessments.length} 条可见</span>
+                <span className="fit-filter-label">契合度</span>
+                <div className="fit-segment" role="group" aria-label="契合度筛选">
+                  {([
+                    ['all', '全部'],
+                    ['high', '仅高契合'],
+                    ['high-medium', '高 + 中']
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={fitFilter === value ? 'active' : ''}
+                      onClick={() => setFitFilter(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="fit-filter-count">{visibleAssessments.length} 条可见</span>
               </div>
               <div className="filter-assessment-list">
                 {visibleAssessments.map((assessment) => {
@@ -1071,34 +1074,21 @@ export function HotspotsPage({
             <div className="filter-dialog-grid">
               <label className="field">
                 <span>已锁定账号</span>
-                <select
-                  name="filterAccountId"
-                  autoComplete="off"
+                <Select
                   value={filterAccountId}
-                  onChange={(event) => setFilterAccountId(event.target.value)}
-                >
-                  {lockedAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>{account.name}</option>
-                  ))}
-                </select>
+                  onChange={setFilterAccountId}
+                  ariaLabel="已锁定账号"
+                  options={lockedAccounts.map((account) => ({ value: account.id, label: account.name }))}
+                />
               </label>
               <label className="field">
                 <span>筛选模型</span>
-                <select
-                  name="filterModelTarget"
-                  autoComplete="off"
+                <Select
                   value={filterModelTarget}
-                  onChange={(event) => setFilterModelTarget(event.target.value)}
-                >
-                  {availableModels.map(({ provider, model }) => (
-                    <option
-                      key={`${provider.id}:${model.id}`}
-                      value={encodeModelTarget(provider.id, model.modelId)}
-                    >
-                      {model.displayName} · {provider.displayName}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setFilterModelTarget}
+                  ariaLabel="筛选模型"
+                  options={availableModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))}
+                />
               </label>
               <label className="field">
                 <span>每个平台取前 N 名</span>

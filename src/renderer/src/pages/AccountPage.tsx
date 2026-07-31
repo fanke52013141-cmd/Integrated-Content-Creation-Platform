@@ -32,6 +32,7 @@ import {
 } from '../../../shared/contracts'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
+import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
 import type { ToastState } from '../components/Toast'
@@ -454,17 +455,13 @@ function AccountWizard({
               <div className="generation-controls">
                 <label className="field">
                   <span>生成模型</span>
-                  <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
-                    <option value="">请选择模型</option>
-                    {availableModels.map(({ provider, model }) => (
-                      <option
-                        key={`${provider.id}:${model.id}`}
-                        value={encodeModelTarget(provider.id, model.modelId)}
-                      >
-                        {model.displayName} · {provider.displayName}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={modelTarget}
+                    onChange={setModelTarget}
+                    placeholder="请选择模型"
+                    ariaLabel="生成模型"
+                    options={[{ value: '', label: '请选择模型' }, ...availableModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]}
+                  />
                 </label>
                 <button
                   className="button primary large"
@@ -497,16 +494,12 @@ function AccountWizard({
             )}
             <label className="field regenerate-model-select">
               <span>重新生成模型</span>
-              <select name="modelTarget" autoComplete="off" value={modelTarget} onChange={(event) => setModelTarget(event.target.value)}>
-                {availableModels.map(({ provider, model }) => (
-                  <option
-                    key={`${provider.id}:${model.id}`}
-                    value={encodeModelTarget(provider.id, model.modelId)}
-                  >
-                    {model.displayName} · {provider.displayName}
-                  </option>
-                ))}
-              </select>
+              <Select
+                value={modelTarget}
+                onChange={setModelTarget}
+                ariaLabel="重新生成模型"
+                options={availableModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))}
+              />
             </label>
             <button
               className="button secondary full"

@@ -53,6 +53,9 @@ export function Layout({
   onToggleTheme
 }: LayoutProps): React.JSX.Element {
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
+  const routeLabel = route === 'providers'
+    ? '模型网关'
+    : navigationItems.find((item) => item.id === route)?.label ?? '工作台'
   return (
     <div className="app-shell">
       <a href="#main" className="skip-link">跳到主内容</a>
@@ -93,6 +96,9 @@ export function Layout({
 
       <section className="app-main">
         <header className="topbar">
+          <div className="topbar-context">
+            <span className="topbar-route-label">{routeLabel}</span>
+          </div>
           <div className="topbar-actions">
             <button className="theme-toggle" onClick={onToggleTheme} aria-label="切换主题">
               <span className={theme === 'light' ? 'active' : ''}><Sun size={15} /></span>
