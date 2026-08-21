@@ -65,7 +65,10 @@ const api: MoliuApi = {
     updateFavoriteTags: (input: UpdateHotFavoriteTagsInput) =>
       ipcRenderer.invoke('hotspots:favorites:update-tags', input),
     removeFavorite: (id: string) => ipcRenderer.invoke('hotspots:favorites:remove', id),
-    filter: (input: FilterHotspotsInput) => ipcRenderer.invoke('hotspots:filter', input)
+    filter: (input: FilterHotspotsInput) => ipcRenderer.invoke('hotspots:filter', input),
+    getWeiboStatus: () => ipcRenderer.invoke('hotspots:weibo:status'),
+    saveWeiboCookie: (cookie: string) => ipcRenderer.invoke('hotspots:weibo:save', cookie),
+    clearWeiboCookie: () => ipcRenderer.invoke('hotspots:weibo:clear')
   },
   topics: {
     getSchema: () => ipcRenderer.invoke('topics:schema:get'),

@@ -79,7 +79,7 @@ if (!hasLock) {
       const gateway = new ModelGateway(database, keyStore)
       const accountGenerator = new AccountGenerator(gateway)
       embeddedHotService = new EmbeddedHotService()
-      const hotspotService = new HotspotService(embeddedHotService, database)
+      const hotspotService = new HotspotService(embeddedHotService, keyStore, database)
       const hotspotFilter = new HotspotFilter(database, gateway)
       const topicGenerator = new TopicGenerator(database, gateway)
       const materialSearchService = new MaterialSearchService(

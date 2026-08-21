@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { EmbeddedHotService } from '../src/main/services/embedded-hot-service.js'
 import { HotspotService } from '../src/main/services/hotspot-service.js'
+import type { KeyStore } from '../src/main/security/key-store.js'
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -75,7 +76,7 @@ describe('HotspotService', () => {
       if (String(input).endsWith('/all')) {
         return jsonResponse({
           code: 200,
-          routes: [{ name: 'weibo', path: '/weibo' }]
+          routes: [{ name: 'ithome', path: '/ithome' }]
         })
       }
       return new Response('<html>upstream failed</html>', {
@@ -86,11 +87,70 @@ describe('HotspotService', () => {
 
     const service = new HotspotService(embeddedStub())
     await service.bootstrap()
-    const [result] = await service.refresh(['weibo'])
+    const [result] = await service.refresh(['ithome'])
 
     expect(result.status).toBe('error')
     expect(result.items).toEqual([])
-    expect(result.error).toBe('微博限制匿名访问')
+    expect(result.error).toBe('请求失败（500）')
+  })
+
+  it('reports a clear error when Weibo login cookie is not configured', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('/all')) {
+        return jsonResponse({
+          code: 200,
+          routes: [{ name: 'weibo', path: '/weibo' }]
+        })
+      }
+      return jsonResponse({ ok: 1, data: { band_list: [] } })
+    }))
+
+    const service = new HotspotService(embeddedStub())
+    await service.bootstrap()
+    const [result] = await service.refresh(['weibo'])
+
+    expect(result.status).toBe('error')
+    expect(result.error).toBe('尚未配置微博登录态，请在“平台设置-微博登录”中粘贴登录 Cookie')
+  })
+
+  it('fetches Weibo hot band with the stored cookie and parses band_list', async () => {
+    const keyStore = { readWeiboCookie: () => 'SUB=test; SCF=test' } as unknown as KeyStore
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.endsWith('/all')) {
+        return jsonResponse({
+          code: 200,
+          routes: [{ name: 'weibo', path: '/weibo' }]
+        })
+      }
+      if (url.includes('hot_band')) {
+        return jsonResponse({
+          ok: 1,
+          http_code: 200,
+          data: {
+            band_list: [
+              { realpos: 1, note: '问界儿童车售价15800', word_scheme: '#问界儿童车售价15800#', raw_hot: 12345678 },
+              { realpos: 2, note: '某话题热度飙升', raw_hot: 999000 }
+            ]
+          }
+        })
+      }
+      return jsonResponse({ ok: 1, data: { band_list: [] } })
+    }))
+
+    const service = new HotspotService(embeddedStub(), keyStore)
+    await service.bootstrap()
+    const [result] = await service.refresh(['weibo'])
+
+    expect(result.status).toBe('ready')
+    expect(result.items).toHaveLength(2)
+    expect(result.items[0]).toMatchObject({
+      rank: 1,
+      title: '问界儿童车售价15800',
+      source: 'weibo',
+      sourceTitle: '微博'
+    })
+    expect(result.items[0].hotValue).toBe('1235万')
   })
 
   it('falls back to the current Baidu page structure when the bundled parser returns no items', async () => {

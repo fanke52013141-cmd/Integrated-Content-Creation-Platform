@@ -275,6 +275,11 @@ export interface AddHotFavoriteResult {
   created: boolean
 }
 
+export interface WeiboSessionStatus {
+  configured: boolean
+  updatedAt?: string
+}
+
 export interface UpdateHotFavoriteTagsInput {
   id: string
   tags: HotFavoriteTag[]
@@ -542,6 +547,9 @@ export interface MoliuApi {
     updateFavoriteTags(input: UpdateHotFavoriteTagsInput): Promise<HotFavorite>
     removeFavorite(id: string): Promise<void>
     filter(input: FilterHotspotsInput): Promise<FilterHotspotsResult>
+    getWeiboStatus(): Promise<WeiboSessionStatus>
+    saveWeiboCookie(cookie: string): Promise<WeiboSessionStatus>
+    clearWeiboCookie(): Promise<void>
   }
   topics: {
     getSchema(): Promise<TopicSchemaField[]>

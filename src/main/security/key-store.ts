@@ -35,4 +35,26 @@ export class KeyStore {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统无法解密公众号 AppSecret')
     return safeStorage.decryptString(encrypted)
   }
+
+  hasWeiboCookie(): boolean {
+    return Boolean(this.database.getEncryptedWeiboCookie())
+  }
+
+  readWeiboCookie(): string {
+    const encrypted = this.database.getEncryptedWeiboCookie()
+    if (!encrypted) throw new Error('尚未配置微博登录态')
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统无法解密微博登录态')
+    return safeStorage.decryptString(encrypted)
+  }
+
+  saveWeiboCookie(cookie: string): void {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('当前系统无法使用安全存储，请检查 Windows 用户凭据服务')
+    }
+    this.database.saveWeiboSession(safeStorage.encryptString(cookie.trim()))
+  }
+
+  clearWeiboCookie(): void {
+    this.database.clearWeiboSession()
+  }
 }

@@ -7,6 +7,7 @@ import type {
 } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { EmbeddedHotService } from './embedded-hot-service.js'
+import type { KeyStore } from '../security/key-store.js'
 
 interface UpstreamRoute {
   name?: unknown
@@ -93,6 +94,7 @@ export class HotspotService {
 
   constructor(
     private readonly embedded: EmbeddedHotService,
+    private readonly keyStore?: KeyStore,
     private readonly database?: AppDatabase
   ) {}
 
@@ -143,6 +145,8 @@ export class HotspotService {
   }
 
   private async fetchSource(source: HotSource): Promise<HotSourceResult> {
+    if (source.id === 'weibo') return this.fetchWeiboHot(source)
+
     const fallback: HotSourceResult = {
       source,
       status: 'error',
@@ -246,6 +250,91 @@ export class HotspotService {
     }
   }
 
+  private async fetchWeiboHot(source: HotSource): Promise<HotSourceResult> {
+    const fallback: HotSourceResult = {
+      source,
+      status: 'error',
+      subtitle: '热搜榜',
+      updateTime: new Date().toISOString(),
+      items: []
+    }
+    try {
+      const cookie = this.keyStore
+        ? (() => {
+            try {
+              return this.keyStore.readWeiboCookie()
+            } catch {
+              throw new Error('尚未配置微博登录态，请在“平台设置-微博登录”中粘贴登录 Cookie')
+            }
+          })()
+        : undefined
+      if (!cookie) throw new Error('尚未配置微博登录态，请在“平台设置-微博登录”中粘贴登录 Cookie')
+      const response = await fetch(WEIBO_HOT_BAND_URL, {
+        headers: WEIBO_HEADERS(cookie),
+        signal: AbortSignal.timeout(16_000)
+      })
+      if (response.status === 403 || response.status === 400) {
+        throw new Error('微博登录态失效或受限，请重新登录并配置 Cookie')
+      }
+      if (!response.ok) throw new Error(`微博热榜请求失败（${response.status}）`)
+      let payload: unknown
+      try {
+        payload = await response.json()
+      } catch {
+        throw new Error('微博返回了验证页面而非数据，请稍后重试')
+      }
+      const records = collectHotBandRecords(payload)
+      if (!records.length) throw new Error('微博热榜暂无有效数据')
+      const now = new Date().toISOString()
+      const items = records
+        .map((row, index) => this.normalizeHotBandItem(row, index, source, now))
+        .filter((item): item is HotItem => Boolean(item))
+      if (!items.length) throw new Error('微博热榜返回格式无效')
+      return {
+        source: { ...source, displayName: '微博' },
+        status: 'ready',
+        subtitle: '实时热搜榜',
+        updateTime: now,
+        items
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '微博暂时无法获取'
+      return { ...fallback, error: message }
+    }
+  }
+
+  private normalizeHotBandItem(
+    raw: UpstreamItem,
+    index: number,
+    source: HotSource,
+    updateTime: string
+  ): HotItem | undefined {
+    const title = text(raw.word) || text(raw.note)
+    if (!title) return undefined
+    const detail = text(raw.word_scheme) || text(raw.note) || text(raw.desc) || ''
+    const tag = text(raw.label_name) || text(raw.icon_desc)
+    const url = text(raw.scheme) || text(raw.url) || `https://s.weibo.com/weibo?q=${encodeURIComponent(title)}`
+    const rawId = text(raw.mid)
+    const id = rawId || createHash('sha1')
+      .update(`weibo\n${title}\n${url}`)
+      .digest('hex')
+      .slice(0, 20)
+    const rank = typeof raw.realpos === 'number' ? raw.realpos : index + 1
+    return {
+      id,
+      title,
+      desc: tag ? `${tag}${detail ? ` · ${detail}` : ''}` : detail,
+      url,
+      source: source.id,
+      sourceTitle: '微博',
+      subtitle: '实时热搜榜',
+      updateTime,
+      hotValue: formatHotValue(raw.raw_hot),
+      rank,
+      rawJson: JSON.stringify(raw)
+    }
+  }
+
   private normalizeItem(
     raw: UpstreamItem,
     index: number,
@@ -308,4 +397,49 @@ function formatHotValue(value: unknown): string | undefined {
   if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(1)}亿`
   if (value >= 10_000) return `${(value / 10_000).toFixed(value >= 100_000 ? 0 : 1)}万`
   return new Intl.NumberFormat('zh-CN').format(value)
+}
+
+const WEIBO_HOT_BAND_URL = 'https://weibo.com/ajax/statuses/hot_band'
+
+function WEIBO_HEADERS(cookie?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    Referer: 'https://weibo.com/',
+    Accept: 'application/json, text/plain, */*',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+  if (cookie) headers.Cookie = cookie
+  return headers
+}
+
+function collectHotBandRecords(payload: unknown): UpstreamItem[] {
+  if (!payload || typeof payload !== 'object') return []
+  const record = payload as Record<string, unknown>
+  if (record.ok !== 1) return []
+  const data = record.data
+  if (!data || typeof data !== 'object') return []
+  const rows = Array.isArray((data as Record<string, unknown>).band_list)
+    ? (data as Record<string, unknown>).band_list
+    : (data as Record<string, unknown>).realtime
+  if (!Array.isArray(rows)) return []
+  const filtered = rows.filter((row): row is Record<string, unknown> =>
+    Boolean(row) && typeof row === 'object'
+  )
+  const skipped = ['推荐', '要闻', '话题榜', '文娱榜', '体育榜', '同城榜']
+  const seen = new Set<string>()
+  const output: UpstreamItem[] = []
+  for (const row of filtered) {
+    const word = text(row.word) || text(row.note)
+    if (!word || seen.has(word)) continue
+    seen.add(word)
+    const category = text(row.category)
+    if (category && skipped.includes(category)) continue
+    output.push(row)
+  }
+  output.sort((left, right) => {
+    const l = typeof left.realpos === 'number' ? left.realpos : Number.MAX_SAFE_INTEGER
+    const r = typeof right.realpos === 'number' ? right.realpos : Number.MAX_SAFE_INTEGER
+    return l - r
+  })
+  return output.slice(0, 20)
 }

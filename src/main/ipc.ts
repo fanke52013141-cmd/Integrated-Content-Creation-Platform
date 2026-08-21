@@ -264,6 +264,21 @@ export function registerIpc(options: {
   handle('hotspots:favorites:remove', (_event, id: string) => {
     database.removeHotFavorite(requireId(id))
   })
+  handle('hotspots:weibo:status', () => {
+    const meta = database.getWeiboSessionMeta()
+    return { configured: keyStore.hasWeiboCookie(), updatedAt: meta?.updatedAt }
+  })
+  handle('hotspots:weibo:save', (_event, raw: unknown) => {
+    const { cookie } = z.object({
+      cookie: z.string().trim().min(1).max(8_000)
+    }).parse(raw)
+    keyStore.saveWeiboCookie(cookie)
+    const meta = database.getWeiboSessionMeta()
+    return { configured: true, updatedAt: meta?.updatedAt }
+  })
+  handle('hotspots:weibo:clear', () => {
+    keyStore.clearWeiboCookie()
+  })
   handle('hotspots:filter', (_event, raw: FilterHotspotsInput) => {
     const input = z.object({
       accountId: z.string().uuid(),

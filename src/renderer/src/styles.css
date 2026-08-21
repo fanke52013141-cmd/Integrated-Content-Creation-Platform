@@ -3666,6 +3666,52 @@ p {
   border-top: 1px solid var(--border);
 }
 
+/* Weibo session */
+.source-manager-dialog.weibo-login-dialog > header p {
+  max-width: 560px;
+}
+
+.weibo-login-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.weibo-login-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+}
+
+.weibo-login-body .field > span {
+  margin-bottom: 6px;
+}
+
+.weibo-cookie-input {
+  min-height: 132px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.weibo-login-need {
+  color: var(--warning);
+}
+
+.weibo-login-dialog > footer > button + span {
+  flex: 1;
+}
+
 /* Topic generation */
 .topics-page { max-width: 1360px; }
 .topics-intro { align-items: flex-end; }

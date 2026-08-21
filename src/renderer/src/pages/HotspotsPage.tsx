@@ -76,6 +76,11 @@ export function HotspotsPage({
   const [sourceManagerHidden, setSourceManagerHidden] = useState<Set<string>>(new Set())
   const [draggedSourceId, setDraggedSourceId] = useState<string>()
   const [activeSourceId, setActiveSourceId] = useState<string>()
+  const [weiboDialogOpen, setWeiboDialogOpen] = useState(false)
+  const [weiboConfigured, setWeiboConfigured] = useState(false)
+  const [weiboUpdatedAt, setWeiboUpdatedAt] = useState<string>()
+  const [weiboCookie, setWeiboCookie] = useState('')
+  const [savingWeibo, setSavingWeibo] = useState(false)
   const [results, setResults] = useState<Record<string, HotSourceResult>>({})
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const [bootError, setBootError] = useState<string>()
@@ -246,11 +251,14 @@ export function HotspotsPage({
     let disposed = false
     void (async () => {
       try {
-        const [bootstrap, savedFavorites] = await Promise.all([
+        const [bootstrap, savedFavorites, weiboStatus] = await Promise.all([
           window.moliu.hotspots.bootstrap(),
-          window.moliu.hotspots.listFavorites()
+          window.moliu.hotspots.listFavorites(),
+          window.moliu.hotspots.getWeiboStatus()
         ])
         if (disposed) return
+        setWeiboConfigured(weiboStatus.configured)
+        setWeiboUpdatedAt(weiboStatus.updatedAt)
         const orderedSources = applySourcePreferences(bootstrap.sources, bootstrap.preferences)
         setService(bootstrap.service)
         setSources(orderedSources)
@@ -378,6 +386,54 @@ export function HotspotsPage({
     setSourceManagerOrder([...sources])
     setSourceManagerHidden(new Set(hiddenSourceIds))
     setSourceManagerOpen(true)
+  }
+
+  async function refreshWeiboStatus(): Promise<void> {
+    try {
+      const status = await window.moliu.hotspots.getWeiboStatus()
+      setWeiboConfigured(status.configured)
+      setWeiboUpdatedAt(status.updatedAt)
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  function openWeiboDialog(): void {
+    setWeiboCookie('')
+    void refreshWeiboStatus()
+    setWeiboDialogOpen(true)
+  }
+
+  async function saveWeiboCookie(): Promise<void> {
+    if (!weiboCookie.trim()) {
+      showToast({ type: 'error', message: '请粘贴微博登录 Cookie' })
+      return
+    }
+    setSavingWeibo(true)
+    try {
+      const status = await window.moliu.hotspots.saveWeiboCookie(weiboCookie.trim())
+      setWeiboConfigured(status.configured)
+      setWeiboUpdatedAt(status.updatedAt)
+      setWeiboCookie('')
+      showToast({ type: 'success', message: '微博登录态已保存，正在刷新榜单' })
+      await refreshBatch(['weibo'])
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setSavingWeibo(false)
+    }
+  }
+
+  async function clearWeiboCookie(): Promise<void> {
+    if (!(await confirm({ title: '清除微博登录态？', message: '清除后微博热榜将不可用，需要重新配置。', danger: true, confirmLabel: '清除' }))) return
+    try {
+      await window.moliu.hotspots.clearWeiboCookie()
+      setWeiboConfigured(false)
+      setWeiboUpdatedAt(undefined)
+      showToast({ type: 'success', message: '已清除微博登录态' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
   }
 
   async function saveSourceManager(): Promise<void> {
@@ -531,6 +587,13 @@ export function HotspotsPage({
               </button>
               <button className="button secondary" onClick={openSourceManager}>
                 <Settings2 size={16} />平台设置
+              </button>
+              <button
+                className={`button secondary ${weiboConfigured ? '' : 'weibo-login-need'}`}
+                onClick={openWeiboDialog}
+                title="微博热榜需要登录态才能访问"
+              >
+                <MessageCircleMore size={16} />微博登录{weiboConfigured ? '' : ' · 未配置'}
               </button>
               <button
                 className="button primary"
@@ -965,6 +1028,63 @@ export function HotspotsPage({
             </div>
           )}
         </section>
+      )}
+
+      {weiboDialogOpen && (
+        <ModalBase open onClose={() => setWeiboDialogOpen(false)} titleId="weibo-login-title" bare className="source-manager-dialog weibo-login-dialog">
+          <header>
+            <div>
+              <span className="eyebrow">WEIBO SESSION</span>
+              <h2 id="weibo-login-title">配置微博登录态</h2>
+              <p>
+                微博热榜接口对匿名访问风控（403/432），需携带登录 Cookie。
+                {weiboConfigured
+                  ? ' 已配置，可直接刷新榜单。'
+                  : ' 请在浏览器登录微博后，复制下方 Cookie 填入保存。'}
+              </p>
+            </div>
+            <button className="icon-button" aria-label="关闭" onClick={() => setWeiboDialogOpen(false)}>
+              <X size={18} />
+            </button>
+          </header>
+          <div className="weibo-login-body">
+            {weiboConfigured && weiboUpdatedAt && (
+              <div className="weibo-login-status">
+                <CheckCircle2 size={15} />
+                <span>已配置 · 保存于 {formatDateTime(weiboUpdatedAt)}</span>
+              </div>
+            )}
+            <label className="field">
+              <span>微博 Cookie</span>
+              <textarea
+                className="weibo-cookie-input"
+                name="weiboCookie"
+                autoComplete="off"
+                spellCheck={false}
+                rows={6}
+                value={weiboCookie}
+                onChange={(event) => setWeiboCookie(event.target.value)}
+                placeholder="例如：SUB=_2A1x...; SCF=...; SUBP=..."
+              />
+              <small>获取方式：浏览器登录 weibo.com → F12 → Application → Cookies → 复制完整 Cookie。值涉及登录身份，仅在本机加密保存。</small>
+            </label>
+          </div>
+          <footer>
+            {weiboConfigured && (
+              <button className="button ghost compact" onClick={() => void clearWeiboCookie()}>
+                <Trash2 size={14} />清除登录态
+              </button>
+            )}
+            <span />
+            <button className="button secondary" onClick={() => setWeiboDialogOpen(false)}>
+              取消
+            </button>
+            <button className="button primary" disabled={savingWeibo} onClick={() => void saveWeiboCookie()}>
+              {savingWeibo ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
+              {savingWeibo ? '保存中' : '保存并刷新'}
+            </button>
+          </footer>
+        </ModalBase>
       )}
 
       {sourceManagerOpen && (
