@@ -8,6 +8,8 @@ import type {
 import { Layout, type RouteId } from './components/Layout'
 import { Toast, type ToastState } from './components/Toast'
 import { useAutoAriaHidden } from './components/Icon'
+import { useKeyboardShortcuts } from './components/useKeyboardShortcuts'
+import { ShortcutPanel } from './components/ShortcutPanel'
 import { errorMessage } from './lib'
 import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -52,6 +54,7 @@ export function App(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [fatalError, setFatalError] = useState<string>()
   const [toast, setToast] = useState<ToastState>()
+  const [shortcutPanelOpen, setShortcutPanelOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     // P1-8: 从 DOM 读取由 theme-init.js 预设的 data-theme，避免与初始 HTML 不一致
     const preset = document.documentElement.dataset.theme
@@ -78,6 +81,15 @@ export function App(): React.JSX.Element {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('moliu:theme', theme)
   }, [theme])
+
+  useKeyboardShortcuts({
+    onSave: () => setToast({ type: 'info', message: '当前页面暂不支持快捷保存' }),
+    onNew: () => navigate('articles'),
+    onGenerate: () => setToast({ type: 'info', message: '请在对应页面使用生成按钮' }),
+    onSearch: () => navigate('materials'),
+    onNavigate: (next) => navigate(next),
+    onShowShortcuts: () => setShortcutPanelOpen(true)
+  })
 
   useEffect(() => {
     if (!toast) return
@@ -195,6 +207,7 @@ export function App(): React.JSX.Element {
         {route === 'publishing' && <PublishingPage showToast={setToast} />}
       </Layout>
       <Toast toast={toast} onClose={() => setToast(undefined)} />
+      <ShortcutPanel open={shortcutPanelOpen} onClose={() => setShortcutPanelOpen(false)} />
     </>
   )
 }

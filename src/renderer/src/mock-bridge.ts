@@ -14,7 +14,8 @@ import type {
   HotspotBootstrap,
   HotSourceResult,
   MoliuApi,
-  ProviderPreset
+  ProviderPreset,
+  WeiboSessionStatus
 } from '../../shared/contracts'
 
 const DEMO_BOOTSTRAP: AppBootstrap = {
@@ -240,7 +241,10 @@ function createMockBridge(): MoliuApi {
       updateFavoriteTags: (input: { id: string }) =>
         Promise.resolve({ id: input.id, hotItem: {}, tags: [], status: 'active', createdAt: new Date().toISOString() }),
       removeFavorite: () => void_(),
-      filter: () => Promise.resolve({ assessments: [], latencyMs: 0, model: 'demo-model' })
+      filter: () => Promise.resolve({ assessments: [], latencyMs: 0, model: 'demo-model' }),
+      getWeiboStatus: () => Promise.resolve({ configured: false, updatedAt: undefined }),
+      saveWeiboCookie: (cookie: string) => Promise.resolve({ configured: !!cookie, updatedAt: new Date().toISOString() }),
+      clearWeiboCookie: () => void_()
     },
     topics: {
       getSchema: () => Promise.resolve([]),

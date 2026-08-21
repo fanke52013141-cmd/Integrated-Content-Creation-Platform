@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { AccountProfileSummary, ProviderSummary } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
+import { EmptyState } from '../components/EmptyState'
 import { formatDate } from '../lib'
 
 interface DashboardPageProps {
@@ -151,13 +152,13 @@ export function DashboardPage({
               </button>
             </div>
           ) : (
-            <div className="mini-empty">
-              <span><CircleUserRound size={25} /></span>
-              <div>
-                <strong>还没有账号定位</strong>
-              </div>
-              <button className="button secondary compact" onClick={() => onNavigate('accounts')}>去创建</button>
-            </div>
+            <EmptyState
+              icon={CircleUserRound}
+              title="还没有账号定位"
+              description="创建账号定位后，系统将根据你的领域和风格生成个性化内容"
+              actionLabel="去创建"
+              onAction={() => onNavigate('accounts')}
+            />
           )}
           <div className="account-status-row">
             <span><KeyRound size={15} /><small>模型网关</small><strong>{usableProviders.length ? '已连接' : '未配置'}</strong></span>
