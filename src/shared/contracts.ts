@@ -1,5 +1,31 @@
 export type ProviderProtocol = 'openai-compatible'
 
+export interface PromptDefSummary {
+  key: string
+  title: string
+  description: string
+  activeContent: string
+  activeVersion: number
+  versionCount: number
+  updatedAt: string
+}
+
+export interface PromptVersionInfo {
+  id: string
+  version: number
+  content: string
+  source: 'builtin' | 'user'
+  note: string
+  createdAt: string
+}
+
+export interface PromptDefBase {
+  key: string
+  title: string
+  description: string
+  template: string
+}
+
 export interface CapabilityFlags {
   chat: boolean
   jsonMode: boolean
@@ -74,6 +100,29 @@ export interface ProviderTestResult {
   latencyMs: number
   model?: string
   message: string
+}
+
+/** 保存前使用表单中的配置直接测试连接（不落库） */
+export interface ProviderDraftTestInput {
+  /** 已保存连接的 id；提供且未填写新密钥时复用已加密保存的密钥 */
+  id?: string
+  baseUrl: string
+  apiKey?: string
+  model?: string
+}
+
+/** 单条模型调用日志（含测试连接产生的记录） */
+export interface ModelCallLog {
+  id: string
+  providerId?: string
+  model: string
+  latencyMs: number
+  promptTokens?: number
+  completionTokens?: number
+  success: boolean
+  errorKind?: string
+  errorMessage?: string
+  createdAt: string
 }
 
 export interface SearchServiceSummary {
@@ -521,11 +570,22 @@ export interface MoliuApi {
     save(input: SaveProviderInput): Promise<ProviderSummary>
     remove(id: string): Promise<void>
     test(id: string): Promise<ProviderTestResult>
+    /** 保存前用表单配置测试连接 */
+    testDraft(input: ProviderDraftTestInput): Promise<ProviderTestResult>
+    /** 查询模型调用日志；providerId 省略时返回全部 */
+    logs(providerId?: string): Promise<ModelCallLog[]>
   }
   searchService: {
     get(): Promise<SearchServiceSummary>
     save(input: SaveSearchServiceInput): Promise<SearchServiceSummary>
     test(): Promise<SearchServiceTestResult>
+  }
+  prompts: {
+    list(): Promise<PromptDefSummary[]>
+    listVersions(key: string): Promise<PromptVersionInfo[]>
+    update(input: { key: string; content: string; note?: string }): Promise<number>
+    restore(input: { key: string; version: number }): Promise<number>
+    reset(key: string): Promise<number>
   }
   accounts: {
     list(): Promise<AccountProfileSummary[]>
@@ -549,6 +609,8 @@ export interface MoliuApi {
     filter(input: FilterHotspotsInput): Promise<FilterHotspotsResult>
     getWeiboStatus(): Promise<WeiboSessionStatus>
     saveWeiboCookie(cookie: string): Promise<WeiboSessionStatus>
+    /** 弹出微博官方登录窗口（扫码/手机号），成功后自动保存 Cookie */
+    weiboLogin(): Promise<WeiboSessionStatus>
     clearWeiboCookie(): Promise<void>
   }
   topics: {

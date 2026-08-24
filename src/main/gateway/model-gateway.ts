@@ -11,7 +11,7 @@ import {
 interface OpenAiResponse {
   model?: string
   choices?: Array<{
-    message?: { content?: string | null }
+    message?: { content?: string | null; reasoning_content?: string | null }
     finish_reason?: string
   }>
   usage?: {
@@ -23,11 +23,75 @@ interface OpenAiResponse {
   }
 }
 
+/**
+ * 提取助手回复文本。推理型模型（如 GLM-5.2）常把回复放在 reasoning_content、
+ * 而 message.content 为 null，这里做回退以确保解析不到空内容。
+ */
+function extractReplyText(message?: { content?: string | null; reasoning_content?: string | null }): string {
+  if (!message) return ''
+  const content = typeof message.content === 'string' ? message.content.trim() : ''
+  if (content) return content
+  const reasoning = typeof message.reasoning_content === 'string' ? message.reasoning_content.trim() : ''
+  return reasoning
+}
+
 export class ModelGateway {
   constructor(
     private readonly database: AppDatabase,
     private readonly keyStore: KeyStore
   ) {}
+
+  /**
+   * 未保存前使用表单里的 baseUrl / apiKey / 模型做一次最小对话测试。
+   * 不依赖已保存的供应商配置，测试结果不会加密落库。
+   */
+  async testDraft(input: {
+    providerId?: string
+    baseUrl: string
+    apiKey?: string
+    model?: string
+    onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void
+  }): Promise<{ latencyMs: number; model: string; message: string }> {
+    const apiKey = input.apiKey?.trim()
+      ? input.apiKey.trim()
+      : input.providerId
+        ? this.keyStore.read(input.providerId)
+        : ''
+    if (!apiKey) throw new GatewayError('ProviderConfigError', '请先填写访问密钥，或使用已保存密钥的连接')
+
+    const model = input.model?.trim() || '默认模型'
+    const endpoint = buildChatEndpoint(input.baseUrl)
+    const startedAt = performance.now()
+    try {
+      const result = await this.requestOnce(endpoint, apiKey, {
+        model,
+        messages: [{ role: 'user', content: '只回复 OK' }],
+        temperature: 0,
+        max_tokens: 16
+      })
+      const content = extractReplyText(result.choices?.[0]?.message)
+      if (!content) throw new GatewayError('ParseError', '供应商连接成功，但模型返回了空内容，请检查模型标识是否正确')
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const responseModel = result.model ?? model
+      input.onLog?.({ success: true, latencyMs, model: responseModel })
+      return {
+        latencyMs,
+        model: responseModel,
+        message: `连接成功 · 模型 ${responseModel} 正常响应`
+      }
+    } catch (error) {
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const normalized = normalizeError(error, endpoint)
+      input.onLog?.({
+        success: false,
+        latencyMs,
+        model,
+        errorKind: normalized.kind,
+        errorMessage: normalized.message
+      })
+      throw normalized
+    }
+  }
 
   async chat(request: UnifiedRequest): Promise<UnifiedResponse> {
     const provider = this.database.getProvider(request.providerId)
@@ -65,8 +129,8 @@ export class ModelGateway {
       })
 
       const latencyMs = Math.round(performance.now() - startedAt)
-      const content = result.choices?.[0]?.message?.content?.trim()
-      if (!content) throw new GatewayError('ParseError', '模型返回了空内容')
+      const content = extractReplyText(result.choices?.[0]?.message)
+      if (!content) throw new GatewayError('ParseError', '模型返回了空内容，请确认该模型的回复是否放在额外字段中')
 
       const extraction = request.extractBlock
         ? extractTaggedBlock(content, request.extractBlock)
@@ -95,13 +159,14 @@ export class ModelGateway {
       }
     } catch (error) {
       const latencyMs = Math.round(performance.now() - startedAt)
-      const normalized = normalizeError(error)
+      const normalized = normalizeError(error, endpoint)
       this.database.recordModelCall({
         providerId: provider.id,
         model,
         latencyMs,
         success: false,
-        errorKind: normalized.kind
+        errorKind: normalized.kind,
+        errorMessage: normalized.message
       })
       throw normalized
     }
@@ -115,35 +180,47 @@ export class ModelGateway {
     let lastError: GatewayError | undefined
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 60_000)
-
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal
-        })
-
-        const payload = await readJson(response)
-        if (!response.ok) {
-          throw fromHttpError(response.status, payload.error?.message)
-        }
-        return payload
+        return await this.requestOnce(endpoint, apiKey, body)
       } catch (error) {
-        lastError = normalizeError(error)
+        lastError = normalizeError(error, endpoint)
         if (!shouldRetry(lastError) || attempt === 3) throw lastError
         await wait(attempt === 1 ? 500 : 1_500)
-      } finally {
-        clearTimeout(timeout)
       }
     }
 
     throw lastError ?? new GatewayError('NetworkError', '模型请求失败')
+  }
+
+  private async requestOnce(
+    endpoint: string,
+    apiKey: string,
+    body: Record<string, unknown>
+  ): Promise<OpenAiResponse> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60_000)
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal
+      })
+
+      const payload = await readJson(response)
+      if (!response.ok) {
+        throw fromHttpError(response.status, payload.error?.message, endpoint)
+      }
+      return payload
+    } catch (error) {
+      throw normalizeError(error, endpoint)
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 }
 
@@ -157,7 +234,9 @@ function buildChatEndpoint(baseUrl: string): string {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new GatewayError('ProviderConfigError', 'Base URL 只允许 HTTP 或 HTTPS')
   }
-  return `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+  // 用户可能直接粘贴完整对话端点（以 /chat/completions 结尾），自动去掉避免拼接出双重路径
+  const normalized = baseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '')
+  return `${normalized}/chat/completions`
 }
 
 async function readJson(response: Response): Promise<OpenAiResponse> {
@@ -173,24 +252,69 @@ async function readJson(response: Response): Promise<OpenAiResponse> {
   }
 }
 
-function fromHttpError(status: number, message?: string): GatewayError {
+function fromHttpError(status: number, message?: string, endpoint?: string): GatewayError {
   const safeMessage = message?.slice(0, 300)
+  const hint = endpoint ? `（接口：${endpoint}）` : ''
   if (status === 401 || status === 403) {
-    return new GatewayError('AuthError', safeMessage || 'API Key 无效或无权访问该模型', status)
+    return new GatewayError(
+      'AuthError',
+      `密钥无效或无权访问该模型（HTTP ${status}）。请检查 API Key 是否正确、是否有该模型的调用权限${hint}。${safeMessage ?? ''}`,
+      status
+    )
+  }
+  if (status === 404) {
+    return new GatewayError(
+      'ProviderError',
+      `接口地址或模型不存在（HTTP 404）。请检查接口地址是否需要以 /v1 结尾、模型标识是否拼写正确${hint}。${safeMessage ?? ''}`,
+      status
+    )
   }
   if (status === 429) {
-    return new GatewayError('RateLimitError', safeMessage || '供应商请求过于频繁', status)
+    return new GatewayError(
+      'RateLimitError',
+      `请求过于频繁或额度不足（HTTP 429），请稍后重试或检查账户余额${hint}。${safeMessage ?? ''}`,
+      status
+    )
   }
   if (status >= 500) {
-    return new GatewayError('NetworkError', safeMessage || '供应商服务暂时不可用', status)
+    return new GatewayError(
+      'NetworkError',
+      `供应商服务暂时不可用（HTTP ${status}），通常是上游故障，请稍后重试${hint}。${safeMessage ?? ''}`,
+      status
+    )
   }
-  return new GatewayError('ProviderError', safeMessage || `供应商返回 HTTP ${status}`, status)
+  return new GatewayError('ProviderError', `供应商返回 HTTP ${status}${hint}。${safeMessage ?? ''}`, status)
 }
 
-function normalizeError(error: unknown): GatewayError {
+function normalizeError(error: unknown, endpoint?: string): GatewayError {
   if (error instanceof GatewayError) return error
+  const host = (() => {
+    if (!endpoint) return ''
+    try {
+      return new URL(endpoint).host
+    } catch {
+      return ''
+    }
+  })()
   if (error instanceof DOMException && error.name === 'AbortError') {
-    return new GatewayError('TimeoutError', '模型请求超过 60 秒')
+    return new GatewayError('TimeoutError', `请求超过 60 秒仍未响应${host ? `（${host}）` : ''}，可能是网络不通或供应商过载`)
+  }
+  if (error instanceof TypeError && /fetch failed/i.test(error.message)) {
+    const cause = (error as { cause?: { code?: string; message?: string } }).cause
+    const code = cause?.code ?? ''
+    if (/ENOTFOUND|EAI_AGAIN/.test(code)) {
+      return new GatewayError('NetworkError', `无法解析接口域名${host ? `（${host}）` : ''}：请检查接口地址拼写、本机网络或代理设置`)
+    }
+    if (/ECONNREFUSED/.test(code)) {
+      return new GatewayError('NetworkError', `连接被拒绝${host ? `（${host}）` : ''}：目标服务未开放或端口不正确`)
+    }
+    if (/ETIMEDOUT|ECONNRESET|EPIPE/.test(code)) {
+      return new GatewayError('NetworkError', `网络连接中断或超时${host ? `（${host}）` : ''}：请检查本机网络、代理或防火墙`)
+    }
+    if (/CERT|TLS|SSL/i.test(code)) {
+      return new GatewayError('NetworkError', `TLS 证书校验失败${host ? `（${host}）` : ''}：请检查系统时间与证书配置`)
+    }
+    return new GatewayError('NetworkError', `无法连接到接口地址${host ? `（${host}）` : ''}${code ? `：${code}` : ''}，请检查网络或代理设置`)
   }
   const message = error instanceof Error ? error.message : '未知网络错误'
   return new GatewayError('NetworkError', message)

@@ -1,10 +1,10 @@
 import {
+  Braces,
   ChevronRight,
   CircleUserRound,
   FileText,
   Flame,
   Image,
-  LayoutDashboard,
   LockKeyhole,
   Moon,
   Newspaper,
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import type { AccountProfileSummary, ProviderSummary } from '../../../shared/contracts'
 
-export type RouteId = 'dashboard' | 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'providers'
+export type RouteId = 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'providers' | 'prompts'
 
 interface LayoutProps {
   route: RouteId
@@ -33,7 +33,7 @@ interface LayoutProps {
 interface NavItem {
   id: RouteId
   label: string
-  icon: typeof LayoutDashboard
+  icon: typeof CircleUserRound
 }
 
 interface NavGroup {
@@ -42,12 +42,6 @@ interface NavGroup {
 }
 
 const navGroups: NavGroup[] = [
-  {
-    title: '概览',
-    items: [
-      { id: 'dashboard', label: '工作台', icon: LayoutDashboard }
-    ]
-  },
   {
     title: '准备',
     items: [
@@ -81,7 +75,6 @@ const navGroups: NavGroup[] = [
 ]
 
 const routeBreadcrumbs: Record<RouteId, { group: string; label: string }> = {
-  dashboard: { group: '概览', label: '工作台' },
   accounts: { group: '准备', label: '账号定位' },
   hotspots: { group: '准备', label: '热点洞察' },
   topics: { group: '创作', label: '选题生成' },
@@ -92,7 +85,8 @@ const routeBreadcrumbs: Record<RouteId, { group: string; label: string }> = {
   layouts: { group: '辅助', label: '文章排版' },
   materials: { group: '辅助', label: '素材库' },
   publishing: { group: '发布', label: '发布管理' },
-  providers: { group: '系统', label: '模型网关' }
+  providers: { group: '系统', label: '模型网关' },
+  prompts: { group: '系统', label: '提示词' }
 }
 
 export function Layout({
@@ -111,7 +105,7 @@ export function Layout({
     <div className="app-shell">
       <a href="#main" className="skip-link">跳到主内容</a>
       <aside className="sidebar">
-        <button className="brand" onClick={() => onNavigate('dashboard')}>
+        <button className="brand" onClick={() => onNavigate('accounts')}>
           <span className="brand-mark"><img src="assets/ui/heartflow-brand.png" alt="" /></span>
           <span>
             <strong>心流</strong>
@@ -149,6 +143,13 @@ export function Layout({
             {usableProviders.length > 0 && (
               <span className="gateway-status-dot ready" />
             )}
+          </button>
+          <button
+            className={`nav-item ${route === 'prompts' ? 'active' : ''}`}
+            onClick={() => onNavigate('prompts')}
+          >
+            <span className="nav-icon"><Braces size={16} /></span>
+            <span>提示词</span>
           </button>
         </div>
       </aside>

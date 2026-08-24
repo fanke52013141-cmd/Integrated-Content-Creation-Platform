@@ -783,3 +783,128 @@ select:focus-visible {
 :root[data-theme="dark"] ::selection {
   background: rgba(10, 132, 255, 0.25);
 }
+
+/* ── 27. 提示词管理页 ── */
+.prompt-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.prompt-card {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+.prompt-card-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.prompt-card-copy strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-card-copy small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-card-copy code {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-meta {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.prompt-textarea textarea,
+.field.prompt-textarea textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prompt-vars {
+  margin-top: 12px;
+}
+
+.prompt-vars h4 {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.var-chip {
+  height: auto;
+  padding: 4px 9px;
+}
+
+.prompt-vars-empty {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.prompt-note {
+  margin-top: 14px;
+}
+
+.prompt-note input {
+  width: 100%;
+}
+
+.version-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.version-panel-head svg {
+  color: var(--primary);
+}
+
+.version-panel-head h4 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.version-item em {
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.version-item .compact {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 10px;
+}
+
+/* ── 28. 热点雷达：标题与统计与「信号源」左对齐 ── */
+.hotspots-page .hotspot-hero,
+.hotspots-page .hotspot-summary {
+  padding-left: 18px;
+}
+
+.hotspots-page .hotspot-summary {
+  padding-right: 18px;
+}

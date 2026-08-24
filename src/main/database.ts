@@ -13,6 +13,7 @@ import type {
   HotItem,
   HotSourcePreference,
   Material,
+  ModelCallLog,
   ProviderModel,
   ProviderSummary,
   SaveAccountInput,
@@ -38,7 +39,10 @@ import type {
   TopicStatus,
   TopicVersion,
   TopicVersionSource,
-  WizardAnswer
+  WizardAnswer,
+  PromptDefBase,
+  PromptDefSummary,
+  PromptVersionInfo
 } from '../shared/contracts.js'
 import { createDefaultTopicSchema, escapeXml } from '../shared/domain.js'
 
@@ -214,6 +218,8 @@ interface VisualPackRow { id:string; article_id:string; article_version_id:strin
 interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; created_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
 interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; created_at:string; updated_at:string }
+interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
+interface PromptVersionRow { id: string; prompt_key: string; version: number; content: string; source: 'builtin' | 'user'; note: string; created_at: string }
 
 export class AppDatabase {
   private readonly db: DatabaseSync
@@ -482,6 +488,27 @@ export class AppDatabase {
       CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS weibo_sessions (account TEXT PRIMARY KEY,encrypted_cookie BLOB NOT NULL,updated_at TEXT NOT NULL);
 
+      CREATE TABLE IF NOT EXISTS prompt_defs (
+        key TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        default_template TEXT NOT NULL,
+        active_version INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS prompt_versions (
+        id TEXT PRIMARY KEY,
+        prompt_key TEXT NOT NULL REFERENCES prompt_defs(key) ON DELETE CASCADE,
+        version INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('builtin','user')),
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        UNIQUE(prompt_key, version)
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_prompt_versions_one_default
+        ON prompt_versions(prompt_key) WHERE version = 1;
+
       CREATE TRIGGER IF NOT EXISTS artifact_references_immutable
       BEFORE UPDATE ON artifact_references
       BEGIN
@@ -527,11 +554,20 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_article_layouts_article ON article_layouts(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_publications_article ON publications(article_id, created_at DESC);
     `)
+    this.ensureModelCallsErrorMessage()
     this.migrateFrameworksAccountIdFk()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
     this.ensureFrameworkTemplate()
+  }
+
+  /** model_calls 增加错误详情列，便于按供应商排查问题 */
+  private ensureModelCallsErrorMessage(): void {
+    const columns = this.db.prepare('PRAGMA table_info(model_calls)').all() as Array<{ name: string }>
+    if (!columns.some((column) => column.name === 'error_message')) {
+      this.db.exec('ALTER TABLE model_calls ADD COLUMN error_message TEXT')
+    }
   }
 
   listProviders(): ProviderSummary[] {
@@ -662,6 +698,121 @@ export class AppDatabase {
     } else {
       this.db.prepare('DELETE FROM providers WHERE id = ?').run(id)
     }
+  }
+
+  // ===== 提示词管理 =====
+
+  /** 首次运行用内置默认模板灌入各提示词单元（v1），已存在则跳过。 */
+  seedPrompts(defs: PromptDefBase[]): void {
+    const now = new Date().toISOString()
+    const hasDef = this.db.prepare('SELECT 1 FROM prompt_defs WHERE key = ?')
+    const insertDef = this.db.prepare(`
+      INSERT OR IGNORE INTO prompt_defs (key, title, description, default_template, active_version, updated_at)
+      VALUES (?, ?, ?, ?, 1, ?)
+    `)
+    const insertV1 = this.db.prepare(`
+      INSERT OR IGNORE INTO prompt_versions (id, prompt_key, version, content, source, note, created_at)
+      VALUES (?, ?, 1, ?, 'builtin', '', ?)
+    `)
+    this.transaction(() => {
+      for (const def of defs) {
+        if (hasDef.get(def.key)) continue
+        insertDef.run(def.key, def.title, def.description, def.template, now)
+        insertV1.run(crypto.randomUUID(), def.key, def.template, now)
+      }
+    })
+  }
+
+  listPromptDefs(): PromptDefSummary[] {
+    const rows = this.db.prepare(`
+      SELECT d.key, d.title, d.description, d.default_template, d.active_version, d.updated_at,
+             (SELECT v.content FROM prompt_versions v
+               WHERE v.prompt_key = d.key AND v.version = d.active_version) AS active_content,
+             (SELECT COUNT(*) FROM prompt_versions v2 WHERE v2.prompt_key = d.key) AS version_count
+      FROM prompt_defs d
+      ORDER BY d.key
+    `).all() as unknown as PromptDefRow[]
+    return rows.map((row) => ({
+      key: row.key,
+      title: row.title,
+      description: row.description,
+      activeContent: row.active_content ?? '',
+      activeVersion: row.active_version,
+      versionCount: row.version_count,
+      updatedAt: row.updated_at
+    }))
+  }
+
+  /** 读取某个提示词单元当前生效版本的渲染模板；不存在返回 null。 */
+  getPromptActiveContent(key: string): string | null {
+    const row = this.db.prepare(`
+      SELECT v.content
+      FROM prompt_defs d
+      JOIN prompt_versions v ON v.prompt_key = d.key AND v.version = d.active_version
+      WHERE d.key = ?
+    `).get(key) as { content: string } | undefined
+    return row?.content ?? null
+  }
+
+  listPromptVersions(key: string): PromptVersionInfo[] {
+    const rows = this.db.prepare(`
+      SELECT id, prompt_key, version, content, source, note, created_at
+      FROM prompt_versions
+      WHERE prompt_key = ?
+      ORDER BY version DESC
+    `).all(key) as unknown as PromptVersionRow[]
+    return rows.map((row) => ({
+      id: row.id,
+      version: row.version,
+      content: row.content,
+      source: row.source,
+      note: row.note,
+      createdAt: row.created_at
+    }))
+  }
+
+  /**
+   * 保存对提示词的编辑：将新内容写为 source=user 的新版本并设为当前生效版本。
+   * 返回新的版本号。
+   */
+  updatePrompt(key: string, content: string, note: string): number {
+    const template = content.trim()
+    if (!template) throw new Error('提示词内容不能为空')
+    const def = this.db.prepare('SELECT key FROM prompt_defs WHERE key = ?').get(key) as { key: string } | undefined
+    if (!def) throw new Error('提示词单元不存在')
+
+    const now = new Date().toISOString()
+    const nextVersion: number = this.transaction(() => {
+      const current = this.db
+        .prepare('SELECT active_version FROM prompt_defs WHERE key = ?')
+        .get(key) as { active_version: number }
+      const nextVersion = current.active_version + 1
+      this.db.prepare(`
+        INSERT INTO prompt_versions (id, prompt_key, version, content, source, note, created_at)
+        VALUES (?, ?, ?, ?, 'user', ?, ?)
+      `).run(crypto.randomUUID(), key, nextVersion, template, note.trim(), now)
+      this.db.prepare('UPDATE prompt_defs SET active_version = ?, updated_at = ? WHERE key = ?')
+        .run(nextVersion, now, key)
+      return nextVersion
+    })
+    return nextVersion
+  }
+
+  /** 回滚到历史某个版本：把该版本内容保存为新的 user 版本并设为当前生效版本。 */
+  restorePrompt(key: string, version: number): number {
+    const row = this.db.prepare(`
+      SELECT content FROM prompt_versions WHERE prompt_key = ? AND version = ?
+    `).get(key, version) as { content: string } | undefined
+    if (!row) throw new Error('目标版本不存在')
+    return this.updatePrompt(key, row.content, `回滚自 v${version}`)
+  }
+
+  /** 恢复到内置默认模板：以新 user 版本形式写入并设为当前生效版本。 */
+  resetPrompt(key: string): number {
+    const def = this.db.prepare('SELECT default_template FROM prompt_defs WHERE key = ?')
+      .get(key) as { default_template: string } | undefined
+    if (!def) throw new Error('提示词单元不存在')
+    return this.updatePrompt(key, def.default_template, '恢复内置默认模板')
   }
 
   listProviderModels(providerId: string): ProviderModel[] {
@@ -1299,19 +1450,20 @@ export class AppDatabase {
   private mapReviewTask(row:ReviewTaskRow):ReviewTask { return {id:row.id,articleId:row.article_id,roleIds:parseJson<string[]>(row.role_ids_json,[]),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,opinions:(this.db.prepare('SELECT * FROM review_opinions WHERE task_id=? ORDER BY created_at').all(row.id) as unknown as ReviewOpinionRow[]).map(item=>this.mapReviewOpinion(item))} }
 
   recordModelCall(input: {
-    providerId: string
+    providerId: string | null
     model: string
     latencyMs: number
     promptTokens?: number
     completionTokens?: number
     success: boolean
     errorKind?: string
+    errorMessage?: string
   }): void {
     this.db.prepare(`
       INSERT INTO model_calls (
         id, provider_id, model, modality, latency_ms, prompt_tokens,
-        completion_tokens, success, error_kind, created_at
-      ) VALUES (?, ?, ?, 'text', ?, ?, ?, ?, ?, ?)
+        completion_tokens, success, error_kind, error_message, created_at
+      ) VALUES (?, ?, ?, 'text', ?, ?, ?, ?, ?, ?, ?)
     `).run(
       crypto.randomUUID(),
       input.providerId,
@@ -1321,8 +1473,44 @@ export class AppDatabase {
       input.completionTokens ?? null,
       input.success ? 1 : 0,
       input.errorKind ?? null,
+      input.errorMessage ? input.errorMessage.slice(0, 2_000) : null,
       new Date().toISOString()
     )
+  }
+
+  listModelCalls(providerId?: string, limit = 60): ModelCallLog[] {
+    const rows = providerId
+      ? this.db.prepare(`
+          SELECT * FROM model_calls WHERE provider_id = ?
+          ORDER BY created_at DESC LIMIT ?
+        `).all(providerId, limit)
+      : this.db.prepare(`
+          SELECT * FROM model_calls
+          ORDER BY created_at DESC LIMIT ?
+        `).all(limit)
+    return (rows as unknown as Array<{
+      id: string
+      provider_id: string | null
+      model: string
+      latency_ms: number
+      prompt_tokens: number | null
+      completion_tokens: number | null
+      success: number
+      error_kind: string | null
+      error_message: string | null
+      created_at: string
+    }>).map((row) => ({
+      id: row.id,
+      providerId: row.provider_id ?? undefined,
+      model: row.model,
+      latencyMs: row.latency_ms,
+      promptTokens: row.prompt_tokens ?? undefined,
+      completionTokens: row.completion_tokens ?? undefined,
+      success: Boolean(row.success),
+      errorKind: row.error_kind ?? undefined,
+      errorMessage: row.error_message ?? undefined,
+      createdAt: row.created_at
+    }))
   }
 
   createArtifactReference(input: CreateArtifactReferenceInput): ArtifactReference {

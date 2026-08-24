@@ -1,4 +1,4 @@
-﻿/* Golden Time signature typeface — Fraunces (bundled locally, CSP-safe) */
+/* Golden Time signature typeface — Fraunces (bundled locally, CSP-safe) */
 @font-face {
   font-family: 'Fraunces';
   font-style: normal;
@@ -3704,6 +3704,39 @@ p {
   word-break: break-all;
 }
 
+.weibo-login-waiting {
+  display: grid;
+  gap: 6px;
+  place-items: center;
+  min-height: 132px;
+  padding: 22px 18px;
+  color: var(--text-secondary);
+  background: var(--surface-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.weibo-login-waiting.active {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+.weibo-login-waiting > svg {
+  color: var(--primary);
+}
+
+.weibo-login-waiting strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.weibo-login-waiting small {
+  max-width: 420px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .weibo-login-need {
   color: var(--warning);
 }
@@ -4208,5 +4241,106 @@ h1, h2, h3 {
 .topic-card-title span,
 .source-mark {
   letter-spacing: 0.08em;
+}
+
+/* ═══ Provider editor: test-before-save & call logs ═══ */
+.section-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-security.draft-status {
+  max-width: 460px;
+}
+
+.inline-security.draft-status.ok {
+  color: var(--accent, #2f7d5d);
+}
+
+.inline-security.draft-status.error {
+  color: var(--danger, #b3392f);
+}
+
+.provider-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 520px;
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+
+.provider-log-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-md);
+}
+
+.provider-log-row .log-state {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  text-align: center;
+}
+
+.provider-log-row .log-state.success {
+  color: #1f6f4a;
+  background: rgba(47, 158, 111, 0.14);
+}
+
+.provider-log-row .log-state.error {
+  color: #a0342c;
+  background: rgba(200, 70, 60, 0.12);
+}
+
+.provider-log-main {
+  min-width: 0;
+}
+
+.provider-log-main strong {
+  font-size: 11px;
+}
+
+.provider-log-main small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 9px;
+}
+
+.provider-log-main p {
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.provider-logs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+:root[data-theme="dark"] .provider-log-row .log-state.success {
+  color: #7dd8a8;
+}
+
+:root[data-theme="dark"] .provider-log-row .log-state.error {
+  color: #eb9a92;
 }
 

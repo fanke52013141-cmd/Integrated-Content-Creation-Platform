@@ -2,9 +2,14 @@ import { escapeXml } from '../../shared/domain.js'
 import type { GenerateVisualPackInput, VisualPrompt } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import type { PromptRegistry } from '../gateway/prompt-registry.js'
 
 export class VisualPackGenerator {
-  constructor(private readonly database: AppDatabase, private readonly gateway: ModelGateway) {}
+  constructor(
+    private readonly database: AppDatabase,
+    private readonly gateway: ModelGateway,
+    private readonly prompts: PromptRegistry
+  ) {}
 
   async generate(input: GenerateVisualPackInput) {
     const article = this.database.getArticle(input.articleId)
@@ -12,7 +17,7 @@ export class VisualPackGenerator {
     const response = await this.gateway.chat({
       providerId: input.providerId, model: input.model, temperature: .65, maxTokens: 4200, jsonMode: false,
       extractBlock: { tag: '配图方案', occurrence: 'last' },
-      messages: [{ role: 'system', content: `你是中文内容视觉总监。根据文章输出一个 <配图方案> XML 块，不生成真实图片。必须有：\n<封面><主视觉>...</主视觉><封面文案>...</封面文案><提示词>...</提示词></封面>\n<文内配图>每项格式：<图><位置>...</位置><用途>...</用途><比例>...</比例><提示词>...</提示词><替代文本>...</替代文本></图></文内配图>\n<发布配图>每项同上，用途要说明渠道或发布场景。</发布配图>\n提示词应可直接粘贴到绘图工具：具体构图、主体、风格、光线、留白；不得杜撰文章外的事实或人物，不要出现商标、水印、文字乱码。` }, { role: 'user', content: `<文章版本 id="${article.currentVersionId}" 状态="${article.status}">\n${escapeXml(article.rawMarkdown)}\n</文章>\n请设计 1 张封面、${input.inlineCount} 张文内配图、3 张发布配图。` }]
+      messages: [{ role: 'system', content: this.prompts.render('visual.generate') }, { role: 'user', content: `<文章版本 id="${article.currentVersionId}" 状态="${article.status}">\n${escapeXml(article.rawMarkdown)}\n</文章>\n请设计 1 张封面、${input.inlineCount} 张文内配图、3 张发布配图。` }]
     })
     const raw = typeof response.extracted === 'string' ? response.extracted : response.content
     const parsed = parsePack(raw)

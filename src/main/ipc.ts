@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { AppDatabase } from './database.js'
 import type { ModelGateway } from './gateway/model-gateway.js'
 import { PROVIDER_PRESETS } from './gateway/presets.js'
+import type { PromptRegistry } from './gateway/prompt-registry.js'
 import type { KeyStore } from './security/key-store.js'
 import type { AccountGenerator } from './services/account-generator.js'
 import type { HotspotFilter } from './services/hotspot-filter.js'
@@ -15,6 +16,7 @@ import type { ReviewService } from './services/review-service.js'
 import type { VisualPackGenerator } from './services/visual-pack-generator.js'
 import type { ArticleLayoutService } from './services/article-layout-service.js'
 import type { WechatPublishService } from './services/wechat-publish-service.js'
+import type { WeiboLoginService } from './services/weibo-login-service.js'
 import { validateAccountFields, validateTopicSchema } from '../shared/domain.js'
 import type {
   AddHotFavoriteInput,
@@ -25,6 +27,7 @@ import type {
   SaveHotSourcePreferencesInput,
   SaveTopicInput,
   SaveProviderInput,
+  ProviderDraftTestInput,
   GenerateTopicsInput,
   AddSearchMaterialInput,
   MaterialSearchInput,
@@ -103,6 +106,7 @@ export function registerIpc(options: {
   database: AppDatabase
   keyStore: KeyStore
   gateway: ModelGateway
+  prompts: PromptRegistry
   accountGenerator: AccountGenerator
   hotspotFilter: HotspotFilter
   hotspotService: HotspotService
@@ -114,12 +118,14 @@ export function registerIpc(options: {
   visualPackGenerator: VisualPackGenerator
   articleLayoutService: ArticleLayoutService
   wechatPublishService: WechatPublishService
+  weiboLoginService: WeiboLoginService
   dataPath: string
 }): void {
   const {
     database,
     keyStore,
     gateway,
+    prompts,
     accountGenerator,
     hotspotFilter,
     hotspotService,
@@ -131,6 +137,7 @@ export function registerIpc(options: {
     visualPackGenerator,
     articleLayoutService,
     wechatPublishService,
+    weiboLoginService,
     dataPath
   } = options
 
@@ -155,6 +162,62 @@ export function registerIpc(options: {
   handle('providers:remove', (_event, id: string) => {
     database.removeProvider(requireId(id))
   })
+
+  /** 保存前测试：直接用表单里的接口地址 / 密钥 / 模型做一次最小请求，结果不加密不落库 */
+  handle('providers:test-draft', async (_event, raw: ProviderDraftTestInput) => {
+    const input = z.object({
+      id: z.string().optional(),
+      baseUrl: z.string().trim().url(),
+      apiKey: z.string().trim().max(10_000).optional(),
+      model: z.string().trim().max(160).optional()
+    }).parse(raw)
+    const result = await gateway.testDraft({
+      providerId: input.id,
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      model: input.model,
+      onLog: (entry) => database.recordModelCall({
+        providerId: input.id ?? null,
+        model: entry.model,
+        latencyMs: entry.latencyMs,
+        success: entry.success,
+        errorKind: entry.errorKind,
+        errorMessage: entry.errorMessage
+      })
+    })
+    return { ok: true, ...result }
+  })
+
+  /** 模型调用日志（含生成、测试、保存前测试） */
+  handle('providers:logs', (_event, providerId?: string) =>
+    database.listModelCalls(typeof providerId === 'string' && providerId ? providerId : undefined, 100)
+  )
+
+  // ===== 提示词管理 =====
+  handle('prompts:list', () => database.listPromptDefs())
+  handle('prompts:list-versions', (_event, key: string) => {
+    const trimmed = typeof key === 'string' ? key.trim() : ''
+    if (!trimmed) throw new Error('缺少提示词 key')
+    return database.listPromptVersions(trimmed)
+  })
+  handle('prompts:update', (_event, raw: { key: string; content: string; note?: string }) => {
+    const input = z.object({
+      key: z.string().trim().min(1),
+      content: z.string(),
+      note: z.string().max(200).optional()
+    }).parse(raw)
+    return database.updatePrompt(input.key, input.content, input.note ?? '')
+  })
+  handle('prompts:restore', (_event, raw: { key: string; version: number }) => {
+    const input = z.object({ key: z.string().trim().min(1), version: z.number().int().positive() }).parse(raw)
+    return database.restorePrompt(input.key, input.version)
+  })
+  handle('prompts:reset', (_event, key: string) => {
+    const trimmed = typeof key === 'string' ? key.trim() : ''
+    if (!trimmed) throw new Error('缺少提示词 key')
+    return database.resetPrompt(trimmed)
+  })
+
   handle('providers:test', async (_event, id: string) => {
     const providerId = requireId(id)
     const provider = database.getProvider(providerId)
@@ -175,7 +238,7 @@ export function registerIpc(options: {
       ok: true,
       latencyMs: Math.round(performance.now() - startedAt),
       model: result.model,
-      message: '连接成功'
+      message: `连接成功 · 模型 ${result.model} 正常响应`
     }
   })
 
@@ -276,6 +339,7 @@ export function registerIpc(options: {
     const meta = database.getWeiboSessionMeta()
     return { configured: true, updatedAt: meta?.updatedAt }
   })
+  handle('hotspots:weibo:login', () => weiboLoginService.login())
   handle('hotspots:weibo:clear', () => {
     keyStore.clearWeiboCookie()
   })

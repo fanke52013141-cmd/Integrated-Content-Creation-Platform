@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type {
   HotItem,
   HotSource,
+  HotSourcePreference,
   HotSourceResult,
   HotspotBootstrap
 } from '../../shared/contracts.js'
@@ -29,16 +30,24 @@ interface UpstreamList {
 
 type UpstreamItem = Record<string, unknown>
 
-const PRIMARY_SOURCE_IDS = [
+/**
+ * 首次运行时默认展示的平台（其余默认隐藏），顺序即排布顺序：
+ * 36氪、抖音、微博、知乎、今日头条、快手、哔哩哔哩、百度、IT之家、腾讯新闻。
+ */
+const DEFAULT_VISIBLE_IDS = [
+  '36kr',
+  'douyin',
   'weibo',
   'zhihu',
-  'baidu',
-  'douyin',
   'toutiao',
+  'kuaishou',
   'bilibili',
-  'qq-news',
-  'ithome'
+  'baidu',
+  'ithome',
+  'qq-news'
 ]
+
+const PRIMARY_SOURCE_IDS = [...DEFAULT_VISIBLE_IDS]
 
 const SOURCE_NAMES: Record<string, string> = {
   '36kr': '36氪',
@@ -122,8 +131,27 @@ export class HotspotService {
     return {
       service: this.embedded.status(),
       sources,
-      preferences: this.database?.listHotSourcePreferences() ?? []
+      preferences: this.defaultOrSavedPreferences(sources)
     }
+  }
+
+  /** 已有保存的偏好用保存值；首次运行返回「默认展示 7 平台」的偏好。 */
+  private defaultOrSavedPreferences(sources: HotSource[]): HotSourcePreference[] {
+    const saved = this.database?.listHotSourcePreferences() ?? []
+    if (saved.length) return saved
+    const visible = new Set(DEFAULT_VISIBLE_IDS)
+    const masterOrder = [...DEFAULT_VISIBLE_IDS]
+    for (const source of sources) {
+      if (!visible.has(source.id)) masterOrder.push(source.id)
+    }
+    return sources
+      .map((source) => ({
+        sourceId: source.id,
+        hidden: !visible.has(source.id),
+        sortOrder: masterOrder.indexOf(source.id),
+        updatedAt: new Date().toISOString()
+      }))
+      .sort((left, right) => left.sortOrder - right.sortOrder)
   }
 
   async refresh(sourceIds?: string[]): Promise<HotSourceResult[]> {

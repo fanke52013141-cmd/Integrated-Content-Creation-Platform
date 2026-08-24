@@ -7,9 +7,11 @@ import { GatewayError } from '../src/main/gateway/types.js'
 import type { UnifiedRequest, UnifiedResponse } from '../src/main/gateway/types.js'
 import type { ModelGateway } from '../src/main/gateway/model-gateway.js'
 import { createAccountFields } from '../src/shared/domain.js'
+import { makePromptRegistryStub } from './helpers/prompt-registry-stub.js'
 
 const PROVIDER_ID = 'p1'
 const MODEL_ID = 'mock-model'
+const prompts = makePromptRegistryStub()
 
 // 在 DB 中创建一个真实 provider，避免 topic_versions/framework_versions/article_versions 的 provider_id FK 失败。
 function ensureProvider(database: AppDatabase): void {
@@ -70,7 +72,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
       content: JSON.stringify(Object.fromEntries(schema.map((f) => [f.name, `值-${f.name}`]))),
       failOnAttempt: 2
     })
-    const generator = new TopicGenerator(database, gateway)
+    const generator = new TopicGenerator(database, gateway, prompts)
 
     const result = await generator.generate({
       accountId: account.id,
@@ -105,7 +107,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
     // 让所有调用都失败
     ;(gateway as unknown as { chat: { mockImplementation: (fn: (...args: unknown[]) => unknown) => void } })
       .chat.mockImplementation(async () => { throw new GatewayError('TimeoutError', '全部超时') })
-    const generator = new TopicGenerator(database, gateway)
+    const generator = new TopicGenerator(database, gateway, prompts)
 
     const result = await generator.generate({
       accountId: account.id,
@@ -130,7 +132,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
       content: '<框架><标题>标题</标题><开头>开头</开头><论点一>论点一</论点一><论点二>论点二</论点二><论点三>论点三</论点三><结尾>结尾</结尾></框架>',
       failOnAttempt: 2
     })
-    const generator = new FrameworkGenerator(database, gateway)
+    const generator = new FrameworkGenerator(database, gateway, prompts)
 
     const result = await generator.generate({
       templateId: template.id,
@@ -158,7 +160,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
       content: '# 独立成稿\n\n正文内容，符合 Markdown 规范。',
       failOnAttempt: 2
     })
-    const generator = new ArticleGenerator(database, gateway)
+    const generator = new ArticleGenerator(database, gateway, prompts)
 
     const result = await generator.generate({
       frameworkId: undefined,
@@ -192,7 +194,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
       content: '# 改稿后标题\n\n改稿后内容。',
       failOnAttempt: 1
     })
-    const generator = new ArticleGenerator(database, gateway)
+    const generator = new ArticleGenerator(database, gateway, prompts)
 
     const result = await generator.revise({
       articleId: article.id,
@@ -223,7 +225,7 @@ describe('INT-02 防重复 - 生成中重复调用不产生副作用', () => {
     const gateway = makeMockGateway({
       content: JSON.stringify(Object.fromEntries(schema.map((f) => [f.name, `值-${f.name}`])))
     })
-    const generator = new TopicGenerator(database, gateway)
+    const generator = new TopicGenerator(database, gateway, prompts)
 
     await generator.generate({
       accountId: account.id, relatedHotFavoriteIds: [],

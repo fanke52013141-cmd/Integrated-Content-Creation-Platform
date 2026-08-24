@@ -20,7 +20,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'deepseek',
     displayName: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
-    defaultModel: 'deepseek-v4-flash',
+    defaultModel: 'deepseek-chat',
     capabilities: commonCapabilities
   },
   {
@@ -42,6 +42,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     displayName: '豆包（火山方舟）',
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: '请填写推理接入点 ID',
+    capabilities: commonCapabilities
+  },
+  {
+    id: 'wechat-ai',
+    displayName: '微信云开发 AI',
+    baseUrl: 'https://chatapi.weixin.qq.com/openai/v1',
+    defaultModel: 'GLM-5.2',
     capabilities: commonCapabilities
   },
   {

@@ -6,13 +6,16 @@ import {
   KeyRound,
   Plus,
   Radio,
+  ScrollText,
   Server,
   ShieldCheck,
   Trash2,
   Unplug,
+  X,
   Zap
 } from 'lucide-react'
 import type {
+  ModelCallLog,
   ProviderPreset,
   SaveProviderModelInput,
   ProviderSummary,
@@ -21,8 +24,9 @@ import type {
 } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
+import { ModalBase } from '../components/ModalBase'
 import { FieldError, useFormErrors } from '../components/useFormErrors'
-import { errorMessage, formatDate, isSafeUrl } from '../lib'
+import { errorMessage, formatDate, formatFullDate, isSafeUrl } from '../lib'
 
 interface ProvidersPageProps {
   providers: ProviderSummary[]
@@ -74,6 +78,12 @@ export function ProvidersPage({
   const [testingId, setTestingId] = useState<string>()
   const [testStatus, setTestStatus] = useState<Record<string, string>>({})
   const [view, setView] = useState<'models' | 'search'>('models')
+  const [draftTesting, setDraftTesting] = useState(false)
+  const [draftStatus, setDraftStatus] = useState<{ ok: boolean; message: string }>()
+  const [logsOpen, setLogsOpen] = useState(false)
+  const [logsTarget, setLogsTarget] = useState<{ id?: string; name: string }>()
+  const [logs, setLogs] = useState<ModelCallLog[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
 
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
@@ -87,6 +97,7 @@ export function ProvidersPage({
   function chooseProvider(provider: ProviderSummary): void {
     clearAll()
     setSelectedId(provider.id)
+    setDraftStatus(undefined)
     setForm({
       id: provider.id,
       displayName: provider.displayName,
@@ -113,6 +124,7 @@ export function ProvidersPage({
   function choosePreset(preset: ProviderPreset): void {
     clearAll()
     setSelectedId(undefined)
+    setDraftStatus(undefined)
     setForm({
       ...emptyForm(),
       displayName: preset.displayName,
@@ -128,6 +140,36 @@ export function ProvidersPage({
         enabled: true
       }]
     })
+  }
+
+  /** 保存前先测试：用表单里的接口地址/密钥/默认模型发一次最小请求 */
+  async function testDraft(): Promise<boolean> {
+    if (!form.baseUrl.trim()) {
+      setDraftStatus({ ok: false, message: '请先填写接口地址' })
+      return false
+    }
+    if (!form.apiKey?.trim() && !(form.id && selected?.hasApiKey)) {
+      setDraftStatus({ ok: false, message: '请先填写访问密钥' })
+      return false
+    }
+    const defaultModel = form.models.find((model) => model.enabled && model.isDefault && model.modelId.trim())
+    setDraftTesting(true)
+    setDraftStatus({ ok: true, message: '正在测试连接…' })
+    try {
+      const result = await window.moliu.providers.testDraft({
+        id: form.id,
+        baseUrl: form.baseUrl.trim(),
+        apiKey: form.apiKey?.trim() || undefined,
+        model: defaultModel?.modelId.trim()
+      })
+      setDraftStatus({ ok: true, message: `${result.message} · ${result.latencyMs}ms` })
+      return true
+    } catch (error) {
+      setDraftStatus({ ok: false, message: errorMessage(error) })
+      return false
+    } finally {
+      setDraftTesting(false)
+    }
   }
 
   async function save(): Promise<void> {
@@ -161,6 +203,14 @@ export function ProvidersPage({
       showToast({ type: 'error', message: '同一连接内的模型标识不能重复' })
       return
     }
+
+    // 先测试，通过后才加密保存
+    const passed = await testDraft()
+    if (!passed) {
+      showToast({ type: 'error', message: '连接测试未通过，已取消保存。可在测试结果中查看原因，或打开调用日志排查。' })
+      return
+    }
+
     setSaving(true)
     try {
       const saved = await window.moliu.providers.save({
@@ -171,7 +221,7 @@ export function ProvidersPage({
       })
       await onRefresh()
       chooseProvider(saved)
-      showToast({ type: 'success', message: '供应商配置已加密保存' })
+      showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     } finally {
@@ -195,6 +245,19 @@ export function ProvidersPage({
       }))
     } finally {
       setTestingId(undefined)
+    }
+  }
+
+  async function openLogs(target?: { id: string; name: string }): Promise<void> {
+    setLogsTarget(target ?? { name: '全部连接' })
+    setLogsOpen(true)
+    setLogsLoading(true)
+    try {
+      setLogs(await window.moliu.providers.logs(target?.id))
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setLogsLoading(false)
     }
   }
 
@@ -279,7 +342,16 @@ export function ProvidersPage({
         <div className="provider-list-column">
           <div className="section-heading">
             <div><span className="eyebrow">PROVIDERS</span><h3>已配置供应商</h3></div>
-            <span className="count-badge">{providers.length}</span>
+            <div className="section-heading-actions">
+              <button
+                className="button ghost compact"
+                onClick={() => void openLogs()}
+                title="查看全部模型调用日志"
+              >
+                <ScrollText size={15} />调用日志
+              </button>
+              <span className="count-badge">{providers.length}</span>
+            </div>
           </div>
 
           <div className="provider-list">
@@ -301,6 +373,18 @@ export function ProvidersPage({
                   <small>{testStatus[provider.id] || `${formatDate(provider.updatedAt)} 更新`}</small>
                 </div>
                 <div className="provider-actions">
+                  <button
+                    className="icon-button"
+                    disabled={testingId === provider.id}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void openLogs({ id: provider.id, name: provider.displayName })
+                    }}
+                    title="调用日志"
+                    aria-label="调用日志"
+                  >
+                    <ScrollText size={16} />
+                  </button>
                   <button
                     className="icon-button"
                     disabled={!provider.hasApiKey || testingId === provider.id}
@@ -556,15 +640,33 @@ export function ProvidersPage({
           </div>
 
           <div className="editor-footer">
-            <span className="inline-security">
-              {form.id && selected?.hasApiKey
-                ? <><CheckCircle2 size={15} />密钥已保存</>
-                : <><CircleAlert size={15} />等待保存密钥</>}
+            <span className={`inline-security draft-status ${draftStatus ? (draftStatus.ok ? 'ok' : 'error') : ''}`}>
+              {draftStatus
+                ? draftStatus.ok
+                  ? <><CheckCircle2 size={15} />{draftStatus.message}</>
+                  : <><CircleAlert size={15} />{draftStatus.message}</>
+                : form.id && selected?.hasApiKey
+                  ? <><CheckCircle2 size={15} />密钥已保存，保存前仍会先测试连接</>
+                  : <><CircleAlert size={15} />保存前会先测试连接，通过后才加密保存</>}
             </span>
-            <button className="button primary" disabled={saving} onClick={() => void save()}>
-              {saving ? <span className="spinner tiny" /> : <ShieldCheck size={16} />}
-              {saving ? '保存中' : '加密保存'}
-            </button>
+            <div className="editor-footer-actions">
+              <button
+                className="button secondary"
+                disabled={draftTesting || saving}
+                onClick={() => void testDraft()}
+              >
+                {draftTesting ? <span className="spinner tiny" /> : <Zap size={15} />}
+                {draftTesting ? '测试中' : '测试连接'}
+              </button>
+              <button
+                className="button primary"
+                disabled={saving || draftTesting}
+                onClick={() => void save()}
+              >
+                {saving || draftTesting ? <span className="spinner tiny" /> : <ShieldCheck size={16} />}
+                {saving ? '保存中' : draftTesting ? '测试中' : '测试并加密保存'}
+              </button>
+            </div>
           </div>
         </div>
       </section> : <SearchServicePanel
@@ -572,9 +674,63 @@ export function ProvidersPage({
         onRefresh={onRefresh}
         showToast={showToast}
       />}
+
+      {logsOpen && (
+        <ModalBase open onClose={() => setLogsOpen(false)} titleId="provider-logs-title" bare className="source-manager-dialog provider-logs-dialog">
+          <header>
+            <div>
+              <span className="eyebrow">MODEL CALL LOGS</span>
+              <h2 id="provider-logs-title">调用日志 · {logsTarget?.name}</h2>
+              <p>最近 100 条记录，包含内容生成、连接测试与保存前测试。</p>
+            </div>
+            <button className="icon-button" aria-label="关闭" onClick={() => setLogsOpen(false)}>
+              <X size={18} />
+            </button>
+          </header>
+          <div className="provider-logs-list">
+            {logsLoading ? (
+              <div className="provider-logs-empty"><span className="spinner" /><span>正在读取日志…</span></div>
+            ) : logs.length ? (
+              logs.map((log) => (
+                <article key={log.id} className={`provider-log-row ${log.success ? 'ok' : 'fail'}`}>
+                  <span className={`log-state ${log.success ? 'success' : 'error'}`}>
+                    {log.success ? '成功' : '失败'}
+                  </span>
+                  <div className="provider-log-main">
+                    <strong>{log.model}</strong>
+                    <small>
+                      {formatFullDate(log.createdAt)} · {log.latencyMs}ms
+                      {log.promptTokens !== undefined || log.completionTokens !== undefined
+                        ? ` · ${log.promptTokens ?? 0} / ${log.completionTokens ?? 0} tokens`
+                        : ''}
+                      {!log.success && log.errorKind ? ` · ${errorKindLabel(log.errorKind)}` : ''}
+                    </small>
+                    {!log.success && log.errorMessage && <p>{log.errorMessage}</p>}
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="provider-logs-empty"><ScrollText size={22} /><span>暂无调用记录</span></div>
+            )}
+          </div>
+        </ModalBase>
+      )}
       {ConfirmPortal}
     </div>
   )
+}
+
+function errorKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    AuthError: '密钥或权限问题',
+    RateLimitError: '频率/额度限制',
+    TimeoutError: '请求超时',
+    NetworkError: '网络错误',
+    ProviderError: '供应商返回错误',
+    ParseError: '响应解析失败',
+    ProviderConfigError: '配置错误'
+  }
+  return labels[kind] ?? kind
 }
 
 function SearchServicePanel({

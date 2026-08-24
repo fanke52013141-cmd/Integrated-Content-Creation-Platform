@@ -21,7 +21,6 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
-  Server,
   Settings2,
   SlidersHorizontal,
   Sparkles,
@@ -36,7 +35,6 @@ import type {
   HotFavorite,
   HotFavoriteTag,
   HotItem,
-  HotServiceStatus,
   HotSource,
   HotSourcePreference,
   HotSourceResult,
@@ -68,7 +66,6 @@ export function HotspotsPage({
 }): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const [view, setView] = useState<'wall' | 'favorites' | 'filter'>('wall')
-  const [service, setService] = useState<HotServiceStatus>()
   const [sources, setSources] = useState<HotSource[]>([])
   const [hiddenSourceIds, setHiddenSourceIds] = useState<Set<string>>(new Set())
   const [sourceManagerOpen, setSourceManagerOpen] = useState(false)
@@ -79,7 +76,6 @@ export function HotspotsPage({
   const [weiboDialogOpen, setWeiboDialogOpen] = useState(false)
   const [weiboConfigured, setWeiboConfigured] = useState(false)
   const [weiboUpdatedAt, setWeiboUpdatedAt] = useState<string>()
-  const [weiboCookie, setWeiboCookie] = useState('')
   const [savingWeibo, setSavingWeibo] = useState(false)
   const [results, setResults] = useState<Record<string, HotSourceResult>>({})
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
@@ -260,7 +256,6 @@ export function HotspotsPage({
         setWeiboConfigured(weiboStatus.configured)
         setWeiboUpdatedAt(weiboStatus.updatedAt)
         const orderedSources = applySourcePreferences(bootstrap.sources, bootstrap.preferences)
-        setService(bootstrap.service)
         setSources(orderedSources)
         setHiddenSourceIds(new Set(
           bootstrap.preferences
@@ -399,23 +394,18 @@ export function HotspotsPage({
   }
 
   function openWeiboDialog(): void {
-    setWeiboCookie('')
     void refreshWeiboStatus()
     setWeiboDialogOpen(true)
   }
 
-  async function saveWeiboCookie(): Promise<void> {
-    if (!weiboCookie.trim()) {
-      showToast({ type: 'error', message: '请粘贴微博登录 Cookie' })
-      return
-    }
+  /** 打开微博官方登录窗口（扫码 / 手机号均可），成功后自动提取并加密保存 Cookie */
+  async function startWeiboLogin(): Promise<void> {
     setSavingWeibo(true)
     try {
-      const status = await window.moliu.hotspots.saveWeiboCookie(weiboCookie.trim())
+      const status = await window.moliu.hotspots.weiboLogin()
       setWeiboConfigured(status.configured)
       setWeiboUpdatedAt(status.updatedAt)
-      setWeiboCookie('')
-      showToast({ type: 'success', message: '微博登录态已保存，正在刷新榜单' })
+      showToast({ type: 'success', message: '微博登录成功，Cookie 已自动保存，正在刷新榜单' })
       await refreshBatch(['weibo'])
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
@@ -567,13 +557,6 @@ export function HotspotsPage({
           </h2>
         </div>
         <div className="hotspot-hero-actions">
-          <div className={`embedded-service-pill ${service?.state === 'ready' ? 'ready' : ''}`}>
-            <Server size={15} />
-            <span>
-              <strong>内置数据服务</strong>
-              <small>本地运行</small>
-            </span>
-          </div>
           <button className="button secondary" onClick={() =>
             setView((current) => current === 'wall' ? 'favorites' : 'wall')
           }>
@@ -606,11 +589,6 @@ export function HotspotsPage({
             </>
           )}
         </div>
-      </section>
-
-      <section className="hotspot-draft-warning">
-        <AlertTriangle size={16} />
-        <span><strong>数据源</strong> 内置热点服务</span>
       </section>
 
       {view === 'wall' ? (
@@ -1035,12 +1013,10 @@ export function HotspotsPage({
           <header>
             <div>
               <span className="eyebrow">WEIBO SESSION</span>
-              <h2 id="weibo-login-title">配置微博登录态</h2>
+              <h2 id="weibo-login-title">微博登录</h2>
               <p>
                 微博热榜接口对匿名访问风控（403/432），需携带登录 Cookie。
-                {weiboConfigured
-                  ? ' 已配置，可直接刷新榜单。'
-                  : ' 请在浏览器登录微博后，复制下方 Cookie 填入保存。'}
+                点击下方按钮会打开微博官方登录窗口，支持二维码扫码或手机号登录，成功后系统自动获取并加密保存 Cookie，无需手动复制。
               </p>
             </div>
             <button className="icon-button" aria-label="关闭" onClick={() => setWeiboDialogOpen(false)}>
@@ -1051,23 +1027,22 @@ export function HotspotsPage({
             {weiboConfigured && weiboUpdatedAt && (
               <div className="weibo-login-status">
                 <CheckCircle2 size={15} />
-                <span>已配置 · 保存于 {formatDateTime(weiboUpdatedAt)}</span>
+                <span>已登录 · 保存于 {formatDateTime(weiboUpdatedAt)}</span>
               </div>
             )}
-            <label className="field">
-              <span>微博 Cookie</span>
-              <textarea
-                className="weibo-cookie-input"
-                name="weiboCookie"
-                autoComplete="off"
-                spellCheck={false}
-                rows={6}
-                value={weiboCookie}
-                onChange={(event) => setWeiboCookie(event.target.value)}
-                placeholder="例如：SUB=_2A1x...; SCF=...; SUBP=..."
-              />
-              <small>获取方式：浏览器登录 weibo.com → F12 → Application → Cookies → 复制完整 Cookie。值涉及登录身份，仅在本机加密保存。</small>
-            </label>
+            <div className={`weibo-login-waiting ${savingWeibo ? 'active' : ''}`}>
+              {savingWeibo ? <LoaderCircle size={22} className="spin" /> : <MessageCircleMore size={22} />}
+              <strong>
+                {savingWeibo
+                  ? '已打开微博登录窗口，等待扫码 / 手机号登录完成…'
+                  : '准备打开微博官方登录窗口'}
+              </strong>
+              <small>
+                {savingWeibo
+                  ? '登录成功后会自动关闭窗口并保存登录态，关闭窗口即取消。'
+                  : '支持二维码扫码、手机号等方式，登录后 Cookie 自动获取并仅在本机加密保存。'}
+              </small>
+            </div>
           </div>
           <footer>
             {weiboConfigured && (
@@ -1077,11 +1052,11 @@ export function HotspotsPage({
             )}
             <span />
             <button className="button secondary" onClick={() => setWeiboDialogOpen(false)}>
-              取消
+              关闭
             </button>
-            <button className="button primary" disabled={savingWeibo} onClick={() => void saveWeiboCookie()}>
-              {savingWeibo ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}
-              {savingWeibo ? '保存中' : '保存并刷新'}
+            <button className="button primary" disabled={savingWeibo} onClick={() => void startWeiboLogin()}>
+              {savingWeibo ? <LoaderCircle size={16} className="spin" /> : <MessageCircleMore size={16} />}
+              {savingWeibo ? '等待登录' : '扫码 / 手机号登录'}
             </button>
           </footer>
         </ModalBase>

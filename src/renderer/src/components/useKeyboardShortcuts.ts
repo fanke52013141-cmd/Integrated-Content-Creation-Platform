@@ -11,15 +11,15 @@ interface ShortcutHandlers {
 }
 
 const NAV_SHORTCUTS: Record<string, RouteId> = {
-  '1': 'dashboard',
-  '2': 'accounts',
-  '3': 'hotspots',
-  '4': 'topics',
-  '5': 'frameworks',
-  '6': 'articles',
-  '7': 'materials',
-  '8': 'visuals',
-  '9': 'reviews',
+  '1': 'accounts',
+  '2': 'hotspots',
+  '3': 'topics',
+  '4': 'frameworks',
+  '5': 'articles',
+  '6': 'materials',
+  '7': 'visuals',
+  '8': 'reviews',
+  '9': 'layouts',
   '0': 'publishing'
 }
 

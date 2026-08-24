@@ -12,7 +12,6 @@ import { useKeyboardShortcuts } from './components/useKeyboardShortcuts'
 import { ShortcutPanel } from './components/ShortcutPanel'
 import { errorMessage } from './lib'
 import { AccountPage } from './pages/AccountPage'
-import { DashboardPage } from './pages/DashboardPage'
 import { HotspotsPage } from './pages/HotspotsPage'
 import { TopicsPage } from './pages/TopicsPage'
 import { MaterialsPage } from './pages/MaterialsPage'
@@ -23,6 +22,7 @@ import { ReviewsPage } from './pages/ReviewsPage'
 import { VisualsPage } from './pages/VisualsPage'
 import { LayoutsPage } from './pages/LayoutsPage'
 import { PublishingPage } from './pages/PublishingPage'
+import { PromptsPage } from './pages/PromptsPage'
 
 const initialBootstrap: AppBootstrap = {
   providers: [],
@@ -36,7 +36,7 @@ const initialBootstrap: AppBootstrap = {
   accounts: []
 }
 
-const ROUTE_IDS: RouteId[] = ['dashboard', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers']
+const ROUTE_IDS: RouteId[] = ['accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers', 'prompts']
 
 export function App(): React.JSX.Element {
   useAutoAriaHidden()
@@ -44,7 +44,7 @@ export function App(): React.JSX.Element {
   const routerNavigate = useRouterNavigate()
   const route: RouteId = useMemo(() => {
     const pathname = location.pathname.replace(/^\//, '')
-    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'dashboard'
+    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'accounts'
   }, [location.pathname])
 
   const navigate = useCallback((next: RouteId): void => {
@@ -133,14 +133,6 @@ export function App(): React.JSX.Element {
         onNavigate={navigate}
         onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
       >
-        {route === 'dashboard' && (
-          <DashboardPage
-            providers={data.providers}
-            accounts={data.accounts}
-            currentAccount={currentAccount}
-            onNavigate={navigate}
-          />
-        )}
         {route === 'accounts' && (
           <AccountPage
             accounts={data.accounts}
@@ -205,6 +197,7 @@ export function App(): React.JSX.Element {
         {route === 'visuals' && <VisualsPage providers={data.providers} showToast={setToast} />}
         {route === 'layouts' && <LayoutsPage showToast={setToast} />}
         {route === 'publishing' && <PublishingPage showToast={setToast} />}
+        {route === 'prompts' && <PromptsPage showToast={setToast} />}
       </Layout>
       <Toast toast={toast} onClose={() => setToast(undefined)} />
       <ShortcutPanel open={shortcutPanelOpen} onClose={() => setShortcutPanelOpen(false)} />

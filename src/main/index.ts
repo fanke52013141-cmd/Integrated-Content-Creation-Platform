@@ -1,7 +1,8 @@
 import { join } from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { AppDatabase } from './database.js'
 import { ModelGateway } from './gateway/model-gateway.js'
+import { PromptRegistry } from './gateway/prompt-registry.js'
 import { registerIpc } from './ipc.js'
 import { KeyStore } from './security/key-store.js'
 import { AccountGenerator } from './services/account-generator.js'
@@ -16,6 +17,7 @@ import { ReviewService } from './services/review-service.js'
 import { VisualPackGenerator } from './services/visual-pack-generator.js'
 import { ArticleLayoutService } from './services/article-layout-service.js'
 import { WechatPublishService } from './services/wechat-publish-service.js'
+import { WeiboLoginService } from './services/weibo-login-service.js'
 
 let database: AppDatabase | undefined
 let embeddedHotService: EmbeddedHotService | undefined
@@ -25,6 +27,8 @@ if (process.env.MOLIU_USER_DATA_DIR) {
 }
 
 function createWindow(): void {
+  // 移除顶部 File/Edit/View/Window 等原生菜单栏（Windows/Linux）
+  Menu.setApplicationMenu(null)
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -77,26 +81,30 @@ if (!hasLock) {
       database = new AppDatabase(join(dataPath, 'moliu.db'))
       const keyStore = new KeyStore(database)
       const gateway = new ModelGateway(database, keyStore)
-      const accountGenerator = new AccountGenerator(gateway)
+      const prompts = new PromptRegistry(database)
+      prompts.seed()
+      const accountGenerator = new AccountGenerator(gateway, prompts)
       embeddedHotService = new EmbeddedHotService()
       const hotspotService = new HotspotService(embeddedHotService, keyStore, database)
-      const hotspotFilter = new HotspotFilter(database, gateway)
-      const topicGenerator = new TopicGenerator(database, gateway)
+      const hotspotFilter = new HotspotFilter(database, gateway, prompts)
+      const topicGenerator = new TopicGenerator(database, gateway, prompts)
       const materialSearchService = new MaterialSearchService(
         database,
         keyStore,
         process.env.MOLIU_DOUBAO_SEARCH_ENDPOINT || undefined
       )
-      const frameworkGenerator = new FrameworkGenerator(database, gateway)
-      const articleGenerator = new ArticleGenerator(database, gateway)
+      const frameworkGenerator = new FrameworkGenerator(database, gateway, prompts)
+      const articleGenerator = new ArticleGenerator(database, gateway, prompts)
       const reviewService = new ReviewService(database, gateway, articleGenerator)
-      const visualPackGenerator = new VisualPackGenerator(database, gateway)
+      const visualPackGenerator = new VisualPackGenerator(database, gateway, prompts)
       const articleLayoutService = new ArticleLayoutService(database)
       const wechatPublishService = new WechatPublishService(database, keyStore, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
+      const weiboLoginService = new WeiboLoginService(keyStore, database)
       registerIpc({
         database,
         keyStore,
         gateway,
+        prompts,
         accountGenerator,
         hotspotFilter,
         hotspotService,
@@ -108,6 +116,7 @@ if (!hasLock) {
         visualPackGenerator,
         articleLayoutService,
         wechatPublishService,
+        weiboLoginService,
         dataPath
       })
       createWindow()

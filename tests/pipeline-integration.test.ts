@@ -11,9 +11,11 @@ import type { UnifiedRequest, UnifiedResponse } from '../src/main/gateway/types.
 import type { ModelGateway } from '../src/main/gateway/model-gateway.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
 import { createAccountFields } from '../src/shared/domain.js'
+import { makePromptRegistryStub } from './helpers/prompt-registry-stub.js'
 
 const PROVIDER_ID = 'p1'
 const MODEL_ID = 'mock-model'
+const prompts = makePromptRegistryStub()
 
 function ensureProvider(database: AppDatabase): void {
   database.saveProvider({
@@ -89,7 +91,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     ])
 
     // === 阶段 2：选题 ===
-    const topicGenerator = new TopicGenerator(database, gateway)
+    const topicGenerator = new TopicGenerator(database, gateway, prompts)
     const topicResult = await topicGenerator.generate({
       accountId: account.id,
       relatedHotFavoriteIds: [],
@@ -104,7 +106,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(database.getTopic(topic.id)).not.toBeNull()
 
     // === 阶段 3：框架 ===
-    const frameworkGenerator = new FrameworkGenerator(database, gateway)
+    const frameworkGenerator = new FrameworkGenerator(database, gateway, prompts)
     const frameworkResult = await frameworkGenerator.generate({
       templateId: database.listFrameworkTemplates()[0].id,
       topicId: topic.id,
@@ -121,7 +123,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(database.getFramework(framework.id)).not.toBeNull()
 
     // === 阶段 4：写文章 ===
-    const articleGenerator = new ArticleGenerator(database, gateway)
+    const articleGenerator = new ArticleGenerator(database, gateway, prompts)
     const articleResult = await articleGenerator.generate({
       frameworkId: framework.id,
       accountId: account.id,
@@ -172,7 +174,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(database.getReviewTask(reviewResult.task.id)?.status).toBe('applied')
 
     // === 阶段 7：配图方案 ===
-    const visualGenerator = new VisualPackGenerator(database, gateway)
+    const visualGenerator = new VisualPackGenerator(database, gateway, prompts)
     const visualPack = await visualGenerator.generate({
       articleId: adoptedArticle.id,
       inlineCount: 1,
@@ -277,7 +279,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     ])
 
     // 选题：无账号、无热点
-    const topicGenerator = new TopicGenerator(database, gateway)
+    const topicGenerator = new TopicGenerator(database, gateway, prompts)
     // TopicGenerator 要求 locked account，所以这里改用直接 DB 创建选题验证松耦合
     const topic = database.saveTopic({
       seedKeyword: '无账号选题',
@@ -289,7 +291,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     })
 
     // 框架：选题可选，用 manualTopic
-    const frameworkGenerator = new FrameworkGenerator(database, gateway)
+    const frameworkGenerator = new FrameworkGenerator(database, gateway, prompts)
     const frameworkResult = await frameworkGenerator.generate({
       templateId: database.listFrameworkTemplates()[0].id,
       topicId: undefined,
@@ -304,7 +306,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(frameworkResult.frameworks[0].accountId).toBeUndefined()
 
     // 成稿：无框架，用手动大纲
-    const articleGenerator = new ArticleGenerator(database, gateway)
+    const articleGenerator = new ArticleGenerator(database, gateway, prompts)
     const articleResult = await articleGenerator.generate({
       frameworkId: undefined,
       accountId: undefined,

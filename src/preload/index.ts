@@ -7,6 +7,7 @@ import type {
   GenerateTopicsInput,
   MoliuApi,
   MaterialSearchInput,
+  ProviderDraftTestInput,
   RestoreVersionInput,
   SaveAccountInput,
   SaveHotSourcePreferencesInput,
@@ -35,12 +36,23 @@ const api: MoliuApi = {
     list: () => ipcRenderer.invoke('providers:list'),
     save: (input: SaveProviderInput) => ipcRenderer.invoke('providers:save', input),
     remove: (id: string) => ipcRenderer.invoke('providers:remove', id),
-    test: (id: string) => ipcRenderer.invoke('providers:test', id)
+    test: (id: string) => ipcRenderer.invoke('providers:test', id),
+    testDraft: (input: ProviderDraftTestInput) => ipcRenderer.invoke('providers:test-draft', input),
+    logs: (providerId?: string) => ipcRenderer.invoke('providers:logs', providerId)
   },
   searchService: {
     get: () => ipcRenderer.invoke('search-service:get'),
     save: (input: SaveSearchServiceInput) => ipcRenderer.invoke('search-service:save', input),
     test: () => ipcRenderer.invoke('search-service:test')
+  },
+  prompts: {
+    list: () => ipcRenderer.invoke('prompts:list'),
+    listVersions: (key: string) => ipcRenderer.invoke('prompts:list-versions', key),
+    update: (input: { key: string; content: string; note?: string }) =>
+      ipcRenderer.invoke('prompts:update', input),
+    restore: (input: { key: string; version: number }) =>
+      ipcRenderer.invoke('prompts:restore', input),
+    reset: (key: string) => ipcRenderer.invoke('prompts:reset', key)
   },
   accounts: {
     list: () => ipcRenderer.invoke('accounts:list'),
@@ -68,6 +80,7 @@ const api: MoliuApi = {
     filter: (input: FilterHotspotsInput) => ipcRenderer.invoke('hotspots:filter', input),
     getWeiboStatus: () => ipcRenderer.invoke('hotspots:weibo:status'),
     saveWeiboCookie: (cookie: string) => ipcRenderer.invoke('hotspots:weibo:save', cookie),
+    weiboLogin: () => ipcRenderer.invoke('hotspots:weibo:login'),
     clearWeiboCookie: () => ipcRenderer.invoke('hotspots:weibo:clear')
   },
   topics: {

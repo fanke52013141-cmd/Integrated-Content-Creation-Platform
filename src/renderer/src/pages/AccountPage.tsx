@@ -141,7 +141,6 @@ function AccountList({
   const filtered = accounts.filter((account) =>
     account.name.toLowerCase().includes(search.trim().toLowerCase())
   )
-  const outputFields = ['账号名称', '内容领域', '目标读者', '核心价值', '内容角度', '表达语气', '内容形式', '差异化优势']
 
   return (
     <div className="page account-list-page">
@@ -209,40 +208,17 @@ function AccountList({
           )}
         </>
       ) : (
-        <section className="account-onboarding-grid">
-          <article className="account-onboarding-card panel">
-            <header><CircleUserRound size={20} /><h3>建立你的内容基线</h3></header>
-            <div className="account-onboarding-steps">
-              <div><b>1</b><span><ClipboardStep icon={<FileClock size={18} />} label="回答 7 个问题" time="约 3 分钟" /></span></div>
-              <div><b>2</b><span><ClipboardStep icon={<Sparkles size={18} />} label="智能整理定位" time="约 1 分钟" /></span></div>
-              <div><b>3</b><span><ClipboardStep icon={<Lock size={18} />} label="确认并锁定" time="约 1 分钟" /></span></div>
-            </div>
-            <span className="account-update-chip"><RotateCcw size={14} />可随时更新</span>
-            <button className="button primary large" onClick={onCreate}>
-              <WandSparkles size={17} />开始定位
-            </button>
-          </article>
-          <div className="account-onboarding-side">
-            <article className="account-output-card panel">
-              <header><FileClock size={20} /><h3>最终会得到</h3></header>
-              <div className="account-output-list">
-                {outputFields.map((field) => <span key={field}><strong>{field}</strong><i /></span>)}
-              </div>
-            </article>
-            <article className="account-local-card panel"><KeyRound size={19} /><strong>数据仅保存在本机</strong></article>
-          </div>
-          <article className="account-drafts-card panel">
-            <header><h3>最近草稿</h3></header>
-            <div><FileClock size={25} /><span>暂无草稿</span></div>
-          </article>
+        <section className="account-empty-state">
+          <CircleUserRound size={30} />
+          <strong>还没有账号定位</strong>
+          <p>新建账号并完成定位填写，会生成一张对应的账号卡片。</p>
+          <button className="button primary large" onClick={onCreate}>
+            <WandSparkles size={17} />新建账号
+          </button>
         </section>
       )}
     </div>
   )
-}
-
-function ClipboardStep({ icon, label, time }: { icon: React.ReactNode; label: string; time: string }): React.JSX.Element {
-  return <>{icon}<strong>{label}</strong><small>{time}</small></>
 }
 
 function AccountWizard({
