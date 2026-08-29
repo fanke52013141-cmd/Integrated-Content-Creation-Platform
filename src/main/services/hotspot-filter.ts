@@ -3,11 +3,13 @@ import type {
   FilterHotspotsInput,
   FilterHotspotsResult,
   HotItem,
-  HotspotFit
+  HotspotFit,
+  StreamEvent
 } from '../../shared/contracts.js'
 import { escapeXml, serializeAccountXml } from '../../shared/domain.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { GatewayError } from '../gateway/types.js'
 
@@ -29,7 +31,11 @@ export class HotspotFilter {
     private readonly prompts: PromptRegistry
   ) {}
 
-  async filter(input: FilterHotspotsInput): Promise<FilterHotspotsResult> {
+  async filter(
+    input: FilterHotspotsInput,
+    onStream?: (event: StreamEvent) => void,
+    signal?: AbortSignal
+  ): Promise<FilterHotspotsResult> {
     const account = this.database.getAccount(input.accountId)
     if (!account) throw new Error('账号定位不存在')
     if (account.status !== 'locked') throw new Error('热点筛选只能使用已锁定账号定位')
@@ -38,12 +44,14 @@ export class HotspotFilter {
     if (!items.length) throw new Error('至少选择一条热点')
     if (items.length > 200) throw new Error('单次最多筛选 200 条热点，请减少平台或前 N 名数量')
 
-    const response = await this.gateway.chat({
+    onStream?.({ phase: 'start', index: 0, total: 1 })
+    const response = await callModelWithFallback(this.gateway, {
       providerId: input.providerId,
       model: input.model,
       temperature: 0.3,
       maxTokens: Math.min(16_000, Math.max(2_000, items.length * 180)),
       jsonMode: true,
+      signal,
       messages: [
         {
           role: 'system',
@@ -54,21 +62,29 @@ export class HotspotFilter {
           content: `${serializeAccountXml(account.fields)}\n\n${serializeHotListXml(items)}`
         }
       ]
+    }, {
+      signal,
+      onDelta: (delta) => onStream?.({ phase: 'delta', index: 0, total: 1, delta }),
+      onRetry: () => onStream?.({ phase: 'start', index: 0, total: 1 })
     })
 
-    const parsed = parseHotspotFilterJson(response.content, items.length)
-    return {
-      accountId: account.id,
-      accountVersionId: account.currentVersionId,
-      providerId: response.providerId,
-      model: response.model,
-      latencyMs: response.latencyMs,
-      assessments: parsed.map((assessment) => ({
-        hotItem: items[assessment.index - 1],
-        fit: assessment.fit,
-        reason: assessment.reason,
-        angle: assessment.angle
-      }))
+    try {
+      const parsed = parseHotspotFilterJson(response.content, items.length)
+      return {
+        accountId: account.id,
+        accountVersionId: account.currentVersionId,
+        providerId: response.providerId,
+        model: response.model,
+        latencyMs: response.latencyMs,
+        assessments: parsed.map((assessment) => ({
+          hotItem: items[assessment.index - 1],
+          fit: assessment.fit,
+          reason: assessment.reason,
+          angle: assessment.angle
+        }))
+      }
+    } finally {
+      onStream?.({ phase: 'complete', index: 0, total: 1 })
     }
   }
 }

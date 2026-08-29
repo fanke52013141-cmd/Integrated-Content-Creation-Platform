@@ -6,6 +6,8 @@ export type GatewayErrorKind =
   | 'ProviderError'
   | 'ParseError'
   | 'ProviderConfigError'
+  | 'ConflictError'
+  | 'CancelledError'
 
 export class GatewayError extends Error {
   constructor(
@@ -16,6 +18,10 @@ export class GatewayError extends Error {
     super(message)
     this.name = 'GatewayError'
   }
+}
+
+export function isCancelledError(error: unknown): error is GatewayError {
+  return error instanceof GatewayError && error.kind === 'CancelledError'
 }
 
 export interface UnifiedMessage {
@@ -37,6 +43,8 @@ export interface UnifiedRequest {
   maxTokens?: number
   jsonMode?: boolean
   extractBlock?: BlockExtraction
+  /** 取消信号：触发后请求中止并抛出 CancelledError */
+  signal?: AbortSignal
 }
 
 export interface UnifiedResponse {

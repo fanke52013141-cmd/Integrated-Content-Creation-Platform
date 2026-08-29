@@ -1,10 +1,13 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, Menu } from 'electron'
+import { pathToFileURL } from 'node:url'
+import { app, BrowserWindow, Menu, protocol } from 'electron'
+import { net } from 'electron'
 import { AppDatabase } from './database.js'
 import { ModelGateway } from './gateway/model-gateway.js'
 import { PromptRegistry } from './gateway/prompt-registry.js'
 import { registerIpc } from './ipc.js'
 import { KeyStore } from './security/key-store.js'
+import { cancelAllGenerations } from './services/generation-registry.js'
 import { AccountGenerator } from './services/account-generator.js'
 import { EmbeddedHotService } from './services/embedded-hot-service.js'
 import { HotspotFilter } from './services/hotspot-filter.js'
@@ -15,6 +18,7 @@ import { FrameworkGenerator } from './services/framework-generator.js'
 import { ArticleGenerator } from './services/article-generator.js'
 import { ReviewService } from './services/review-service.js'
 import { VisualPackGenerator } from './services/visual-pack-generator.js'
+import { VisualAssetService } from './services/visual-asset-service.js'
 import { ArticleLayoutService } from './services/article-layout-service.js'
 import { WechatPublishService } from './services/wechat-publish-service.js'
 import { WeiboLoginService } from './services/weibo-login-service.js'
@@ -25,6 +29,11 @@ let embeddedHotService: EmbeddedHotService | undefined
 if (process.env.MOLIU_USER_DATA_DIR) {
   app.setPath('userData', process.env.MOLIU_USER_DATA_DIR)
 }
+
+// 生成图片等本地资源通过自定义协议暴露给渲染层（需在 app ready 前注册）
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'moliu-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
+])
 
 function createWindow(): void {
   // 移除顶部 File/Edit/View/Window 等原生菜单栏（Windows/Linux）
@@ -97,8 +106,10 @@ if (!hasLock) {
       const articleGenerator = new ArticleGenerator(database, gateway, prompts)
       const reviewService = new ReviewService(database, gateway, articleGenerator)
       const visualPackGenerator = new VisualPackGenerator(database, gateway, prompts)
+      const imagesDir = join(dataPath, 'images')
+      const visualAssetService = new VisualAssetService(database, gateway, imagesDir)
       const articleLayoutService = new ArticleLayoutService(database)
-      const wechatPublishService = new WechatPublishService(database, keyStore, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
+      const wechatPublishService = new WechatPublishService(database, keyStore, visualAssetService, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
       const weiboLoginService = new WeiboLoginService(keyStore, database)
       registerIpc({
         database,
@@ -117,8 +128,10 @@ if (!hasLock) {
         articleLayoutService,
         wechatPublishService,
         weiboLoginService,
+        visualAssets: visualAssetService,
         dataPath
       })
+      registerAssetProtocol(imagesDir)
       createWindow()
     } catch (initError) {
       console.error('[main] initialization failed:', initError)
@@ -140,8 +153,24 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  cancelAllGenerations()
   void embeddedHotService?.stop()
   embeddedHotService = undefined
   database?.close()
   database = undefined
 })
+
+/** moliu-asset://assets/<file> → userData/images/<file>，仅允许读取图片目录内的文件名 */
+function registerAssetProtocol(imagesDir: string): void {
+  protocol.handle('moliu-asset', (request) => {
+    const url = new URL(request.url)
+    if (url.hostname !== 'assets') {
+      return new Response('Not Found', { status: 404 })
+    }
+    const fileName = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
+    if (!fileName || fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return net.fetch(pathToFileURL(join(imagesDir, fileName)).toString())
+  })
+}

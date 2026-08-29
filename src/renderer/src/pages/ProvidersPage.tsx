@@ -316,7 +316,7 @@ export function ProvidersPage({
     <div className="page providers-page">
       <section className="page-intro">
         <div>
-          <h2>服务配置</h2>
+          <h2>模型网关</h2>
         </div>
         {view === 'models' && <button
           className="button secondary"
@@ -341,7 +341,7 @@ export function ProvidersPage({
       {view === 'models' ? <section className="provider-layout">
         <div className="provider-list-column">
           <div className="section-heading">
-            <div><span className="eyebrow">PROVIDERS</span><h3>已配置供应商</h3></div>
+            <div><h3>已配置供应商</h3></div>
             <div className="section-heading-actions">
               <button
                 className="button ghost compact"
@@ -417,7 +417,7 @@ export function ProvidersPage({
         <div className="panel provider-editor">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">CONNECTION</span>
+              
               <h3>{form.id ? '编辑连接' : '新建连接'}</h3>
             </div>
             {form.id && (
@@ -486,7 +486,7 @@ export function ProvidersPage({
           <section className="model-catalog">
             <div className="model-catalog-heading">
               <div>
-                <span className="eyebrow">MODEL CATALOG</span>
+                
                 <h4>模型与别名</h4>
               </div>
               <button
@@ -679,7 +679,7 @@ export function ProvidersPage({
         <ModalBase open onClose={() => setLogsOpen(false)} titleId="provider-logs-title" bare className="source-manager-dialog provider-logs-dialog">
           <header>
             <div>
-              <span className="eyebrow">MODEL CALL LOGS</span>
+              
               <h2 id="provider-logs-title">调用日志 · {logsTarget?.name}</h2>
               <p>最近 100 条记录，包含内容生成、连接测试与保存前测试。</p>
             </div>

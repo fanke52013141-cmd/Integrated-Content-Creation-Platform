@@ -23,6 +23,7 @@ import type {
   SaveArticleInput,
   RestoreArticleVersionInput,
   SaveReviewRoleInput, StartReviewInput, UpdateReviewProblemInput, AddManualReviewProblemInput,
+  StreamEvent,
   UpdateHotFavoriteTagsInput
 } from '../shared/contracts.js'
 
@@ -30,6 +31,10 @@ const api: MoliuApi = {
   app: {
     bootstrap: () => ipcRenderer.invoke('app:bootstrap'),
     getDataPath: () => ipcRenderer.invoke('app:data-path')
+  },
+  generation: {
+    cancel: (domain: string) => ipcRenderer.invoke('generation:cancel', domain),
+    active: () => ipcRenderer.invoke('generation:active')
   },
   providers: {
     presets: () => ipcRenderer.invoke('providers:presets'),
@@ -81,7 +86,12 @@ const api: MoliuApi = {
     getWeiboStatus: () => ipcRenderer.invoke('hotspots:weibo:status'),
     saveWeiboCookie: (cookie: string) => ipcRenderer.invoke('hotspots:weibo:save', cookie),
     weiboLogin: () => ipcRenderer.invoke('hotspots:weibo:login'),
-    clearWeiboCookie: () => ipcRenderer.invoke('hotspots:weibo:clear')
+    clearWeiboCookie: () => ipcRenderer.invoke('hotspots:weibo:clear'),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('hotspots:stream', listener)
+      return () => ipcRenderer.removeListener('hotspots:stream', listener)
+    }
   },
   topics: {
     getSchema: () => ipcRenderer.invoke('topics:schema:get'),
@@ -93,7 +103,12 @@ const api: MoliuApi = {
     setLocked: (id: string, locked: boolean) => ipcRenderer.invoke('topics:set-locked', id, locked),
     setInLibrary: (id: string, inLibrary: boolean) =>
       ipcRenderer.invoke('topics:set-in-library', id, inLibrary),
-    remove: (id: string) => ipcRenderer.invoke('topics:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('topics:remove', id),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('topics:stream', listener)
+      return () => ipcRenderer.removeListener('topics:stream', listener)
+    }
   },
   materials: {
     list: () => ipcRenderer.invoke('materials:list'),
@@ -110,7 +125,12 @@ const api: MoliuApi = {
     generate: (input: GenerateFrameworksInput) => ipcRenderer.invoke('frameworks:generate', input),
     save: (input: SaveFrameworkInput) => ipcRenderer.invoke('frameworks:save', input),
     setLocked: (id: string, locked: boolean) => ipcRenderer.invoke('frameworks:set-locked', id, locked),
-    remove: (id: string) => ipcRenderer.invoke('frameworks:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('frameworks:remove', id),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('frameworks:stream', listener)
+      return () => ipcRenderer.removeListener('frameworks:stream', listener)
+    }
   },
   articles: {
     list: () => ipcRenderer.invoke('articles:list'),
@@ -120,7 +140,12 @@ const api: MoliuApi = {
     save: (input: SaveArticleInput) => ipcRenderer.invoke('articles:save', input),
     restore: (input: RestoreArticleVersionInput) => ipcRenderer.invoke('articles:restore', input),
     setLocked: (id: string, locked: boolean) => ipcRenderer.invoke('articles:set-locked', id, locked),
-    remove: (id: string) => ipcRenderer.invoke('articles:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('articles:remove', id),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('articles:stream', listener)
+      return () => ipcRenderer.removeListener('articles:stream', listener)
+    }
   },
   reviews: {
     listRoles: () => ipcRenderer.invoke('reviews:roles:list'),
@@ -130,12 +155,27 @@ const api: MoliuApi = {
     start: (input: StartReviewInput) => ipcRenderer.invoke('reviews:start', input),
     updateProblem: (input: UpdateReviewProblemInput) => ipcRenderer.invoke('reviews:problems:update', input),
     addManualProblem: (input: AddManualReviewProblemInput) => ipcRenderer.invoke('reviews:problems:add', input),
-    apply: (taskId: string, providerId: string, model: string) => ipcRenderer.invoke('reviews:apply', taskId, providerId, model)
+    apply: (taskId: string, providerId: string, model: string) => ipcRenderer.invoke('reviews:apply', taskId, providerId, model),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('reviews:stream', listener)
+      return () => ipcRenderer.removeListener('reviews:stream', listener)
+    }
   },
   visuals: {
     list: (articleId?: string) => ipcRenderer.invoke('visuals:list', articleId),
     generate: (input) => ipcRenderer.invoke('visuals:generate', input),
-    remove: (id: string) => ipcRenderer.invoke('visuals:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('visuals:remove', id),
+    generateImage: (input) => ipcRenderer.invoke('visuals:generate-image', input),
+    importImage: (input) => ipcRenderer.invoke('visuals:import-image', input),
+    importImageData: (input) => ipcRenderer.invoke('visuals:import-image-data', input),
+    listAssets: (packId: string) => ipcRenderer.invoke('visuals:list-assets', packId),
+    removeAsset: (id: string) => ipcRenderer.invoke('visuals:remove-asset', id),
+    onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
+      ipcRenderer.on('visuals:stream', listener)
+      return () => ipcRenderer.removeListener('visuals:stream', listener)
+    }
   },
   layouts: {
     list: (articleId?: string) => ipcRenderer.invoke('layouts:list', articleId),
@@ -148,7 +188,8 @@ const api: MoliuApi = {
     testWechatChannel: () => ipcRenderer.invoke('publishing:wechat:test'),
     list: () => ipcRenderer.invoke('publishing:list'),
     pushWechatDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-draft', input),
-    update: (input) => ipcRenderer.invoke('publishing:update', input)
+    update: (input) => ipcRenderer.invoke('publishing:update', input),
+    uploadWechatCover: (input) => ipcRenderer.invoke('publishing:wechat:upload-cover', input)
   }
 }
 

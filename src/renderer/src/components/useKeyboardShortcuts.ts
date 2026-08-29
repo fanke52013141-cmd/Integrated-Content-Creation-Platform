@@ -83,10 +83,8 @@ export interface ShortcutInfo {
 }
 
 export const SHORTCUT_LIST: ShortcutInfo[] = [
-  { keys: 'Ctrl+S', description: '保存当前内容', category: '通用' },
-  { keys: 'Ctrl+N', description: '新建草稿', category: '通用' },
-  { keys: 'Ctrl+Enter', description: '触发 AI 生成', category: '通用' },
-  { keys: 'Ctrl+Shift+F', description: '全局搜索', category: '通用' },
+  { keys: 'Ctrl+N', description: '前往文章创作', category: '通用' },
+  { keys: 'Ctrl+Shift+F', description: '前往素材库搜索', category: '通用' },
   { keys: 'Shift+?', description: '显示快捷键面板', category: '通用' },
-  { keys: '1-9, 0', description: '快速切换页面', category: '导航' }
+  { keys: '1-9, 0', description: '按侧边栏顺序快速切换页面', category: '导航' }
 ]

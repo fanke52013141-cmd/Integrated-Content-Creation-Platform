@@ -34,11 +34,11 @@ try {
   console.log(`renderer:url: ${window.url()}`)
   console.log(`renderer:body: ${(await window.locator('body').innerText()).slice(0, 500)}`)
   await window.screenshot({ path: resolve(artifactDir, 'smoke-debug.png') })
-  await window.getByRole('heading', { name: '开始创作' }).waitFor({ timeout: 10_000 })
+  await window.getByRole('heading', { name: '账号定位' }).waitFor({ timeout: 10_000 })
   await window.screenshot({ path: resolve(artifactDir, 'dashboard.png') })
 
   await window.getByRole('button', { name: '模型网关' }).first().click()
-  await window.getByRole('heading', { name: '服务配置' }).waitFor()
+  await window.getByRole('heading', { name: '模型网关' }).waitFor()
   await window.getByRole('button', { name: 'DeepSeek' }).click()
   await window.locator('.provider-editor').locator('input[type="password"]').fill('sk-smoke-secret')
   await window.locator('.provider-editor').getByRole('button', { name: '加密保存' }).click()

@@ -146,7 +146,7 @@ function AccountList({
     <div className="page account-list-page">
       <section className="page-intro">
         <div>
-          <span className="eyebrow"><CircleUserRound size={14} /> IDENTITY SYSTEM</span>
+          
           <h2>账号定位</h2>
         </div>
         <button className="button primary" onClick={onCreate}>
@@ -345,7 +345,7 @@ function AccountWizard({
 
       <section className="wizard-shell">
         <aside className="wizard-steps">
-          <span className="eyebrow">ACCOUNT FOUNDATION</span>
+          
           <h2>建立账号基线</h2>
           <ol>
             {WIZARD_QUESTIONS.map((question, index) => (
@@ -408,7 +408,7 @@ function AccountWizard({
           ) : (
             <div className="generation-ready">
               <span className="generation-symbol"><WandSparkles size={28} /></span>
-              <span className="eyebrow">READY TO GENERATE</span>
+              
               <h3>生成账号定位</h3>
               <div className="answer-summary">
                 {answers.map((item, index) => (
@@ -460,7 +460,7 @@ function AccountWizard({
 
         {step === 7 && fields.length > 0 && (
           <aside className="wizard-actions-panel">
-            <span className="eyebrow">GENERATED DRAFT</span>
+            
             <h3>人工确认</h3>
             {generated && (
               <div className="generation-meta">
@@ -587,6 +587,16 @@ function AccountEditor({
     }
   }
 
+  async function requestRestore(versionId: string): Promise<void> {
+    if (!(await confirm({
+      title: '恢复历史版本？',
+      message: '所选版本会复制为一个新的草稿版本，当前版本仍会保留。',
+      confirmLabel: '恢复为新草稿'
+    }))) return
+    setRestoreVersionId(versionId)
+    await restore()
+  }
+
   async function restore(): Promise<void> {
     if (!restoreVersionId) return
     try {
@@ -619,7 +629,7 @@ function AccountEditor({
         <div className="editor-title">
           <span className="profile-avatar">{loadedAccount.name.slice(0, 1)}</span>
           <div>
-            <span className="eyebrow">ACCOUNT PROFILE · V{loadedAccount.versionCount}</span>
+            
             <h2>{loadedAccount.name}</h2>
           </div>
           <span className={`badge ${locked ? 'success' : 'neutral'}`}>
@@ -652,7 +662,7 @@ function AccountEditor({
       <section className="account-editor-grid">
         <div className="panel fields-panel">
           <div className="section-heading">
-            <div><span className="eyebrow">POSITIONING FIELDS</span><h3>定位字段</h3></div>
+            <div><h3>定位字段</h3></div>
             {!locked && (
               <button className="button ghost compact" onClick={() => updateFields([...fields, newCustomField()])}>
                 <Plus size={15} />添加字段
@@ -671,7 +681,7 @@ function AccountEditor({
         <aside className="account-context">
           <section className="panel xml-panel">
             <div className="section-heading">
-              <div><span className="eyebrow">DOWNSTREAM PAYLOAD</span><h3>结构预览</h3></div>
+              <div><h3>结构预览</h3></div>
               <button
                 className="icon-button"
                 title="复制"
@@ -684,12 +694,15 @@ function AccountEditor({
                 <Copy size={16} />
               </button>
             </div>
-            <pre>{serializePreview(fields)}</pre>
+            <details className="xml-panel-details">
+              <summary>开发者视图（生成时传给模型的结构化资料）</summary>
+              <pre>{serializePreview(fields)}</pre>
+            </details>
           </section>
 
           <section className="panel version-panel">
             <div className="section-heading">
-              <div><span className="eyebrow">VERSION HISTORY</span><h3>版本历史</h3></div>
+              <div><h3>版本历史</h3></div>
               <span className="count-badge">{loadedAccount.versions.length}</span>
             </div>
             <div className="version-list">
@@ -698,7 +711,7 @@ function AccountEditor({
                   key={version.id}
                   className={`version-item ${version.id === loadedAccount.currentVersionId ? 'current' : ''}`}
                   onClick={() => {
-                    if (version.id !== loadedAccount.currentVersionId) setRestoreVersionId(version.id)
+                    if (version.id !== loadedAccount.currentVersionId) void requestRestore(version.id)
                   }}
                 >
                   <span className="version-icon"><FileClock size={15} /></span>
@@ -727,14 +740,6 @@ function AccountEditor({
         </aside>
       </section>
 
-      <ConfirmDialog
-        open={Boolean(restoreVersionId)}
-        title="恢复历史版本？"
-        message="所选版本会复制为一个新的草稿版本，当前版本仍会保留。"
-        confirmLabel="恢复为新草稿"
-        onCancel={() => setRestoreVersionId(undefined)}
-        onConfirm={() => void restore()}
-      />
       {ConfirmPortal}
     </div>
   )

@@ -6,10 +6,13 @@ import type {
   GenerateFrameworksInput,
   GenerateFrameworksResult,
   Material,
+  StreamEvent,
   Topic
 } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { callModelWithFallback } from '../gateway/stream-helper.js'
+import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { GatewayError } from '../gateway/types.js'
 
@@ -20,7 +23,7 @@ export class FrameworkGenerator {
     private readonly prompts: PromptRegistry
   ) {}
 
-  async generate(input: GenerateFrameworksInput): Promise<GenerateFrameworksResult> {
+  async generate(input: GenerateFrameworksInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateFrameworksResult> {
     const template = this.database.listFrameworkTemplates().find((item) => item.id === input.templateId)
     if (!template) throw new Error('所选框架模板不存在')
 
@@ -46,7 +49,10 @@ export class FrameworkGenerator {
       account,
       materials,
       input,
-      index
+      index,
+      total: input.count,
+      onStream,
+      signal
     }))
     const settled = await Promise.allSettled(work)
     const frameworks: Framework[] = []
@@ -66,8 +72,12 @@ export class FrameworkGenerator {
     materials: Material[]
     input: GenerateFrameworksInput
     index: number
+    total: number
+    onStream?: (event: StreamEvent) => void
+    signal?: AbortSignal
   }): Promise<Framework> {
-    const response = await this.gateway.chat({
+    context.onStream?.({ phase: 'start', index: context.index, total: context.total })
+    const request: UnifiedRequest = {
       providerId: context.input.providerId,
       model: context.input.model,
       temperature: 0.7,
@@ -90,6 +100,11 @@ export class FrameworkGenerator {
           ].join('\n\n')
         }
       ]
+    }
+    const response = await callModelWithFallback(this.gateway, request, {
+      signal: context.signal,
+      onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
+      onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
     })
     const sections = parseFrameworkXml(response.content, context.template.sections)
     const framework = this.database.saveFramework({
@@ -119,8 +134,10 @@ export class FrameworkGenerator {
       sourceType: 'material', sourceId: material.id, sourceVersionId: material.id,
       sourceStatusSnapshot: 'locked', targetType: 'framework', targetId: framework.id
     })
+    context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
     return framework
   }
+
 }
 
 export function parseFrameworkXml(content: string, sectionNames: string[]): FrameworkSection[] {

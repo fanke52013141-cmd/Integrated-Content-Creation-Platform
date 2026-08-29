@@ -33,7 +33,7 @@ import type {
   ArticleVersion,
   ArticleVersionSource,
   SaveArticleInput,
-  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, SaveReviewRoleInput, ReviewSeverity, VisualPack, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus,
+  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus,
   Topic,
   TopicSchemaField,
   TopicStatus,
@@ -211,11 +211,12 @@ interface FrameworkRow { id: string; topic_id: string | null; account_id: string
 interface ArticleRow { id: string; framework_id: string | null; account_id: string | null; material_ids_json: string; manual_outline: string; status: ArticleStatus; current_version_id: string; version_count: number; raw_markdown: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
 interface ArticleVersionRow { id: string; article_id: string; version_number: number; source: ArticleVersionSource; instruction: string | null; provider_id: string | null; model: string | null; raw_markdown: string; created_at: string }
 interface ReviewRoleRow { id:string; name:string; system_prompt:string; provider_id:string|null; model:string|null; extraction_tag:string; extraction_occurrence:'first'|'last'; dimensions_json:string; sort_order:number; created_at:string; updated_at:string }
-interface ReviewTaskRow { id:string; article_id:string; role_ids_json:string; status:'completed'|'applied'; created_at:string; updated_at:string }
+interface ReviewTaskRow { id:string; article_id:string; role_ids_json:string; status:'running'|'completed'|'applied'; created_at:string; updated_at:string }
 interface ReviewOpinionRow { id:string; task_id:string; role_id:string|null; role_name:string; provider_id:string|null; model:string|null; dimensions_json:string; overall_suggestion:string; raw_xml:string; extraction_matched:number; created_at:string }
 interface ReviewProblemRow { id:string; opinion_id:string; position:string; severity:ReviewSeverity; issue:string; suggestion:string; adopted:number; is_manual:number; created_at:string }
 interface VisualPackRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; provider_id:string; model:string; cover_json:string; inline_images_json:string; release_images_json:string; raw_xml:string; created_at:string }
 interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; created_at:string }
+interface VisualAssetRow { id:string; pack_id:string; kind:'cover'|'inline'|'release'; slot:number; prompt:string; file_name:string; source:'generated'|'imported'; provider_id:string|null; model:string|null; size:string|null; wechat_media_id:string|null; wechat_uploaded_at:string|null; created_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
 interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
@@ -478,10 +479,11 @@ export class AppDatabase {
         raw_markdown TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(article_id, version_number)
       );
       CREATE TABLE IF NOT EXISTS review_roles (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,system_prompt TEXT NOT NULL,provider_id TEXT,model TEXT,extraction_tag TEXT NOT NULL,extraction_occurrence TEXT NOT NULL,dimensions_json TEXT NOT NULL,sort_order INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS review_tasks (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,role_ids_json TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('completed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS review_tasks (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,role_ids_json TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('running','completed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS review_opinions (id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES review_tasks(id) ON DELETE CASCADE,role_id TEXT,role_name TEXT NOT NULL,provider_id TEXT,model TEXT,dimensions_json TEXT NOT NULL,overall_suggestion TEXT NOT NULL,raw_xml TEXT NOT NULL,extraction_matched INTEGER NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS review_problems (id TEXT PRIMARY KEY,opinion_id TEXT NOT NULL REFERENCES review_opinions(id) ON DELETE CASCADE,position TEXT NOT NULL,severity TEXT NOT NULL CHECK(severity IN ('high','medium','low')),issue TEXT NOT NULL,suggestion TEXT NOT NULL,adopted INTEGER NOT NULL,is_manual INTEGER NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS visual_packs (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),provider_id TEXT NOT NULL,model TEXT NOT NULL,cover_json TEXT NOT NULL,inline_images_json TEXT NOT NULL,release_images_json TEXT NOT NULL,raw_xml TEXT NOT NULL,created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS visual_assets (id TEXT PRIMARY KEY,pack_id TEXT NOT NULL REFERENCES visual_packs(id) ON DELETE CASCADE,kind TEXT NOT NULL CHECK(kind IN ('cover','inline','release')),slot INTEGER NOT NULL DEFAULT 0,prompt TEXT NOT NULL DEFAULT '',file_name TEXT NOT NULL,source TEXT NOT NULL CHECK(source IN ('generated','imported')),provider_id TEXT,model TEXT,size TEXT,wechat_media_id TEXT,wechat_uploaded_at TEXT,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS article_layouts (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),title TEXT NOT NULL,html TEXT NOT NULL,plain_text TEXT NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channels (id TEXT PRIMARY KEY CHECK(id='wechat-official'),display_name TEXT NOT NULL,app_id TEXT NOT NULL,enabled INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channel_secrets (channel_id TEXT PRIMARY KEY REFERENCES publish_channels(id) ON DELETE CASCADE,encrypted_secret BLOB NOT NULL,updated_at TEXT NOT NULL);
@@ -551,15 +553,37 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_article_versions_article ON article_versions(article_id, version_number DESC);
       CREATE INDEX IF NOT EXISTS idx_review_tasks_article ON review_tasks(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_visual_packs_article ON visual_packs(article_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_visual_assets_pack ON visual_assets(pack_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_article_layouts_article ON article_layouts(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_publications_article ON publications(article_id, created_at DESC);
     `)
     this.ensureModelCallsErrorMessage()
     this.migrateFrameworksAccountIdFk()
+    this.migrateReviewTasksRunning()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
     this.ensureFrameworkTemplate()
+  }
+
+  /**
+   * 老库的 review_tasks CHECK 约束不含 'running' 状态，需要重建表才能写入 running。
+   * 按 SQLite 官方推荐流程：关外键 → 建新表 → 拷数据 → 删旧表 → 改名 → 开外键。
+   */
+  private migrateReviewTasksRunning(): void {
+    const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_tasks'").get() as { sql?: string } | undefined
+    if (!row?.sql || row.sql.includes("'running'")) return
+    this.db.exec('PRAGMA foreign_keys = OFF;')
+    try {
+      this.db.exec(`
+        CREATE TABLE review_tasks_migrating (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,role_ids_json TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('running','completed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+        INSERT INTO review_tasks_migrating(id,article_id,role_ids_json,status,created_at,updated_at) SELECT id,article_id,role_ids_json,status,created_at,updated_at FROM review_tasks;
+        DROP TABLE review_tasks;
+        ALTER TABLE review_tasks_migrating RENAME TO review_tasks;
+      `)
+    } finally {
+      this.db.exec('PRAGMA foreign_keys = ON;')
+    }
   }
 
   /** model_calls 增加错误详情列，便于按供应商排查问题 */
@@ -1419,6 +1443,11 @@ export class AppDatabase {
   listVisualPacks(articleId?: string): VisualPack[] { const rows=this.db.prepare(`SELECT * FROM visual_packs ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as VisualPackRow[]; return rows.map(mapVisualPack) }
   saveVisualPack(input:Omit<VisualPack,'id'|'createdAt'>):VisualPack { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_packs(id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.providerId,input.model,JSON.stringify(input.cover),JSON.stringify(input.inlineImages),JSON.stringify(input.releaseImages),input.rawXml,now); return mapVisualPack(this.db.prepare('SELECT * FROM visual_packs WHERE id=?').get(id) as unknown as VisualPackRow) }
   removeVisualPack(id:string):void { this.db.prepare('DELETE FROM visual_packs WHERE id=?').run(id) }
+  listVisualAssets(packId?:string):VisualAsset[] { const rows=this.db.prepare(`SELECT * FROM visual_assets ${packId?'WHERE pack_id=?':''} ORDER BY created_at DESC`).all(...(packId?[packId]:[])) as unknown as VisualAssetRow[]; return rows.map(mapVisualAsset) }
+  getVisualAsset(id:string):VisualAsset|null { const row=this.db.prepare('SELECT * FROM visual_assets WHERE id=?').get(id) as unknown as VisualAssetRow|undefined; return row?mapVisualAsset(row):null }
+  saveVisualAsset(input:Omit<VisualAsset,'id'|'createdAt'|'url'>):VisualAsset { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_assets(id,pack_id,kind,slot,prompt,file_name,source,provider_id,model,size,wechat_media_id,wechat_uploaded_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.packId,input.kind,input.slot??0,input.prompt,input.fileName,input.source,input.providerId??null,input.model??null,input.size??null,input.wechatMediaId??null,input.wechatUploadedAt??null,now); return this.getVisualAsset(id)! }
+  removeVisualAsset(id:string):void { this.db.prepare('DELETE FROM visual_assets WHERE id=?').run(id) }
+  setVisualAssetWechatMedia(id:string,mediaId:string):VisualAsset { this.db.prepare('UPDATE visual_assets SET wechat_media_id=?,wechat_uploaded_at=? WHERE id=?').run(mediaId,new Date().toISOString(),id); const row=this.getVisualAsset(id); if(!row)throw new Error('配图资产不存在'); return row }
   listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(mapArticleLayout) }
   saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,created_at) VALUES(?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
@@ -1438,10 +1467,11 @@ export class AppDatabase {
   saveReviewRole(input: SaveReviewRoleInput): ReviewRole { const id=input.id??crypto.randomUUID(), now=new Date().toISOString(); this.db.prepare(`INSERT INTO review_roles(id,name,system_prompt,provider_id,model,extraction_tag,extraction_occurrence,dimensions_json,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,system_prompt=excluded.system_prompt,provider_id=excluded.provider_id,model=excluded.model,extraction_tag=excluded.extraction_tag,extraction_occurrence=excluded.extraction_occurrence,dimensions_json=excluded.dimensions_json,sort_order=excluded.sort_order,updated_at=excluded.updated_at`).run(id,input.name,input.systemPrompt,input.providerId??null,input.model??null,input.extractionTag,input.extractionOccurrence,JSON.stringify(input.dimensions),input.sortOrder,now,now); return mapReviewRole(this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow) }
   removeReviewRole(id:string):void { this.db.prepare('DELETE FROM review_roles WHERE id=?').run(id) }
   getReviewRole(id:string):ReviewRole|null { const row=this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow|undefined; return row?mapReviewRole(row):null }
-  createReviewTask(articleId:string, roleIds:string[]):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,role_ids_json,status,created_at,updated_at) VALUES(?,?,?,\'completed\',?,?)').run(id,articleId,JSON.stringify(roleIds),now,now); return this.getReviewTask(id)! }
+  createReviewTask(articleId:string, roleIds:string[]):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,role_ids_json,status,created_at,updated_at) VALUES(?,?,?,\'running\',?,?)').run(id,articleId,JSON.stringify(roleIds),now,now); return this.getReviewTask(id)! }
   addReviewOpinion(input:{taskId:string;role?:ReviewRole;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at) VALUES(?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now)}); return this.getReviewOpinion(id)! }
   listReviewTasks(articleId?:string):ReviewTask[] { const rows=this.db.prepare(`SELECT * FROM review_tasks ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ReviewTaskRow[]; return rows.map(row=>this.mapReviewTask(row)) }
   getReviewTask(id:string):ReviewTask|null { const row=this.db.prepare('SELECT * FROM review_tasks WHERE id=?').get(id) as unknown as ReviewTaskRow|undefined; return row?this.mapReviewTask(row):null }
+  markReviewTaskCompleted(id:string):void { this.db.prepare("UPDATE review_tasks SET status='completed',updated_at=? WHERE id=? AND status='running'").run(new Date().toISOString(),id) }
   markReviewTaskApplied(id:string):void { this.db.prepare("UPDATE review_tasks SET status='applied',updated_at=? WHERE id=?").run(new Date().toISOString(),id) }
   updateReviewProblem(input:{id:string;position:string;severity:ReviewSeverity;issue:string;suggestion:string;adopted:boolean}):ReviewProblem { this.db.prepare('UPDATE review_problems SET position=?,severity=?,issue=?,suggestion=?,adopted=? WHERE id=?').run(input.position,input.severity,input.issue,input.suggestion,input.adopted?1:0,input.id); return this.getReviewProblem(input.id)! }
   private getReviewOpinion(id:string):ReviewOpinion|null { const row=this.db.prepare('SELECT * FROM review_opinions WHERE id=?').get(id) as unknown as ReviewOpinionRow|undefined; return row?this.mapReviewOpinion(row):null }
@@ -1886,6 +1916,8 @@ function mapArticleVersion(row: ArticleVersionRow): ArticleVersion {
 function mapReviewRole(row:ReviewRoleRow):ReviewRole { return {id:row.id,name:row.name,systemPrompt:row.system_prompt,providerId:row.provider_id??undefined,model:row.model??undefined,extractionTag:row.extraction_tag,extractionOccurrence:row.extraction_occurrence,dimensions:parseJson<string[]>(row.dimensions_json,[]),sortOrder:row.sort_order,createdAt:row.created_at,updatedAt:row.updated_at} }
 function mapReviewProblem(row:ReviewProblemRow):ReviewProblem { return {id:row.id,position:row.position,severity:row.severity,issue:row.issue,suggestion:row.suggestion,adopted:Boolean(row.adopted),isManual:Boolean(row.is_manual)} }
 function mapVisualPack(row:VisualPackRow):VisualPack { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,providerId:row.provider_id,model:row.model,cover:parseJson(row.cover_json,{visual:'',prompt:'',overlayText:''}),inlineImages:parseJson(row.inline_images_json,[]),releaseImages:parseJson(row.release_images_json,[]),rawXml:row.raw_xml,createdAt:row.created_at} }
+function mapVisualAsset(row:VisualAssetRow):VisualAsset { return {id:row.id,packId:row.pack_id,kind:row.kind,slot:row.slot??0,prompt:row.prompt,fileName:row.file_name,source:row.source,providerId:row.provider_id??undefined,model:row.model??undefined,size:row.size??undefined,wechatMediaId:row.wechat_media_id??undefined,wechatUploadedAt:row.wechat_uploaded_at??undefined,createdAt:row.created_at,url:visualAssetUrl(row.file_name)} }
+function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/${fileName.split('/').map(encodeURIComponent).join('/')}` }
 function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,createdAt:row.created_at} }
 function mapWechatChannel(row:WechatChannelRow):WechatPublishChannel { return {id:row.id,displayName:row.display_name,appId:row.app_id,enabled:Boolean(row.enabled),hasAppSecret:Boolean(row.has_app_secret),updatedAt:row.updated_at} }
 function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,createdAt:row.created_at,updatedAt:row.updated_at} }

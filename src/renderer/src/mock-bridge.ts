@@ -341,12 +341,22 @@ function createMockBridge(): MoliuApi {
       start: () => void_(),
       updateProblem: () => void_(),
       addManualProblem: () => void_(),
-      apply: () => void_()
+      apply: () => void_(),
+      onStream: () => () => undefined
     },
     visuals: {
       list: () => emptyArray(),
       generate: () => void_(),
-      remove: () => void_()
+      remove: () => void_(),
+      onStream: () => () => undefined,
+      generateImage: () => void_(),
+      importImage: () => void_(),
+      listAssets: () => emptyArray(),
+      removeAsset: () => void_()
+    },
+    generation: {
+      cancel: () => Promise.resolve({ cancelled: false }),
+      active: () => emptyArray()
     },
     layouts: {
       list: () => emptyArray(),
@@ -359,7 +369,8 @@ function createMockBridge(): MoliuApi {
       testWechatChannel: () => Promise.resolve({ ok: false, message: '演示环境未配置' }),
       list: () => emptyArray(),
       pushWechatDraft: () => void_(),
-      update: () => void_()
+      update: () => void_(),
+      uploadWechatCover: () => void_()
     }
   }
 

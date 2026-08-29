@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   BookOpenText, Check, ChevronLeft, FilePenLine, FolderHeart, History,
-  LibraryBig, LoaderCircle, Lock, LockOpen, PenLine, Plus, Save, Sparkles,
-  Trash2, WandSparkles
+  Image, LibraryBig, LoaderCircle, Lock, LockOpen, PenLine, Plus, Save, Sparkles,
+  Trash2, WandSparkles, X
 } from 'lucide-react'
 import type { AccountProfileSummary, Article, Framework, Material, ProviderSummary } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
@@ -10,12 +10,18 @@ import { Select } from '../components/Select'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { VirtualList } from '../components/VirtualList'
-import { errorMessage, formatDate } from '../lib'
+import { StreamingPreview } from '../components/StreamingPreview'
+import { PageHeader } from '../components/PageHeader'
+import { MaterialPicker } from '../components/MaterialPicker'
+import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
+import { errorMessage, formatDate, markdownTitle } from '../lib'
 
-interface ArticlesPageProps { accounts: AccountProfileSummary[]; providers: ProviderSummary[]; currentAccountId?: string; onNavigate(route: RouteId): void; showToast(toast: ToastState): void }
+interface ArticlesPageProps { accounts: AccountProfileSummary[]; providers: ProviderSummary[]; currentAccountId?: string; onNavigate(route: RouteId, params?: Record<string, string>): void; focusFrameworkId?: string; showToast(toast: ToastState): void }
 
-export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate, showToast }: ArticlesPageProps): React.JSX.Element {
+export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate, focusFrameworkId, showToast }: ArticlesPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
+  const stream = useGenerationStream('articles')
   const [articles, setArticles] = useState<Article[]>([])
   const [frameworks, setFrameworks] = useState<Framework[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
@@ -24,17 +30,16 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
   const [materialIds, setMaterialIds] = useState<Set<string>>(new Set())
   const [manualOutline, setManualOutline] = useState('')
-  const [modelTarget, setModelTarget] = useState('')
   const [count, setCount] = useState(1)
-  const [generating, setGenerating] = useState(false)
   const [revising, setRevising] = useState(false)
+  const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [instruction, setInstruction] = useState('')
   const [alignFramework, setAlignFramework] = useState(true)
   const [draft, setDraft] = useState('')
   const [editorMode, setEditorMode] = useState<'visual' | 'source'>('visual')
 
-  const models = providers.filter((provider) => provider.enabled && provider.hasApiKey)
-    .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model })))
+  const models = useMemo(() => availableModels(providers), [providers])
+  const [modelTarget, setModelTarget] = useModelTarget(models)
   const selected = articles.find((article) => article.id === selectedId)
   const selectedFramework = frameworks.find((framework) => framework.id === frameworkId)
   const usableMaterials = materials.filter((material) => material.kind !== 'image')
@@ -45,16 +50,12 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     ])
     setArticles(nextArticles); setFrameworks(nextFrameworks); setMaterials(nextMaterials)
     setSelectedId((current) => nextArticles.some((article) => article.id === current) ? current : nextArticles[0]?.id ?? '')
+    if (focusFrameworkId && nextFrameworks.some((f) => f.id === focusFrameworkId)) setFrameworkId(focusFrameworkId)
   }
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
   useEffect(() => {
     if (!accountId || !accounts.some((account) => account.id === accountId)) setAccountId(currentAccountId ?? accounts[0]?.id ?? '')
   }, [accountId, accounts, currentAccountId])
-  useEffect(() => {
-    const preferred = models.find(({ model }) => model.isDefault) ?? models[0]
-    const current = decodeModelTarget(modelTarget)
-    if (!current || !models.some(({ provider, model }) => provider.id === current.providerId && model.modelId === current.model)) setModelTarget(preferred ? encodeModelTarget(preferred.provider.id, preferred.model.modelId) : '')
-  }, [modelTarget, models])
   useEffect(() => { setDraft(selected?.rawMarkdown ?? '') }, [selected?.id, selected?.rawMarkdown])
   useEffect(() => {
     if (!selectedFramework) return
@@ -66,12 +67,14 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     const target = decodeModelTarget(modelTarget)
     if (!frameworkId && !manualOutline.trim()) return showToast({ type: 'error', message: '请选择内容框架，或粘贴手动框架' })
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
-    setGenerating(true)
     try {
-      const result = await window.moliu.articles.generate({ frameworkId: frameworkId || undefined, accountId: accountId || undefined, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.model, count })
+      const result = await stream.run(() => window.moliu.articles.generate({ frameworkId: frameworkId || undefined, accountId: accountId || undefined, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count }))
       await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id)
-      showToast({ type: result.failed.length ? 'error' : 'success', message: result.failed.length ? `已生成 ${result.articles.length}\u00A0篇，${result.failed.length}\u00A0篇失败` : `已生成 ${result.articles.length}\u00A0篇成稿` })
-    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setGenerating(false) }
+      setLastFailed(result.failed)
+      showToast({ type: result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
+    } catch (error) {
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消本次写作' } : { type: 'error', message: errorMessage(error) })
+    }
   }
   async function revise(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
@@ -80,10 +83,15 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     setRevising(true)
     try {
-      const result = await window.moliu.articles.revise({ articleId: selected.id, instruction: instruction.trim(), alignFramework, providerId: target.providerId, model: target.model, count })
+      const result = await stream.run(() => window.moliu.articles.revise({ articleId: selected.id, instruction: instruction.trim(), alignFramework, providerId: target.providerId, model: target.modelId, count }))
       await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id); setInstruction('')
-      showToast({ type: result.failed.length ? 'error' : 'success', message: result.failed.length ? `已完成 ${result.articles.length}\u00A0个改稿候选，${result.failed.length}\u00A0个失败` : '改稿新版本已保存' })
-    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setRevising(false) }
+      setLastFailed(result.failed)
+      showToast({ type: result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已完成 ${result.articles.length} 个改稿候选，${result.failed.length} 个失败` : '改稿新版本已保存' })
+    } catch (error) {
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消改稿' } : { type: 'error', message: errorMessage(error) })
+    } finally {
+      setRevising(false)
+    }
   }
   async function saveManual(): Promise<void> {
     if (!selected || !draft.trim()) return
@@ -95,25 +103,42 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   async function remove(): Promise<void> { if (!selected || !(await confirm({ title: '确认操作', message: '确定删除这篇成稿及其全部本地版本吗？', danger: true, confirmLabel: '确认' }))) return; try { await window.moliu.articles.remove(selected.id); await refresh(); showToast({ type: 'success', message: '成稿已删除' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
 
   return <div className="page articles-page">
-    <section className="page-intro articles-intro"><div><span className="eyebrow"><PenLine size={14} /> ARTICLE STUDIO</span><h2>文章工作台</h2></div><button className="button secondary" onClick={() => onNavigate('frameworks')}><WandSparkles size={16} />内容框架</button></section>
-    <section className="article-composer"><header><div><span className="eyebrow">WRITE A DRAFT</span><h3>新建草稿</h3></div><span>{selectedFramework ? `框架 V${selectedFramework.versionCount}` : '手动框架'}</span></header><div className="article-compose-grid"><label className="field"><span>内容框架</span><Select value={frameworkId} onChange={setFrameworkId} placeholder="不关联框架" ariaLabel="内容框架" options={[{ value: '', label: '不关联框架' }, ...frameworks.map((framework) => ({ value: framework.id, label: framework.sections[0]?.content || framework.manualTopic, hint: `V${framework.versionCount}` }))]} /></label><label className="field"><span>账号定位</span><Select value={accountId} onChange={setAccountId} placeholder="不使用账号定位" ariaLabel="账号定位" options={[{ value: '', label: '不使用账号定位' }, ...accounts.map((account) => ({ value: account.id, label: account.name, hint: account.status === 'draft' ? '草稿' : undefined }))]} /></label><label className="field"><span>模型</span><Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" ariaLabel="模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} /></label><label className="field article-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 篇` }))} /></label></div><label className="field article-outline-field"><span>手动框架</span><textarea name="manualOutline" autoComplete="off" rows={3} value={manualOutline} maxLength={30000} onChange={(event) => setManualOutline(event.target.value)} placeholder="输入文章结构" /></label><div className="article-material-picker"><div><strong><FolderHeart size={16} />引用素材</strong></div><button className="button ghost compact" onClick={() => onNavigate('materials')}>管理</button><div className="article-material-options">{usableMaterials.length ? usableMaterials.slice(0, 10).map((material) => <label key={material.id} className={materialIds.has(material.id) ? 'selected' : ''}><input type="checkbox" name="materialId" autoComplete="off" checked={materialIds.has(material.id)} onChange={(event) => setMaterialIds((current) => { const next = new Set(current); event.target.checked ? next.add(material.id) : next.delete(material.id); return next })} /><span>{material.title}</span></label>) : <p>暂无素材</p>}</div></div><footer><button className="button primary" disabled={generating || !models.length} onClick={() => void generate()}>{generating ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}{generating ? '正在写作…' : '生成草稿'}</button></footer></section>
-    <section className="article-workbench"><aside className="article-list"><header><div><span className="eyebrow">MY ARTICLES</span><h3>文章 <small>{articles.length}</small></h3></div></header>{articles.length ? <div><VirtualList items={articles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{articleTitle(article.rawMarkdown)}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.references.some((reference) => reference.sourceStatusSnapshot === 'draft') && <em>引用草稿</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>暂无文章</span></div>}</aside>{selected ? <ArticleEditor article={selected} draft={draft} editorMode={editorMode} instruction={instruction} alignFramework={alignFramework} count={count} onDraftChange={setDraft} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} revising={revising} /> : <div className="article-empty"><LibraryBig size={40} /><h3>暂无文章</h3></div>}</section>
+    <PageHeader
+      route="articles"
+      onNavigate={onNavigate}
+      title="文章工作台"
+      description="按框架扩写成稿，改稿打磨后锁定进入评审与发布"
+      actions={<div className="page-intro-actions">
+        <button className="button secondary" onClick={() => onNavigate('frameworks')}><WandSparkles size={15} />内容框架</button>
+        {selected?.status === 'locked' && <>
+          <button className="button secondary" onClick={() => onNavigate('reviews', { articleId: selected.id })}><Check size={15} />去评审</button>
+          <button className="button secondary" onClick={() => onNavigate('visuals', { articleId: selected.id })}><Image size={15} />去配图</button>
+          <button className="button primary" onClick={() => onNavigate('layouts', { articleId: selected.id })}><FilePenLine size={15} />去排版</button>
+        </>}
+      </div>}
+    />
+    <section className="article-composer"><header><div><h3>新建草稿</h3></div><span>{selectedFramework ? `框架 V${selectedFramework.versionCount}` : '手动框架'}</span></header><div className="article-compose-grid"><label className="field"><span>内容框架</span><Select value={frameworkId} onChange={setFrameworkId} placeholder="不关联框架" ariaLabel="内容框架" options={[{ value: '', label: '不关联框架' }, ...frameworks.map((framework) => ({ value: framework.id, label: framework.sections[0]?.content || framework.manualTopic, hint: `V${framework.versionCount}` }))]} /></label><label className="field"><span>账号定位</span><Select value={accountId} onChange={setAccountId} placeholder="不使用账号定位" ariaLabel="账号定位" options={[{ value: '', label: '不使用账号定位' }, ...accounts.map((account) => ({ value: account.id, label: account.name, hint: account.status === 'draft' ? '草稿' : undefined }))]} /></label><label className="field"><span>模型</span><Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" ariaLabel="模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} /></label><label className="field article-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 篇` }))} /></label></div><label className="field article-outline-field"><span>手动框架</span><textarea name="manualOutline" autoComplete="off" rows={3} value={manualOutline} maxLength={30000} onChange={(event) => setManualOutline(event.target.value)} placeholder="输入文章结构" /></label><MaterialPicker materials={usableMaterials} selected={materialIds} onToggle={(id, checked) => setMaterialIds((current) => { const next = new Set(current); checked ? next.add(id) : next.delete(id); return next })} onNavigate={onNavigate} /><footer>{stream.active ? <button className="button danger" onClick={stream.cancel}><X size={15} />取消生成</button> : <button className="button primary" disabled={!models.length} onClick={() => void generate()}><Sparkles size={16} />生成草稿</button>}</footer></section>
+    {stream.active && <StreamingPreview content={stream.content} label={revising ? '正在改稿…' : '正在写作…'} />}
+    {lastFailed.length > 0 && !stream.active && (
+      <p className="inline-alert">上批有 {lastFailed.length} 个候选未成功：{lastFailed.map((item) => `第 ${item.index} 篇 ${item.message.slice(0, 50)}`).join('；')}</p>
+    )}
+    <section className="article-workbench"><aside className="article-list"><header><div><h3>文章 <small>{articles.length}</small></h3></div></header>{articles.length ? <div><VirtualList items={articles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{articleTitle(article.rawMarkdown)}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.references.some((reference) => reference.sourceStatusSnapshot === 'draft') && <em>引用草稿</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>暂无文章</span></div>}</aside>{selected ? <ArticleEditor article={selected} draft={draft} editorMode={editorMode} instruction={instruction} alignFramework={alignFramework} count={count} onDraftChange={setDraft} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} revising={revising} /> : <div className="article-empty"><LibraryBig size={40} /><h3>暂无文章</h3></div>}</section>
     {ConfirmPortal}
   </div>
 }
 
 function ArticleEditor({ article, draft, editorMode, instruction, alignFramework, count, onDraftChange, onModeChange, onInstructionChange, onAlignChange, onCountChange, onSave, onRevise, onLock, onRemove, onRestore, revising }: { article: Article; draft: string; editorMode: 'visual' | 'source'; instruction: string; alignFramework: boolean; count: number; onDraftChange(value: string): void; onModeChange(value: 'visual' | 'source'): void; onInstructionChange(value: string): void; onAlignChange(value: boolean): void; onCountChange(value: number): void; onSave(): void; onRevise(): void; onLock(): void; onRemove(): void; onRestore(versionId: string): void; revising: boolean }): React.JSX.Element {
-  return <div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">ARTICLE · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />可视编辑</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div><button className="button primary compact" onClick={onSave}><Save size={14} />保存</button></div>{editorMode === 'source' ? <textarea className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} spellCheck /> : <RichMarkdownEditor key={article.id} markdown={draft} onChange={onDraftChange} />}<section className="article-revision"><header><div><span className="eyebrow">REVISE WITH AI</span><h3>智能改稿</h3></div></header><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} placeholder="输入改稿要求" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><label>候选 <Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="候选" options={[1, 2, 3].map((value) => ({ value: String(value), label: String(value) }))} /></label><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></section><section className="article-history"><header><History size={16} /><strong>版本历史</strong></header>{article.versions.map((version) => <div key={version.id}><span>第 {version.versionNumber} 版</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}</small>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div>)}</section></div>
+  return <div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div><button className="button primary compact" onClick={onSave}><Save size={14} />保存</button></div>{editorMode === 'source' ? <textarea className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} spellCheck /> : <MarkdownPreview markdown={draft} />}<section className="article-revision"><header><div><h3>智能改稿</h3></div></header><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} placeholder="输入改稿要求" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><label>候选 <Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="候选" options={[1, 2, 3].map((value) => ({ value: String(value), label: String(value) }))} /></label><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></section><section className="article-history"><header><History size={16} /><strong>版本历史</strong></header>{article.versions.map((version) => <div key={version.id}><span>第 {version.versionNumber} 版</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}</small>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div>)}</section></div>
 }
 
-function RichMarkdownEditor({ markdown, onChange }: { markdown: string; onChange(value: string): void }): React.JSX.Element {
-  // P0-4: 用 useMemo 派生 html，markdown prop 变化时自动重算；同时 contentEditable 通过 key 重挂载避免内部状态陈旧
+/**
+ * 只读预览：contentEditable 的 markdown↔HTML 往返会静默丢失表格、嵌套列表等格式，
+ * 因此「预览」模式不再承担编辑职责，编辑统一走源码模式。
+ */
+function MarkdownPreview({ markdown }: { markdown: string }): React.JSX.Element {
   const html = useMemo(() => markdownToHtml(markdown), [markdown])
-  return <article key={markdown} className="article-markdown-preview article-rich-editor" contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{ __html: html }} onInput={(event) => onChange(htmlToMarkdown(event.currentTarget.innerHTML))} />
+  return <div className="article-readonly-hint"><span className="micro-copy">预览模式 · 点击上方「源码编辑」修改内容</span><article className="article-markdown-preview" dangerouslySetInnerHTML={{ __html: html }} /></div>
 }
 function markdownToHtml(markdown: string): string { return markdown.split('\n').map((line) => line.startsWith('# ') ? `<h1>${escapeHtml(line.slice(2))}</h1>` : line.startsWith('## ') ? `<h2>${escapeHtml(line.slice(3))}</h2>` : line.startsWith('### ') ? `<h3>${escapeHtml(line.slice(4))}</h3>` : line.startsWith('- ') ? `<div class="rich-list">• ${escapeHtml(line.slice(2))}</div>` : line.startsWith('> ') ? `<blockquote>${escapeHtml(line.slice(2))}</blockquote>` : line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br></p>').join('') }
-function htmlToMarkdown(html: string): string { const root = document.createElement('div'); root.innerHTML = html; return Array.from(root.children).map((node) => { const text = node.textContent?.trim() ?? ''; if (!text) return ''; if (node.tagName === 'H1') return `# ${text}`; if (node.tagName === 'H2') return `## ${text}`; if (node.tagName === 'H3') return `### ${text}`; if (node.tagName === 'BLOCKQUOTE') return `> ${text}`; if (node.classList.contains('rich-list') || node.tagName === 'LI') return `- ${text.replace(/^•\s*/, '')}`; return text }).join('\n\n').replace(/\n{3,}/g, '\n\n').trim() }
 function escapeHtml(value: string): string { return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;') }
-function articleTitle(markdown: string): string { return markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || markdown.split('\n').find(Boolean)?.slice(0, 70) || '未命名成稿' }
-function encodeModelTarget(providerId: string, model: string): string { return JSON.stringify([providerId, model]) }
-function decodeModelTarget(value: string): { providerId: string; model: string } | null { try { const [providerId, model] = JSON.parse(value) as unknown[]; return typeof providerId === 'string' && typeof model === 'string' ? { providerId, model } : null } catch { return null } }
+function articleTitle(markdown: string): string { return markdownTitle(markdown, '未命名成稿') }

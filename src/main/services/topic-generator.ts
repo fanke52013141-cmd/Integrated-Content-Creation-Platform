@@ -3,11 +3,14 @@ import type {
   GenerateTopicsInput,
   GenerateTopicsResult,
   HotFavorite,
+  StreamEvent,
   Topic,
   TopicSchemaField
 } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { callModelWithFallback } from '../gateway/stream-helper.js'
+import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { GatewayError } from '../gateway/types.js'
 
@@ -18,7 +21,7 @@ export class TopicGenerator {
     private readonly prompts: PromptRegistry
   ) {}
 
-  async generate(input: GenerateTopicsInput): Promise<GenerateTopicsResult> {
+  async generate(input: GenerateTopicsInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateTopicsResult> {
     const account = this.database.getAccount(input.accountId)
     if (!account) throw new Error('账号定位不存在')
     if (account.status !== 'locked') throw new Error('选题生成只能使用已锁定的账号定位')
@@ -45,7 +48,10 @@ export class TopicGenerator {
         schema,
         seedKeyword,
         favorites,
-        index
+        index,
+        total: input.count,
+        onStream,
+        signal
       })
     )
     const settled = await Promise.allSettled(work)
@@ -69,8 +75,12 @@ export class TopicGenerator {
     seedKeyword: string
     favorites: HotFavorite[]
     index: number
+    total: number
+    onStream?: (event: StreamEvent) => void
+    signal?: AbortSignal
   }): Promise<Topic> {
-    const response = await this.gateway.chat({
+    input.onStream?.({ phase: 'start', index: input.index, total: input.total })
+    const request: UnifiedRequest = {
       providerId: input.providerId,
       model: input.model,
       temperature: 0.75,
@@ -93,6 +103,11 @@ export class TopicGenerator {
           ].join('\n\n')
         }
       ]
+    }
+    const response = await callModelWithFallback(this.gateway, request, {
+      signal: input.signal,
+      onDelta: (delta) => input.onStream?.({ phase: 'delta', index: input.index, total: input.total, delta }),
+      onRetry: () => input.onStream?.({ phase: 'start', index: input.index, total: input.total })
     })
     const fields = parseTopicJson(response.content, input.schema)
     const topic = this.database.saveTopic({
@@ -123,8 +138,10 @@ export class TopicGenerator {
         targetId: topic.id
       })
     }
+    input.onStream?.({ phase: 'complete', index: input.index, total: input.total })
     return topic
   }
+
 }
 
 export function parseTopicJson(content: string, schema: TopicSchemaField[]): Record<string, string> {

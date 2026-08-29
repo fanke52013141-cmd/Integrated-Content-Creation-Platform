@@ -15,7 +15,7 @@ export function ShortcutPanel({ open, onClose }: ShortcutPanelProps): React.JSX.
     <ModalBase open={open} onClose={onClose} titleId="shortcut-panel-title" bare className="shortcut-panel-dialog">
       <header>
         <div>
-          <span className="eyebrow"><Keyboard size={14} /> SHORTCUTS</span>
+          
           <h2 id="shortcut-panel-title">键盘快捷键</h2>
         </div>
         <button className="icon-button" aria-label="关闭" onClick={onClose}>

@@ -5,10 +5,13 @@ import type {
   GenerateArticlesResult,
   Material,
   ReviseArticleInput,
-  ReviseArticleResult
+  ReviseArticleResult,
+  StreamEvent
 } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { callModelWithFallback } from '../gateway/stream-helper.js'
+import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 
 export class ArticleGenerator {
@@ -18,7 +21,7 @@ export class ArticleGenerator {
     private readonly prompts: PromptRegistry
   ) {}
 
-  async generate(input: GenerateArticlesInput): Promise<GenerateArticlesResult> {
+  async generate(input: GenerateArticlesInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateArticlesResult> {
     const framework = input.frameworkId ? this.database.getFramework(input.frameworkId) : null
     if (input.frameworkId && !framework) throw new Error('所选内容框架不存在')
     const manualOutline = input.manualOutline?.trim() ?? ''
@@ -26,13 +29,14 @@ export class ArticleGenerator {
     const account = this.resolveAccount(input.accountId ?? framework?.accountId)
     const materials = this.resolveMaterials(input.materialIds)
     const outline = framework?.rawXml ?? `<手动框架>\n${escapeXml(manualOutline)}\n</手动框架>`
-    const work = Array.from({ length: input.count }, (_, index) => this.generateOne({
-      input, framework, account, materials, outline, index
+    const total = input.count
+    const work = Array.from({ length: total }, (_, index) => this.generateOne({
+      input, framework, account, materials, outline, index, total, onStream, signal
     }))
     return collect(work)
   }
 
-  async revise(input: ReviseArticleInput): Promise<ReviseArticleResult> {
+  async revise(input: ReviseArticleInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<ReviseArticleResult> {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('待修改成稿不存在')
     const instruction = input.instruction.trim()
@@ -41,8 +45,9 @@ export class ArticleGenerator {
     const framework = input.alignFramework && article.frameworkId
       ? this.database.getFramework(article.frameworkId) : null
     if (input.alignFramework && article.frameworkId && !framework) throw new Error('关联框架已被删除，无法按框架对齐')
-    const work = Array.from({ length: input.count }, (_, index) => this.reviseOne({
-      input, article, account, framework, instruction, index
+    const total = input.count
+    const work = Array.from({ length: total }, (_, index) => this.reviseOne({
+      input, article, account, framework, instruction, index, total, onStream, signal
     }))
     return collect(work)
   }
@@ -54,10 +59,14 @@ export class ArticleGenerator {
     materials: Material[]
     outline: string
     index: number
+    total: number
+    onStream?: (event: StreamEvent) => void
+    signal?: AbortSignal
   }): Promise<Article> {
-    const response = await this.gateway.chat({
+    context.onStream?.({ phase: 'start', index: context.index, total: context.total })
+    const request: UnifiedRequest = {
       providerId: context.input.providerId, model: context.input.model, temperature: 0.7,
-      maxTokens: 8_000, jsonMode: false,
+      maxTokens: 8_000, jsonMode: false, signal: context.signal,
       messages: [
         { role: 'system', content: this.prompts.render('article.generate') },
         { role: 'user', content: [
@@ -67,6 +76,11 @@ export class ArticleGenerator {
           serializeMaterials(context.materials)
         ].join('\n\n') }
       ]
+    }
+    const response = await callModelWithFallback(this.gateway, request, {
+      signal: context.signal,
+      onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
+      onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
     })
     const article = this.database.saveArticle({
       frameworkId: context.framework?.id, accountId: context.account?.id,
@@ -75,6 +89,7 @@ export class ArticleGenerator {
       providerId: response.providerId, model: response.model
     })
     this.createReferences(article.id, context.framework, context.account, context.materials)
+    context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
     return article
   }
 
@@ -85,10 +100,14 @@ export class ArticleGenerator {
     framework: ReturnType<AppDatabase['getFramework']>
     instruction: string
     index: number
+    total: number
+    onStream?: (event: StreamEvent) => void
+    signal?: AbortSignal
   }): Promise<Article> {
-    const response = await this.gateway.chat({
+    context.onStream?.({ phase: 'start', index: context.index, total: context.total })
+    const request: UnifiedRequest = {
       providerId: context.input.providerId, model: context.input.model, temperature: 0.45,
-      maxTokens: 8_000, jsonMode: false,
+      maxTokens: 8_000, jsonMode: false, signal: context.signal,
       messages: [
         { role: 'system', content: this.prompts.render('article.revise') },
         { role: 'user', content: [
@@ -99,6 +118,11 @@ export class ArticleGenerator {
           context.framework ? context.framework.rawXml : '<框架>未要求对齐</框架>'
         ].join('\n\n') }
       ]
+    }
+    const response = await callModelWithFallback(this.gateway, request, {
+      signal: context.signal,
+      onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
+      onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
     })
     const targetId = context.input.count === 1 ? context.article.id : undefined
     const article = this.database.saveArticle({
@@ -107,6 +131,7 @@ export class ArticleGenerator {
       status: 'draft', rawMarkdown: normalizeMarkdown(response.content), source: 'revise', instruction: context.instruction,
       providerId: response.providerId, model: response.model
     })
+    context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
     if (targetId) return article
     this.database.createArtifactReference({
       sourceType: 'article', sourceId: context.article.id, sourceVersionId: context.article.currentVersionId,

@@ -7,6 +7,7 @@ import { ReviewService } from '../src/main/services/review-service.js'
 import { VisualPackGenerator } from '../src/main/services/visual-pack-generator.js'
 import { ArticleLayoutService } from '../src/main/services/article-layout-service.js'
 import { WechatPublishService } from '../src/main/services/wechat-publish-service.js'
+import type { VisualAssetService } from '../src/main/services/visual-asset-service.js'
 import type { UnifiedRequest, UnifiedResponse } from '../src/main/gateway/types.js'
 import type { ModelGateway } from '../src/main/gateway/model-gateway.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
@@ -203,7 +204,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     // 配置微信渠道 + mock 微信 API
     database.saveWechatPublishChannel({ appId: 'wx-test-app-id', enabled: true })
     const keyStore = { readWechatPublishSecret: () => 'wx-test-secret' } as unknown as KeyStore
-    const publishService = new WechatPublishService(database, keyStore)
+    const publishService = new WechatPublishService(database, keyStore, { readAssetFile: async () => Buffer.alloc(0) } as unknown as VisualAssetService)
     // mock 微信 token 和 draft/add 接口
     let wechatCallCount = 0
     vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {

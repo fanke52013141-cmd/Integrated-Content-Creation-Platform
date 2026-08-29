@@ -32,6 +32,10 @@ import { useConfirm } from '../components/useConfirm'
 import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
+import { StreamingPreview } from '../components/StreamingPreview'
+import { PageHeader } from '../components/PageHeader'
+import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate } from '../lib'
 
 type TopicView = 'drafts' | 'library'
@@ -40,7 +44,7 @@ interface TopicsPageProps {
   accounts: AccountProfileSummary[]
   providers: ProviderSummary[]
   currentAccountId?: string
-  onNavigate(route: RouteId): void
+  onNavigate(route: RouteId, params?: Record<string, string>): void
   showToast(toast: ToastState): void
 }
 
@@ -52,12 +56,12 @@ export function TopicsPage({
   showToast
 }: TopicsPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
+  const stream = useGenerationStream('topics')
   const [topics, setTopics] = useState<Topic[]>([])
   const [schema, setSchema] = useState<TopicSchemaField[]>([])
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
   const [view, setView] = useState<TopicView>('drafts')
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
-  const [modelTarget, setModelTarget] = useState('')
   const [seedKeyword, setSeedKeyword] = useState('')
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
     try {
@@ -69,29 +73,19 @@ export function TopicsPage({
     }
   })
   const [count, setCount] = useState(3)
-  const [generating, setGenerating] = useState(false)
+  const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [schemaOpen, setSchemaOpen] = useState(false)
   const [editing, setEditing] = useState<Topic>()
 
   const lockedAccounts = accounts.filter((account) => account.status === 'locked')
-  const availableModels = providers.filter((provider) => provider.enabled && provider.hasApiKey)
-    .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model })))
+  const models = useMemo(() => availableModels(providers), [providers])
+  const [modelTarget, setModelTarget] = useModelTarget(models)
 
   useEffect(() => {
     if (!accountId || !lockedAccounts.some((account) => account.id === accountId)) {
       setAccountId(lockedAccounts.find((account) => account.id === currentAccountId)?.id ?? lockedAccounts[0]?.id ?? '')
     }
   }, [accountId, currentAccountId, lockedAccounts])
-
-  useEffect(() => {
-    const defaultModel = availableModels.find(({ model }) => model.isDefault) ?? availableModels[0]
-    if (!defaultModel) return setModelTarget('')
-    const parsed = decodeModelTarget(modelTarget)
-    const exists = parsed && availableModels.some(({ provider, model }) =>
-      provider.id === parsed.providerId && model.modelId === parsed.model
-    )
-    if (!exists) setModelTarget(encodeModelTarget(defaultModel.provider.id, defaultModel.model.modelId))
-  }, [availableModels, modelTarget])
 
   async function refresh(): Promise<void> {
     const [nextTopics, nextSchema, nextFavorites] = await Promise.all([
@@ -117,27 +111,25 @@ export function TopicsPage({
     if (!accountId) return showToast({ type: 'error', message: '请先锁定一个账号定位' })
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     if (!seedKeyword.trim()) return showToast({ type: 'error', message: '请填写热点关键词或主题' })
-    setGenerating(true)
     try {
-      const result = await window.moliu.topics.generate({
+      const result = await stream.run(() => window.moliu.topics.generate({
         accountId,
         providerId: target.providerId,
-        model: target.model,
+        model: target.modelId,
         seedKeyword: seedKeyword.trim(),
         relatedHotFavoriteIds: [...favoriteIds],
         count
-      })
+      }))
       await refresh()
       setView('drafts')
+      setLastFailed(result.failed)
       if (result.failed.length) {
-        showToast({ type: 'error', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可再次生成补齐` })
+        showToast({ type: 'warning', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可再次生成补齐` })
       } else {
         showToast({ type: 'success', message: `已生成 ${result.topics.length}\u00A0条选题草稿` })
       }
     } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setGenerating(false)
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消本次生成' } : { type: 'error', message: errorMessage(error) })
     }
   }
 
@@ -185,20 +177,17 @@ export function TopicsPage({
 
   return (
     <div className="page topics-page">
-      <section className="page-intro topics-intro">
-        <div>
-          <span className="eyebrow"><Sparkles size={14} /> TOPIC LAB</span>
-          <h2>生成选题</h2>
-        </div>
-        <button className="button secondary" onClick={() => setSchemaOpen(true)}>
-          <FilePenLine size={16} />配置选题字段
-        </button>
-      </section>
+      <PageHeader
+        route="topics"
+        onNavigate={onNavigate}
+        title="选题生成"
+        description="基于锁定的账号定位与热点，独立并行生成多条选题草稿"
+        actions={<button className="button secondary" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>}
+      />
 
       <section className="topic-composer">
         <div className="topic-composer-head">
           <div>
-            <span className="eyebrow">GENERATE DRAFTS</span>
             <h3>开始一个选题批次</h3>
           </div>
           <span className="topic-schema-note">当前模板 · {schema.length} 个字段</span>
@@ -262,7 +251,7 @@ export function TopicsPage({
               <aside className="topic-generation-settings">
                 <label className="field">
                   <span>模型</span>
-                  <Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={availableModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} ariaLabel="模型" />
+                  <Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} ariaLabel="模型" />
                 </label>
                 <label className="field topic-count-field">
                   <span>数量</span>
@@ -277,14 +266,23 @@ export function TopicsPage({
             </div>
             <footer className="topic-compose-footer">
               <span><Link2 size={14} />{selectedFavorites.length} 条热点</span>
-              <button className="button primary" disabled={generating || !availableModels.length} onClick={() => void generate()}>
-                {generating ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
-                {generating ? `正在独立生成 ${count}\u00A0条…` : `生成 ${count}\u00A0条选题`}
-              </button>
+              {stream.active ? (
+                <button className="button danger" onClick={stream.cancel}><X size={16} />取消生成</button>
+              ) : (
+                <button className="button primary" disabled={!models.length} onClick={() => void generate()}>
+                  <Sparkles size={16} />
+                  {`生成 ${count} 条选题`}
+                </button>
+              )}
             </footer>
           </>
         )}
       </section>
+
+      {stream.active && <StreamingPreview content={stream.content} label="正在生成选题…" />}
+      {lastFailed.length > 0 && !stream.active && (
+        <p className="inline-alert">上批有 {lastFailed.length} 条未成功：{lastFailed.map((item) => `第 ${item.index} 条 ${item.message.slice(0, 50)}`).join('；')}</p>
+      )}
 
       <section className="topic-wall">
         <header className="topic-wall-head">
@@ -307,6 +305,7 @@ export function TopicsPage({
                   key={topic.id}
                   topic={topic}
                   schema={schema}
+                  onNavigate={onNavigate}
                   onEdit={setEditing}
                   onToggleLibrary={() => void toggleLibrary(topic)}
                   onToggleLocked={() => void toggleLocked(topic)}
@@ -349,6 +348,7 @@ export function TopicsPage({
 function TopicCard({
   topic,
   schema,
+  onNavigate,
   onEdit,
   onToggleLibrary,
   onToggleLocked,
@@ -357,6 +357,7 @@ function TopicCard({
 }: {
   topic: Topic
   schema: TopicSchemaField[]
+  onNavigate(route: RouteId, params?: Record<string, string>): void
   onEdit(topic: Topic): void
   onToggleLibrary(): void
   onToggleLocked(): void
@@ -404,6 +405,7 @@ function TopicCard({
           </div>
         ))}
       </dl>
+      {topic.status === 'locked' && <button className="button primary topic-next-step" onClick={() => onNavigate('frameworks', { topicId: topic.id })}><Sparkles size={15} />生成框架→</button>}
       {orderedFields.length > 4 && (
         <button className="topic-expand" onClick={() => setExpanded((value) => !value)}>
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -526,15 +528,3 @@ function TopicEditor({
   )
 }
 
-function encodeModelTarget(providerId: string, model: string): string {
-  return JSON.stringify([providerId, model])
-}
-
-function decodeModelTarget(value: string): { providerId: string; model: string } | null {
-  try {
-    const [providerId, model] = JSON.parse(value) as unknown[]
-    return typeof providerId === 'string' && typeof model === 'string' ? { providerId, model } : null
-  } catch {
-    return null
-  }
-}

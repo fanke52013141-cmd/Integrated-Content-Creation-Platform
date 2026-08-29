@@ -531,7 +531,7 @@ export type ReviewSeverity = 'high' | 'medium' | 'low'
 export interface ReviewRole { id: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number; createdAt: string; updatedAt: string }
 export interface ReviewProblem { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean; isManual: boolean }
 export interface ReviewOpinion { id: string; taskId: string; roleId?: string; roleName: string; providerId?: string; model?: string; dimensions: string[]; problems: ReviewProblem[]; overallSuggestion: string; rawXml: string; extractionMatched: boolean; createdAt: string }
-export interface ReviewTask { id: string; articleId: string; roleIds: string[]; status: 'completed' | 'applied'; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
+export interface ReviewTask { id: string; articleId: string; roleIds: string[]; status: 'running' | 'completed' | 'applied'; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
 export interface SaveReviewRoleInput { id?: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number }
 export interface StartReviewInput { articleId: string; roleIds: string[]; fallbackProviderId: string; fallbackModel: string }
 export interface StartReviewResult { task: ReviewTask; failed: Array<{ roleId: string; message: string }> }
@@ -542,6 +542,34 @@ export interface VisualCover { visual: string; prompt: string; overlayText: stri
 export interface VisualPrompt { location: string; purpose: string; ratio: string; prompt: string; alt: string }
 export interface VisualPack { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; providerId: string; model: string; cover: VisualCover; inlineImages: VisualPrompt[]; releaseImages: VisualPrompt[]; rawXml: string; createdAt: string }
 export interface GenerateVisualPackInput { articleId: string; providerId: string; model: string; inlineCount: number }
+
+/** 视觉包下的一张具体图片资产（AI 生成或本地导入） */
+export type VisualAssetKind = 'cover' | 'inline' | 'release'
+export interface VisualAsset {
+  id: string
+  packId: string
+  kind: VisualAssetKind
+  /** 槽位序号：cover 固定 0，inline/release 为第几张（0-based） */
+  slot: number
+  /** 生成/导入时使用的提示词 */
+  prompt: string
+  /** 相对图片目录的文件名，通过 moliu-asset:// 协议访问 */
+  fileName: string
+  /** 可直接用于 <img src> 的地址 */
+  url: string
+  source: 'generated' | 'imported'
+  providerId?: string
+  model?: string
+  size?: string
+  /** 上传微信公众号素材库后回填的 media_id */
+  wechatMediaId?: string
+  wechatUploadedAt?: string
+  createdAt: string
+}
+export interface GenerateVisualAssetInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; providerId: string; model: string; size?: string }
+export interface ImportVisualAssetInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; filePath: string }
+/** 渲染层直接上传文件内容（沙箱下拿不到本地路径） */
+export interface ImportVisualAssetDataInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; fileName: string; data: ArrayBuffer }
 export type LayoutPlatform = 'wechat' | 'xiaohongshu' | 'web'
 export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; createdAt: string }
 export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform }
@@ -549,7 +577,7 @@ export interface WechatPublishChannel { id: 'wechat-official'; displayName: stri
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
 export type PublicationStatus = 'draft' | 'published' | 'failed'
 export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; createdAt: string; updatedAt: string }
-export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId: string; author?: string; digest?: string; contentSourceUrl?: string }
+export interface PushWechatDraftInput { articleId: string; layoutId: string; /** 手动粘贴的素材 id（兜底）；与 coverAssetId 二选一 */ thumbMediaId?: string; /** 直接引用已上传/已生成图片资产的 id，推送前自动上传换取 media_id */ coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string }
 export interface UpdatePublicationInput { id: string; status: 'published'; publishedUrl: string }
 
 export interface AppBootstrap {
@@ -559,10 +587,29 @@ export interface AppBootstrap {
   currentAccountId?: string
 }
 
+/** AI 文本生成流式事件（逐 token 推送） */
+export interface StreamEvent {
+  /** start=开始生成, delta=增量文本, complete=单篇完成, error=失败 */
+  phase: 'start' | 'delta' | 'complete' | 'error'
+  /** 当前文章在批次中的序号（0-based） */
+  index: number
+  /** 批次总数 */
+  total: number
+  /** 增量文本（仅 phase=delta） */
+  delta?: string
+  /** 错误信息（仅 phase=error） */
+  message?: string
+}
+
 export interface MoliuApi {
   app: {
     bootstrap(): Promise<AppBootstrap>
     getDataPath(): Promise<string>
+  }
+  /** 生成任务：按模块互斥、可取消 */
+  generation: {
+    cancel(domain: string): Promise<{ cancelled: boolean }>
+    active(): Promise<string[]>
   }
   providers: {
     presets(): Promise<ProviderPreset[]>
@@ -612,6 +659,8 @@ export interface MoliuApi {
     /** 弹出微博官方登录窗口（扫码/手机号），成功后自动保存 Cookie */
     weiboLogin(): Promise<WeiboSessionStatus>
     clearWeiboCookie(): Promise<void>
+    /** 订阅热点 AI 筛选的流式事件 */
+    onStream(callback: (event: StreamEvent) => void): () => void
   }
   topics: {
     getSchema(): Promise<TopicSchemaField[]>
@@ -623,6 +672,7 @@ export interface MoliuApi {
     setLocked(id: string, locked: boolean): Promise<Topic>
     setInLibrary(id: string, inLibrary: boolean): Promise<Topic>
     remove(id: string): Promise<void>
+    onStream(callback: (event: StreamEvent) => void): () => void
   }
   materials: {
     list(): Promise<Material[]>
@@ -639,6 +689,7 @@ export interface MoliuApi {
     save(input: SaveFrameworkInput): Promise<Framework>
     setLocked(id: string, locked: boolean): Promise<Framework>
     remove(id: string): Promise<void>
+    onStream(callback: (event: StreamEvent) => void): () => void
   }
   articles: {
     list(): Promise<Article[]>
@@ -649,6 +700,8 @@ export interface MoliuApi {
     restore(input: RestoreArticleVersionInput): Promise<Article>
     setLocked(id: string, locked: boolean): Promise<Article>
     remove(id: string): Promise<void>
+    /** 订阅流式生成事件，返回取消订阅函数 */
+    onStream(callback: (event: StreamEvent) => void): () => void
   }
   reviews: {
     listRoles(): Promise<ReviewRole[]>
@@ -659,11 +712,22 @@ export interface MoliuApi {
     updateProblem(input: UpdateReviewProblemInput): Promise<ReviewProblem>
     addManualProblem(input: AddManualReviewProblemInput): Promise<ReviewProblem>
     apply(taskId: string, providerId: string, model: string): Promise<Article>
+    onStream(callback: (event: StreamEvent) => void): () => void
   }
   visuals: {
     list(articleId?: string): Promise<VisualPack[]>
     generate(input: GenerateVisualPackInput): Promise<VisualPack>
     remove(id: string): Promise<void>
+    /** 订阅配图生成的流式事件 */
+    onStream(callback: (event: StreamEvent) => void): () => void
+    /** 用提示词生成一张具体图片 */
+    generateImage(input: GenerateVisualAssetInput): Promise<VisualAsset>
+    /** 从本地导入一张图片作为资产（供应商不支持生图时的兜底） */
+    importImage(input: ImportVisualAssetInput): Promise<VisualAsset>
+    /** 直接上传图片内容导入为资产 */
+    importImageData(input: ImportVisualAssetDataInput): Promise<VisualAsset>
+    listAssets(packId: string): Promise<VisualAsset[]>
+    removeAsset(id: string): Promise<void>
   }
   layouts: {
     list(articleId?: string): Promise<ArticleLayout[]>
@@ -677,6 +741,8 @@ export interface MoliuApi {
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
     update(input: UpdatePublicationInput): Promise<Publication>
+    /** 把图片资产上传到公众号素材库，回填 media_id */
+    uploadWechatCover(input: { assetId: string }): Promise<VisualAsset>
   }
 }
 

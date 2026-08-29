@@ -98,7 +98,6 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
     <div className="page prompts-page">
       <section className="page-intro">
         <div>
-          <span className="eyebrow">PROMPT LIBRARY</span>
           <h2>提示词</h2>
           <p>集中管理各 AI 环节的自定义提示词，支持版本回溯。写入 <code>{'{'} {'{'}</code>变量<code>{'}'}{'}'}</code> 可注入动态上下文。</p>
         </div>

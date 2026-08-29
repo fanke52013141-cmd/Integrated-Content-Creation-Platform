@@ -62,3 +62,8 @@ const sanitizeConfig = {
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, sanitizeConfig) as unknown as string
 }
+
+/** 从 Markdown 原文中提取一级标题作为展示标题 */
+export function markdownTitle(markdown: string, fallback = '未命名文章'): string {
+  return markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || markdown.split('\n').find(Boolean)?.slice(0, 70) || fallback
+}

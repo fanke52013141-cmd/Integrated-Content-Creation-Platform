@@ -45,6 +45,7 @@ import { errorMessage } from '../lib'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
+import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
@@ -101,6 +102,7 @@ export function HotspotsPage({
   const initialModel = availableModels.find(({ model }) => model.isDefault) ?? availableModels[0]
   const initialAccount = lockedAccounts.find((account) => account.id === currentAccountId)
     ?? lockedAccounts[0]
+  const stream = useGenerationStream('hotspots')
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [filterScope, setFilterScope] = useState<'wall' | 'favorites'>('wall')
   const [filterAccountId, setFilterAccountId] = useState(initialAccount?.id ?? '')
@@ -109,11 +111,11 @@ export function HotspotsPage({
   )
   const [filterSourceIds, setFilterSourceIds] = useState<Set<string>>(new Set())
   const [filterTopN, setFilterTopN] = useState(20)
-  const [filtering, setFiltering] = useState(false)
   const [filterResult, setFilterResult] = useState<FilterHotspotsResult>()
   const [fitFilter, setFitFilter] = useState<'all' | 'high' | 'high-medium'>('all')
   const [ignoredAssessmentKeys, setIgnoredAssessmentKeys] = useState<Set<string>>(new Set())
 
+  const filtering = stream.active
   const favoriteKeys = useMemo(
     () => new Set(favorites.map((favorite) => hotItemKey(favorite.hotItem))),
     [favorites]
@@ -487,14 +489,13 @@ export function HotspotsPage({
       return
     }
 
-    setFiltering(true)
     try {
-      const result = await window.moliu.hotspots.filter({
+      const result = await stream.run(() => window.moliu.hotspots.filter({
         accountId: filterAccountId,
         providerId: target.providerId,
         model: target.modelId,
         items: filterCandidates
-      })
+      }))
       setFilterResult(result)
       setIgnoredAssessmentKeys(new Set())
       setFitFilter('all')
@@ -505,9 +506,7 @@ export function HotspotsPage({
         message: `已完成 ${result.assessments.length}\u00A0条热点筛选 · ${result.latencyMs}ms`
       })
     } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setFiltering(false)
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消筛选' } : { type: 'error', message: errorMessage(error) })
     }
   }
 
@@ -547,7 +546,7 @@ export function HotspotsPage({
     <div className="hotspots-page">
       <section className="hotspot-hero">
         <div>
-          <span className="eyebrow">LIVE SIGNALS</span>
+          
           <h2>
             {view === 'wall'
               ? '热点雷达'
@@ -603,7 +602,7 @@ export function HotspotsPage({
 
           <section className="hotspot-radar-layout">
             <aside className="hotspot-source-rail">
-              <header><span className="eyebrow">SOURCES</span><strong>信号源</strong></header>
+              <header><strong>信号源</strong></header>
               <div>
                 {visibleSources.map((source) => {
                   const result = results[source.id]
@@ -625,11 +624,22 @@ export function HotspotsPage({
             </aside>
             <main className="hotspot-feed">
               <header>
-                <div><span className="eyebrow">TRENDING</span><h3>{activeSource?.displayName || '实时榜单'}</h3></div>
+                <div><h3>{activeSource?.displayName || '实时榜单'}</h3></div>
                 {activeSource && (
-                  <button className="icon-button" aria-label="刷新当前平台" onClick={() => void refreshBatch([activeSource.id])}>
-                    <RefreshCw size={15} className={loadingIds.has(activeSource.id) ? 'spin' : ''} />
-                  </button>
+                  <div className="hotspot-feed-actions">
+                    {activeResult?.status === 'ready' && (
+                      <button
+                        className="button ghost compact"
+                        title="收藏当前平台前 10 条"
+                        onClick={() => void addSourceBatch(activeResult.items)}
+                      >
+                        <Bookmark size={14} />收藏前 10 条
+                      </button>
+                    )}
+                    <button className="icon-button" aria-label="刷新当前平台" onClick={() => void refreshBatch([activeSource.id])}>
+                      <RefreshCw size={15} className={loadingIds.has(activeSource.id) ? 'spin' : ''} />
+                    </button>
+                  </div>
                 )}
               </header>
               {activeResult?.status === 'ready' ? (
@@ -665,7 +675,7 @@ export function HotspotsPage({
               )}
             </main>
             <aside className="hotspot-insight-rail">
-              <header><span className="eyebrow">SAVED</span><strong>收藏 {favorites.length}</strong></header>
+              <header><strong>收藏 {favorites.length}</strong></header>
               <div className="hotspot-mini-favorites">
                 {favorites.slice(0, 5).map((favorite) => (
                   <article key={favorite.id}>
@@ -684,118 +694,7 @@ export function HotspotsPage({
             </aside>
           </section>
 
-          <section className="hotspot-grid legacy-source-grid">
-            {visibleSources.map((source) => {
-              const result = results[source.id]
-              const loading = loadingIds.has(source.id)
-              return (
-                <article
-                  className={`hot-source-card ${draggedSourceId === source.id ? 'dragging' : ''}`}
-                  key={source.id}
-                  draggable
-                  onDragStart={() => setDraggedSourceId(source.id)}
-                  onDragEnd={() => setDraggedSourceId(undefined)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => reorderWallSource(source.id)}
-                >
-                  <header>
-                    <div className="source-identity">
-                      <span className={`source-mark source-${source.id}`}><SourcePlatformIcon source={source} /></span>
-                      <span>
-                        <strong>{result?.source.displayName || source.displayName}</strong>
-                        <small>{result?.subtitle || '实时榜单'}</small>
-                      </span>
-                    </div>
-                    <div className="source-card-actions">
-                      <span className="source-drag-handle" title="拖拽调整顺序">
-                        <GripVertical size={15} />
-                      </span>
-                      {result?.status === 'ready' && (
-                        <button
-                          className="icon-button"
-                          title={`收藏前 10\u00A0条`}
-                          aria-label={`收藏前 10\u00A0条`}
-                          onClick={() => void addSourceBatch(result.items)}
-                        >
-                          <Bookmark size={15} />
-                        </button>
-                      )}
-                      <button
-                        className="icon-button"
-                        title="刷新此平台"
-                        aria-label="刷新此平台"
-                        disabled={loading}
-                        onClick={() => void refreshBatch([source.id])}
-                      >
-                        <RefreshCw size={15} className={loading ? 'spin' : ''} />
-                      </button>
-                    </div>
-                  </header>
-
-                  {loading && !result && (
-                    <div className="source-loading">
-                      <LoaderCircle size={22} className="spin" />
-                      <span>正在获取榜单</span>
-                    </div>
-                  )}
-
-                  {result?.status === 'error' && !loading && (
-                    <div className="source-error">
-                      <AlertTriangle size={20} />
-                      <strong>暂时无法获取</strong>
-                      <p>{result.error}</p>
-                      <button onClick={() => void refreshBatch([source.id])}>重试</button>
-                    </div>
-                  )}
-
-                  {result?.status === 'ready' && (
-                    <>
-                      <ol className="hot-item-list">
-                        {result.items.map((item) => {
-                          const key = hotItemKey(item)
-                          const favorited = favoriteKeys.has(key)
-                          const saving = savingFavoriteKeys.has(key)
-                          return (
-                            <li key={item.id}>
-                              <span className={`hot-rank rank-${item.rank}`}>{item.rank}</span>
-                              <button
-                                className="hot-item-link"
-                                disabled={!item.url}
-                                title={item.title}
-                                onClick={() => void openSource(item.url)}
-                              >
-                                <span>{item.title}</span>
-                                {item.hotValue && <small>{item.hotValue}</small>}
-                                {item.url && <ArrowUpRight size={13} />}
-                              </button>
-                              <button
-                                className={`hot-favorite-button ${favorited ? 'active' : ''}`}
-                                disabled={favorited || saving}
-                                title={favorited ? '已收藏' : '收藏并锁定源数据'}
-                                aria-label={favorited ? '已收藏' : '收藏并锁定源数据'}
-                                onClick={() => void addFavorite(item)}
-                              >
-                                {saving
-                                  ? <LoaderCircle size={14} className="spin" />
-                                  : favorited
-                                    ? <BookmarkCheck size={14} />
-                                    : <Bookmark size={14} />}
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ol>
-                      <footer>
-                        <span>{formatTime(result.updateTime)}</span>
-                        <span>{result.items.length} 条</span>
-                      </footer>
-                    </>
-                  )}
-                </article>
-              )
-            })}
-          </section>
-        </>
+                  </>
       ) : view === 'favorites' ? (
         <section className="favorite-workspace">
           <div className="favorite-toolbar">
@@ -1244,13 +1143,15 @@ export function HotspotsPage({
 
             <footer>
               <span />
-              <button
-                className="button secondary"
-                disabled={filtering}
-                onClick={() => setFilterDialogOpen(false)}
-              >
-                取消
-              </button>
+              {filtering ? (
+                <button className="button danger" onClick={stream.cancel}>
+                  取消筛选
+                </button>
+              ) : (
+                <button className="button secondary" onClick={() => setFilterDialogOpen(false)}>
+                  取消
+                </button>
+              )}
               <button
                 className="button primary"
                 disabled={filtering || !filterCandidates.length || filterCandidates.length > 200}

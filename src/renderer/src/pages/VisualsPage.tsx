@@ -1,24 +1,362 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Copy, Image, LoaderCircle, Sparkles, Trash2 } from 'lucide-react'
-import type { Article, ProviderSummary, VisualPack, VisualPrompt } from '../../../shared/contracts'
-import { Select } from '../components/Select'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Copy, Image as ImageIcon, ImagePlus, LayoutTemplate, LoaderCircle, Palette,
+  Sparkles, Trash2, UploadCloud, X
+} from 'lucide-react'
+import type { Article, ProviderSummary, VisualAsset, VisualPack, VisualPrompt, VisualAssetKind } from '../../../shared/contracts'
+import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { Select } from '../components/Select'
+import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { EmptyState } from '../components/EmptyState'
+import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
-import { errorMessage, formatDate } from '../lib'
+import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { availableModels, encodeModelTarget, useModelTarget } from '../lib/models'
+import { errorMessage, formatDate, markdownTitle } from '../lib'
 
-export function VisualsPage({ providers, showToast }: { providers: ProviderSummary[]; showToast(toast: ToastState): void }): React.JSX.Element {
-  const [articles, setArticles] = useState<Article[]>([]); const [packs, setPacks] = useState<VisualPack[]>([]); const [articleId, setArticleId] = useState(''); const [target, setTarget] = useState(''); const [count, setCount] = useState(3); const [busy, setBusy] = useState(false)
-  const models = useMemo(() => providers.filter(p => p.enabled && p.hasApiKey).flatMap(p => p.models.filter(m => m.enabled).map(m => ({ p, m }))), [providers])
-  const selected = articles.find(article => article.id === articleId)
-  const refresh = async () => { const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.list(), window.moliu.visuals.list()]); setArticles(nextArticles); setPacks(nextPacks); setArticleId(current => nextArticles.some(a => a.id === current) ? current : nextArticles[0]?.id ?? ''); setTarget(current => current || (models[0] ? JSON.stringify([models[0].p.id, models[0].m.modelId]) : '')) }
-  useEffect(() => { void refresh().catch(error => showToast({ type: 'error', message: errorMessage(error) })) }, [])
-  const generate = async () => { try { const [providerId, model] = JSON.parse(target); if (!articleId || !providerId || !model) return; setBusy(true); await window.moliu.visuals.generate({ articleId, providerId, model, inlineCount: count }); await refresh(); showToast({ type: 'success', message: '配图三件套已生成' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setBusy(false) } }
-  const copy = async (text: string) => { await navigator.clipboard.writeText(text); showToast({ type: 'success', message: '提示词已复制' }) }
-  const currentPacks = packs.filter(pack => pack.articleId === articleId)
-  return <div className="page visuals-page"><section className="page-intro"><div><span className="eyebrow">VISUAL KIT</span><h2>视觉资产</h2></div></section><section className="visual-composer"><label className="field"><span>文章</span><Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={articles.map(article => ({ value: article.id, label: title(article) }))} /></label><label className="field"><span>模型</span><Select value={target} onChange={setTarget} ariaLabel="模型" options={models.map(({ p, m }) => ({ value: JSON.stringify([p.id, m.modelId]), label: `${p.displayName} / ${m.displayName}` }))} /></label><label className="field"><span>文内图</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="文内图" options={[2, 3, 4, 5].map(value => ({ value: String(value), label: `${value} 张` }))} /></label><button className="button primary" disabled={busy || !articleId || !target} onClick={() => void generate()}>{busy ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />}生成方案</button></section>{selected?.status === 'draft' && <p className="visual-warning">当前为草稿版本</p>}<section className="visual-results">{currentPacks.length ? currentPacks.map(pack => <VisualPackCard key={pack.id} pack={pack} onCopy={copy} onRemove={async () => { await window.moliu.visuals.remove(pack.id); await refresh() }} />) : <div className="article-empty"><Image size={28}/><h3>暂无视觉方案</h3></div>}</section></div>
+interface VisualsPageProps {
+  providers: ProviderSummary[]
+  onNavigate(route: RouteId, params?: Record<string, string>): void
+  focusArticleId?: string
+  showToast(toast: ToastState): void
 }
 
-function VisualPackCard({ pack, onCopy, onRemove }: { pack: VisualPack; onCopy(text: string): Promise<void>; onRemove(): Promise<void> }): React.JSX.Element { const { confirm, ConfirmPortal } = useConfirm(); return <article className="visual-pack"><header><div><span className="eyebrow">ARTICLE VERSION</span><h3>{pack.articleVersionId.slice(0, 8)} · {pack.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'}</h3><p>{pack.model} · {formatDate(pack.createdAt)}</p></div><button className="icon-button danger" title="删除方案" aria-label="删除方案" onClick={async () => { if (await confirm({ title: '删除视觉方案？', message: '此操作不可撤销。', danger: true, confirmLabel: '删除' })) { await onRemove() } }}><Trash2 size={16}/></button></header><section className="visual-cover"><div><span>封面主视觉</span><strong>{pack.cover.visual}</strong><em>{pack.cover.overlayText}</em></div><Prompt value={pack.cover.prompt} onCopy={onCopy}/></section><PromptGroup title="文内配图" items={pack.inlineImages} onCopy={onCopy}/><PromptGroup title="发布配图" items={pack.releaseImages} onCopy={onCopy}/>{ConfirmPortal}</article> }
-function PromptGroup({ title, items, onCopy }: { title: string; items: VisualPrompt[]; onCopy(text: string): Promise<void> }): React.JSX.Element { return <section className="visual-prompt-group"><h4>{title}</h4>{items.map((item, index) => <div className="visual-prompt" key={`${item.location}-${index}`}><header><strong>{item.location}</strong><span>{item.ratio} · {item.purpose}</span></header><Prompt value={item.prompt} onCopy={onCopy}/><small>替代文本：{item.alt}</small></div>)}</section> }
-function Prompt({ value, onCopy }: { value: string; onCopy(text: string): Promise<void> }): React.JSX.Element { return <div className="visual-prompt-text"><p>{value}</p><button className="button ghost compact" onClick={() => void onCopy(value)}><Copy size={14}/>复制提示词</button></div> }
-function title(article: Article): string { return article.rawMarkdown.match(/^#\s+(.+)$/m)?.[1] ?? '未命名文章' }
+export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }: VisualsPageProps): React.JSX.Element {
+  const stream = useGenerationStream('visuals')
+  const { confirm, ConfirmPortal } = useConfirm()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [articles, setArticles] = useState<Article[]>([])
+  const [packs, setPacks] = useState<VisualPack[]>([])
+  const [articleId, setArticleId] = useState('')
+  const [count, setCount] = useState(3)
+  const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
+  const [assetsByPack, setAssetsByPack] = useState<Record<string, VisualAsset[]>>({})
+  const [imageBusyKey, setImageBusyKey] = useState('')
+  const [importTarget, setImportTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string } | null>(null)
+
+  const imageModels = useMemo(
+    () => providers
+      .filter((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.image)
+      .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model }))),
+    [providers]
+  )
+  const [imageTarget, setImageTarget] = useModelTarget(imageModels)
+  const selected = articles.find((article) => article.id === articleId)
+  const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
+
+  const refresh = async (): Promise<void> => {
+    const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.list(), window.moliu.visuals.list()])
+    setArticles(nextArticles)
+    setPacks(nextPacks)
+    setArticleId((current) => {
+      if (nextArticles.some((article) => article.id === current)) return current
+      if (focusArticleId && nextArticles.some((article) => article.id === focusArticleId)) return focusArticleId
+      const locked = nextArticles.find((article) => article.status === 'locked')
+      return locked?.id ?? nextArticles[0]?.id ?? ''
+    })
+    await refreshAssets(nextPacks.filter((pack) => pack.articleId === articleId).map((pack) => pack.id))
+  }
+
+  const refreshAssets = async (packIds: string[]): Promise<void> => {
+    const entries = await Promise.all(packIds.map(async (packId) => {
+      return [packId, await window.moliu.visuals.listAssets(packId)] as const
+    }))
+    setAssetsByPack(Object.fromEntries(entries))
+  }
+
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refreshAssets(currentPacks.map((pack) => pack.id)).catch(() => undefined) }, [articleId, packs.length])
+
+  const generatePlan = async (): Promise<void> => {
+    const target = decodeTarget(modelTarget)
+    if (!articleId || !target) return
+    try {
+      await stream.run(() => window.moliu.visuals.generate({ articleId, providerId: target.providerId, model: target.modelId, inlineCount: count }))
+      await refresh()
+      showToast({ type: 'success', message: '配图方案已生成，可逐张生成图片' })
+    } catch (error) {
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消生成' } : { type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  const generateImage = async (pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void> => {
+    const target = decodeTarget(imageTarget)
+    if (!target) {
+      showToast({ type: 'warning', message: '请先在「模型网关」为供应商开启图片能力并添加生图模型' })
+      return
+    }
+    const key = `${pack.id}:${kind}:${slot}`
+    setImageBusyKey(key)
+    try {
+      await window.moliu.visuals.generateImage({ packId: pack.id, kind, slot, prompt, providerId: target.providerId, model: target.modelId })
+      await refreshAssets([pack.id])
+      showToast({ type: 'success', message: '图片已生成' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setImageBusyKey('')
+    }
+  }
+
+  const openImport = (packId: string, kind: VisualAssetKind, slot: number, prompt: string): void => {
+    setImportTarget({ packId, kind, slot, prompt })
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (file: File): Promise<void> => {
+    if (!importTarget) return
+    try {
+      const data = await file.arrayBuffer()
+      await window.moliu.visuals.importImageData({ ...importTarget, fileName: file.name, data })
+      await refreshAssets([importTarget.packId])
+      showToast({ type: 'success', message: '图片已导入' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setImportTarget(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const uploadAsset = async (packId: string, asset: VisualAsset): Promise<void> => {
+    try {
+      await window.moliu.publishing.uploadWechatCover({ assetId: asset.id })
+      await refreshAssets([packId])
+      showToast({ type: 'success', message: '已上传到公众号素材库，推送时自动作为封面' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  const removeAsset = async (packId: string, asset: VisualAsset): Promise<void> => {
+    if (!(await confirm({ title: '删除这张图片？', message: '仅删除本地图片资产，不会影响提示词。', danger: true, confirmLabel: '删除' }))) return
+    try {
+      await window.moliu.visuals.removeAsset(asset.id)
+      await refreshAssets([packId])
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  const removePack = async (pack: VisualPack): Promise<void> => {
+    if (!(await confirm({ title: '删除整份配图方案？', message: '方案内的提示词与已生成图片会一并删除。', danger: true, confirmLabel: '删除' }))) return
+    try {
+      await window.moliu.visuals.remove(pack.id)
+      await refresh()
+      showToast({ type: 'success', message: '配图方案已删除' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  const copy = async (text: string): Promise<void> => {
+    await navigator.clipboard.writeText(text)
+    showToast({ type: 'success', message: '提示词已复制' })
+  }
+
+  return <div className="page visuals-page">
+    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file) }} />
+    <PageHeader
+      route="visuals"
+      onNavigate={onNavigate}
+      title="智能配图"
+      description="先生成封面 / 文内 / 发布三件套提示词，再逐张生成图片并上传公众号"
+      actions={articleId && <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />去排版</button>}
+    />
+
+    {!articles.length ? (
+      <EmptyState
+        icon={ImageIcon}
+        title="还没有可配图的文章"
+        description="先在「文章创作」中完成一篇文章，这里会为它设计封面与配图方案。"
+        actionLabel="去写文章"
+        onAction={() => onNavigate('articles')}
+      />
+    ) : (
+      <>
+        <section className="visual-composer">
+          <label className="field"><span>文章</span>
+            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={articles.map((article) => ({ value: article.id, label: markdownTitle(article.rawMarkdown), hint: article.status === 'locked' ? '已锁定' : '草稿' }))} />
+          </label>
+          <label className="field"><span>方案模型</span>
+            <Select value={modelTarget} onChange={setModelTarget} ariaLabel="方案模型" options={availableModels(providers).map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
+          </label>
+          <label className="field"><span>生图模型</span>
+            <Select value={imageTarget} onChange={setImageTarget} ariaLabel="生图模型" placeholder={imageModels.length ? '选择生图模型' : '无可用生图模型'} options={imageModels.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
+          </label>
+          <label className="field"><span>文内图</span>
+            <Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="文内图数量" options={[2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 张` }))} />
+          </label>
+          {stream.active ? (
+            <button className="button danger" onClick={stream.cancel}><X size={15} />取消</button>
+          ) : (
+            <button className="button primary" disabled={!articleId || !modelTarget} onClick={() => void generatePlan()}>
+              <Sparkles size={15} />生成方案
+            </button>
+          )}
+        </section>
+
+        {!imageModels.length && (
+          <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「模型网关」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
+        )}
+
+        {stream.active && <StreamingPreview content={stream.content} label="正在设计配图方案…" />}
+
+        {selected?.status === 'draft' && <p className="visual-warning">当前文章为草稿版本，锁定后配图会绑定固定版本。</p>}
+
+        {currentPacks.length > 0 && (
+          <NextStepBar text="封面图就绪后即可排版并推送草稿箱。" actionLabel="去排版" onAction={() => onNavigate('layouts', { articleId })} />
+        )}
+
+        <section className="visual-results">
+          {currentPacks.length ? currentPacks.map((pack) => (
+            <VisualPackCard
+              key={pack.id}
+              pack={pack}
+              articleTitle={selected ? markdownTitle(selected.rawMarkdown) : '文章'}
+              assets={assetsByPack[pack.id] ?? []}
+              imageBusyKey={imageBusyKey}
+              onCopy={copy}
+              onGenerateImage={generateImage}
+              onImport={openImport}
+              onUploadAsset={uploadAsset}
+              onRemoveAsset={removeAsset}
+              onRemove={() => void removePack(pack)}
+            />
+          )) : !stream.active && (
+            <EmptyState
+              icon={ImageIcon}
+              title="暂无配图方案"
+              description="点击「生成方案」，AI 会为这篇文章设计 1 张封面、若干文内配图与发布配图。"
+            />
+          )}
+        </section>
+      </>
+    )}
+    {ConfirmPortal}
+  </div>
+}
+
+interface VisualPackCardProps {
+  pack: VisualPack
+  articleTitle: string
+  assets: VisualAsset[]
+  imageBusyKey: string
+  onCopy(text: string): Promise<void>
+  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
+  onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
+  onUploadAsset(packId: string, asset: VisualAsset): Promise<void>
+  onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
+  onRemove(): void
+}
+
+function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
+  const assetsFor = (kind: VisualAssetKind, slot: number): VisualAsset[] =>
+    assets.filter((asset) => asset.kind === kind && asset.slot === slot)
+
+  return (
+    <article className="visual-pack">
+      <header className="visual-pack-head">
+        <div>
+          <h3>{articleTitle}</h3>
+          <p>{pack.model} · {formatDate(pack.createdAt)} · {pack.inlineImages.length} 张文内图 + {pack.releaseImages.length} 张发布图</p>
+        </div>
+        <button className="icon-button danger" title="删除方案" aria-label="删除方案" onClick={onRemove}><Trash2 size={16} /></button>
+      </header>
+
+      <section className="visual-cover">
+        <div className="visual-cover-info">
+          <h4>封面</h4>
+          <strong>{pack.cover.visual}</strong>
+          <em>封面文案：{pack.cover.overlayText || '—'}</em>
+        </div>
+        <VisualSlot
+          pack={pack} kind="cover" slot={0} prompt={pack.cover.prompt} assets={assetsFor('cover', 0)}
+          imageBusyKey={imageBusyKey} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+        />
+      </section>
+
+      <PromptGroup title="文内配图" items={pack.inlineImages} kind="inline" />
+      <PromptGroup title="发布配图" items={pack.releaseImages} kind="release" />
+    </article>
+  )
+
+  function PromptGroup({ title, items, kind }: { title: string; items: VisualPrompt[]; kind: 'inline' | 'release' }): React.JSX.Element {
+    return (
+      <section className="visual-prompt-group">
+        <h4>{title}</h4>
+        {items.map((item, index) => (
+          <div className="visual-prompt" key={`${kind}-${index}`}>
+            <header>
+              <strong>{item.location || `${title} ${index + 1}`}</strong>
+              <span>{item.ratio} · {item.purpose}</span>
+            </header>
+            <VisualSlot
+              pack={pack} kind={kind} slot={index} prompt={item.prompt} assets={assetsFor(kind, index)}
+              imageBusyKey={imageBusyKey} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+            />
+            {item.alt && <small>替代文本：{item.alt}</small>}
+          </div>
+        ))}
+      </section>
+    )
+  }
+}
+
+interface VisualSlotProps {
+  pack: VisualPack
+  kind: VisualAssetKind
+  slot: number
+  prompt: string
+  assets: VisualAsset[]
+  imageBusyKey: string
+  onCopy(text: string): Promise<void>
+  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
+  onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
+  onUploadAsset(packId: string, asset: VisualAsset): Promise<void>
+  onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
+}
+
+function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
+  const busy = imageBusyKey === `${pack.id}:${kind}:${slot}`
+  return (
+    <div className="visual-slot">
+      <div className="visual-prompt-text">
+        <p>{prompt}</p>
+        <div className="visual-slot-actions">
+          <button className="button ghost tiny" onClick={() => void onCopy(prompt)}><Copy size={13} />复制提示词</button>
+          <button className="button secondary tiny" disabled={busy || !prompt} onClick={() => void onGenerateImage(pack, kind, slot, prompt)}>
+            {busy ? <LoaderCircle size={13} className="spin" /> : <Sparkles size={13} />}{busy ? '生成中…' : '生成图片'}
+          </button>
+          <button className="button ghost tiny" onClick={() => onImport(pack.id, kind, slot, prompt)}><ImagePlus size={13} />导入本地</button>
+        </div>
+      </div>
+      {assets.length > 0 && (
+        <div className="visual-asset-grid">
+          {assets.map((asset) => (
+            <figure className="visual-asset" key={asset.id}>
+              <img src={asset.url} alt={asset.prompt.slice(0, 40)} loading="lazy" />
+              <figcaption>
+                <span className={`badge ${asset.source === 'generated' ? 'primary' : 'neutral'}`}>{asset.source === 'generated' ? 'AI 生成' : '本地导入'}</span>
+                {asset.wechatMediaId
+                  ? <span className="badge success"><UploadCloud size={11} />已上传素材库</span>
+                  : <button className="button secondary tiny" onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}
+                <button className="icon-button danger" title="删除图片" aria-label="删除图片" onClick={() => void onRemoveAsset(pack.id, asset)}><Trash2 size={13} /></button>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function decodeTarget(value: string): { providerId: string; modelId: string } | null {
+  try {
+    const [providerId, modelId] = JSON.parse(value) as unknown[]
+    return typeof providerId === 'string' && typeof modelId === 'string' ? { providerId, modelId } : null
+  } catch {
+    return null
+  }
+}
