@@ -71,7 +71,7 @@ export class ArticleGenerator {
         { role: 'system', content: this.prompts.render('article.generate') },
         { role: 'user', content: [
           `<写作任务>第 ${context.index + 1} 个独立成稿候选，采用不同但不偏离框架的表达角度。</写作任务>`,
-          context.account ? serializeAccountXml(context.account.fields) : '<账号定位>未选择</账号定位>',
+          context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
           context.outline,
           serializeMaterials(context.materials)
         ].join('\n\n') }
@@ -112,7 +112,7 @@ export class ArticleGenerator {
         { role: 'system', content: this.prompts.render('article.revise') },
         { role: 'user', content: [
           `<改稿任务>第 ${context.index + 1} 个独立改稿候选。</改稿任务>`,
-          context.account ? serializeAccountXml(context.account.fields) : '<账号定位>未选择</账号定位>',
+          context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
           `<原稿>\n${escapeXml(context.article.rawMarkdown)}\n</原稿>`,
           `<修改指令>\n${escapeXml(context.instruction)}\n</修改指令>`,
           context.framework ? context.framework.rawXml : '<框架>未要求对齐</框架>'

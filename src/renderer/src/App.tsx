@@ -1,8 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate as useRouterNavigate, useSearchParams } from 'react-router-dom'
 import type {
   AccountProfileSummary,
   AppBootstrap,
+  GenerationEvent,
   ProviderSummary
 } from '../../shared/contracts'
 import { Layout, type RouteId } from './components/Layout'
@@ -39,6 +40,16 @@ const initialBootstrap: AppBootstrap = {
 
 const ROUTE_IDS: RouteId[] = ['accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers', 'prompts']
 
+/** 生成域 → 中文与所属页面（用于任务提示与「在当前页则不重复提醒」判断） */
+const DOMAIN_LABELS: Record<string, string> = {
+  account: '账号定位', 'hotspot-filter': '热点筛选', topics: '选题', frameworks: '框架',
+  articles: '文章', reviews: '评审', visuals: '配图'
+}
+const DOMAIN_ROUTES: Record<string, RouteId> = {
+  account: 'accounts', 'hotspot-filter': 'hotspots', topics: 'topics', frameworks: 'frameworks',
+  articles: 'articles', reviews: 'reviews', visuals: 'visuals'
+}
+
 export function App(): React.JSX.Element {
   useAutoAriaHidden()
   const location = useLocation()
@@ -56,6 +67,7 @@ export function App(): React.JSX.Element {
   const focusArticleId = searchParams.get('articleId') ?? undefined
   const focusTopicId = searchParams.get('topicId') ?? undefined
   const focusFrameworkId = searchParams.get('frameworkId') ?? undefined
+  const returnTo = searchParams.get('returnTo') ?? undefined
   const [data, setData] = useState<AppBootstrap>(initialBootstrap)
   const [loading, setLoading] = useState(true)
   const [fatalError, setFatalError] = useState<string>()
@@ -103,6 +115,41 @@ export function App(): React.JSX.Element {
     setToasts((current) => current.filter((entry) => entry.id !== id))
   }, [])
 
+  // 全局生成任务指示：订阅主进程生命周期事件，顶栏展示运行中任务，跨页面提醒完成/失败
+  const routeRef = useRef(route)
+  useEffect(() => { routeRef.current = route }, [route])
+  const [runningDomains, setRunningDomains] = useState<string[]>([])
+  useEffect(() => {
+    let alive = true
+    void window.moliu.generation.active()
+      .then((domains) => { if (alive) setRunningDomains(domains) })
+      .catch(() => undefined)
+    const unsubscribe = window.moliu.generation.events((event: GenerationEvent) => {
+      setRunningDomains((current) => {
+        const next = current.filter((domain) => domain !== event.domain)
+        if (event.status === 'started') next.push(event.domain)
+        return next
+      })
+      const label = DOMAIN_LABELS[event.domain] ?? event.domain
+      const onSamePage = DOMAIN_ROUTES[event.domain] === routeRef.current
+      if (event.status === 'done' && !onSamePage) {
+        showToast({ type: 'success', message: `${label}生成完成，可查看结果` })
+      }
+      if (event.status === 'failed' && !/已取消/.test(event.message ?? '')) {
+        showToast({ type: 'error', message: `${label}生成失败：${(event.message ?? '未知错误').slice(0, 80)}` })
+      }
+    })
+    return () => {
+      alive = false
+      unsubscribe()
+    }
+  }, [showToast])
+  const generationLabel = useMemo(() => {
+    if (!runningDomains.length) return undefined
+    if (runningDomains.length === 1) return `正在生成${DOMAIN_LABELS[runningDomains[0]] ?? runningDomains[0]}…`
+    return `${runningDomains.length} 个生成任务进行中`
+  }, [runningDomains])
+
   useKeyboardShortcuts({
     onNew: () => navigate('articles'),
     onSearch: () => navigate('materials'),
@@ -114,6 +161,17 @@ export function App(): React.JSX.Element {
     () => data.accounts.find((account) => account.isCurrent),
     [data.accounts]
   )
+
+  const handleSwitchAccount = useCallback(async (id: string): Promise<void> => {
+    try {
+      await window.moliu.accounts.setCurrent(id)
+      await refresh()
+      const target = data.accounts.find((account) => account.id === id)
+      showToast({ type: 'success', message: `已切换当前账号：${target?.name ?? id}` })
+    } catch (error) {
+      showToast({ type: 'error', message: `切换账号失败：${errorMessage(error)}` })
+    }
+  }, [refresh, showToast, data.accounts])
 
   if (loading) {
     return (
@@ -142,9 +200,12 @@ export function App(): React.JSX.Element {
         route={route}
         theme={theme}
         providers={data.providers}
+        accounts={data.accounts}
         currentAccount={currentAccount}
+        generationLabel={generationLabel}
         onNavigate={navigate}
         onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
+        onSwitchAccount={(id) => void handleSwitchAccount(id)}
       >
         <Suspense fallback={<PageFallback />}>
           {route === 'accounts' && (
@@ -161,6 +222,8 @@ export function App(): React.JSX.Element {
               providers={data.providers as ProviderSummary[]}
               searchService={data.searchService}
               onRefresh={refresh}
+              onNavigate={navigate}
+              returnTo={returnTo}
               showToast={showToast}
             />
           )}
@@ -212,7 +275,7 @@ export function App(): React.JSX.Element {
           {route === 'reviews' && <ReviewsPage providers={data.providers} onNavigate={navigate} focusArticleId={focusArticleId} showToast={showToast} />}
           {route === 'visuals' && <VisualsPage providers={data.providers} onNavigate={navigate} focusArticleId={focusArticleId} showToast={showToast} />}
           {route === 'layouts' && <LayoutsPage onNavigate={navigate} focusArticleId={focusArticleId} showToast={showToast} />}
-          {route === 'publishing' && <PublishingPage onNavigate={navigate} focusArticleId={focusArticleId} showToast={showToast} />}
+          {route === 'publishing' && <PublishingPage onNavigate={navigate} focusArticleId={focusArticleId} currentAccount={currentAccount} showToast={showToast} />}
           {route === 'prompts' && <PromptsPage showToast={showToast} />}
         </Suspense>
       </Layout>

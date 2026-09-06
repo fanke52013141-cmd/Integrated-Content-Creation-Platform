@@ -42,7 +42,7 @@ export class TopicGenerator {
         accountId: account.id,
         accountVersionId: account.currentVersionId,
         accountStatus: 'locked',
-        accountXml: serializeAccountXml(account.fields),
+        accountXml: serializeAccountXml(account.fields, account.redlines),
         providerId: input.providerId,
         model: input.model,
         schema,

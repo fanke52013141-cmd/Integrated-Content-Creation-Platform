@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DatabaseSync } from 'node:sqlite'
 import { AppDatabase } from '../src/main/database.js'
-import { createAccountFields } from '../src/shared/domain.js'
+import { createAccountFields, serializeAccountXml } from '../src/shared/domain.js'
 
 describe('AppDatabase', () => {
   it('persists account versions and restores without overwriting history', () => {
@@ -280,5 +280,64 @@ describe('AppDatabase', () => {
     const restored = database.restoreArticleVersion(changed.id, changed.versions.find((version) => version.versionNumber === 1)!.id)
     expect(restored).toMatchObject({ versionCount: 3, status: 'draft', rawMarkdown: expect.stringContaining('第一版') })
     database.close()
+  })
+
+  it('manages account redlines, platform bindings, and deduped memories', () => {
+    const database = new AppDatabase(':memory:')
+    const account = database.saveAccount({
+      fields: createAccountFields({ 账号名称: '六维测试号' }),
+      wizardAnswers: [],
+      status: 'locked',
+      source: 'manual'
+    })
+
+    const redline = database.addAccountRedline({ profileId: account.id, kind: 'dont', content: '不蹭灾难类热点' })
+    expect(database.listAccountRedlines(account.id)).toEqual([redline])
+    database.removeAccountRedline(redline.id)
+    expect(database.listAccountRedlines(account.id)).toHaveLength(0)
+
+    const binding = database.addAccountPlatformAccount({ profileId: account.id, platform: '微信公众号', handle: '心流实验室' })
+    const duplicate = database.addAccountPlatformAccount({ profileId: account.id, platform: '微信公众号', handle: '心流实验室' })
+    expect(duplicate.id).toBe(binding.id)
+    expect(database.listAccountPlatformAccounts(account.id)).toHaveLength(1)
+
+    const added = database.addAccountMemory({ profileId: account.id, insight: '踩坑复盘打开率更高', action: '每月一篇', source: '发布复盘' })
+    expect(added.created).toBe(true)
+    const repeated = database.addAccountMemory({ profileId: account.id, insight: '踩坑复盘打开率更高', action: '每月一篇' })
+    expect(repeated.created).toBe(false)
+    expect(database.listAccountMemories(account.id)).toHaveLength(1)
+    expect(database.getAccount(account.id)?.memories[0]?.source).toBe('发布复盘')
+    database.close()
+  })
+
+  it('computes completeness from default fields and tags field sources', () => {
+    const database = new AppDatabase(':memory:')
+    const partial = database.saveAccount({
+      fields: createAccountFields({ 账号名称: '完整度账号' }),
+      wizardAnswers: [],
+      status: 'draft',
+      source: 'manual'
+    })
+    // 9 个默认字段只填 1 个 → 11%
+    expect(partial.completeness).toBe(11)
+    expect(partial.fields.every((field) => field.source === 'user')).toBe(true)
+
+    const filled = partial.fields.map((field) => ({ ...field, value: `${field.name}内容`, source: 'ai' as const }))
+    const complete = database.saveAccount({ id: partial.id, fields: filled, wizardAnswers: [], status: 'draft', source: 'ai' })
+    expect(complete.completeness).toBe(100)
+    expect(complete.fields.every((field) => field.source === 'ai')).toBe(true)
+    database.close()
+  })
+
+  it('injects redlines into the account xml consumed by generators', () => {
+    const xml = serializeAccountXml(createAccountFields({ 账号名称: 'X' }), [
+      { id: 'r1', profileId: 'p', kind: 'dont', content: '不编造数据', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'r2', profileId: 'p', kind: 'compliance', content: '引用需标明来源', createdAt: '2026-01-01T00:00:00.000Z' }
+    ])
+    expect(xml).toContain('<账号定位>')
+    expect(xml).toContain('[禁止] 不编造数据')
+    expect(xml).toContain('[合规底线] 引用需标明来源')
+    const withoutRedlines = serializeAccountXml(createAccountFields({ 账号名称: 'X' }))
+    expect(withoutRedlines).not.toContain('偏好与红线')
   })
 })

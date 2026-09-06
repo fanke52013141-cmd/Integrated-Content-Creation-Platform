@@ -1,8 +1,24 @@
 import { mkdir } from 'node:fs/promises'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { _electron as electron } from 'playwright-core'
+
+// 本地 mock 模型服务：供应商保存前会先做连接测试（测试通过才允许保存），
+// 因此冒烟用本地服务而非真实厂商端点，既过门禁又不依赖外网。
+const modelServer = createServer((request, response) => {
+  if (request.method !== 'POST' || !request.url?.endsWith('/chat/completions')) return response.writeHead(404).end()
+  response.setHeader('Content-Type', 'application/json')
+  response.end(JSON.stringify({
+    model: 'moliu-smoke',
+    choices: [{ message: { content: '# 冒烟测试\n\n正文。' }, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 10, completion_tokens: 10 }
+  }))
+})
+await new Promise((resolve) => modelServer.listen(0, '127.0.0.1', resolve))
+const modelPort = modelServer.address()?.port
+if (!modelPort) throw new Error('Mock model server did not start')
 
 const artifactDir = resolve('artifacts')
 await mkdir(artifactDir, { recursive: true })
@@ -39,14 +55,18 @@ try {
 
   await window.getByRole('button', { name: '模型网关' }).first().click()
   await window.getByRole('heading', { name: '模型网关' }).waitFor()
-  await window.getByRole('button', { name: 'DeepSeek' }).click()
-  await window.locator('.provider-editor').locator('input[type="password"]').fill('sk-smoke-secret')
+  await window.getByRole('button', { name: /空白配置/ }).click()
+  await window.getByLabel('显示名称').fill('本地冒烟模型')
+  await window.getByLabel('接口地址').fill(`http://127.0.0.1:${modelPort}/v1`)
+  await window.locator('.provider-editor').getByLabel(/访问密钥/).fill('sk-smoke-secret')
+  await window.getByLabel('显示别名').fill('Smoke Model')
+  await window.getByLabel('模型标识').fill('moliu-smoke')
   await window.locator('.provider-editor').getByRole('button', { name: '加密保存' }).click()
   await window.getByText('供应商配置已加密保存').waitFor()
 
   await window.getByRole('button', { name: '账号定位' }).click()
   await window.getByRole('heading', { name: '账号定位' }).waitFor()
-  await window.getByRole('button', { name: '开始定位' }).click()
+  await window.getByRole('button', { name: '新建账号' }).first().click()
   await window.getByText('建立账号基线').waitFor()
   await window.screenshot({ path: resolve(artifactDir, 'account-wizard.png') })
 

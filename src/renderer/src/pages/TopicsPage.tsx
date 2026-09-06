@@ -15,6 +15,7 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Search,
   Sparkles,
   Trash2,
   X
@@ -35,10 +36,23 @@ import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader } from '../components/PageHeader'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { useDraftState } from '../hooks/useDraftState'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate } from '../lib'
 
 type TopicView = 'drafts' | 'library'
+
+/** 热点页「生成选题」带过来的关键词（读取即清除；草稿已有内容时让位） */
+function readSeedHandoff(): string {
+  try {
+    const seed = localStorage.getItem('moliu:topic-seed-keyword')
+    if (!seed) return ''
+    localStorage.removeItem('moliu:topic-seed-keyword')
+    return seed
+  } catch {
+    return ''
+  }
+}
 
 interface TopicsPageProps {
   accounts: AccountProfileSummary[]
@@ -62,7 +76,7 @@ export function TopicsPage({
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
   const [view, setView] = useState<TopicView>('drafts')
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
-  const [seedKeyword, setSeedKeyword] = useState('')
+  const [seedKeyword, setSeedKeyword] = useDraftState('topic-seed', readSeedHandoff())
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('moliu:topic-favorite-ids')
@@ -74,6 +88,8 @@ export function TopicsPage({
   })
   const [count, setCount] = useState(3)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
+  const [listQuery, setListQuery] = useState('')
+  const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
   const [schemaOpen, setSchemaOpen] = useState(false)
   const [editing, setEditing] = useState<Topic>()
 
@@ -104,7 +120,15 @@ export function TopicsPage({
   }, [])
 
   const selectedFavorites = favorites.filter((favorite) => favoriteIds.has(favorite.id))
-  const displayedTopics = topics.filter((topic) => view === 'library' ? topic.isInLibrary : !topic.isInLibrary)
+  const wallQuery = listQuery.trim().toLowerCase()
+  const displayedTopics = topics
+    .filter((topic) => view === 'library' ? topic.isInLibrary : !topic.isInLibrary)
+    .filter((topic) => accountFilter === 'current' ? topic.accountIds.includes(currentAccountId ?? '') : true)
+    .filter((topic) => {
+      if (!wallQuery) return true
+      const title = topic.fields['选题主题'] || Object.values(topic.fields)[0] || ''
+      return title.toLowerCase().includes(wallQuery) || topic.seedKeyword.toLowerCase().includes(wallQuery)
+    })
 
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
@@ -213,7 +237,13 @@ export function TopicsPage({
                     autoComplete="off"
                     value={seedKeyword}
                     onChange={(event) => setSeedKeyword(event.target.value)}
-                    placeholder="输入热点关键词或内容方向"
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                        event.preventDefault()
+                        void generate()
+                      }
+                    }}
+                    placeholder="输入热点关键词或内容方向（Ctrl+Enter 直接生成）"
                     rows={4}
                   />
                 </label>
@@ -294,6 +324,23 @@ export function TopicsPage({
               <LibraryBig size={15} />我的选题库 <small>{topics.filter((topic) => topic.isInLibrary).length}</small>
             </button>
           </div>
+          <div className="topic-wall-tools">
+            <div className="segmented account-filter" role="group" aria-label="账号筛选">
+              <button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button>
+              <button
+                className={accountFilter === 'current' ? 'active' : ''}
+                disabled={!currentAccountId}
+                title={currentAccountId ? '只看当前账号的选题' : '尚未创建当前账号'}
+                onClick={() => setAccountFilter('current')}
+              >
+                当前账号
+              </button>
+            </div>
+            <label className="search-field topic-wall-search">
+              <Search size={14} />
+              <input name="topicWallQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索选题…" />
+            </label>
+          </div>
         </header>
         {displayedTopics.length ? (
           <div className="topic-card-list">
@@ -321,7 +368,7 @@ export function TopicsPage({
         ) : (
           <div className="large-empty topic-empty">
             {view === 'drafts' ? <Sparkles size={34} /> : <LibraryBig size={34} />}
-            <h3>{view === 'drafts' ? '还没有选题草稿' : '选题库还是空的'}</h3>
+            <h3>{view === 'drafts' ? (listQuery ? '没有匹配的选题' : '还没有选题草稿') : (listQuery ? '没有匹配的选题' : '选题库还是空的')}</h3>
           </div>
         )}
       </section>

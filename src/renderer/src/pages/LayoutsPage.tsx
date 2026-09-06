@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Code2, Copy, FileText, Send, Trash2 } from 'lucide-react'
-import type { Article, ArticleLayout, LayoutPlatform } from '../../../shared/contracts'
+import { Code2, Copy, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
+import type { Article, ArticleLayout, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
@@ -11,6 +11,8 @@ import { errorMessage, formatDate, markdownTitle, sanitizeHtml } from '../lib'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
 const platformHints: Record<LayoutPlatform, string> = { wechat: '可直接推送草稿箱', xiaohongshu: '纯文本，复制使用', web: '通用网页样式' }
+/** 各平台标题字数上限（0 = 不限） */
+const titleLimits: Record<LayoutPlatform, number> = { wechat: 64, xiaohongshu: 20, web: 0 }
 
 export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   onNavigate(route: RouteId, params?: Record<string, string>): void
@@ -20,8 +22,10 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const { confirm, ConfirmPortal } = useConfirm()
   const [articles, setArticles] = useState<Article[]>([])
   const [layouts, setLayouts] = useState<ArticleLayout[]>([])
+  const [themes, setThemes] = useState<LayoutThemeInfo[]>([])
   const [articleId, setArticleId] = useState('')
   const [platform, setPlatform] = useState<LayoutPlatform>('wechat')
+  const [themeId, setThemeId] = useState('wechat-green')
   const [selectedId, setSelectedId] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -43,12 +47,17 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   }
 
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void window.moliu.layouts.themes().then(setThemes).catch(() => undefined) }, [])
 
   const create = async (): Promise<void> => {
     if (!articleId) return
     setBusy(true)
     try {
-      const item = await window.moliu.layouts.create({ articleId, platform })
+      const item = await window.moliu.layouts.create({
+        articleId,
+        platform,
+        ...(platform !== 'xiaohongshu' ? { themeId } : {})
+      })
       await refresh()
       setSelectedId(item.id)
       showToast({ type: 'success', message: `${platformNames[platform]}排版稿已生成` })
@@ -101,6 +110,15 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           <label className="field"><span>平台</span>
             <Select value={platform} onChange={(value) => setPlatform(value as LayoutPlatform)} ariaLabel="平台" options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], hint: platformHints[key] }))} />
           </label>
+          <label className="field"><span>主题<em>{platform === 'xiaohongshu' ? '（纯文本不适用）' : ''}</em></span>
+            <Select
+              value={themeId}
+              onChange={setThemeId}
+              ariaLabel="排版主题"
+              disabled={platform === 'xiaohongshu'}
+              options={(themes.length ? themes : [{ id: 'wechat-green', name: '微信绿', description: '', accent: '' }]).map((theme) => ({ value: theme.id, label: theme.name, hint: theme.description }))}
+            />
+          </label>
           <button className="button primary" disabled={busy || !articleId} onClick={() => void create()}><FileText size={15} />{busy ? '正在排版…' : '生成排版稿'}</button>
         </section>
 
@@ -113,7 +131,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
             <header><h3>排版稿 <small>{articleLayouts.length}</small></h3></header>
             {articleLayouts.length ? articleLayouts.map((item) => (
               <button key={item.id} className={`layout-version-item ${item.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
-                <strong>{platformNames[item.platform]}</strong>
+                <strong>{platformNames[item.platform]}{item.themeId && item.themeId !== 'custom' ? ` · ${themes.find((theme) => theme.id === item.themeId)?.name ?? item.themeId}` : ''}</strong>
                 <small>{formatDate(item.createdAt)}</small>
               </button>
             )) : <EmptyState icon={FileText} title="暂无排版稿" description="选择平台后点击「生成排版稿」。" />}
@@ -126,6 +144,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                     <span className={`badge ${selected.platform === 'wechat' ? 'success' : 'neutral'}`}>{platformNames[selected.platform]}</span>
                     <h3>{selected.title}</h3>
                     <p>{selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
+                    <div className="layout-counters">
+                      <span className={`badge ${titleLimits[selected.platform] && selected.title.length > titleLimits[selected.platform] ? 'danger' : 'neutral'}`}>
+                        标题 {selected.title.length}{titleLimits[selected.platform] ? `/${titleLimits[selected.platform]}` : ''} 字
+                      </span>
+                      <span className="badge neutral">正文 {selected.plainText.length} 字</span>
+                    </div>
                   </div>
                   <button className="icon-button danger" title="删除排版稿" aria-label="删除排版稿" onClick={() => void remove()}><Trash2 size={16} /></button>
                 </header>
@@ -136,7 +160,23 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                     <button className="button primary compact" onClick={() => onNavigate('publishing', { articleId: selected.articleId })}><Send size={14} />去发布</button>
                   )}
                 </div>
-                <article className="layout-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                {selected.platform === 'wechat' ? (
+                  <div className="layout-device-wrap">
+                    <p className="layout-device-hint micro-copy"><Smartphone size={13} />按手机宽度（375px）预览，实际公众号观感以此为准</p>
+                    <div className="layout-device">
+                      <article className="layout-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                    </div>
+                  </div>
+                ) : selected.platform === 'xiaohongshu' ? (
+                  <div className="layout-device-wrap">
+                    <p className="layout-device-hint micro-copy"><Smartphone size={13} />小红书为纯文本，复制后在 App 内粘贴使用</p>
+                    <div className="layout-device">
+                      <pre className="layout-plain-text">{selected.plainText}</pre>
+                    </div>
+                  </div>
+                ) : (
+                  <article className="layout-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
+                )}
               </div>
             ) : (
               <EmptyState icon={FileText} title="选择左侧排版稿查看预览" />

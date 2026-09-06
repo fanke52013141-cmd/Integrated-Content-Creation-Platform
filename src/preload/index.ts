@@ -1,7 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  AddAccountMemoryInput,
+  AddAccountPlatformInput,
+  AddAccountRedlineInput,
   AddHotFavoriteInput,
   AddSearchMaterialInput,
+  AddFileMaterialInput,
   FilterHotspotsInput,
   GenerateAccountInput,
   GenerateTopicsInput,
@@ -24,6 +28,7 @@ import type {
   RestoreArticleVersionInput,
   SaveReviewRoleInput, StartReviewInput, UpdateReviewProblemInput, AddManualReviewProblemInput,
   StreamEvent,
+  GenerationEvent,
   UpdateHotFavoriteTagsInput
 } from '../shared/contracts.js'
 
@@ -34,7 +39,12 @@ const api: MoliuApi = {
   },
   generation: {
     cancel: (domain: string) => ipcRenderer.invoke('generation:cancel', domain),
-    active: () => ipcRenderer.invoke('generation:active')
+    active: () => ipcRenderer.invoke('generation:active'),
+    events: (callback: (event: GenerationEvent) => void): (() => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: GenerationEvent): void => callback(data)
+      ipcRenderer.on('generation:events', listener)
+      return () => ipcRenderer.removeListener('generation:events', listener)
+    }
   },
   providers: {
     presets: () => ipcRenderer.invoke('providers:presets'),
@@ -68,7 +78,16 @@ const api: MoliuApi = {
     setLocked: (id: string, locked: boolean) =>
       ipcRenderer.invoke('accounts:set-locked', id, locked),
     restore: (input: RestoreVersionInput) => ipcRenderer.invoke('accounts:restore', input),
-    remove: (id: string) => ipcRenderer.invoke('accounts:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('accounts:remove', id),
+    listRedlines: (profileId: string) => ipcRenderer.invoke('accounts:redlines:list', profileId),
+    addRedline: (input: AddAccountRedlineInput) => ipcRenderer.invoke('accounts:redlines:add', input),
+    removeRedline: (id: string) => ipcRenderer.invoke('accounts:redlines:remove', id),
+    listPlatformAccounts: (profileId: string) => ipcRenderer.invoke('accounts:platforms:list', profileId),
+    addPlatformAccount: (input: AddAccountPlatformInput) => ipcRenderer.invoke('accounts:platforms:add', input),
+    removePlatformAccount: (id: string) => ipcRenderer.invoke('accounts:platforms:remove', id),
+    listMemories: (profileId: string) => ipcRenderer.invoke('accounts:memories:list', profileId),
+    addMemory: (input: AddAccountMemoryInput) => ipcRenderer.invoke('accounts:memories:add', input),
+    removeMemory: (id: string) => ipcRenderer.invoke('accounts:memories:remove', id)
   },
   hotspots: {
     bootstrap: () => ipcRenderer.invoke('hotspots:bootstrap'),
@@ -116,6 +135,7 @@ const api: MoliuApi = {
     addSearchResult: (input: AddSearchMaterialInput) =>
       ipcRenderer.invoke('materials:add-search-result', input),
     addManual: (input: SaveManualMaterialInput) => ipcRenderer.invoke('materials:add-manual', input),
+    addFile: (input: AddFileMaterialInput) => ipcRenderer.invoke('materials:add-file', input),
     remove: (id: string) => ipcRenderer.invoke('materials:remove', id)
   },
   frameworks: {
@@ -179,6 +199,7 @@ const api: MoliuApi = {
   },
   layouts: {
     list: (articleId?: string) => ipcRenderer.invoke('layouts:list', articleId),
+    themes: () => ipcRenderer.invoke('layouts:themes'),
     create: (input) => ipcRenderer.invoke('layouts:create', input),
     remove: (id: string) => ipcRenderer.invoke('layouts:remove', id)
   },

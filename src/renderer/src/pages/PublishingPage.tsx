@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2, CloudUpload, KeyRound, LoaderCircle, RotateCcw, Save, Send, TestTube2
 } from 'lucide-react'
-import type { Article, ArticleLayout, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
+import type { AccountProfileSummary, Article, ArticleLayout, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
@@ -16,9 +16,10 @@ const statusNames: Record<Publication['status'], { label: string; badge: string 
   failed: { label: '推送失败', badge: 'danger' }
 }
 
-export function PublishingPage({ onNavigate, focusArticleId, showToast }: {
+export function PublishingPage({ onNavigate, focusArticleId, currentAccount, showToast }: {
   onNavigate(route: RouteId, params?: Record<string, string>): void
   focusArticleId?: string
+  currentAccount?: AccountProfileSummary
   showToast(toast: ToastState): void
 }): React.JSX.Element {
   const [channel, setChannel] = useState<WechatPublishChannel>()
@@ -82,6 +83,20 @@ export function PublishingPage({ onNavigate, focusArticleId, showToast }: {
   }, [selectedLayout?.articleId, publications.length])
 
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+
+  // 作者默认当前账号名；摘要默认文章首段（字段为空时才预填，可随时改）
+  useEffect(() => {
+    setAuthor((current) => current || currentAccount?.name || '')
+  }, [currentAccount?.name])
+  useEffect(() => {
+    const article = selectedLayoutArticle
+    if (!article || digest) return
+    const paragraph = article.rawMarkdown
+      .split('\n')
+      .map((line) => line.replace(/^#+\s*/, '').replace(/[*_>`~[\]]/g, '').trim())
+      .find((line) => line.length > 10)
+    if (paragraph) setDigest(paragraph.slice(0, 120))
+  }, [selectedLayoutArticle?.id, digest])
 
   const save = async (): Promise<void> => {
     setBusy(true)
@@ -305,6 +320,7 @@ function PublicationRow({ item, url, onUrl, onPublished, onRetry, busy }: {
       {item.status === 'draft' ? (
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
+          <button className="button ghost compact" onClick={() => void window.moliu.hotspots.openSource('https://mp.weixin.qq.com/')}>公众号后台</button>
           <button className="button secondary compact" disabled={!url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={14} />标记已发布</button>
         </div>
       ) : item.status === 'failed' ? (

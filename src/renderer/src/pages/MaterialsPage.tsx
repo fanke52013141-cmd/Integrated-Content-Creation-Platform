@@ -57,6 +57,7 @@ export function MaterialsPage({
     return value
   })
   const [searching, setSearching] = useState(false)
+  const [bulkSaving, setBulkSaving] = useState(false)
   const [searchResult, setSearchResult] = useState<MaterialSearchResult>()
   const [manualOpen, setManualOpen] = useState(false)
   const [collectionQuery, setCollectionQuery] = useState('')
@@ -127,6 +128,31 @@ export function MaterialsPage({
     }
   }
 
+  async function addAllSearchResults(): Promise<void> {
+    if (!searchResult) return
+    const cap = searchResult.type === 'web' ? 10 : searchResult.results.length
+    const items = (searchResult.results as Array<MaterialSearchWebResult | MaterialSearchImageResult>)
+      .filter((result) => {
+        const key = `${searchResult.type === 'web' ? 'doubao_web' : 'doubao_image'}:${result.id}`
+        if (savedKeys.has(key)) return false
+        if (searchResult.type === 'web' && !(result as MaterialSearchWebResult).summary.trim()) return false
+        return true
+      })
+      .slice(0, cap)
+    if (!items.length) return showToast({ type: 'info', message: '没有可入库的新结果' })
+    setBulkSaving(true)
+    let ok = 0
+    for (const item of items) {
+      try {
+        const saved = await window.moliu.materials.addSearchResult({ result: item, query: searchResult.query, relatedTopicId: relatedTopicId || undefined })
+        if (saved.created) ok += 1
+      } catch { /* 单条失败不中断批量 */ }
+    }
+    setBulkSaving(false)
+    await refresh()
+    showToast(ok ? { type: 'success', message: `已批量入库 ${ok} 条素材` } : { type: 'error', message: '批量入库失败，请逐条重试' })
+  }
+
   async function remove(material: Material): Promise<void> {
     if (!(await confirm({
       title: `删除素材「${material.title}」？`,
@@ -195,7 +221,7 @@ export function MaterialsPage({
               </div>
               {searchResult ? (
                 <div className="material-search-results">
-                  <header><div><h3>“{searchResult.query}”</h3></div><span>{searchResult.results.length} 条 · {searchResult.latencyMs}ms</span></header>
+                  <header><div><h3>“{searchResult.query}”</h3></div><div className="material-results-toolbar"><span>{searchResult.results.length} 条 · {searchResult.latencyMs}ms</span><button className="button secondary compact" disabled={bulkSaving} onClick={() => void addAllSearchResults()}><Plus size={14} />{bulkSaving ? '入库中…' : searchResult.type === 'web' ? '前 10 条全部入库' : '全部入库'}</button></div></header>
                   {searchResult.type === 'web' ? (
                     <div className="web-material-results">
                       {(searchResult.results as MaterialSearchWebResult[]).map((result) => {

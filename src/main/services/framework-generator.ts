@@ -95,7 +95,7 @@ export class FrameworkGenerator {
           content: [
             serializeFrameworkTask(context.template, context.index),
             serializeFrameworkTopic(context.topic, context.manualTopic),
-            context.account ? serializeAccountXml(context.account.fields) : '<账号定位>未选择</账号定位>',
+            context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
             serializeFrameworkMaterials(context.materials)
           ].join('\n\n')
         }
@@ -166,14 +166,21 @@ function serializeFrameworkTopic(topic: Topic | null, manualTopic: string): stri
   return `<选题>\n${body}${extra}\n</选题>`
 }
 
+const MAX_MATERIAL_PROMPT_CHARS = 8_000
+
 function serializeFrameworkMaterials(materials: Material[]): string {
   if (!materials.length) return '<素材>未选择；无需为凑素材而虚构事实。</素材>'
-  const body = materials.map((material, index) => [
-    `${index + 1}. 标题：${escapeXml(material.title)}`,
-    `摘要：${escapeXml(material.summary)}`,
-    material.sourceName ? `来源：${escapeXml(material.sourceName)}` : '',
-    material.sourceUrl ? `链接：${escapeXml(material.sourceUrl)}` : ''
-  ].filter(Boolean).join('\n')).join('\n\n')
+  const body = materials.map((material, index) => {
+    const summary = material.summary.length > MAX_MATERIAL_PROMPT_CHARS
+      ? material.summary.slice(0, MAX_MATERIAL_PROMPT_CHARS) + '……（过长已截断）'
+      : material.summary
+    return [
+      `${index + 1}. 标题：${escapeXml(material.title)}`,
+      `摘要：${escapeXml(summary)}`,
+      material.sourceName ? `来源：${escapeXml(material.sourceName)}` : '',
+      material.sourceUrl ? `链接：${escapeXml(material.sourceUrl)}` : ''
+    ].filter(Boolean).join('\n')
+  }).join('\n\n')
   return `<素材>\n${body}\n</素材>`
 }
 

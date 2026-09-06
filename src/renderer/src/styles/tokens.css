@@ -37,6 +37,34 @@
   --danger: #ff3b30;
   --warm-glow: var(--warning);
 
+  /* ── 墨色主按钮（区别于链接/选中态的蓝） ── */
+  --btn-primary-bg: #1d1d1f;
+  --btn-primary-bg-hover: #000000;
+  --btn-primary-text: #ffffff;
+
+  /* ── 品牌渐变（导航激活条 / 强调点缀） ── */
+  --accent-gradient: linear-gradient(135deg, #0071e3 0%, #14a37f 100%);
+
+  /* ── 低饱和趋势色（数据涨跌用，避免刺眼） ── */
+  --trend-up: #70a98a;
+  --trend-down: #c98585;
+
+  /* ── 暖纸背景（主内容区光斑） ── */
+  --bg-wash: radial-gradient(1100px 520px at 6% -8%, rgba(0, 113, 227, 0.05), transparent 60%),
+    radial-gradient(900px 480px at 98% 2%, rgba(255, 149, 0, 0.055), transparent 62%),
+    #f5f5f7;
+
+  /* ── 创作流水线阶段色（账号→发布） ── */
+  --stage-account: #0ea5e9;
+  --stage-hotspot: #f97316;
+  --stage-topic: #7c3aed;
+  --stage-framework: #6366f1;
+  --stage-article: #2563eb;
+  --stage-review: #d97706;
+  --stage-visual: #db2777;
+  --stage-layout: #059669;
+  --stage-publish: #16a34a;
+
   /* ── 色阶 ── */
   --purple-50: #eef4ff;
   --purple-100: #dce9ff;
@@ -93,6 +121,8 @@
     "Microsoft YaHei", sans-serif;
   --font-sans: -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI",
     "Microsoft YaHei", sans-serif;
+  --font-brand: Georgia, "Source Han Serif SC", "Noto Serif SC", "STZhongsong",
+    SimSun, serif;
   --font-mono: "SF Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 
   /* ── 间距节奏 ── */
@@ -138,6 +168,31 @@
   --success: #30d158;
   --warning: #ffd60a;
   --danger: #ff453a;
+
+  /* ── 暗色下主按钮反白 ── */
+  --btn-primary-bg: #f5f5f7;
+  --btn-primary-bg-hover: #ffffff;
+  --btn-primary-text: #1d1d1f;
+
+  --accent-gradient: linear-gradient(135deg, #0a84ff 0%, #63d3bb 100%);
+
+  --trend-up: #8fbfa4;
+  --trend-down: #d39b9b;
+
+  --bg-wash: radial-gradient(1100px 520px at 6% -8%, rgba(10, 132, 255, 0.07), transparent 60%),
+    radial-gradient(900px 480px at 98% 2%, rgba(255, 159, 10, 0.045), transparent 62%),
+    #0b0b0d;
+
+  /* ── 创作流水线阶段色（暗色提亮） ── */
+  --stage-account: #38bdf8;
+  --stage-hotspot: #fb923c;
+  --stage-topic: #a78bfa;
+  --stage-framework: #818cf8;
+  --stage-article: #60a5fa;
+  --stage-review: #fbbf24;
+  --stage-visual: #f472b6;
+  --stage-layout: #34d399;
+  --stage-publish: #4ade80;
 
   --purple-50: rgba(10, 132, 255, 0.14);
   --purple-100: rgba(10, 132, 255, 0.22);

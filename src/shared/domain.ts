@@ -1,8 +1,9 @@
 import {
   DEFAULT_ACCOUNT_FIELD_NAMES,
   DEFAULT_TOPIC_SCHEMA_FIELD_NAMES,
-  type ArtifactReference,
   type AccountField,
+  type AccountRedline,
+  type ArtifactReference,
   type TopicSchemaField,
   type WizardAnswer
 } from './contracts.js'
@@ -36,11 +37,26 @@ export function validateAccountFields(fields: AccountField[]): string[] {
   return [...new Set(errors)]
 }
 
-export function serializeAccountXml(fields: AccountField[]): string {
+/**
+ * 账号上下文 XML：定位字段 + 偏好红线。
+ * 红线（偏好维度）与定位一起全阶段强制注入，模型不得越过。
+ */
+export function serializeAccountXml(fields: AccountField[], redlines: AccountRedline[] = []): string {
   const body = fields
     .map((field) => `${escapeXml(field.name.trim())}：${escapeXml(field.value.trim())}`)
     .join('\n')
-  return `<账号定位>\n${body}\n</账号定位>`
+  const kindLabels: Record<AccountRedline['kind'], string> = {
+    do: '必须做到',
+    dont: '禁止',
+    compliance: '合规底线'
+  }
+  const redlineLines = redlines
+    .map((redline) => `- [${kindLabels[redline.kind]}] ${escapeXml(redline.content)}`)
+    .join('\n')
+  const redlineBlock = redlineLines
+    ? `\n偏好与红线（生成内容必须遵守，不得虚构与之冲突的信息）：\n${redlineLines}\n`
+    : ''
+  return `<账号定位>\n${body}\n${redlineBlock}</账号定位>`
 }
 
 export function serializeWizardXml(answers: WizardAnswer[], extraContext = ''): string {

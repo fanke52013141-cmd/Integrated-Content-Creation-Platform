@@ -46,6 +46,7 @@ import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { useModelTarget } from '../lib/models'
 import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
@@ -99,16 +100,13 @@ export function HotspotsPage({
         .map((model) => ({ provider, model }))),
     [providers]
   )
-  const initialModel = availableModels.find(({ model }) => model.isDefault) ?? availableModels[0]
   const initialAccount = lockedAccounts.find((account) => account.id === currentAccountId)
     ?? lockedAccounts[0]
   const stream = useGenerationStream('hotspots')
+  const [filterModelTarget, setFilterModelTarget] = useModelTarget(availableModels)
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [filterScope, setFilterScope] = useState<'wall' | 'favorites'>('wall')
   const [filterAccountId, setFilterAccountId] = useState(initialAccount?.id ?? '')
-  const [filterModelTarget, setFilterModelTarget] = useState(
-    initialModel ? encodeModelTarget(initialModel.provider.id, initialModel.model.modelId) : ''
-  )
   const [filterSourceIds, setFilterSourceIds] = useState<Set<string>>(new Set())
   const [filterTopN, setFilterTopN] = useState(20)
   const [filterResult, setFilterResult] = useState<FilterHotspotsResult>()
@@ -200,6 +198,13 @@ export function HotspotsPage({
 
   function openTopicsFromFavorites(): void {
     localStorage.setItem('moliu:topic-favorite-ids', JSON.stringify(filteredFavorites.map((item) => item.id)))
+    // 把收藏标题拼成种子关键词，选题页自动预填，省去手抄
+    const seed = filteredFavorites
+      .slice(0, 3)
+      .map((item) => item.hotItem.title)
+      .join('；')
+      .slice(0, 200)
+    if (seed) localStorage.setItem('moliu:topic-seed-keyword', seed)
     onNavigate('topics')
   }
 
@@ -462,9 +467,6 @@ export function HotspotsPage({
       return
     }
     if (!filterAccountId) setFilterAccountId(initialAccount?.id ?? lockedAccounts[0].id)
-    if (!filterModelTarget && initialModel) {
-      setFilterModelTarget(encodeModelTarget(initialModel.provider.id, initialModel.model.modelId))
-    }
     setFilterScope(scope)
     setFilterSourceIds(new Set(
       scope === 'favorites'
@@ -546,7 +548,6 @@ export function HotspotsPage({
     <div className="hotspots-page">
       <section className="hotspot-hero">
         <div>
-          
           <h2>
             {view === 'wall'
               ? '热点雷达'
@@ -554,6 +555,15 @@ export function HotspotsPage({
                 ? '热点收藏'
                 : '智能筛选'}
           </h2>
+          {view === 'wall' && (
+            <p className="hotspot-hero-meta micro-copy">
+              <span><Flame size={13} />显示 {visibleSources.length} / {sources.length || '—'} 个平台</span>
+              <span className="success"><CheckCircle2 size={13} />{readyCount} 个已加载</span>
+              <span><BookmarkCheck size={13} />{favorites.length} 条已收藏</span>
+              {errorCount > 0 && <span className="warning"><AlertTriangle size={13} />{errorCount} 个暂不可用</span>}
+              {refreshingAll && <span><LoaderCircle size={13} className="spin" />后台分批加载中</span>}
+            </p>
+          )}
         </div>
         <div className="hotspot-hero-actions">
           <button className="button secondary" onClick={() =>
@@ -583,7 +593,7 @@ export function HotspotsPage({
                 onClick={() => void refreshAll(sources)}
               >
                 <RefreshCw size={16} className={refreshingAll ? 'spin' : ''} />
-                {refreshingAll ? '正在刷新' : '刷新全部'}
+                刷新全部
               </button>
             </>
           )}
@@ -592,14 +602,6 @@ export function HotspotsPage({
 
       {view === 'wall' ? (
         <>
-          <section className="hotspot-summary">
-            <span><Flame size={15} />显示 {visibleSources.length} / {sources.length || '—'} 个平台</span>
-            <span className="success"><CheckCircle2 size={15} />{readyCount} 个已加载</span>
-            <span><BookmarkCheck size={15} />{favorites.length} 条已收藏</span>
-            {errorCount > 0 && <span className="warning"><AlertTriangle size={15} />{errorCount} 个暂不可用</span>}
-            {refreshingAll && <span><LoaderCircle size={15} className="spin" />后台分批加载中</span>}
-          </section>
-
           <section className="hotspot-radar-layout">
             <aside className="hotspot-source-rail">
               <header><strong>信号源</strong></header>

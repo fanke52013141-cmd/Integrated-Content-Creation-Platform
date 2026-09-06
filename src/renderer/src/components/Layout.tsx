@@ -1,10 +1,14 @@
+import { useEffect, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   Braces,
+  Check,
   ChevronRight,
   CircleUserRound,
   FileText,
   Flame,
   Image,
+  LoaderCircle,
   LockKeyhole,
   Moon,
   Newspaper,
@@ -24,10 +28,14 @@ interface LayoutProps {
   route: RouteId
   theme: 'light' | 'dark'
   providers: ProviderSummary[]
+  accounts: AccountProfileSummary[]
   currentAccount?: AccountProfileSummary
+  /** 全局生成任务提示文案（如「正在生成选题…」），为空时不显示 */
+  generationLabel?: string
   children: React.ReactNode
-  onNavigate(route: RouteId): void
+  onNavigate(route: RouteId, params?: Record<string, string>): void
   onToggleTheme(): void
+  onSwitchAccount(id: string): void
 }
 
 interface NavItem {
@@ -93,13 +101,28 @@ export function Layout({
   route,
   theme,
   providers,
+  accounts,
   currentAccount,
+  generationLabel,
   children,
   onNavigate,
-  onToggleTheme
+  onToggleTheme,
+  onSwitchAccount
 }: LayoutProps): React.JSX.Element {
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
   const crumb = routeBreadcrumbs[route]
+  const gatewayReady = usableProviders.length > 0
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const accountMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!accountMenuOpen) return
+    const onPointerDown = (event: PointerEvent): void => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [accountMenuOpen])
 
   return (
     <div className="app-shell">
@@ -162,31 +185,87 @@ export function Layout({
               <ChevronRight size={13} className="breadcrumb-sep" />
               <span className="breadcrumb-item current">{crumb.label}</span>
             </nav>
+            {generationLabel && (
+              <span className="generation-chip" role="status">
+                <LoaderCircle size={13} className="spin" />
+                {generationLabel}
+              </span>
+            )}
           </div>
           <div className="topbar-actions">
+            {!gatewayReady && route !== 'providers' && (
+              <button
+                className="gateway-alert"
+                onClick={() => onNavigate('providers', { returnTo: route })}
+                title="模型网关尚未配置，智能生成功能暂不可用。点击去配置"
+                aria-label="模型网关未配置，点击去配置"
+              >
+                <AlertTriangle size={15} />
+              </button>
+            )}
             <button className="theme-toggle" onClick={onToggleTheme} aria-label="切换主题">
               <span className={theme === 'light' ? 'active' : ''}><Sun size={14} /></span>
               <span className={theme === 'dark' ? 'active' : ''}><Moon size={14} /></span>
             </button>
-            <button className="account-chip" onClick={() => onNavigate('accounts')}>
-              <span className="avatar">
-                {currentAccount?.name.slice(0, 1) || <CircleUserRound size={16} />}
-              </span>
-              <span>
-                <small>当前账号</small>
-                <strong>{currentAccount?.name || '尚未创建'}</strong>
-              </span>
-              {currentAccount?.status === 'locked' && <LockKeyhole size={13} />}
-            </button>
+            <div className="account-menu" ref={accountMenuRef}>
+              <button
+                className={`account-chip ${accountMenuOpen ? 'open' : ''}`}
+                onClick={() => {
+                  if (accounts.length) setAccountMenuOpen((open) => !open)
+                  else onNavigate('accounts')
+                }}
+                title={accounts.length ? '切换当前账号' : '创建第一个账号'}
+              >
+                <span className="avatar">
+                  {currentAccount?.name.slice(0, 1) || <CircleUserRound size={16} />}
+                </span>
+                <span>
+                  <small>当前账号</small>
+                  <strong>{currentAccount?.name || '尚未创建'}</strong>
+                </span>
+                {currentAccount?.status === 'locked' && <LockKeyhole size={13} />}
+              </button>
+              {accountMenuOpen && accounts.length > 0 && (
+                <div className="account-menu-popover" role="menu">
+                  <div className="account-menu-head">切换账号</div>
+                  {accounts.map((account) => (
+                    <button
+                      key={account.id}
+                      className={`account-menu-item ${account.isCurrent ? 'selected' : ''}`}
+                      role="menuitem"
+                      onClick={() => {
+                        setAccountMenuOpen(false)
+                        if (!account.isCurrent) onSwitchAccount(account.id)
+                      }}
+                    >
+                      <span className="avatar">{account.name.slice(0, 1)}</span>
+                      <span className="account-menu-item-main">
+                        <strong>{account.name}</strong>
+                        <small>{account.domain || account.intro || '未填写领域'}</small>
+                      </span>
+                      {account.status === 'locked' && <LockKeyhole size={12} className="account-menu-lock" />}
+                      {account.isCurrent && <Check size={14} className="account-menu-check" />}
+                    </button>
+                  ))}
+                  <button
+                    className="account-menu-item manage"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountMenuOpen(false)
+                      onNavigate('accounts')
+                    }}
+                  >
+                    <span className="avatar"><CircleUserRound size={14} /></span>
+                    <span className="account-menu-item-main">
+                      <strong>管理账号</strong>
+                      <small>新建、编辑与切换定位</small>
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
-
-        {!usableProviders.length && route !== 'providers' && route !== 'materials' && (
-          <button className="gateway-banner" onClick={() => onNavigate('providers')}>
-            <span><LockKeyhole size={15} />模型网关尚未配置，智能生成功能暂不可用</span>
-            <strong>去配置 <ChevronRight size={14} /></strong>
-          </button>
-        )}
 
         <main id="main" className="content" tabIndex={-1}>{children}</main>
       </section>

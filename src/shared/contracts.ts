@@ -146,11 +146,53 @@ export interface SearchServiceTestResult {
 
 export type AccountStatus = 'draft' | 'locked'
 
+/** 字段来源标注（借鉴 Easel 画像的「可审计来源」） */
+export type AccountFieldSource = 'user' | 'ai' | 'restore'
+
 export interface AccountField {
   id: string
   name: string
   value: string
   isDefault: boolean
+  /** 该字段值的来源；缺省视为 user */
+  source?: AccountFieldSource
+}
+
+/** 偏好红线（全阶段强制注入生成 prompt） */
+export type AccountRedlineKind = 'do' | 'dont' | 'compliance'
+
+export interface AccountRedline {
+  id: string
+  profileId: string
+  kind: AccountRedlineKind
+  content: string
+  createdAt: string
+}
+
+/** 账号在各平台的身份绑定（画像 × 平台 × 账号名） */
+export interface AccountPlatformBinding {
+  id: string
+  profileId: string
+  platform: string
+  handle: string
+  note: string
+  createdAt: string
+}
+
+/** 账号长期记忆条目（append-only + 内容哈希去重） */
+export interface AccountMemory {
+  id: string
+  profileId: string
+  memoryDate: string
+  source: string
+  insight: string
+  action: string
+  createdAt: string
+}
+
+export interface AddAccountMemoryResult {
+  memory: AccountMemory | null
+  created: boolean
 }
 
 export interface WizardAnswer {
@@ -179,6 +221,8 @@ export interface AccountProfileSummary {
   status: AccountStatus
   isCurrent: boolean
   versionCount: number
+  /** 定位完整度：非空默认字段占比（0-100） */
+  completeness: number
   createdAt: string
   updatedAt: string
 }
@@ -188,6 +232,9 @@ export interface AccountProfile extends AccountProfileSummary {
   fields: AccountField[]
   wizardAnswers: WizardAnswer[]
   versions: AccountVersion[]
+  redlines: AccountRedline[]
+  platformAccounts: AccountPlatformBinding[]
+  memories: AccountMemory[]
 }
 
 export interface GenerateAccountInput {
@@ -218,6 +265,29 @@ export interface SaveAccountInput {
 export interface RestoreVersionInput {
   profileId: string
   versionId: string
+}
+
+export interface AddAccountRedlineInput {
+  profileId: string
+  kind: AccountRedlineKind
+  content: string
+}
+
+export interface AddAccountPlatformInput {
+  profileId: string
+  platform: string
+  handle: string
+  note?: string
+}
+
+export interface AddAccountMemoryInput {
+  profileId: string
+  insight: string
+  action?: string
+  /** 来源标签，如「发布复盘」「用户自述」 */
+  source?: string
+  /** 记忆所属日期，缺省今天 */
+  memoryDate?: string
 }
 
 export interface ArtifactReference {
@@ -425,7 +495,7 @@ export interface GenerateTopicsResult {
 }
 
 export type MaterialKind = 'web' | 'image' | 'text'
-export type MaterialOrigin = 'doubao_web' | 'doubao_image' | 'manual_text'
+export type MaterialOrigin = 'doubao_web' | 'doubao_image' | 'manual_text' | 'file_upload'
 
 export interface Material {
   id: string
@@ -508,6 +578,13 @@ export interface AddSearchMaterialInput {
   relatedTopicId?: string
 }
 
+/** 上传文档作为素材（本地解析，txt/md/pdf/docx） */
+export interface AddFileMaterialInput {
+  fileName: string
+  data: ArrayBuffer
+  relatedTopicId?: string
+}
+
 export type FrameworkStatus = 'draft' | 'locked'
 export interface FrameworkTemplate { id: string; name: string; sections: string[]; isDefault: boolean; isSystem: boolean; createdAt: string; updatedAt: string }
 export interface FrameworkSection { name: string; content: string }
@@ -571,8 +648,11 @@ export interface ImportVisualAssetInput { packId: string; kind: VisualAssetKind;
 /** 渲染层直接上传文件内容（沙箱下拿不到本地路径） */
 export interface ImportVisualAssetDataInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; fileName: string; data: ArrayBuffer }
 export type LayoutPlatform = 'wechat' | 'xiaohongshu' | 'web'
-export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; createdAt: string }
-export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform }
+export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; createdAt: string }
+export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
+/** 排版主题元信息（完整 CSS 在主进程，不经 IPC 传输） */
+export interface LayoutThemeInfo { id: string; name: string; description: string; accent: string }
+export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
 export type PublicationStatus = 'draft' | 'published' | 'failed'
@@ -601,15 +681,25 @@ export interface StreamEvent {
   message?: string
 }
 
+/** 生成任务生命周期事件（主进程广播，供全局任务指示使用） */
+export interface GenerationEvent {
+  domain: string
+  status: 'started' | 'done' | 'failed'
+  message?: string
+  at: string
+}
+
 export interface MoliuApi {
   app: {
     bootstrap(): Promise<AppBootstrap>
     getDataPath(): Promise<string>
   }
-  /** 生成任务：按模块互斥、可取消 */
+  /** 生成任务：按模块互斥、可取消，并提供全局生命周期事件 */
   generation: {
     cancel(domain: string): Promise<{ cancelled: boolean }>
     active(): Promise<string[]>
+    /** 订阅生成任务 started/done/failed 事件（跨页面提示用） */
+    events(callback: (event: GenerationEvent) => void): () => void
   }
   providers: {
     presets(): Promise<ProviderPreset[]>
@@ -643,6 +733,15 @@ export interface MoliuApi {
     setLocked(id: string, locked: boolean): Promise<AccountProfile>
     restore(input: RestoreVersionInput): Promise<AccountProfile>
     remove(id: string): Promise<void>
+    listRedlines(profileId: string): Promise<AccountRedline[]>
+    addRedline(input: AddAccountRedlineInput): Promise<AccountRedline>
+    removeRedline(id: string): Promise<void>
+    listPlatformAccounts(profileId: string): Promise<AccountPlatformBinding[]>
+    addPlatformAccount(input: AddAccountPlatformInput): Promise<AccountPlatformBinding>
+    removePlatformAccount(id: string): Promise<void>
+    listMemories(profileId: string): Promise<AccountMemory[]>
+    addMemory(input: AddAccountMemoryInput): Promise<AddAccountMemoryResult>
+    removeMemory(id: string): Promise<void>
   }
   hotspots: {
     bootstrap(): Promise<HotspotBootstrap>
@@ -679,6 +778,8 @@ export interface MoliuApi {
     search(input: MaterialSearchInput): Promise<MaterialSearchResult>
     addSearchResult(input: AddSearchMaterialInput): Promise<{ material: Material; created: boolean }>
     addManual(input: SaveManualMaterialInput): Promise<Material>
+    /** 上传本地文档作为素材（txt/md/pdf/docx，本地解析） */
+    addFile(input: AddFileMaterialInput): Promise<Material>
     remove(id: string): Promise<void>
   }
   frameworks: {
@@ -731,6 +832,8 @@ export interface MoliuApi {
   }
   layouts: {
     list(articleId?: string): Promise<ArticleLayout[]>
+    /** 可用排版主题清单（内置 + 说明） */
+    themes(): Promise<LayoutThemeInfo[]>
     create(input: CreateArticleLayoutInput): Promise<ArticleLayout>
     remove(id: string): Promise<void>
   }
@@ -754,7 +857,8 @@ export const DEFAULT_ACCOUNT_FIELD_NAMES = [
   '写作风格',
   'IP人设',
   '差异化定位',
-  '价值主张'
+  '价值主张',
+  '选题方向'
 ] as const
 
 export const WIZARD_QUESTIONS = [

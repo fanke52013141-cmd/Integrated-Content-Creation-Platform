@@ -12,7 +12,7 @@ import { EmptyState } from '../components/EmptyState'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
-import { availableModels, encodeModelTarget, useModelTarget } from '../lib/models'
+import { availableModels, DEFAULT_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, markdownTitle } from '../lib'
 
 interface VisualsPageProps {
@@ -34,6 +34,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [assetsByPack, setAssetsByPack] = useState<Record<string, VisualAsset[]>>({})
   const [imageBusyKey, setImageBusyKey] = useState('')
   const [importTarget, setImportTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string } | null>(null)
+  const [batchState, setBatchState] = useState<{ packId: string; done: number; total: number; phase: 'generate' | 'upload' } | null>(null)
+  const batchStopRef = useRef(false)
 
   const imageModels = useMemo(
     () => providers
@@ -41,7 +43,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model }))),
     [providers]
   )
-  const [imageTarget, setImageTarget] = useModelTarget(imageModels)
+  const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
   const selected = articles.find((article) => article.id === articleId)
   const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
 
@@ -102,6 +104,77 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const openImport = (packId: string, kind: VisualAssetKind, slot: number, prompt: string): void => {
     setImportTarget({ packId, kind, slot, prompt })
     fileInputRef.current?.click()
+  }
+
+  /** 批量生成整份方案的图片：封面 → 文内 → 发布，自动跳过已有图片的槽位 */
+  const generateAllImages = async (pack: VisualPack): Promise<void> => {
+    const target = decodeTarget(imageTarget)
+    if (!target) {
+      showToast({ type: 'warning', message: '请先在「模型网关」为供应商开启图片能力并添加生图模型' })
+      return
+    }
+    const slots = [
+      { kind: 'cover' as const, slot: 0, prompt: pack.cover.prompt },
+      ...pack.inlineImages.map((item, index) => ({ kind: 'inline' as const, slot: index, prompt: item.prompt })),
+      ...pack.releaseImages.map((item, index) => ({ kind: 'release' as const, slot: index, prompt: item.prompt }))
+    ].filter((item) => item.prompt.trim())
+    const existing = new Set((assetsByPack[pack.id] ?? []).map((asset) => `${asset.kind}:${asset.slot}`))
+    const todo = slots.filter((item) => !existing.has(`${item.kind}:${item.slot}`))
+    if (!todo.length) {
+      showToast({ type: 'info', message: '这套方案的图片已全部生成' })
+      return
+    }
+
+    batchStopRef.current = false
+    setBatchState({ packId: pack.id, done: 0, total: todo.length, phase: 'generate' })
+    let ok = 0
+    let cancelled = false
+    const failed: string[] = []
+    for (const item of todo) {
+      if (batchStopRef.current) break
+      try {
+        await window.moliu.visuals.generateImage({ packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt, providerId: target.providerId, model: target.modelId })
+        ok += 1
+      } catch (error) {
+        if (isCancelError(error)) { cancelled = true; break }
+        failed.push(`第 ${item.slot + 1} 张${item.kind === 'cover' ? '封面' : item.kind === 'inline' ? '文内图' : '发布图'}：${errorMessage(error).slice(0, 60)}`)
+      } finally {
+        setBatchState((current) => current ? { ...current, done: current.done + 1 } : current)
+      }
+    }
+    await refreshAssets([pack.id])
+    setBatchState(null)
+    if (cancelled) showToast({ type: 'info', message: `批量生成已停止（成功 ${ok} 张）` })
+    else if (failed.length) showToast({ type: 'warning', message: `生成完成：成功 ${ok} 张，失败 ${failed.length} 张（${failed[0]}）` })
+    else showToast({ type: 'success', message: `全部 ${ok} 张图片已生成` })
+  }
+
+  /** 批量上传：把方案内所有未上传的图片资产上传公众号素材库 */
+  const uploadAllAssets = async (pack: VisualPack): Promise<void> => {
+    const pending = (assetsByPack[pack.id] ?? []).filter((asset) => !asset.wechatMediaId)
+    if (!pending.length) {
+      showToast({ type: 'info', message: '这套方案的图片都已上传过素材库' })
+      return
+    }
+    batchStopRef.current = false
+    setBatchState({ packId: pack.id, done: 0, total: pending.length, phase: 'upload' })
+    let ok = 0
+    const failed: string[] = []
+    for (const asset of pending) {
+      if (batchStopRef.current) break
+      try {
+        await window.moliu.publishing.uploadWechatCover({ assetId: asset.id })
+        ok += 1
+      } catch (error) {
+        failed.push(errorMessage(error).slice(0, 60))
+      } finally {
+        setBatchState((current) => current ? { ...current, done: current.done + 1 } : current)
+      }
+    }
+    await refreshAssets([pack.id])
+    setBatchState(null)
+    if (failed.length) showToast({ type: 'warning', message: `上传完成：成功 ${ok} 张，失败 ${failed.length} 张（${failed[0]}）` })
+    else showToast({ type: 'success', message: `${ok} 张图片已上传公众号素材库` })
   }
 
   const handleImportFile = async (file: File): Promise<void> => {
@@ -217,8 +290,13 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
               articleTitle={selected ? markdownTitle(selected.rawMarkdown) : '文章'}
               assets={assetsByPack[pack.id] ?? []}
               imageBusyKey={imageBusyKey}
+              imageModelReady={Boolean(imageTarget)}
+              batch={batchState?.packId === pack.id ? batchState : null}
               onCopy={copy}
               onGenerateImage={generateImage}
+              onGenerateAll={() => void generateAllImages(pack)}
+              onUploadAll={() => void uploadAllAssets(pack)}
+              onStopBatch={() => { batchStopRef.current = true; void window.moliu.generation.cancel('visuals') }}
               onImport={openImport}
               onUploadAsset={uploadAsset}
               onRemoveAsset={removeAsset}
@@ -243,15 +321,20 @@ interface VisualPackCardProps {
   articleTitle: string
   assets: VisualAsset[]
   imageBusyKey: string
+  imageModelReady: boolean
+  batch: { done: number; total: number; phase: 'generate' | 'upload' } | null
   onCopy(text: string): Promise<void>
   onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
+  onGenerateAll(): void
+  onUploadAll(): void
+  onStopBatch(): void
   onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
   onUploadAsset(packId: string, asset: VisualAsset): Promise<void>
   onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
   onRemove(): void
 }
 
-function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
+function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelReady, batch, onCopy, onGenerateImage, onGenerateAll, onUploadAll, onStopBatch, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
   const assetsFor = (kind: VisualAssetKind, slot: number): VisualAsset[] =>
     assets.filter((asset) => asset.kind === kind && asset.slot === slot)
 
@@ -262,7 +345,26 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, onCopy, onGe
           <h3>{articleTitle}</h3>
           <p>{pack.model} · {formatDate(pack.createdAt)} · {pack.inlineImages.length} 张文内图 + {pack.releaseImages.length} 张发布图</p>
         </div>
-        <button className="icon-button danger" title="删除方案" aria-label="删除方案" onClick={onRemove}><Trash2 size={16} /></button>
+        <div className="visual-pack-actions">
+          {batch ? (
+            <>
+              <span className="badge primary">
+                批量{batch.phase === 'generate' ? '生成' : '上传'}中 {batch.done}/{batch.total}
+              </span>
+              <button className="button danger compact" onClick={onStopBatch}><X size={14} />停止</button>
+            </>
+          ) : (
+            <>
+              <button className="button secondary compact" disabled={!imageModelReady} onClick={onGenerateAll} title="按封面→文内→发布顺序生成全部图片（已生成的自动跳过）">
+                <Sparkles size={14} />生成全部图片
+              </button>
+              <button className="button secondary compact" disabled={!assets.some((asset) => !asset.wechatMediaId)} onClick={onUploadAll} title="把未上传的图片批量上传公众号素材库">
+                <UploadCloud size={14} />全部上传
+              </button>
+            </>
+          )}
+          <button className="icon-button danger" title="删除方案" aria-label="删除方案" onClick={onRemove}><Trash2 size={16} /></button>
+        </div>
       </header>
 
       <section className="visual-cover">

@@ -8,7 +8,6 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/shell.css'
 import './styles/pages.css'
-import './styles/sections.css'
 
 // Inject demo bridge when not running inside Electron (browser preview only)
 ensureMockBridge()

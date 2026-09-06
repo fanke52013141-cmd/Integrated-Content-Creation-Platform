@@ -50,7 +50,7 @@ export class AccountGenerator {
 
     const parsed = parseAccountJson(response.content)
     return {
-      fields: createAccountFields(parsed),
+      fields: createAccountFields(parsed).map((field) => ({ ...field, source: 'ai' as const })),
       providerId: response.providerId,
       model: response.model,
       rawContent: response.content,

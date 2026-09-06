@@ -37,7 +37,14 @@
   overflow: hidden;
 }
 .brand-mark img { width: 100%; height: 100%; object-fit: cover; }
-.brand strong { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; display: block; line-height: 1.2; }
+.brand strong {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-brand);
+  letter-spacing: 0.08em;
+  display: block;
+  line-height: 1.2;
+}
 .brand small { font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 1px; }
 
 .navigation {
@@ -60,6 +67,7 @@
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -75,6 +83,17 @@
 .nav-item:hover { background: var(--surface-strong); color: var(--text); }
 .nav-item.active { background: var(--surface-solid); color: var(--text); box-shadow: var(--shadow-1); }
 :root[data-theme="dark"] .nav-item.active { background: var(--surface-muted); }
+/* 激活态左缘品牌渐变色条 */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  height: 56%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-gradient);
+}
 .nav-icon { display: inline-flex; color: var(--text-tertiary); transition: color var(--transition-fast); }
 .nav-item.active .nav-icon, .nav-item:hover .nav-icon { color: var(--primary); }
 .nav-item.disabled { opacity: 0.45; pointer-events: none; }
@@ -117,6 +136,22 @@
 .breadcrumb-item { color: var(--text-tertiary); }
 .breadcrumb-item.current { color: var(--text); font-weight: 600; }
 .breadcrumb-sep { color: var(--border-strong); }
+
+/* 全局生成任务指示 */
+.generation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--purple-50);
+  color: var(--purple-600);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .generation-chip { background: var(--purple-100); color: var(--purple-300); }
 
 .topbar-actions { display: inline-flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }
 
@@ -168,6 +203,63 @@
 .account-chip small { display: block; font-size: 10.5px; color: var(--text-tertiary); line-height: 1.2; }
 .account-chip strong { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.3; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-chip svg { color: var(--green-600); }
+.account-chip.open { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+
+/* 顶栏账号切换器 */
+.account-menu { position: relative; }
+.account-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 400;
+  width: 280px;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-3);
+  animation: fade-up var(--transition-fast);
+}
+.account-menu-head {
+  padding: 6px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+}
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+.account-menu-item:hover { background: var(--surface-muted); }
+.account-menu-item.selected { background: var(--purple-50); }
+:root[data-theme="dark"] .account-menu-item.selected { background: var(--purple-100); }
+.account-menu-item .avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--purple-100);
+  color: var(--purple-700);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+:root[data-theme="dark"] .account-menu-item .avatar { color: var(--purple-300); }
+.account-menu-item-main { flex: 1; min-width: 0; }
+.account-menu-item-main strong { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-item-main small { display: block; font-size: 11px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-item.manage { color: var(--text-secondary); border-top: 1px solid var(--border-subtle); border-radius: 0 0 var(--radius-md) var(--radius-md); margin-top: 2px; }
+.account-menu-lock { color: var(--text-tertiary); flex-shrink: 0; }
+.account-menu-check { color: var(--primary); flex-shrink: 0; }
 
 /* ── 内容区 ── */
 .content {
@@ -179,4 +271,20 @@
   flex-direction: column;
   outline: none;
   scroll-behavior: smooth;
+  background: var(--bg-wash);
 }
+
+/* ── 顶栏网关未配置状态图标（横幅已收敛为图标） ── */
+.gateway-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--amber-50);
+  color: var(--amber-600);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+.gateway-alert:hover { background: var(--amber-600); color: #fff; }
+:root[data-theme="dark"] .gateway-alert { background: var(--amber-50); color: var(--amber-600); }

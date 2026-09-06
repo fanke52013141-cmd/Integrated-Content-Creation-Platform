@@ -26,14 +26,20 @@ import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { ModalBase } from '../components/ModalBase'
 import { FieldError, useFormErrors } from '../components/useFormErrors'
+import type { RouteId } from '../components/Layout'
 import { errorMessage, formatDate, formatFullDate, isSafeUrl } from '../lib'
 
 interface ProvidersPageProps {
   providers: ProviderSummary[]
   searchService: SearchServiceSummary
   onRefresh(): Promise<void>
+  /** 从网关提示横幅跳来时携带的来源页面，配置成功后一键返回 */
+  returnTo?: string
+  onNavigate?(route: ProvidersPageReturnRoute): void
   showToast(toast: ToastState): void
 }
+
+type ProvidersPageReturnRoute = Extract<RouteId, 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'prompts'>
 
 const emptyForm = (): SaveProviderInput => ({
   displayName: '',
@@ -67,6 +73,8 @@ export function ProvidersPage({
   providers,
   searchService,
   onRefresh,
+  returnTo,
+  onNavigate,
   showToast
 }: ProvidersPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
@@ -222,6 +230,9 @@ export function ProvidersPage({
       await onRefresh()
       chooseProvider(saved)
       showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
+      if (returnTo && onNavigate && returnTo !== 'providers') {
+        onNavigate(returnTo as ProvidersPageReturnRoute)
+      }
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     } finally {

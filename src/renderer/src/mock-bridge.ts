@@ -88,6 +88,7 @@ const DEMO_BOOTSTRAP: AppBootstrap = {
       status: 'locked',
       isCurrent: true,
       versionCount: 2,
+      completeness: 100,
       createdAt: '2025-01-01T00:00:00.000Z',
       updatedAt: '2025-06-15T00:00:00.000Z'
     }
@@ -312,6 +313,7 @@ function createMockBridge(): MoliuApi {
       search: () => Promise.resolve({ items: [], total: 0 }),
       addSearchResult: () => void_(),
       addManual: () => void_(),
+      addFile: () => void_(),
       remove: () => void_()
     },
     frameworks: {
@@ -356,10 +358,12 @@ function createMockBridge(): MoliuApi {
     },
     generation: {
       cancel: () => Promise.resolve({ cancelled: false }),
-      active: () => emptyArray()
+      active: () => emptyArray(),
+      events: () => () => undefined
     },
     layouts: {
       list: () => emptyArray(),
+      themes: () => emptyArray(),
       create: (input: unknown) => Promise.resolve(input),
       remove: () => void_()
     },

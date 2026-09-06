@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
+  BookOpen,
   Check,
   ChevronRight,
   CircleUserRound,
   Clock3,
   Copy,
   FileClock,
+  Flame,
+  GitCompare,
+  Globe,
   KeyRound,
   Lock,
   LockOpen,
@@ -15,6 +19,8 @@ import {
   RotateCcw,
   Save,
   Search,
+  Settings2,
+  ShieldAlert,
   Sparkles,
   Trash2,
   WandSparkles,
@@ -24,14 +30,21 @@ import {
   DEFAULT_ACCOUNT_FIELD_NAMES,
   WIZARD_QUESTIONS,
   type AccountField,
+  type AccountMemory,
+  type AccountPlatformBinding,
   type AccountProfile,
   type AccountProfileSummary,
+  type AccountRedline,
+  type AccountRedlineKind,
+  type AccountVersion,
   type GenerateAccountResult,
   type ProviderSummary,
   type WizardAnswer
 } from '../../../shared/contracts'
+import { serializeAccountXml } from '../../../shared/domain'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
+import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
@@ -119,23 +132,29 @@ export function AccountPage({
   return (
     <AccountList
       accounts={accounts}
+      providers={providers}
       selectedId={selectedId}
       onCreate={() => setMode('wizard')}
       onOpen={(id) => void openAccount(id)}
+      onNavigate={onNavigate}
     />
   )
 }
 
 function AccountList({
   accounts,
+  providers,
   selectedId,
   onCreate,
-  onOpen
+  onOpen,
+  onNavigate
 }: {
   accounts: AccountProfileSummary[]
+  providers: ProviderSummary[]
   selectedId?: string
   onCreate(): void
   onOpen(id: string): void
+  onNavigate(route: RouteId): void
 }): React.JSX.Element {
   const [search, setSearch] = useState('')
   const filtered = accounts.filter((account) =>
@@ -189,6 +208,9 @@ function AccountList({
                         {account.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
                         {account.status === 'locked' ? '已锁定' : '草稿'}
                       </span>
+                      <span className={`badge ${account.completeness >= 100 ? 'success' : 'neutral'}`} title="默认九个定位字段的非空占比">
+                        完整度 {account.completeness}%
+                      </span>
                     </div>
                   </div>
                   <h3>{account.name}</h3>
@@ -208,16 +230,53 @@ function AccountList({
           )}
         </>
       ) : (
-        <section className="account-empty-state">
-          <CircleUserRound size={30} />
-          <strong>还没有账号定位</strong>
-          <p>新建账号并完成定位填写，会生成一张对应的账号卡片。</p>
-          <button className="button primary large" onClick={onCreate}>
-            <WandSparkles size={17} />新建账号
-          </button>
-        </section>
+        <>
+          <section className="account-empty-state">
+            <CircleUserRound size={30} />
+            <strong>还没有账号定位</strong>
+            <p>新建账号并完成定位填写，会生成一张对应的账号卡片。</p>
+            <button className="button primary large" onClick={onCreate}>
+              <WandSparkles size={17} />新建账号
+            </button>
+          </section>
+          <FirstRunGuide providers={providers} onNavigate={onNavigate} onCreate={onCreate} />
+        </>
       )}
     </div>
+  )
+}
+
+/** 首次使用三步引导：配模型 → 建账号 → 去热点；账号创建后整条消失 */
+function FirstRunGuide({ providers, onNavigate, onCreate }: { providers: ProviderSummary[]; onNavigate(route: RouteId): void; onCreate(): void }): React.JSX.Element {
+  const gatewayReady = providers.some((provider) => provider.enabled && provider.hasApiKey)
+  const steps = [
+    { icon: Settings2, title: '第一步 · 配置模型网关', desc: gatewayReady ? '已配置，可以开始生成' : '填入任意 OpenAI 兼容服务的地址与密钥', done: gatewayReady, action: gatewayReady ? undefined : { label: '去配置', route: 'providers' as RouteId } },
+    { icon: WandSparkles, title: '第二步 · 创建并锁定账号', desc: '完成向导后「保存并锁定」，作为创作基线', done: false, action: { label: '新建账号', route: undefined as RouteId | undefined } },
+    { icon: Flame, title: '第三步 · 去热点挑选题', desc: '收藏感兴趣的热点，一键带去生成选题', done: false, action: { label: '去热点', route: 'hotspots' as RouteId } }
+  ]
+  return (
+    <section className="first-run-guide" aria-label="新手引导">
+      <header><Sparkles size={15} />三步开始第一篇文章</header>
+      <div className="first-run-steps">
+        {steps.map((step) => (
+          <div className={`first-run-step ${step.done ? 'done' : ''}`} key={step.title}>
+            <span className="first-run-icon">{step.done ? <Check size={16} /> : <step.icon size={16} />}</span>
+            <div>
+              <strong>{step.title}</strong>
+              <small>{step.desc}</small>
+            </div>
+            {step.action && (
+              <button
+                className="button ghost compact"
+                onClick={() => step.action?.route ? onNavigate(step.action.route) : onCreate()}
+              >
+                {step.action.label}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -267,6 +326,8 @@ function AccountWizard({
   const [fields, setFields] = useState<AccountField[]>([])
   const [saving, setSaving] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
+  /** 基线先行：进入生成前先把答案落成草稿账号，AI 失败/中断也不丢答案 */
+  const [baselineId, setBaselineId] = useState<string>()
 
   useEffect(() => {
     localStorage.setItem('moliu:wizard-draft', JSON.stringify(answers))
@@ -281,6 +342,24 @@ function AccountWizard({
     )
   }
 
+  async function ensureBaseline(): Promise<string | undefined> {
+    if (baselineId) return baselineId
+    if (!answers.some((item) => item.answer.trim())) return undefined
+    try {
+      const saved = await window.moliu.accounts.save({
+        fields: baselineFieldsFromAnswers(answers),
+        wizardAnswers: answers,
+        status: 'draft',
+        source: 'manual'
+      })
+      setBaselineId(saved.id)
+      showToast({ type: 'info', message: '已先把答案保存为草稿基线，生成失败也不会丢失' })
+      return saved.id
+    } catch {
+      return undefined
+    }
+  }
+
   async function generate(): Promise<void> {
     const selectedTarget = decodeModelTarget(modelTarget)
     if (!selectedTarget) {
@@ -289,6 +368,7 @@ function AccountWizard({
     }
     setGenerating(true)
     try {
+      await ensureBaseline()
       const result = await window.moliu.accounts.generate({
         providerId: selectedTarget.providerId,
         model: selectedTarget.modelId,
@@ -309,7 +389,10 @@ function AccountWizard({
   async function save(status: 'draft' | 'locked'): Promise<void> {
     setSaving(true)
     try {
+      // 必须用返回值而非 state：setBaselineId 的更新在同一次点击内不可见
+      const baseId = await ensureBaseline()
       const saved = await window.moliu.accounts.save({
+        id: baseId,
         fields,
         wizardAnswers: answers,
         status,
@@ -332,7 +415,8 @@ function AccountWizard({
       id: crypto.randomUUID(),
       name,
       value: name === '账号名称' ? answers[0]?.answer ?? '' : '',
-      isDefault: true
+      isDefault: true,
+      source: 'user'
     })))
   }
 
@@ -508,6 +592,15 @@ function AccountWizard({
   )
 }
 
+type AccountDimension = 'fields' | 'redlines' | 'platforms' | 'memories'
+
+const dimensionTabs: Array<{ id: AccountDimension; label: string }> = [
+  { id: 'fields', label: '定位' },
+  { id: 'redlines', label: '红线' },
+  { id: 'platforms', label: '平台' },
+  { id: 'memories', label: '记忆' }
+]
+
 function AccountEditor({
   account,
   loading,
@@ -528,6 +621,8 @@ function AccountEditor({
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [restoreVersionId, setRestoreVersionId] = useState<string>()
+  const [dimension, setDimension] = useState<AccountDimension>('fields')
+  const [diffVersion, setDiffVersion] = useState<AccountVersion>()
 
   useEffect(() => {
     setFields(account?.fields ?? [])
@@ -544,6 +639,12 @@ function AccountEditor({
   function updateFields(next: AccountField[]): void {
     setFields(next)
     setDirty(true)
+  }
+
+  /** 六维扩展数据变更后重拉账号（红线/平台/记忆不入版本库，直接生效） */
+  async function reloadDimension(): Promise<void> {
+    const updated = await window.moliu.accounts.get(loadedAccount.id)
+    if (updated) onChanged(updated)
   }
 
   async function save(status: 'draft' | 'locked' = loadedAccount.status): Promise<void> {
@@ -629,12 +730,15 @@ function AccountEditor({
         <div className="editor-title">
           <span className="profile-avatar">{loadedAccount.name.slice(0, 1)}</span>
           <div>
-            
+
             <h2>{loadedAccount.name}</h2>
           </div>
           <span className={`badge ${locked ? 'success' : 'neutral'}`}>
             {locked ? <Lock size={12} /> : <LockOpen size={12} />}
             {locked ? '已锁定' : '草稿'}
+          </span>
+          <span className={`badge ${loadedAccount.completeness >= 100 ? 'success' : 'neutral'}`}>
+            完整度 {loadedAccount.completeness}%
           </span>
           {dirty && <span className="unsaved-dot">未保存</span>}
         </div>
@@ -659,89 +763,478 @@ function AccountEditor({
         </div>
       </div>
 
-      <section className="account-editor-grid">
-        <div className="panel fields-panel">
-          <div className="section-heading">
-            <div><h3>定位字段</h3></div>
-            {!locked && (
-              <button className="button ghost compact" onClick={() => updateFields([...fields, newCustomField()])}>
-                <Plus size={15} />添加字段
-              </button>
-            )}
+      <div className="segmented account-dimension-tabs" role="tablist" aria-label="账号维度">
+        {dimensionTabs.map((tab) => (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={dimension === tab.id}
+            className={dimension === tab.id ? 'active' : ''}
+            onClick={() => setDimension(tab.id)}
+          >
+            {tab.id === 'fields' && <CircleUserRound size={14} />}
+            {tab.id === 'redlines' && <ShieldAlert size={14} />}
+            {tab.id === 'platforms' && <Globe size={14} />}
+            {tab.id === 'memories' && <BookOpen size={14} />}
+            {tab.label}
+            {tab.id === 'redlines' && loadedAccount.redlines.length > 0 && <span className="count-badge">{loadedAccount.redlines.length}</span>}
+            {tab.id === 'platforms' && loadedAccount.platformAccounts.length > 0 && <span className="count-badge">{loadedAccount.platformAccounts.length}</span>}
+            {tab.id === 'memories' && loadedAccount.memories.length > 0 && <span className="count-badge">{loadedAccount.memories.length}</span>}
+          </button>
+        ))}
+      </div>
+
+      {dimension === 'fields' && (
+        <section className="account-editor-grid">
+          <div className="panel fields-panel">
+            <div className="section-heading">
+              <div><h3>定位字段</h3></div>
+              {!locked && (
+                <button className="button ghost compact" onClick={() => updateFields([...fields, newCustomField()])}>
+                  <Plus size={15} />添加字段
+                </button>
+              )}
+            </div>
+            <GeneratedFields
+              fields={fields}
+              locked={locked}
+              onChange={updateFields}
+              onAdd={() => updateFields([...fields, newCustomField()])}
+              onRemove={(id) => updateFields(fields.filter((field) => field.id !== id))}
+            />
           </div>
-          <GeneratedFields
-            fields={fields}
-            locked={locked}
-            onChange={updateFields}
-            onAdd={() => updateFields([...fields, newCustomField()])}
-            onRemove={(id) => updateFields(fields.filter((field) => field.id !== id))}
-          />
-        </div>
 
-        <aside className="account-context">
-          <section className="panel xml-panel">
-            <div className="section-heading">
-              <div><h3>结构预览</h3></div>
-              <button
-                className="icon-button"
-                title="复制"
-                aria-label="复制"
-                onClick={() => {
-                  void navigator.clipboard.writeText(serializePreview(fields))
-                  showToast({ type: 'success', message: '结构内容已复制' })
-                }}
-              >
-                <Copy size={16} />
-              </button>
-            </div>
-            <details className="xml-panel-details">
-              <summary>开发者视图（生成时传给模型的结构化资料）</summary>
-              <pre>{serializePreview(fields)}</pre>
-            </details>
-          </section>
-
-          <section className="panel version-panel">
-            <div className="section-heading">
-              <div><h3>版本历史</h3></div>
-              <span className="count-badge">{loadedAccount.versions.length}</span>
-            </div>
-            <div className="version-list">
-              {loadedAccount.versions.map((version) => (
+          <aside className="account-context">
+            <section className="panel xml-panel">
+              <div className="section-heading">
+                <div><h3>结构预览</h3></div>
                 <button
-                  key={version.id}
-                  className={`version-item ${version.id === loadedAccount.currentVersionId ? 'current' : ''}`}
+                  className="icon-button"
+                  title="复制"
+                  aria-label="复制"
                   onClick={() => {
-                    if (version.id !== loadedAccount.currentVersionId) void requestRestore(version.id)
+                    void navigator.clipboard.writeText(serializeAccountXml(fields, loadedAccount.redlines))
+                    showToast({ type: 'success', message: '结构内容已复制' })
                   }}
                 >
-                  <span className="version-icon"><FileClock size={15} /></span>
-                  <span>
-                    <strong>版本 {version.versionNumber}</strong>
-                    <small>{formatFullDate(version.createdAt)} · {sourceLabel(version.source)}</small>
-                  </span>
-                  {version.id === loadedAccount.currentVersionId && <span className="badge primary">当前</span>}
+                  <Copy size={16} />
                 </button>
-              ))}
-            </div>
-          </section>
+              </div>
+              <details className="xml-panel-details">
+                <summary>开发者视图（生成时传给模型的结构化资料，含红线）</summary>
+                <pre>{serializeAccountXml(fields, loadedAccount.redlines)}</pre>
+              </details>
+            </section>
 
-          <button className="danger-zone-button" onClick={async () => {
-            if (await confirm({
-              title: '删除这个账号？',
-              message: `“${loadedAccount.name}”及其全部版本将被永久删除，且无法恢复。`,
-              danger: true,
-              confirmLabel: '永久删除'
-            })) {
-              await remove()
-            }
-          }}>
-            <Trash2 size={16} />删除账号
-          </button>
-        </aside>
-      </section>
+            <section className="panel version-panel">
+              <div className="section-heading">
+                <div><h3>版本历史</h3></div>
+                <span className="count-badge">{loadedAccount.versions.length}</span>
+              </div>
+              <div className="version-list">
+                {loadedAccount.versions.map((version) => (
+                  <div
+                    key={version.id}
+                    className={`version-item ${version.id === loadedAccount.currentVersionId ? 'current' : ''}`}
+                  >
+                    <button
+                      className="version-main"
+                      disabled={version.id === loadedAccount.currentVersionId}
+                      title={version.id === loadedAccount.currentVersionId ? '当前版本' : '点击恢复为当前版本'}
+                      onClick={() => void requestRestore(version.id)}
+                    >
+                      <span className="version-icon"><FileClock size={15} /></span>
+                      <span>
+                        <strong>版本 {version.versionNumber}</strong>
+                        <small>{formatFullDate(version.createdAt)} · {sourceLabel(version.source)}</small>
+                      </span>
+                      {version.id === loadedAccount.currentVersionId && <span className="badge primary">当前</span>}
+                    </button>
+                    <button
+                      className="icon-button version-diff"
+                      title="与当前版本对比"
+                      aria-label={`版本 ${version.versionNumber} 与当前版本对比`}
+                      onClick={() => setDiffVersion(version)}
+                    >
+                      <GitCompare size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <button className="danger-zone-button" onClick={async () => {
+              if (await confirm({
+                title: '删除这个账号？',
+                message: `“${loadedAccount.name}”及其全部版本将被永久删除，且无法恢复。`,
+                danger: true,
+                confirmLabel: '永久删除'
+              })) {
+                await remove()
+              }
+            }}>
+              <Trash2 size={16} />删除账号
+            </button>
+          </aside>
+        </section>
+      )}
+
+      {dimension === 'redlines' && (
+        <AccountRedlinesPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
+      )}
+      {dimension === 'platforms' && (
+        <AccountPlatformsPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
+      )}
+      {dimension === 'memories' && (
+        <AccountMemoriesPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
+      )}
+
+      <ModalBase open={Boolean(diffVersion)} onClose={() => setDiffVersion(undefined)} titleId="version-diff-title" className="version-diff-dialog">
+        {diffVersion && (
+          <>
+            <h2 id="version-diff-title">版本 {diffVersion.versionNumber} ↔ 当前版本对比</h2>
+            <p className="micro-copy">只对比定位字段；恢复操作不会丢失当前版本（会复制为新草稿版本）。</p>
+            <div className="version-diff-table">
+              {diffFieldRows(diffVersion, loadedAccount).map((row) => (
+                <div key={row.name} className={`version-diff-row ${row.status}`}>
+                  <span className="version-diff-name">{row.name}</span>
+                  <span className="version-diff-old">{row.oldValue || <em>（空）</em>}</span>
+                  <span className="version-diff-new">{row.newValue || <em>（空）</em>}</span>
+                </div>
+              ))}
+              {!diffFieldRows(diffVersion, loadedAccount).length && (
+                <p className="micro-copy">该版本没有字段内容。</p>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="button secondary" onClick={() => setDiffVersion(undefined)}>关闭</button>
+              {diffVersion.id !== loadedAccount.currentVersionId && (
+                <button className="button primary" onClick={() => {
+                  setDiffVersion(undefined)
+                  void requestRestore(diffVersion.id)
+                }}>恢复此版本</button>
+              )}
+            </div>
+          </>
+        )}
+      </ModalBase>
 
       {ConfirmPortal}
     </div>
+  )
+}
+
+interface DiffRow { name: string; oldValue: string; newValue: string; status: 'changed' | 'same' }
+
+function diffFieldRows(version: AccountVersion, current: AccountProfile): DiffRow[] {
+  const names: string[] = []
+  for (const field of current.fields) {
+    if (!names.includes(field.name.trim())) names.push(field.name.trim())
+  }
+  for (const field of version.fields) {
+    const name = field.name.trim()
+    if (name && !names.includes(name)) names.push(name)
+  }
+  return names.map((name) => {
+    const oldValue = version.fields.find((field) => field.name.trim() === name)?.value.trim() ?? ''
+    const newValue = current.fields.find((field) => field.name.trim() === name)?.value.trim() ?? ''
+    return { name, oldValue, newValue, status: oldValue === newValue ? 'same' : 'changed' }
+  })
+}
+
+/** 红线面板：要做的 / 禁止的 / 合规底线，全阶段注入生成 prompt */
+function AccountRedlinesPanel({ account, onChanged, showToast }: {
+  account: AccountProfile
+  onChanged(): void
+  showToast(toast: ToastState): void
+}): React.JSX.Element {
+  const [kind, setKind] = useState<AccountRedlineKind>('dont')
+  const [content, setContent] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const kindOptions: Array<{ value: AccountRedlineKind; label: string }> = [
+    { value: 'do', label: '必须做到' },
+    { value: 'dont', label: '禁止' },
+    { value: 'compliance', label: '合规底线' }
+  ]
+  const kindLabel = (value: AccountRedlineKind): string => kindOptions.find((option) => option.value === value)?.label ?? value
+
+  async function add(): Promise<void> {
+    if (!content.trim()) return
+    setBusy(true)
+    try {
+      await window.moliu.accounts.addRedline({ profileId: account.id, kind, content })
+      setContent('')
+      onChanged()
+      showToast({ type: 'success', message: '红线已添加，之后每次生成都会强制注入' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(id: string): Promise<void> {
+    try {
+      await window.moliu.accounts.removeRedline(id)
+      onChanged()
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  return (
+    <section className="panel dimension-panel">
+      <div className="section-heading">
+        <div>
+          <h3>偏好与红线</h3>
+          <p className="micro-copy">选题、框架、写稿、改稿都会把这里的规则注入给模型；发布前检查也会参考。</p>
+        </div>
+      </div>
+      <div className="dimension-add-row">
+        <label className="field">
+          <span>类型</span>
+          <Select value={kind} onChange={(value) => setKind(value as AccountRedlineKind)} ariaLabel="红线类型" options={kindOptions} />
+        </label>
+        <label className="field dimension-add-main">
+          <span>内容</span>
+          <input
+            name="redlineContent"
+            autoComplete="off"
+            value={content}
+            maxLength={500}
+            onChange={(event) => setContent(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter' && content.trim()) void add() }}
+            placeholder="例：不蹭灾难类热点；每篇必须有真实数据来源"
+          />
+        </label>
+        <button className="button primary" disabled={busy || !content.trim()} onClick={() => void add()}>
+          <Plus size={15} />添加
+        </button>
+      </div>
+      <div className="dimension-list">
+        {account.redlines.map((redline) => (
+          <div key={redline.id} className="dimension-item">
+            <span className={`badge ${redline.kind === 'dont' ? 'danger' : redline.kind === 'compliance' ? 'warning' : 'success'}`}>
+              {kindLabel(redline.kind)}
+            </span>
+            <span className="dimension-item-main">{redline.content}</span>
+            <button className="icon-button danger" title="删除" aria-label="删除红线" onClick={() => void remove(redline.id)}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        {!account.redlines.length && <p className="micro-copy">还没有红线。把“绝不做什么”写在这里，比在每次生成时反复叮嘱更可靠。</p>}
+      </div>
+    </section>
+  )
+}
+
+/** 平台面板：这个账号在各平台的身份绑定 */
+function AccountPlatformsPanel({ account, onChanged, showToast }: {
+  account: AccountProfile
+  onChanged(): void
+  showToast(toast: ToastState): void
+}): React.JSX.Element {
+  const [platform, setPlatform] = useState('微信公众号')
+  const [handle, setHandle] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const platformPresets = ['微信公众号', '小红书', '抖音', 'B站', '知乎', '视频号', '微博', '快手']
+
+  async function add(): Promise<void> {
+    if (!handle.trim()) return
+    setBusy(true)
+    try {
+      await window.moliu.accounts.addPlatformAccount({ profileId: account.id, platform, handle, note: note.trim() || undefined })
+      setHandle('')
+      setNote('')
+      onChanged()
+      showToast({ type: 'success', message: '平台身份已绑定' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(id: string): Promise<void> {
+    try {
+      await window.moliu.accounts.removePlatformAccount(id)
+      onChanged()
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  return (
+    <section className="panel dimension-panel">
+      <div className="section-heading">
+        <div>
+          <h3>平台身份</h3>
+          <p className="micro-copy">同一个账号画像可以运营多个平台；这里记录每个平台上的具体身份，发布时按此对应。</p>
+        </div>
+      </div>
+      <div className="dimension-add-row">
+        <label className="field">
+          <span>平台</span>
+          <Select value={platform} onChange={setPlatform} ariaLabel="平台" options={platformPresets.map((name) => ({ value: name, label: name }))} />
+        </label>
+        <label className="field">
+          <span>账号名 / ID</span>
+          <input
+            name="platformHandle"
+            autoComplete="off"
+            value={handle}
+            maxLength={100}
+            onChange={(event) => setHandle(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter' && handle.trim()) void add() }}
+            placeholder="例：心流实验室"
+          />
+        </label>
+        <label className="field dimension-add-main">
+          <span>备注（可选）</span>
+          <input
+            name="platformNote"
+            autoComplete="off"
+            value={note}
+            maxLength={200}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="例：主号；周更三篇"
+          />
+        </label>
+        <button className="button primary" disabled={busy || !handle.trim()} onClick={() => void add()}>
+          <Plus size={15} />绑定
+        </button>
+      </div>
+      <div className="dimension-list">
+        {account.platformAccounts.map((binding) => (
+          <div key={binding.id} className="dimension-item">
+            <span className="badge primary">{binding.platform}</span>
+            <span className="dimension-item-main">
+              <strong>{binding.handle}</strong>
+              {binding.note && <small>{binding.note}</small>}
+            </span>
+            <button className="icon-button danger" title="解绑" aria-label="解绑平台账号" onClick={() => void remove(binding.id)}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        {!account.platformAccounts.length && <p className="micro-copy">还没有绑定任何平台身份。</p>}
+      </div>
+    </section>
+  )
+}
+
+/** 记忆面板：账号长期记忆，append-only + 内容去重 */
+function AccountMemoriesPanel({ account, onChanged, showToast }: {
+  account: AccountProfile
+  onChanged(): void
+  showToast(toast: ToastState): void
+}): React.JSX.Element {
+  const [insight, setInsight] = useState('')
+  const [action, setAction] = useState('')
+  const [source, setSource] = useState('用户自述')
+  const [busy, setBusy] = useState(false)
+
+  const sourcePresets = ['用户自述', '发布复盘', '数据反馈', '受众互动']
+
+  async function add(): Promise<void> {
+    if (!insight.trim()) return
+    setBusy(true)
+    try {
+      const result = await window.moliu.accounts.addMemory({
+        profileId: account.id,
+        insight,
+        action: action.trim() || undefined,
+        source
+      })
+      setInsight('')
+      setAction('')
+      onChanged()
+      showToast(
+        result.created
+          ? { type: 'success', message: '记忆已沉淀到账号画像' }
+          : { type: 'info', message: '相同内容的记忆已存在，未重复添加' }
+      )
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(id: string): Promise<void> {
+    try {
+      await window.moliu.accounts.removeMemory(id)
+      onChanged()
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  return (
+    <section className="panel dimension-panel">
+      <div className="section-heading">
+        <div>
+          <h3>长期记忆</h3>
+          <p className="micro-copy">只沉淀可复用的经验：受众反馈规律、验证有效的结构、踩过的坑。重复内容会自动去重。</p>
+        </div>
+      </div>
+      <div className="dimension-add-column">
+        <div className="dimension-add-row">
+          <label className="field">
+            <span>来源</span>
+            <Select value={source} onChange={setSource} ariaLabel="记忆来源" options={sourcePresets.map((name) => ({ value: name, label: name }))} />
+          </label>
+          <label className="field dimension-add-main">
+            <span>经验洞察</span>
+            <input
+              name="memoryInsight"
+              autoComplete="off"
+              value={insight}
+              maxLength={500}
+              onChange={(event) => setInsight(event.target.value)}
+              placeholder="例：带真实踩坑经历的选题打开率明显更高"
+            />
+          </label>
+        </div>
+        <div className="dimension-add-row">
+          <label className="field dimension-add-main">
+            <span>行动建议（可选）</span>
+            <input
+              name="memoryAction"
+              autoComplete="off"
+              value={action}
+              maxLength={500}
+              onChange={(event) => setAction(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter' && insight.trim()) void add() }}
+              placeholder="例：每月至少一篇“失败复盘”型选题"
+            />
+          </label>
+          <button className="button primary" disabled={busy || !insight.trim()} onClick={() => void add()}>
+            <Plus size={15} />记录
+          </button>
+        </div>
+      </div>
+      <div className="dimension-list">
+        {account.memories.map((memory) => (
+          <div key={memory.id} className="dimension-item">
+            <span className="badge neutral">{memory.source}</span>
+            <span className="dimension-item-main">
+              <strong>{memory.insight}</strong>
+              {memory.action && <small>→ {memory.action}</small>}
+              <small className="dimension-item-date">{memory.memoryDate}</small>
+            </span>
+            <button className="icon-button danger" title="删除" aria-label="删除记忆" onClick={() => void remove(memory.id)}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+        {!account.memories.length && <p className="micro-copy">还没有记忆。发布复盘后把有效经验记到这里，账号会越用越懂你。</p>}
+      </div>
+    </section>
   )
 }
 
@@ -766,7 +1259,10 @@ function GeneratedFields({
     <div className="generated-fields">
       {fields.map((field, index) => (
         <div className="generated-field" key={field.id}>
-          <span className="field-index">{String(index + 1).padStart(2, '0')}</span>
+          <span className="field-index" title={field.source === 'ai' ? 'AI 生成' : field.source === 'restore' ? '来自恢复版本' : '手动填写'}>
+            {String(index + 1).padStart(2, '0')}
+            {field.source === 'ai' && <small className="field-source-tag">AI</small>}
+          </span>
           <div>
             <input
               className="field-name-input"
@@ -810,18 +1306,20 @@ function newCustomField(): AccountField {
   }
 }
 
-function serializePreview(fields: AccountField[]): string {
-  const body = fields
-    .map((field) => `${escapeXml(field.name.trim())}：${escapeXml(field.value.trim())}`)
-    .join('\n')
-  return `<账号定位>\n${body}\n</账号定位>`
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
+/** 向导答案 → 基线定位字段（按七问顺序映射默认字段；来源标注 user） */
+function baselineFieldsFromAnswers(answers: WizardAnswer[]): AccountField[] {
+  const mapping = ['账号名称', '领域', '目标受众', '写作风格', 'IP人设', '差异化定位', '价值主张']
+  return DEFAULT_ACCOUNT_FIELD_NAMES.map((name) => {
+    const index = mapping.indexOf(name)
+    const answer = index >= 0 ? answers[index]?.answer.trim() ?? '' : ''
+    return {
+      id: crypto.randomUUID(),
+      name,
+      value: name === '账号名称' && !answer ? '未命名账号' : answer,
+      isDefault: true,
+      source: 'user' as const
+    }
+  })
 }
 
 function sourceLabel(source: 'ai' | 'manual' | 'restore'): string {

@@ -16,6 +16,7 @@ import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader } from '../components/PageHeader'
 import { MaterialPicker } from '../components/MaterialPicker'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { useDraftState } from '../hooks/useDraftState'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate } from '../lib'
 
@@ -41,11 +42,12 @@ export function FrameworksPage({
   const [topicId, setTopicId] = useState('')
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
   const [materialIds, setMaterialIds] = useState<Set<string>>(new Set())
-  const [manualTopic, setManualTopic] = useState('')
+  const [manualTopic, setManualTopic] = useDraftState('framework-topic')
   const [count, setCount] = useState(3)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
+  const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
 
   const models = useMemo(() => availableModels(providers), [providers])
   const [modelTarget, setModelTarget] = useModelTarget(models)
@@ -120,7 +122,7 @@ export function FrameworksPage({
         <label className="field"><span>选题（可选）</span><Select value={topicId} onChange={setTopicId} placeholder="不关联选题" options={[{ value: '', label: '不关联选题' }, ...topics.map((topic) => ({ value: topic.id, label: topic.fields['选题主题'] || topic.seedKeyword }))]} ariaLabel="选题" /></label>
         <label className="field"><span>连接与模型</span><Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} ariaLabel="连接与模型" /></label>
       </div>
-      <label className="field framework-topic-field"><span>补充主题（未选选题时必填）</span><textarea name="manualTopic" autoComplete="off" rows={2} maxLength={2000} value={manualTopic} onChange={(event) => setManualTopic(event.target.value)} placeholder="例如：为什么创作者应该先写框架，再写正文？…" /></label>
+      <label className="field framework-topic-field"><span>补充主题（未选选题时必填）</span><textarea name="manualTopic" autoComplete="off" rows={2} maxLength={2000} value={manualTopic} onChange={(event) => setManualTopic(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void generate() } }} placeholder="例如：为什么创作者应该先写框架，再写正文？（Ctrl+Enter 直接生成）" /></label>
       <MaterialPicker
         materials={usableMaterials}
         selected={materialIds}
@@ -139,8 +141,8 @@ export function FrameworksPage({
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
-      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div></header>
-      {frameworks.length ? <div className="framework-card-grid"><VirtualList items={frameworks} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div> : <div className="large-empty"><WandSparkles size={34} /><h3>还没有内容框架</h3></div>}
+      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
+      {frameworks.length ? <div className="framework-card-grid"><VirtualList items={accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div> : <div className="large-empty"><WandSparkles size={34} /><h3>还没有内容框架</h3></div>}
     </section>
     </div>
     {templateEditor && <TemplateDialog template={templateEditor === 'new' ? undefined : templateEditor} templates={templates} onClose={() => setTemplateEditor(undefined)} onSaved={async () => { setTemplateEditor(undefined); await refresh() }} showToast={showToast} />}
