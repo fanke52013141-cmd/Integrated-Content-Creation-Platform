@@ -1,4 +1,5 @@
-import { ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { AppDatabase } from './database.js'
 import type { ModelGateway } from './gateway/model-gateway.js'
@@ -19,6 +20,7 @@ import type { WechatPublishService } from './services/wechat-publish-service.js'
 import type { WeiboLoginService } from './services/weibo-login-service.js'
 import type { VisualAssetService } from './services/visual-asset-service.js'
 import type { FileMaterialService } from './services/file-material-service.js'
+import type { WorkspaceService } from './services/workspace-service.js'
 import { listLayoutThemes } from './services/layout-themes.js'
 import {
   activeGenerationDomains,
@@ -27,7 +29,8 @@ import {
   endGeneration,
   type GenerationDomain
 } from './services/generation-registry.js'
-import { validateAccountFields, validateTopicSchema } from '../shared/domain.js'
+import { GENERATION_DOMAIN_LABELS } from '../shared/contracts.js'
+import { resolveExternalUrl, validateAccountFields, validateTopicSchema } from '../shared/domain.js'
 import type {
   AddAccountMemoryInput,
   AddAccountPlatformInput,
@@ -63,33 +66,7 @@ function sendToStream(event: IpcMainInvokeEvent, channel: string, payload: unkno
   if (!event.sender.isDestroyed()) event.sender.send(channel, payload)
 }
 
-/**
- * 生成任务统一执行壳：互斥登记 + 生命周期广播（generation:events）。
- * done/failed 事件驱动顶栏任务指示与跨页面完成通知。
- */
-async function runGeneration<T>(
-  event: IpcMainInvokeEvent,
-  domain: GenerationDomain,
-  task: (signal: AbortSignal) => Promise<T>
-): Promise<T> {
-  const run = beginGeneration(domain)
-  sendToStream(event, 'generation:events', { domain, status: 'started', at: new Date().toISOString() })
-  try {
-    const result = await task(run.signal)
-    sendToStream(event, 'generation:events', { domain, status: 'done', at: new Date().toISOString() })
-    return result
-  } catch (error) {
-    sendToStream(event, 'generation:events', {
-      domain,
-      status: 'failed',
-      message: error instanceof Error ? error.message : undefined,
-      at: new Date().toISOString()
-    })
-    throw error
-  } finally {
-    endGeneration(domain)
-  }
-}
+/** 生成任务统一执行壳在 registerIpc 内定义，便于把结果写入任务台账 */
 
 const providerSchema = z.object({
   id: z.string().optional(),
@@ -167,6 +144,7 @@ export function registerIpc(options: {
   weiboLoginService: WeiboLoginService
   visualAssets: VisualAssetService
   fileMaterials: FileMaterialService
+  workspace: WorkspaceService
   dataPath: string
 }): void {
   const {
@@ -188,8 +166,39 @@ export function registerIpc(options: {
     weiboLoginService,
     visualAssets,
     fileMaterials,
+    workspace,
     dataPath
   } = options
+
+  /**
+   * 生成任务统一执行壳：模块内互斥 + 生命周期广播 + 任务台账落库。
+   * 台账让任务中心能看到跨页面的历史结果；批量的部分失败如实记 partial，不伪装成全部成功。
+   */
+  async function runGeneration<T>(
+    event: IpcMainInvokeEvent,
+    domain: GenerationDomain,
+    task: (signal: AbortSignal) => Promise<T>
+  ): Promise<T> {
+    const run = beginGeneration(domain)
+    const taskId = randomUUID()
+    database.beginGenerationTask({ id: taskId, domain, label: GENERATION_DOMAIN_LABELS[domain] })
+    sendToStream(event, 'generation:events', { id: taskId, domain, status: 'started', at: new Date().toISOString() })
+    try {
+      const result = await task(run.signal)
+      const failed = (result as { failed?: unknown[] } | null)?.failed
+      const partial = Array.isArray(failed) && failed.length > 0
+      database.finishGenerationTask(taskId, partial ? 'partial' : 'succeeded', partial ? `${failed?.length} 项未完成` : '')
+      sendToStream(event, 'generation:events', { id: taskId, domain, status: 'done', at: new Date().toISOString() })
+      return result
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '生成失败'
+      database.finishGenerationTask(taskId, run.signal.aborted ? 'cancelled' : 'failed', message)
+      sendToStream(event, 'generation:events', { id: taskId, domain, status: 'failed', message, at: new Date().toISOString() })
+      throw error
+    } finally {
+      endGeneration(domain)
+    }
+  }
 
   handle('app:bootstrap', () => {
     const accounts = database.listAccounts()
@@ -201,10 +210,41 @@ export function registerIpc(options: {
     }
   })
   handle('app:data-path', () => dataPath)
+  handle('app:open-external', async (_event, rawUrl: string) => {
+    // 危险协议直接返回 false，由页面给出统一提示；不抛错，避免渲染层出现未处理的 rejection
+    const url = resolveExternalUrl(rawUrl)
+    if (!url) return false
+    await shell.openExternal(url.toString())
+    return true
+  })
+  handle('app:export-article', (_event, raw: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }) => {
+    const input = z.object({
+      articleId: z.string().uuid(),
+      format: z.enum(['markdown', 'html']),
+      targetDir: z.string().min(1).max(1_000).optional()
+    }).parse(raw)
+    return workspace.exportArticle(input)
+  })
+  handle('app:export-layout', (_event, raw: { layoutId: string; targetDir?: string }) => {
+    const input = z.object({ layoutId: z.string().uuid(), targetDir: z.string().min(1).max(1_000).optional() }).parse(raw)
+    return workspace.exportLayout(input)
+  })
+  handle('app:backup-create', (_event, raw?: { targetDir?: string }) => {
+    const input = z.object({ targetDir: z.string().min(1).max(1_000).optional() }).optional().parse(raw)
+    return workspace.createBackup(input)
+  })
+  handle('app:backup-restore', (_event, raw: { bundleDir: string }) => {
+    const input = z.object({ bundleDir: z.string().min(1).max(1_000) }).parse(raw)
+    return workspace.restoreBackup(input)
+  })
+  handle('app:backup-list', () => workspace.listBackupBundles())
 
-  // ===== 生成任务：互斥与取消 =====
+  // ===== 生成任务：互斥、取消与历史台账 =====
   handle('generation:cancel', (_event, domain: string) => ({ cancelled: cancelGeneration(domain as GenerationDomain) }))
   handle('generation:active', () => activeGenerationDomains())
+  handle('generation:list', (_event, limit?: number) => database.listGenerationTasks(
+    typeof limit === 'number' && limit > 0 && limit <= 100 ? limit : 30
+  ))
 
   handle('providers:presets', () => PROVIDER_PRESETS)
   handle('providers:list', () => database.listProviders())
@@ -277,22 +317,36 @@ export function registerIpc(options: {
     const provider = database.getProvider(providerId)
     if (!provider) throw new Error('供应商不存在')
     const startedAt = performance.now()
-    const result = await gateway.chat({
-      providerId,
-      temperature: 0,
-      maxTokens: 16,
-      messages: [
-        {
-          role: 'user',
-          content: '只回复 OK'
-        }
-      ]
-    })
-    return {
-      ok: true,
-      latencyMs: Math.round(performance.now() - startedAt),
-      model: result.model,
-      message: `连接成功 · 模型 ${result.model} 正常响应`
+    try {
+      const result = await gateway.chat({
+        providerId,
+        temperature: 0,
+        maxTokens: 16,
+        messages: [
+          {
+            role: 'user',
+            content: '只回复 OK'
+          }
+        ]
+      })
+      const latencyMs = Math.round(performance.now() - startedAt)
+      database.recordProviderTest(providerId, 'success')
+      return {
+        ok: true,
+        latencyMs,
+        model: result.model,
+        message: `连接成功 · 模型 ${result.model} 正常响应`
+      }
+    } catch (error) {
+      // 失败同样落库：让"已保存"与"验证失败"在界面上可区分，而不是静默回到未验证
+      const reason = error instanceof Error ? error.message : String(error)
+      database.recordProviderTest(providerId, 'failure', reason)
+      return {
+        ok: false,
+        latencyMs: Math.round(performance.now() - startedAt),
+        model: provider.defaultModel,
+        message: `验证失败：${reason}`
+      }
     }
   })
 
@@ -404,11 +458,6 @@ export function registerIpc(options: {
     }
     return hotspotService.refresh(sourceIds)
   })
-  handle('hotspots:open-source', async (_event, rawUrl: string) => {
-    const url = new URL(rawUrl)
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只允许打开网页链接')
-    await shell.openExternal(url.toString())
-  })
   handle('hotspots:favorites:list', () => database.listHotFavorites())
   handle('hotspots:favorites:add', (_event, raw: AddHotFavoriteInput) => {
     const input = z.object({
@@ -512,6 +561,7 @@ export function registerIpc(options: {
   handle('topics:remove', (_event, id: string) => database.removeTopic(requireId(id)))
 
   handle('materials:list', () => database.listMaterials())
+  handle('materials:usage', () => database.materialUsage())
   handle('materials:search', (_event, raw: MaterialSearchInput) => {
     const input = z.object({
       query: z.string().trim().min(1).max(100),
@@ -631,10 +681,17 @@ export function registerIpc(options: {
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.generate(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
   })
+  handle('clipboard:writeRichText', (_event, raw: { html: string; text: string }) => {
+    const input = z.object({ html: z.string().min(1).max(3_000_000), text: z.string().max(1_000_000) }).parse(raw)
+    // 公众号等富文本编辑器读取的是剪贴板中的 HTML 格式，只写纯文本会丢掉全部样式
+    clipboard.write({ html: input.html, text: input.text })
+    return true
+  })
   handle('articles:revise', (event, raw: ReviseArticleInput) => {
     const input = z.object({
       articleId: articleIdSchema, instruction: z.string().trim().min(1).max(8_000), alignFramework: z.boolean(),
-      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3)
+      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
+      baseMarkdown: z.string().max(200_000).optional()
     }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.revise(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
@@ -662,7 +719,7 @@ export function registerIpc(options: {
   handle('reviews:start',(event,raw:StartReviewInput)=>{const input=z.object({articleId:z.string().uuid(),roleIds:z.array(z.string().uuid()).min(1).max(10),fallbackProviderId:z.string().uuid(),fallbackModel:z.string().min(1).max(160)}).parse(raw);return runGeneration(event,'reviews',(signal)=>reviewService.start(input,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal))})
   handle('reviews:problems:update',(_e,raw:UpdateReviewProblemInput)=>database.updateReviewProblem(z.object({id:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1),adopted:z.boolean()}).parse(raw)))
   handle('reviews:problems:add',(_e,raw:AddManualReviewProblemInput)=>{const x=z.object({taskId:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1)}).parse(raw);return database.addReviewOpinion({taskId:x.taskId,dimensions:[],overallSuggestion:'',rawXml:'',extractionMatched:true,problems:[{...x,adopted:true,isManual:true}] }).problems[0]})
-  handle('reviews:apply',(event,taskId:string,providerId:string,model:string)=>runGeneration(event,'reviews',(signal)=>reviewService.apply(requireId(taskId),requireId(providerId),model,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal)))
+  handle('reviews:apply',(event,taskId:string,providerId:string,model:string,force?:boolean)=>runGeneration(event,'reviews',(signal)=>reviewService.apply(requireId(taskId),requireId(providerId),model,{force:Boolean(force)},(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal)))
   handle('visuals:list',(_e,articleId?:string)=>database.listVisualPacks(articleId?requireId(articleId):undefined))
   handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
   handle('visuals:remove',(_e,id:string)=>{const packId=requireId(id);void visualAssets.removePackAssets(packId);database.removeVisualPack(packId)})
@@ -682,6 +739,7 @@ export function registerIpc(options: {
   handle('publishing:wechat:push-draft',(_e,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),layoutId:z.string().uuid(),thumbMediaId:z.string().trim().max(200).optional(),coverAssetId:z.string().uuid().optional(),author:z.string().trim().max(100).optional(),digest:z.string().trim().max(120).optional(),contentSourceUrl:z.string().trim().url().optional()}).refine((value)=>Boolean(value.thumbMediaId||value.coverAssetId),{message:'请先生成或导入封面图片，或手动填写封面素材标识'}).parse(raw);return wechatPublishService.pushDraft(input)})
   handle('publishing:wechat:upload-cover',(_e,raw:unknown)=>{const input=z.object({assetId:z.string().uuid()}).parse(raw);return wechatPublishService.uploadAsset(input.assetId)})
   handle('publishing:update',(_e,raw:unknown)=>{const input=z.object({id:z.string().uuid(),status:z.literal('published'),publishedUrl:z.string().url()}).parse(raw);return database.markPublicationPublished(input.id,input.publishedUrl)})
+  handle('publishing:retro',(_e,raw:unknown)=>{const input=z.object({id:z.string().uuid(),goal:z.string().trim().max(2_000),result:z.string().trim().max(2_000),lesson:z.string().trim().max(2_000)}).parse(raw);return database.savePublicationRetro(input.id,{goal:input.goal,result:input.result,lesson:input.lesson})})
 }
 
 function handle(

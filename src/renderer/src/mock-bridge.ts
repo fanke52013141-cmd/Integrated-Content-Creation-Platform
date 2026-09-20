@@ -9,10 +9,18 @@
  *
  * It is a no-op when the real bridge already exists.
  */
+import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
 import type {
+  AccountField,
+  AccountMemory,
+  AccountPlatformBinding,
+  AccountRedline,
   AppBootstrap,
+  GenerationDomain,
+  GenerationTask,
   HotspotBootstrap,
   HotSourceResult,
+  LocalFileResult,
   MoliuApi,
   ProviderPreset,
   PromptDefSummary,
@@ -68,6 +76,7 @@ const DEMO_BOOTSTRAP: AppBootstrap = {
         }
       ],
       hasApiKey: true,
+      verification: { configured: true, lastTestStatus: 'success', lastTestAt: '2025-01-01T00:00:00.000Z', verified: true, stale: false },
       createdAt: '2025-01-01T00:00:00.000Z',
       updatedAt: '2025-01-01T00:00:00.000Z'
     }
@@ -221,11 +230,37 @@ const DEMO_PROVIDER_PRESETS: ProviderPreset[] = [
 function createMockBridge(): MoliuApi {
   const emptyArray = <T>(): Promise<T[]> => Promise.resolve([])
   const void_ = (): Promise<void> => Promise.resolve()
+  const demoRedlines: AccountRedline[] = []
+  const demoBindings: AccountPlatformBinding[] = []
+  const demoMemories: AccountMemory[] = []
+  const demoFields: AccountField[] = DEFAULT_ACCOUNT_FIELD_NAMES.map((name) => ({
+    id: `demo-field-${name}`,
+    name,
+    value: name === '账号名称' ? '心流示例' : name === '领域' ? '科技生活' : name === '简介' ? '专注于科技与生活方式的内容创作者。' : '',
+    isDefault: true
+  }))
 
   const root: Record<string, unknown> = {
     app: {
       bootstrap: (): Promise<AppBootstrap> => Promise.resolve(DEMO_BOOTSTRAP),
-      getDataPath: (): Promise<string> => Promise.resolve('/demo/workspace')
+      getDataPath: (): Promise<string> => Promise.resolve('/demo/workspace'),
+      openExternal: (url: string): Promise<boolean> => {
+        if (/^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener')
+        return Promise.resolve(true)
+      },
+      // 浏览器预览没有本地磁盘权限：导出/备份返回「已取消」语义，页面按提示分支展示
+      exportArticle: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
+      exportLayout: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
+      createBackup: (): Promise<{ path: string; checksum: string }> =>
+        Promise.resolve({ path: '/demo/workspace/backups/moliu-backup-demo', checksum: 'demo' }),
+      restoreBackup: (): Promise<{ restoredImages: number }> => Promise.resolve({ restoredImages: 0 }),
+      listBackups: (): Promise<string[]> => Promise.resolve([])
+    },
+    clipboard: {
+      writeRichText: (html: string): Promise<boolean> => {
+        navigator.clipboard?.writeText(html)
+        return Promise.resolve(true)
+      }
     },
     providers: {
       presets: (): Promise<ProviderPreset[]> => Promise.resolve(DEMO_PROVIDER_PRESETS),
@@ -260,13 +295,74 @@ function createMockBridge(): MoliuApi {
     },
     accounts: {
       list: () => Promise.resolve(DEMO_BOOTSTRAP.accounts),
-      get: (id: string) => Promise.resolve(DEMO_BOOTSTRAP.accounts.find((a) => a.id === id)),
+      get: (id: string) => {
+        const summary = DEMO_BOOTSTRAP.accounts.find((a) => a.id === id)
+        if (!summary) return Promise.resolve(null)
+        return Promise.resolve({
+          ...summary,
+          currentVersionId: 'demo-version-1',
+          fields: demoFields,
+          wizardAnswers: [],
+          versions: [],
+          redlines: demoRedlines,
+          platformAccounts: demoBindings,
+          memories: demoMemories
+        })
+      },
       generate: () => Promise.resolve(DEMO_BOOTSTRAP.accounts[0]),
       save: (input: unknown) => Promise.resolve(input),
       setCurrent: () => void_(),
       setLocked: () => void_(),
       restore: () => void_(),
-      remove: () => void_()
+      remove: () => void_(),
+      listRedlines: () => Promise.resolve(demoRedlines),
+      addRedline: (input: { profileId: string; kind: AccountRedline['kind']; content: string }) => {
+        const redline: AccountRedline = {
+          id: `demo-redline-${demoRedlines.length + 1}`, profileId: input.profileId,
+          kind: input.kind, content: input.content, createdAt: new Date().toISOString()
+        }
+        demoRedlines.push(redline)
+        return Promise.resolve(redline)
+      },
+      removeRedline: (id: string) => {
+        const index = demoRedlines.findIndex((item) => item.id === id)
+        if (index >= 0) demoRedlines.splice(index, 1)
+        return void_()
+      },
+      listPlatformAccounts: () => Promise.resolve(demoBindings),
+      addPlatformAccount: (input: { profileId: string; platform: string; handle: string; note?: string }) => {
+        const binding: AccountPlatformBinding = {
+          id: `demo-binding-${demoBindings.length + 1}`, profileId: input.profileId,
+          platform: input.platform, handle: input.handle, note: input.note ?? '',
+          createdAt: new Date().toISOString()
+        }
+        demoBindings.push(binding)
+        return Promise.resolve(binding)
+      },
+      removePlatformAccount: (id: string) => {
+        const index = demoBindings.findIndex((item) => item.id === id)
+        if (index >= 0) demoBindings.splice(index, 1)
+        return void_()
+      },
+      listMemories: () => Promise.resolve(demoMemories),
+      addMemory: (input: { profileId: string; insight: string; action?: string; source?: string; memoryDate?: string }) => {
+        const insight = input.insight.trim()
+        const existing = demoMemories.find((item) => item.insight === insight)
+        if (existing) return Promise.resolve({ memory: null, created: false })
+        const memory: AccountMemory = {
+          id: `demo-memory-${demoMemories.length + 1}`, profileId: input.profileId,
+          memoryDate: input.memoryDate?.trim() || new Date().toISOString().slice(0, 10),
+          source: input.source?.trim() || '用户自述', insight, action: input.action?.trim() ?? '',
+          createdAt: new Date().toISOString()
+        }
+        demoMemories.push(memory)
+        return Promise.resolve({ memory, created: true })
+      },
+      removeMemory: (id: string) => {
+        const index = demoMemories.findIndex((item) => item.id === id)
+        if (index >= 0) demoMemories.splice(index, 1)
+        return void_()
+      }
     },
     hotspots: {
       bootstrap: (): Promise<HotspotBootstrap> => Promise.resolve(DEMO_HOTSPOT_BOOTSTRAP),
@@ -275,7 +371,7 @@ function createMockBridge(): MoliuApi {
         if (!sourceIds || !sourceIds.length) return Promise.resolve(DEMO_SOURCE_RESULTS)
         return Promise.resolve(DEMO_SOURCE_RESULTS.filter((r) => sourceIds.includes(r.source.id)))
       },
-      openSource: () => void_(),
+      onStream: () => () => undefined,
       listFavorites: () => emptyArray(),
       addFavorite: (input: { hotItem: { id: string; title: string; source: string; sourceTitle: string } }) =>
         Promise.resolve({
@@ -302,11 +398,12 @@ function createMockBridge(): MoliuApi {
       saveSchema: (fields: unknown) => Promise.resolve(fields),
       resetSchema: () => Promise.resolve([]),
       list: () => emptyArray(),
-      generate: () => Promise.resolve({ topics: [], latencyMs: 0 }),
+      generate: () => Promise.resolve({ topics: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
       setLocked: () => void_(),
       setInLibrary: () => void_(),
-      remove: () => void_()
+      remove: () => void_(),
+      onStream: () => () => undefined
     },
     materials: {
       list: () => emptyArray(),
@@ -314,26 +411,29 @@ function createMockBridge(): MoliuApi {
       addSearchResult: () => void_(),
       addManual: () => void_(),
       addFile: () => void_(),
+      usage: (): Promise<Record<string, Array<{ id: string; title: string }>>> => Promise.resolve({}),
       remove: () => void_()
     },
     frameworks: {
       listTemplates: () => emptyArray(),
       saveTemplate: (input: unknown) => Promise.resolve(input),
       list: () => emptyArray(),
-      generate: () => Promise.resolve({ frameworks: [], latencyMs: 0 }),
+      generate: () => Promise.resolve({ frameworks: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
       setLocked: () => void_(),
-      remove: () => void_()
+      remove: () => void_(),
+      onStream: () => () => undefined
     },
     articles: {
       list: () => emptyArray(),
-      get: () => void_(),
-      generate: () => Promise.resolve({ article: null, latencyMs: 0 }),
-      revise: () => Promise.resolve({ article: null, latencyMs: 0 }),
+      get: (): Promise<null> => Promise.resolve(null),
+      generate: () => Promise.resolve({ articles: [], failed: [] }),
+      revise: () => Promise.resolve({ articles: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
       restore: () => void_(),
       setLocked: () => void_(),
-      remove: () => void_()
+      remove: () => void_(),
+      onStream: () => () => undefined
     },
     reviews: {
       listRoles: () => emptyArray(),
@@ -358,7 +458,16 @@ function createMockBridge(): MoliuApi {
     },
     generation: {
       cancel: () => Promise.resolve({ cancelled: false }),
-      active: () => emptyArray(),
+      active: (): Promise<GenerationDomain[]> => Promise.resolve([]),
+      list: (): Promise<GenerationTask[]> => Promise.resolve([{
+        id: 'demo-task',
+        domain: 'articles',
+        label: '文章',
+        status: 'succeeded',
+        detail: '演示数据',
+        startedAt: '2026-04-01T00:00:00.000Z',
+        finishedAt: '2026-04-01T00:02:00.000Z'
+      }]),
       events: () => () => undefined
     },
     layouts: {
@@ -368,12 +477,13 @@ function createMockBridge(): MoliuApi {
       remove: () => void_()
     },
     publishing: {
-      getWechatChannel: () => Promise.resolve({ appId: '', appSecret: '', enabled: false }),
+      getWechatChannel: () => Promise.resolve({ id: 'wechat-official', displayName: '公众号', appId: '', enabled: false, hasAppSecret: false, updatedAt: new Date().toISOString() }),
       saveWechatChannel: (input: unknown) => Promise.resolve(input),
       testWechatChannel: () => Promise.resolve({ ok: false, message: '演示环境未配置' }),
       list: () => emptyArray(),
       pushWechatDraft: () => void_(),
       update: () => void_(),
+      saveRetro: () => void_(),
       uploadWechatCover: () => void_()
     }
   }

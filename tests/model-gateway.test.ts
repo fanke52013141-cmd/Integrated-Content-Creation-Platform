@@ -6,7 +6,7 @@ import type { KeyStore } from '../src/main/security/key-store.js'
 import type { ProviderSummary } from '../src/shared/contracts.js'
 
 // 构造一个启用了 chat 能力的供应商，默认模型 moliu-test-model。
-function makeProvider(overrides: Partial<ProviderSummary> = {}): ProviderSummary {
+function makeProvider(overrides: Partial<Omit<ProviderSummary, 'verification'>> = {}): ProviderSummary {
   return {
     id: 'provider-1',
     displayName: '本地测试供应商',
@@ -24,6 +24,7 @@ function makeProvider(overrides: Partial<ProviderSummary> = {}): ProviderSummary
       }
     ],
     hasApiKey: true,
+    verification: { configured: true, verified: false, stale: false },
     createdAt: '', updatedAt: '',
     ...overrides
   }

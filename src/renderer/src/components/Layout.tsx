@@ -18,11 +18,14 @@ import {
   Sparkles,
   Sun,
   WandSparkles,
-  Send
+  Send,
+  ListChecks,
+  House
 } from 'lucide-react'
 import type { AccountProfileSummary, ProviderSummary } from '../../../shared/contracts'
+import { WorkBar } from './WorkContext'
 
-export type RouteId = 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'providers' | 'prompts'
+export type RouteId = 'home' | 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'providers' | 'prompts'
 
 interface LayoutProps {
   route: RouteId
@@ -36,6 +39,7 @@ interface LayoutProps {
   onNavigate(route: RouteId, params?: Record<string, string>): void
   onToggleTheme(): void
   onSwitchAccount(id: string): void
+  onShowTasks(): void
 }
 
 interface NavItem {
@@ -50,6 +54,10 @@ interface NavGroup {
 }
 
 const navGroups: NavGroup[] = [
+  {
+    title: '总览',
+    items: [{ id: 'home', label: '创作台', icon: House }]
+  },
   {
     title: '准备',
     items: [
@@ -83,6 +91,7 @@ const navGroups: NavGroup[] = [
 ]
 
 const routeBreadcrumbs: Record<RouteId, { group: string; label: string }> = {
+  home: { group: '总览', label: '创作台' },
   accounts: { group: '准备', label: '账号定位' },
   hotspots: { group: '准备', label: '热点洞察' },
   topics: { group: '创作', label: '选题生成' },
@@ -107,11 +116,19 @@ export function Layout({
   children,
   onNavigate,
   onToggleTheme,
-  onSwitchAccount
+  onSwitchAccount,
+  onShowTasks
 }: LayoutProps): React.JSX.Element {
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
   const crumb = routeBreadcrumbs[route]
   const gatewayReady = usableProviders.length > 0
+  // 只有真正通过连通性验证才显示绿色，避免用"配置已保存"冒充"已连通"
+  const gatewayState = usableProviders.length === 0 ? undefined
+    : usableProviders.some((item) => item.verification.verified)
+      ? { state: 'ready', label: '模型网关已验证连通' }
+      : usableProviders.some((item) => item.verification.lastTestStatus === 'failure')
+        ? { state: 'failed', label: '模型网关最近一次验证失败' }
+        : { state: 'unverified', label: '模型网关已配置，尚未验证连通' }
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
 
@@ -163,8 +180,8 @@ export function Layout({
           >
             <span className="nav-icon"><Settings2 size={16} /></span>
             <span>模型网关</span>
-            {usableProviders.length > 0 && (
-              <span className="gateway-status-dot ready" />
+            {gatewayState && (
+              <span className={`gateway-status-dot ${gatewayState.state}`} title={gatewayState.label} aria-label={gatewayState.label} />
             )}
           </button>
           <button
@@ -203,6 +220,7 @@ export function Layout({
                 <AlertTriangle size={15} />
               </button>
             )}
+            <button className="icon-button task-center-button" onClick={onShowTasks} aria-label="任务中心" title="任务中心"><ListChecks size={15} /></button>
             <button className="theme-toggle" onClick={onToggleTheme} aria-label="切换主题">
               <span className={theme === 'light' ? 'active' : ''}><Sun size={14} /></span>
               <span className={theme === 'dark' ? 'active' : ''}><Moon size={14} /></span>
@@ -267,6 +285,7 @@ export function Layout({
           </div>
         </header>
 
+        <WorkBar accounts={accounts} onNavigate={onNavigate} />
         <main id="main" className="content" tabIndex={-1}>{children}</main>
       </section>
     </div>

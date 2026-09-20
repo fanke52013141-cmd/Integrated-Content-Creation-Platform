@@ -59,6 +59,21 @@ export interface SaveProviderModelInput {
   enabled: boolean
 }
 
+export type ProviderTestStatus = 'success' | 'failure'
+/** 连通性验证状态：与"配置已保存"严格区分，避免用已保存冒充已连通 */
+export interface ProviderVerification {
+  /** 是否已保存访问密钥 */
+  configured: boolean
+  /** 最近一次验证结果，undefined 表示从未验证 */
+  lastTestStatus?: ProviderTestStatus
+  lastTestAt?: string
+  lastTestError?: string
+  /** 密钥就绪 + 最近一次验证成功 + 之后配置未改动 */
+  verified: boolean
+  /** 验证成功之后又修改过配置，需要重新验证 */
+  stale: boolean
+}
+
 export interface ProviderSummary {
   id: string
   displayName: string
@@ -70,6 +85,7 @@ export interface ProviderSummary {
   capabilities: CapabilityFlags
   models: ProviderModel[]
   hasApiKey: boolean
+  verification: ProviderVerification
   createdAt: string
   updatedAt: string
 }
@@ -600,7 +616,7 @@ export interface ArticleVersion { id: string; articleId: string; versionNumber: 
 export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
 export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
-export interface ReviseArticleInput { articleId: string; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number }
+export interface ReviseArticleInput { articleId: string; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string }
 export interface ReviseArticleResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
 export interface SaveArticleInput { id?: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; rawMarkdown: string; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string }
 export interface RestoreArticleVersionInput { articleId: string; versionId: string }
@@ -608,10 +624,12 @@ export type ReviewSeverity = 'high' | 'medium' | 'low'
 export interface ReviewRole { id: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number; createdAt: string; updatedAt: string }
 export interface ReviewProblem { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean; isManual: boolean }
 export interface ReviewOpinion { id: string; taskId: string; roleId?: string; roleName: string; providerId?: string; model?: string; dimensions: string[]; problems: ReviewProblem[]; overallSuggestion: string; rawXml: string; extractionMatched: boolean; createdAt: string }
-export interface ReviewTask { id: string; articleId: string; roleIds: string[]; status: 'running' | 'completed' | 'applied'; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
+export type ReviewTaskStatus = 'running' | 'completed' | 'partial' | 'failed' | 'applied'
+export interface ReviewFailure { roleId: string; roleName: string; message: string }
+export interface ReviewTask { id: string; articleId: string; articleVersionId: string; articleVersionNumber: number; roleIds: string[]; status: ReviewTaskStatus; failures: ReviewFailure[]; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
 export interface SaveReviewRoleInput { id?: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number }
 export interface StartReviewInput { articleId: string; roleIds: string[]; fallbackProviderId: string; fallbackModel: string }
-export interface StartReviewResult { task: ReviewTask; failed: Array<{ roleId: string; message: string }> }
+export interface StartReviewResult { task: ReviewTask; failed: ReviewFailure[] }
 export interface UpdateReviewProblemInput { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean }
 export interface AddManualReviewProblemInput { taskId: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string }
 
@@ -656,9 +674,12 @@ export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
 export type PublicationStatus = 'draft' | 'published' | 'failed'
-export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; createdAt: string; updatedAt: string }
+export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string }
 export interface PushWechatDraftInput { articleId: string; layoutId: string; /** 手动粘贴的素材 id（兜底）；与 coverAssetId 二选一 */ thumbMediaId?: string; /** 直接引用已上传/已生成图片资产的 id，推送前自动上传换取 media_id */ coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string }
 export interface UpdatePublicationInput { id: string; status: 'published'; publishedUrl: string }
+/** 发布复盘：人工记录「目标 / 结果 / 经验」，用来喂给账号记忆 */
+export interface PublicationRetro { goal: string; result: string; lesson: string; updatedAt: string }
+export interface SavePublicationRetroInput { id: string; goal: string; result: string; lesson: string }
 
 export interface AppBootstrap {
   providers: ProviderSummary[]
@@ -681,23 +702,75 @@ export interface StreamEvent {
   message?: string
 }
 
+/** AI 生成所属模块，主进程按此互斥与记台账 */
+export type GenerationDomain =
+  | 'account'
+  | 'hotspot-filter'
+  | 'topics'
+  | 'frameworks'
+  | 'articles'
+  | 'reviews'
+  | 'visuals'
+
+/** 模块中文标签：顶栏提示、跨页面通知与任务中心共用一份口径 */
+export const GENERATION_DOMAIN_LABELS: Record<GenerationDomain, string> = {
+  account: '账号定位',
+  'hotspot-filter': '热点筛选',
+  topics: '选题',
+  frameworks: '框架',
+  articles: '文章',
+  reviews: '评审',
+  visuals: '配图'
+}
+
 /** 生成任务生命周期事件（主进程广播，供全局任务指示使用） */
 export interface GenerationEvent {
-  domain: string
+  id: string
+  domain: GenerationDomain
   status: 'started' | 'done' | 'failed'
   message?: string
   at: string
+}
+
+/** 任务台账里的一条历史记录，跨页面与重启后仍可回看 */
+export interface GenerationTask {
+  id: string
+  domain: GenerationDomain
+  label: string
+  status: 'running' | 'succeeded' | 'partial' | 'failed' | 'cancelled' | 'interrupted'
+  detail: string
+  startedAt: string
+  finishedAt?: string
+}
+
+/** 本地导出/备份的返回：path 为 null 表示用户取消 */
+export interface LocalFileResult {
+  path: string | null
 }
 
 export interface MoliuApi {
   app: {
     bootstrap(): Promise<AppBootstrap>
     getDataPath(): Promise<string>
+    /** 受控打开系统浏览器：主进程只放行 http/https，渲染层不自建窗口 */
+    openExternal(url: string): Promise<boolean>
+    /** 导出成品到本地：Markdown 或图片内嵌的单文件 HTML，离线可读 */
+    exportArticle(input: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }): Promise<LocalFileResult>
+    exportLayout(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult>
+    /** 整库备份：数据库快照 + 图片目录 + 校验清单 */
+    createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }>
+    restoreBackup(input: { bundleDir: string }): Promise<{ restoredImages: number }>
+    listBackups(): Promise<string[]>
   }
-  /** 生成任务：按模块互斥、可取消，并提供全局生命周期事件 */
+  /** 主进程受控剪贴板：一次写入 HTML + 纯文本，粘贴到公众号编辑器时保留样式 */
+  clipboard: {
+    writeRichText(html: string, text: string): Promise<boolean>
+  }
+  /** 生成任务：按模块互斥、可取消，并提供全局生命周期事件与历史台账 */
   generation: {
-    cancel(domain: string): Promise<{ cancelled: boolean }>
-    active(): Promise<string[]>
+    cancel(domain: GenerationDomain): Promise<{ cancelled: boolean }>
+    active(): Promise<GenerationDomain[]>
+    list(limit?: number): Promise<GenerationTask[]>
     /** 订阅生成任务 started/done/failed 事件（跨页面提示用） */
     events(callback: (event: GenerationEvent) => void): () => void
   }
@@ -747,7 +820,6 @@ export interface MoliuApi {
     bootstrap(): Promise<HotspotBootstrap>
     saveSourcePreferences(input: SaveHotSourcePreferencesInput): Promise<HotSourcePreference[]>
     refresh(sourceIds?: string[]): Promise<HotSourceResult[]>
-    openSource(url: string): Promise<void>
     listFavorites(): Promise<HotFavorite[]>
     addFavorite(input: AddHotFavoriteInput): Promise<AddHotFavoriteResult>
     updateFavoriteTags(input: UpdateHotFavoriteTagsInput): Promise<HotFavorite>
@@ -781,6 +853,8 @@ export interface MoliuApi {
     /** 上传本地文档作为素材（txt/md/pdf/docx，本地解析） */
     addFile(input: AddFileMaterialInput): Promise<Material>
     remove(id: string): Promise<void>
+    /** 每条素材被哪些文章引用，用于素材选择器与来源回查 */
+    usage(): Promise<Record<string, Array<{ id: string; title: string }>>>
   }
   frameworks: {
     listTemplates(): Promise<FrameworkTemplate[]>
@@ -812,7 +886,7 @@ export interface MoliuApi {
     start(input: StartReviewInput): Promise<StartReviewResult>
     updateProblem(input: UpdateReviewProblemInput): Promise<ReviewProblem>
     addManualProblem(input: AddManualReviewProblemInput): Promise<ReviewProblem>
-    apply(taskId: string, providerId: string, model: string): Promise<Article>
+    apply(taskId: string, providerId: string, model: string, force?: boolean): Promise<Article>
     onStream(callback: (event: StreamEvent) => void): () => void
   }
   visuals: {
@@ -844,6 +918,8 @@ export interface MoliuApi {
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
     update(input: UpdatePublicationInput): Promise<Publication>
+    /** 记录发布复盘（目标/结果/经验），传空即清除 */
+    saveRetro(input: SavePublicationRetroInput): Promise<Publication>
     /** 把图片资产上传到公众号素材库，回填 media_id */
     uploadWechatCover(input: { assetId: string }): Promise<VisualAsset>
   }

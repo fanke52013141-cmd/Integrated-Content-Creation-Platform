@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
+import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import type {
   AccountField,
@@ -16,6 +17,8 @@ import type {
   ArtifactReference,
   CapabilityFlags,
   CreateArtifactReferenceInput,
+  GenerationDomain,
+  GenerationTask,
   HotFavorite,
   HotFavoriteTag,
   HotItem,
@@ -25,6 +28,7 @@ import type {
   ModelCallLog,
   ProviderModel,
   ProviderSummary,
+  ProviderVerification,
   SaveAccountInput,
   SaveTopicInput,
   SaveProviderModelInput,
@@ -42,7 +46,7 @@ import type {
   ArticleVersion,
   ArticleVersionSource,
   SaveArticleInput,
-  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus,
+  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationRetro,
   Topic,
   TopicSchemaField,
   TopicStatus,
@@ -66,6 +70,9 @@ interface ProviderRow {
   is_relay: number
   capabilities_json: string
   has_api_key: number
+  last_test_status: string | null
+  last_test_at: string | null
+  last_test_error: string | null
   created_at: string
   updated_at: string
 }
@@ -249,22 +256,25 @@ interface FrameworkTemplateRow { id: string; name: string; sections_json: string
 interface FrameworkRow { id: string; topic_id: string | null; account_id: string | null; material_ids_json: string; template_id: string | null; manual_topic: string; status: FrameworkStatus; current_version_id: string; version_count: number; sections_json: string; raw_xml: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
 interface ArticleRow { id: string; framework_id: string | null; account_id: string | null; material_ids_json: string; manual_outline: string; status: ArticleStatus; current_version_id: string; version_count: number; raw_markdown: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
 interface ArticleVersionRow { id: string; article_id: string; version_number: number; source: ArticleVersionSource; instruction: string | null; provider_id: string | null; model: string | null; raw_markdown: string; created_at: string }
+interface GenerationTaskRow { id: string; domain: GenerationDomain; label: string; status: GenerationTask['status']; detail: string; started_at: string; finished_at: string | null }
 interface ReviewRoleRow { id:string; name:string; system_prompt:string; provider_id:string|null; model:string|null; extraction_tag:string; extraction_occurrence:'first'|'last'; dimensions_json:string; sort_order:number; created_at:string; updated_at:string }
-interface ReviewTaskRow { id:string; article_id:string; role_ids_json:string; status:'running'|'completed'|'applied'; created_at:string; updated_at:string }
+interface ReviewTaskRow { id:string; article_id:string; article_version_id:string; article_version_number:number; role_ids_json:string; failures_json:string; status:'running'|'completed'|'partial'|'failed'|'applied'; created_at:string; updated_at:string }
 interface ReviewOpinionRow { id:string; task_id:string; role_id:string|null; role_name:string; provider_id:string|null; model:string|null; dimensions_json:string; overall_suggestion:string; raw_xml:string; extraction_matched:number; created_at:string }
 interface ReviewProblemRow { id:string; opinion_id:string; position:string; severity:ReviewSeverity; issue:string; suggestion:string; adopted:number; is_manual:number; created_at:string }
 interface VisualPackRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; provider_id:string; model:string; cover_json:string; inline_images_json:string; release_images_json:string; raw_xml:string; created_at:string }
 interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; theme_id:string|null; created_at:string }
 interface VisualAssetRow { id:string; pack_id:string; kind:'cover'|'inline'|'release'; slot:number; prompt:string; file_name:string; source:'generated'|'imported'; provider_id:string|null; model:string|null; size:string|null; wechat_media_id:string|null; wechat_uploaded_at:string|null; created_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
-interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; created_at:string; updated_at:string }
+interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
 interface PromptVersionRow { id: string; prompt_key: string; version: number; content: string; source: 'builtin' | 'user'; note: string; created_at: string }
 
 export class AppDatabase {
-  private readonly db: DatabaseSync
+  private db: DatabaseSync
+  private readonly location: string
 
   constructor(path: string) {
+    this.location = path
     this.db = new DatabaseSync(path)
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
@@ -273,6 +283,43 @@ export class AppDatabase {
 
   close(): void {
     this.db.close()
+  }
+
+  /** 整库快照备份到指定文件：VACUUM INTO 产出一致性副本，不影响正在写入的原库 */
+  backupTo(targetPath: string): void {
+    rmSync(targetPath, { force: true })
+    this.db.prepare('VACUUM INTO ?').run(targetPath)
+  }
+
+  /**
+   * 从备份文件恢复：先只读校验确实是本应用库，再覆盖当前库并重开连接。
+   * 恢复前自动把旧库另存为 *-pre-restore 文件，失败时可人工回退。
+   */
+  restoreFrom(sourcePath: string): void {
+    if (!this.isDatabaseFile(sourcePath)) throw new Error('所选文件不是本应用的数据库备份')
+    copyFileSync(this.location, `${this.location}.pre-restore`)
+    this.db.close()
+    copyFileSync(sourcePath, this.location)
+    for (const suffix of ['-wal', '-shm']) rmSync(`${this.location}${suffix}`, { force: true })
+    this.db = new DatabaseSync(this.location)
+    this.db.exec('PRAGMA journal_mode = WAL;')
+    this.db.exec('PRAGMA foreign_keys = ON;')
+    this.migrate()
+  }
+
+  /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */
+  isDatabaseFile(path: string): boolean {
+    if (!existsSync(path)) return false
+    let probe: DatabaseSync | undefined
+    try {
+      probe = new DatabaseSync(path, { readOnly: true })
+      const row = probe.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='articles'").get() as { n: number }
+      return row.n > 0
+    } catch {
+      return false
+    } finally {
+      probe?.close()
+    }
   }
 
   private migrate(): void {
@@ -291,6 +338,9 @@ export class AppDatabase {
         enabled INTEGER NOT NULL DEFAULT 1,
         is_relay INTEGER NOT NULL DEFAULT 0,
         capabilities_json TEXT NOT NULL,
+        last_test_status TEXT,
+        last_test_at TEXT,
+        last_test_error TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -393,7 +443,18 @@ export class AppDatabase {
         completion_tokens INTEGER,
         success INTEGER NOT NULL,
         error_kind TEXT,
+        error_message TEXT,
         created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS generation_tasks (
+        id TEXT PRIMARY KEY,
+        domain TEXT NOT NULL,
+        label TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('running','succeeded','partial','failed','cancelled','interrupted')),
+        detail TEXT NOT NULL DEFAULT '',
+        started_at TEXT NOT NULL,
+        finished_at TEXT
       );
 
       CREATE TABLE IF NOT EXISTS artifact_references (
@@ -547,7 +608,7 @@ export class AppDatabase {
         raw_markdown TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(article_id, version_number)
       );
       CREATE TABLE IF NOT EXISTS review_roles (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,system_prompt TEXT NOT NULL,provider_id TEXT,model TEXT,extraction_tag TEXT NOT NULL,extraction_occurrence TEXT NOT NULL,dimensions_json TEXT NOT NULL,sort_order INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS review_tasks (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,role_ids_json TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('running','completed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS review_tasks (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL DEFAULT '',article_version_number INTEGER NOT NULL DEFAULT 1,role_ids_json TEXT NOT NULL,failures_json TEXT NOT NULL DEFAULT '[]',status TEXT NOT NULL CHECK(status IN ('running','completed','partial','failed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS review_opinions (id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES review_tasks(id) ON DELETE CASCADE,role_id TEXT,role_name TEXT NOT NULL,provider_id TEXT,model TEXT,dimensions_json TEXT NOT NULL,overall_suggestion TEXT NOT NULL,raw_xml TEXT NOT NULL,extraction_matched INTEGER NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS review_problems (id TEXT PRIMARY KEY,opinion_id TEXT NOT NULL REFERENCES review_opinions(id) ON DELETE CASCADE,position TEXT NOT NULL,severity TEXT NOT NULL CHECK(severity IN ('high','medium','low')),issue TEXT NOT NULL,suggestion TEXT NOT NULL,adopted INTEGER NOT NULL,is_manual INTEGER NOT NULL,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS visual_packs (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),provider_id TEXT NOT NULL,model TEXT NOT NULL,cover_json TEXT NOT NULL,inline_images_json TEXT NOT NULL,release_images_json TEXT NOT NULL,raw_xml TEXT NOT NULL,created_at TEXT NOT NULL);
@@ -555,7 +616,7 @@ export class AppDatabase {
       CREATE TABLE IF NOT EXISTS article_layouts (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),title TEXT NOT NULL,html TEXT NOT NULL,plain_text TEXT NOT NULL,theme_id TEXT,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channels (id TEXT PRIMARY KEY CHECK(id='wechat-official'),display_name TEXT NOT NULL,app_id TEXT NOT NULL,enabled INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channel_secrets (channel_id TEXT PRIMARY KEY REFERENCES publish_channels(id) ON DELETE CASCADE,encrypted_secret BLOB NOT NULL,updated_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,retro_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS weibo_sessions (account TEXT PRIMARY KEY,encrypted_cookie BLOB NOT NULL,updated_at TEXT NOT NULL);
 
       CREATE TABLE IF NOT EXISTS prompt_defs (
@@ -624,59 +685,55 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_visual_assets_pack ON visual_assets(pack_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_article_layouts_article ON article_layouts(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_publications_article ON publications(article_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
     `)
-    this.ensureModelCallsErrorMessage()
-    this.migrateFrameworksAccountIdFk()
-    this.migrateReviewTasksRunning()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
     this.ensureFrameworkTemplate()
     this.ensureReviewRoles()
-    this.migrateMaterialsFileUpload()
+    this.markInterruptedGenerationTasks()
   }
 
-  /**
-   * 老库 materials.origin 的 CHECK 约束不含 'file_upload'，需重建表
-   * （关外键 → 建新表 → 拷数据 → 删旧表 → 改名 → 开外键）。
-   */
-  private migrateMaterialsFileUpload(): void {
-    const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='materials'").get() as { sql?: string } | undefined
-    if (!row?.sql || row.sql.includes("'file_upload'")) return
-    this.db.exec('PRAGMA foreign_keys = OFF;')
-    try {
-      this.db.exec(`
-        CREATE TABLE materials_migrating (
-          id TEXT PRIMARY KEY,
-          kind TEXT NOT NULL CHECK (kind IN ('web', 'image', 'text')),
-          origin TEXT NOT NULL CHECK (origin IN ('doubao_web', 'doubao_image', 'manual_text', 'file_upload')),
-          external_id TEXT,
-          title TEXT NOT NULL,
-          summary TEXT NOT NULL DEFAULT '',
-          source_url TEXT,
-          source_name TEXT,
-          source_note TEXT,
-          query TEXT,
-          related_topic_id TEXT,
-          published_at TEXT,
-          authority TEXT,
-          relevance_score REAL,
-          image_url TEXT,
-          image_width INTEGER,
-          image_height INTEGER,
-          image_shape TEXT,
-          watermark TEXT,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-        INSERT INTO materials_migrating(id,kind,origin,external_id,title,summary,source_url,source_name,source_note,query,related_topic_id,published_at,authority,relevance_score,image_url,image_width,image_height,image_shape,watermark,created_at,updated_at)
-          SELECT id,kind,origin,external_id,title,summary,source_url,source_name,source_note,query,related_topic_id,published_at,authority,relevance_score,image_url,image_width,image_height,image_shape,watermark,created_at,updated_at FROM materials;
-        DROP TABLE materials;
-        ALTER TABLE materials_migrating RENAME TO materials;
-      `)
-    } finally {
-      this.db.exec('PRAGMA foreign_keys = ON;')
+  /** 上次进程退出/崩溃时仍在 running 的任务，重启后如实标记为中断，不留"假进行中" */
+  private markInterruptedGenerationTasks(): void {
+    this.db.prepare(`UPDATE generation_tasks SET status = 'interrupted', finished_at = ? WHERE status = 'running'`)
+      .run(new Date().toISOString())
+  }
+
+  beginGenerationTask(input: { id: string; domain: GenerationDomain; label: string }): void {
+    this.db.prepare('INSERT INTO generation_tasks(id,domain,label,status,started_at) VALUES(?,?,?,?,?)')
+      .run(input.id, input.domain, input.label, 'running', new Date().toISOString())
+  }
+
+  finishGenerationTask(id: string, status: GenerationTask['status'], detail: string): void {
+    this.db.prepare('UPDATE generation_tasks SET status = ?, detail = ?, finished_at = ? WHERE id = ?')
+      .run(status, detail.slice(0, 500), new Date().toISOString(), id)
+  }
+
+  listGenerationTasks(limit = 30): GenerationTask[] {
+    const rows = this.db.prepare('SELECT * FROM generation_tasks ORDER BY started_at DESC, rowid DESC LIMIT ?').all(limit) as unknown as GenerationTaskRow[]
+    return rows.map((row) => ({
+      id: row.id, domain: row.domain, label: row.label, status: row.status,
+      detail: row.detail, 
+      startedAt: row.started_at, finishedAt: row.finished_at ?? undefined
+    }))
+  }
+
+  /** 素材被哪些文章引用：素材选择器与素材库按此展示真实用量（已删除的素材不再计入） */
+  materialUsage(): Record<string, Array<{ id: string; title: string }>> {
+    const rows = this.db.prepare(
+      'SELECT a.id AS id, a.material_ids_json AS material_ids_json, v.raw_markdown AS raw_markdown FROM articles a JOIN article_versions v ON v.id = a.current_version_id'
+    ).all() as unknown as Array<{ id: string; material_ids_json: string; raw_markdown: string }>
+    const existing = new Set((this.db.prepare('SELECT id FROM materials').all() as unknown as Array<{ id: string }>).map((row) => row.id))
+    const usage: Record<string, Array<{ id: string; title: string }>> = {}
+    for (const row of rows) {
+      let ids: string[] = []
+      try { ids = JSON.parse(row.material_ids_json) as string[] } catch { ids = [] }
+      const title = row.raw_markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || '未命名文章'
+      for (const id of new Set(ids)) if (existing.has(id)) (usage[id] ??= []).push({ id: row.id, title })
     }
+    return usage
   }
 
   /** 文件上传素材：以 file_upload 来源入库 */
@@ -718,32 +775,13 @@ export class AppDatabase {
     })
   }
 
-  /**
-   * 老库的 review_tasks CHECK 约束不含 'running' 状态，需要重建表才能写入 running。
-   * 按 SQLite 官方推荐流程：关外键 → 建新表 → 拷数据 → 删旧表 → 改名 → 开外键。
-   */
-  private migrateReviewTasksRunning(): void {
-    const row = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_tasks'").get() as { sql?: string } | undefined
-    if (!row?.sql || row.sql.includes("'running'")) return
-    this.db.exec('PRAGMA foreign_keys = OFF;')
-    try {
-      this.db.exec(`
-        CREATE TABLE review_tasks_migrating (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,role_ids_json TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('running','completed','applied')),created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
-        INSERT INTO review_tasks_migrating(id,article_id,role_ids_json,status,created_at,updated_at) SELECT id,article_id,role_ids_json,status,created_at,updated_at FROM review_tasks;
-        DROP TABLE review_tasks;
-        ALTER TABLE review_tasks_migrating RENAME TO review_tasks;
-      `)
-    } finally {
-      this.db.exec('PRAGMA foreign_keys = ON;')
-    }
-  }
-
-  /** model_calls 增加错误详情列，便于按供应商排查问题 */
-  private ensureModelCallsErrorMessage(): void {
-    const columns = this.db.prepare('PRAGMA table_info(model_calls)').all() as Array<{ name: string }>
-    if (!columns.some((column) => column.name === 'error_message')) {
-      this.db.exec('ALTER TABLE model_calls ADD COLUMN error_message TEXT')
-    }
+  /** 记录一次连通性验证结果；任何配置改动都会刷新 updated_at，使旧结果自动失效 */
+  recordProviderTest(id: string, status: 'success' | 'failure', error?: string): void {
+    this.db.prepare(`
+      UPDATE providers
+      SET last_test_status = ?, last_test_at = ?, last_test_error = ?
+      WHERE id = ?
+    `).run(status, new Date().toISOString(), status === 'failure' ? (error?.slice(0, 500) ?? null) : null, id)
   }
 
   listProviders(): ProviderSummary[] {
@@ -1755,6 +1793,7 @@ export class AppDatabase {
   listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(mapArticleLayout) }
   saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
+  getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?mapArticleLayout(row):null }
   getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return mapWechatChannel(row) }
   saveWechatPublishChannel(input:{appId:string;enabled:boolean},encryptedSecret?:Buffer):WechatPublishChannel { const now=new Date().toISOString();this.transaction(()=>{this.db.prepare("UPDATE publish_channels SET app_id=?,enabled=?,updated_at=? WHERE id='wechat-official'").run(input.appId,input.enabled?1:0,now);if(encryptedSecret)this.db.prepare("INSERT INTO publish_channel_secrets(channel_id,encrypted_secret,updated_at) VALUES('wechat-official',?,?) ON CONFLICT(channel_id) DO UPDATE SET encrypted_secret=excluded.encrypted_secret,updated_at=excluded.updated_at").run(encryptedSecret,now)});return this.getWechatPublishChannel() }
   getEncryptedWechatPublishSecret():Buffer|null { const row=this.db.prepare("SELECT encrypted_secret FROM publish_channel_secrets WHERE channel_id='wechat-official'").get() as {encrypted_secret:Buffer}|undefined;return row?.encrypted_secret??null }
@@ -1766,22 +1805,33 @@ export class AppDatabase {
   listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(mapPublication) }
   getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?mapPublication(row):null }
   markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
+  /** 发布复盘：三项全空视为清除复盘 */
+  savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string}):Publication {
+    const trimmed = { goal: input.goal.trim(), result: input.result.trim(), lesson: input.lesson.trim() }
+    const empty = !trimmed.goal && !trimmed.result && !trimmed.lesson
+    this.db.prepare('UPDATE publications SET retro_json=?,updated_at=? WHERE id=?')
+      .run(empty ? null : JSON.stringify({ ...trimmed, updatedAt: new Date().toISOString() }), new Date().toISOString(), id)
+    const row = this.getPublication(id)
+    if (!row) throw new Error('发布记录不存在')
+    return row
+  }
 
   listReviewRoles(): ReviewRole[] { return (this.db.prepare('SELECT * FROM review_roles ORDER BY sort_order,created_at').all() as unknown as ReviewRoleRow[]).map(mapReviewRole) }
   saveReviewRole(input: SaveReviewRoleInput): ReviewRole { const id=input.id??crypto.randomUUID(), now=new Date().toISOString(); this.db.prepare(`INSERT INTO review_roles(id,name,system_prompt,provider_id,model,extraction_tag,extraction_occurrence,dimensions_json,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,system_prompt=excluded.system_prompt,provider_id=excluded.provider_id,model=excluded.model,extraction_tag=excluded.extraction_tag,extraction_occurrence=excluded.extraction_occurrence,dimensions_json=excluded.dimensions_json,sort_order=excluded.sort_order,updated_at=excluded.updated_at`).run(id,input.name,input.systemPrompt,input.providerId??null,input.model??null,input.extractionTag,input.extractionOccurrence,JSON.stringify(input.dimensions),input.sortOrder,now,now); return mapReviewRole(this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow) }
   removeReviewRole(id:string):void { this.db.prepare('DELETE FROM review_roles WHERE id=?').run(id) }
   getReviewRole(id:string):ReviewRole|null { const row=this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow|undefined; return row?mapReviewRole(row):null }
-  createReviewTask(articleId:string, roleIds:string[]):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,role_ids_json,status,created_at,updated_at) VALUES(?,?,?,\'running\',?,?)').run(id,articleId,JSON.stringify(roleIds),now,now); return this.getReviewTask(id)! }
+  createReviewTask(input:{articleId:string, articleVersionId:string, articleVersionNumber:number, roleIds:string[]}):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,article_version_id,article_version_number,role_ids_json,failures_json,status,created_at,updated_at) VALUES(?,?,?,?,?,?,\'running\',?,?)').run(id,input.articleId,input.articleVersionId,input.articleVersionNumber,JSON.stringify(input.roleIds),'[]',now,now); return this.getReviewTask(id)! }
   addReviewOpinion(input:{taskId:string;role?:ReviewRole;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at) VALUES(?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now)}); return this.getReviewOpinion(id)! }
   listReviewTasks(articleId?:string):ReviewTask[] { const rows=this.db.prepare(`SELECT * FROM review_tasks ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ReviewTaskRow[]; return rows.map(row=>this.mapReviewTask(row)) }
   getReviewTask(id:string):ReviewTask|null { const row=this.db.prepare('SELECT * FROM review_tasks WHERE id=?').get(id) as unknown as ReviewTaskRow|undefined; return row?this.mapReviewTask(row):null }
-  markReviewTaskCompleted(id:string):void { this.db.prepare("UPDATE review_tasks SET status='completed',updated_at=? WHERE id=? AND status='running'").run(new Date().toISOString(),id) }
+  /** 评审收尾：按角色成功/失败数量落真实状态与失败原因，全失败绝不能记成 completed */
+  finishReviewTask(id:string, status:'completed'|'partial'|'failed', failures:ReviewFailure[]):void { this.db.prepare("UPDATE review_tasks SET status=?,failures_json=?,updated_at=? WHERE id=? AND status='running'").run(status,JSON.stringify(failures),new Date().toISOString(),id) }
   markReviewTaskApplied(id:string):void { this.db.prepare("UPDATE review_tasks SET status='applied',updated_at=? WHERE id=?").run(new Date().toISOString(),id) }
   updateReviewProblem(input:{id:string;position:string;severity:ReviewSeverity;issue:string;suggestion:string;adopted:boolean}):ReviewProblem { this.db.prepare('UPDATE review_problems SET position=?,severity=?,issue=?,suggestion=?,adopted=? WHERE id=?').run(input.position,input.severity,input.issue,input.suggestion,input.adopted?1:0,input.id); return this.getReviewProblem(input.id)! }
   private getReviewOpinion(id:string):ReviewOpinion|null { const row=this.db.prepare('SELECT * FROM review_opinions WHERE id=?').get(id) as unknown as ReviewOpinionRow|undefined; return row?this.mapReviewOpinion(row):null }
   private getReviewProblem(id:string):ReviewProblem|null { const row=this.db.prepare('SELECT * FROM review_problems WHERE id=?').get(id) as unknown as ReviewProblemRow|undefined; return row?mapReviewProblem(row):null }
   private mapReviewOpinion(row:ReviewOpinionRow):ReviewOpinion { return {id:row.id,taskId:row.task_id,roleId:row.role_id??undefined,roleName:row.role_name,providerId:row.provider_id??undefined,model:row.model??undefined,dimensions:parseJson<string[]>(row.dimensions_json,[]),overallSuggestion:row.overall_suggestion,rawXml:row.raw_xml,extractionMatched:Boolean(row.extraction_matched),createdAt:row.created_at,problems:(this.db.prepare('SELECT * FROM review_problems WHERE opinion_id=? ORDER BY created_at').all(row.id) as unknown as ReviewProblemRow[]).map(mapReviewProblem)} }
-  private mapReviewTask(row:ReviewTaskRow):ReviewTask { return {id:row.id,articleId:row.article_id,roleIds:parseJson<string[]>(row.role_ids_json,[]),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,opinions:(this.db.prepare('SELECT * FROM review_opinions WHERE task_id=? ORDER BY created_at').all(row.id) as unknown as ReviewOpinionRow[]).map(item=>this.mapReviewOpinion(item))} }
+  private mapReviewTask(row:ReviewTaskRow):ReviewTask { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleVersionNumber:Number(row.article_version_number),roleIds:parseJson<string[]>(row.role_ids_json,[]),status:row.status,failures:parseJson<ReviewFailure[]>(row.failures_json,[]),createdAt:row.created_at,updatedAt:row.updated_at,opinions:(this.db.prepare('SELECT * FROM review_opinions WHERE task_id=? ORDER BY created_at').all(row.id) as unknown as ReviewOpinionRow[]).map(item=>this.mapReviewOpinion(item))} }
 
   recordModelCall(input: {
     providerId: string | null
@@ -1908,31 +1958,6 @@ export class AppDatabase {
     }
   }
 
-  // 方案 A 迁移：为已存在的 frameworks 表补加 account_id 的 ON DELETE SET NULL FK。
-  // CREATE TABLE IF NOT EXISTS 不会修改已存在的表，因此对旧库需要重建表结构。
-  private migrateFrameworksAccountIdFk(): void {
-    const fks = this.db.prepare('PRAGMA foreign_key_list(frameworks)').all() as Array<{ from: string }>
-    if (fks.some((fk) => fk.from === 'account_id')) return
-
-    this.db.exec('PRAGMA foreign_keys = OFF;')
-    try {
-      this.db.exec(`
-        CREATE TABLE frameworks_new (
-          id TEXT PRIMARY KEY, topic_id TEXT,
-          account_id TEXT REFERENCES account_profiles(id) ON DELETE SET NULL,
-          material_ids_json TEXT NOT NULL DEFAULT '[]', template_id TEXT,
-          manual_topic TEXT NOT NULL DEFAULT '', status TEXT NOT NULL CHECK(status IN ('draft','locked')),
-          current_version_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-        );
-        INSERT INTO frameworks_new SELECT * FROM frameworks;
-        DROP TABLE frameworks;
-        ALTER TABLE frameworks_new RENAME TO frameworks;
-        CREATE INDEX IF NOT EXISTS idx_frameworks_updated ON frameworks(updated_at DESC);
-      `)
-    } finally {
-      this.db.exec('PRAGMA foreign_keys = ON;')
-    }
-  }
 
   private ensureTopicSchema(): void {
     const count = (this.db.prepare('SELECT COUNT(*) AS count FROM topic_schema_fields').get() as {
@@ -2057,8 +2082,26 @@ function mapProvider(row: ProviderRow, models: ProviderModel[]): ProviderSummary
     }),
     models,
     hasApiKey: Boolean(row.has_api_key),
+    verification: providerVerification(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  }
+}
+
+function providerVerification(row: ProviderRow): ProviderVerification {
+  const configured = Boolean(row.has_api_key)
+  const lastTestStatus = row.last_test_status === 'success' || row.last_test_status === 'failure'
+    ? row.last_test_status
+    : undefined
+  // 验证成功后又保存过配置（updated_at 被刷新）时，旧结果不再代表当前配置
+  const stale = Boolean(row.last_test_at) && row.updated_at > row.last_test_at!
+  return {
+    configured,
+    lastTestStatus,
+    lastTestAt: row.last_test_at ?? undefined,
+    lastTestError: row.last_test_error ?? undefined,
+    verified: configured && lastTestStatus === 'success' && !stale,
+    stale: Boolean(lastTestStatus) && stale
   }
 }
 
@@ -2236,7 +2279,17 @@ function mapVisualAsset(row:VisualAssetRow):VisualAsset { return {id:row.id,pack
 function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/${fileName.split('/').map(encodeURIComponent).join('/')}` }
 function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,createdAt:row.created_at} }
 function mapWechatChannel(row:WechatChannelRow):WechatPublishChannel { return {id:row.id,displayName:row.display_name,appId:row.app_id,enabled:Boolean(row.enabled),hasAppSecret:Boolean(row.has_app_secret),updatedAt:row.updated_at} }
-function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,createdAt:row.created_at,updatedAt:row.updated_at} }
+function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,retro:parseRetro(row.retro_json),createdAt:row.created_at,updatedAt:row.updated_at} }
+
+function parseRetro(value: string | null): PublicationRetro | undefined {
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value) as Partial<PublicationRetro>
+    return { goal: parsed.goal ?? '', result: parsed.result ?? '', lesson: parsed.lesson ?? '', updatedAt: parsed.updatedAt ?? '' }
+  } catch {
+    return undefined
+  }
+}
 
 function serializeFrameworkXml(sections: FrameworkSection[]): string {
   const body = sections.map((section) => (

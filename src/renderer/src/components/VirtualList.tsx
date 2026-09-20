@@ -14,6 +14,11 @@ export interface VirtualListProps<T> {
   className?: string
   /** 触发虚拟化的阈值，默认 50 */
   threshold?: number
+  /**
+   * 滚动容器高度，必须是有界值虚拟化才真正生效：这些列表都挂在页面自身的滚动流里，
+   * 父级没有确定高度，写 100% 等于不封顶（63 篇文章照样全量渲染）。
+   */
+  maxHeight?: string
 }
 
 export function VirtualList<T>({
@@ -21,7 +26,8 @@ export function VirtualList<T>({
   estimateSize,
   renderItem,
   className,
-  threshold = 50
+  threshold = 50,
+  maxHeight = '75vh'
 }: VirtualListProps<T>): React.JSX.Element {
   const parentRef = useRef<HTMLDivElement>(null)
   // 始终调用 hook 满足 Rules of Hooks
@@ -39,7 +45,7 @@ export function VirtualList<T>({
   }
 
   return (
-    <div ref={parentRef} className={className} style={{ overflow: 'auto', maxHeight: '100%' }}>
+    <div ref={parentRef} className={className} style={{ overflow: 'auto', maxHeight, overscrollBehavior: 'contain' }}>
       <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
         {virtualizer.getVirtualItems().map((virtualItem) => (
           <div

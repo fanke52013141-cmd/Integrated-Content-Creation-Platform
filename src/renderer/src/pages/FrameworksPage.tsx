@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check, ChevronDown, ChevronUp, FilePenLine, FolderHeart, Layers3, LoaderCircle,
   Lock, LockOpen, Pencil, Plus, Save, Sparkles, Trash2, WandSparkles, X
@@ -16,7 +16,8 @@ import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader } from '../components/PageHeader'
 import { MaterialPicker } from '../components/MaterialPicker'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
-import { useDraftState } from '../hooks/useDraftState'
+import { useDraftSelection, useDraftState } from '../hooks/useDraftState'
+import { resolveAccountSelection } from '../../../shared/creation-state'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate } from '../lib'
 
@@ -41,7 +42,8 @@ export function FrameworksPage({
   const [templateId, setTemplateId] = useState('')
   const [topicId, setTopicId] = useState('')
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
-  const [materialIds, setMaterialIds] = useState<Set<string>>(new Set())
+  // 与文章页同理：去素材库补完素材回来，勾选仍要在（refresh 里会洗掉已删除的 id）
+  const [materialIds, setMaterialIds] = useDraftSelection('framework-materials')
   const [manualTopic, setManualTopic] = useDraftState('framework-topic')
   const [count, setCount] = useState(3)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
@@ -50,6 +52,7 @@ export function FrameworksPage({
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
 
   const models = useMemo(() => availableModels(providers), [providers])
+  const accountInitialized = useRef(false)
   const [modelTarget, setModelTarget] = useModelTarget(models)
   const usableMaterials = useMemo(() => materials.filter((material) => material.kind !== 'image'), [materials])
   const selectedTemplate = templates.find((template) => template.id === templateId)
@@ -68,7 +71,10 @@ export function FrameworksPage({
 
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
   useEffect(() => {
-    if (!accountId || !accounts.some((account) => account.id === accountId)) setAccountId(currentAccountId ?? accounts[0]?.id ?? '')
+    // 只在首次拿到账号列表时补默认值；用户主动选「不使用账号定位」后必须保持为空
+    const next = resolveAccountSelection({ current: accountId, accounts, currentAccountId, initialized: accountInitialized.current })
+    accountInitialized.current = next.initialized
+    if (next.accountId !== accountId) setAccountId(next.accountId)
   }, [accounts, accountId, currentAccountId])
 
   async function generate(): Promise<void> {

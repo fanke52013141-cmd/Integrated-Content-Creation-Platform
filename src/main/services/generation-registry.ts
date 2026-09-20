@@ -1,17 +1,11 @@
 import { GatewayError } from '../gateway/types.js'
+import type { GenerationDomain } from '../../shared/contracts.js'
 
 /**
  * 生成任务登记表：按模块互斥（同一模块同时只允许一个生成任务），
  * 并持有 AbortController 以支持用户取消与退出前统一中止。
  */
-export type GenerationDomain =
-  | 'account'
-  | 'hotspot-filter'
-  | 'topics'
-  | 'frameworks'
-  | 'articles'
-  | 'reviews'
-  | 'visuals'
+export type { GenerationDomain }
 
 const active = new Map<GenerationDomain, AbortController>()
 

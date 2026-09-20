@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { _electron as electron } from 'playwright-core'
+import { capture } from './lib/evidence.mjs'
 
 const topicPayload = {
   选题主题: 'AI Agent 真正落地前，先跨过这三道业务坎',
@@ -59,33 +60,37 @@ try {
   await window.getByRole('button', { name: '模型网关' }).first().click()
   await window.getByRole('button', { name: /空白配置/ }).click()
   await window.getByLabel('显示名称').fill('本地验收模型')
-  await window.getByLabel('Base URL').fill(`http://127.0.0.1:${address.port}/v1`)
-  await window.locator('.provider-editor').getByLabel(/API Key/).fill('smoke-key')
+  await window.getByLabel('接口地址').fill(`http://127.0.0.1:${address.port}/v1`)
+  await window.locator('.provider-editor').getByLabel(/访问密钥/).fill('smoke-key')
   await window.getByLabel('显示别名').fill('Smoke Topic Model')
-  await window.getByLabel('API 模型 ID').fill('moliu-smoke')
-  await window.locator('.provider-editor').getByRole('button', { name: '加密保存' }).click()
+  await window.getByLabel('模型标识').fill('moliu-smoke')
+  await window.locator('.provider-editor').getByRole('button', { name: '测试并加密保存' }).click()
   await window.getByText('供应商配置已加密保存').waitFor()
 
   await window.getByRole('button', { name: '账号定位' }).click()
-  await window.getByRole('button', { name: /开始定位/ }).click()
+  await window.getByRole('button', { name: '新建账号' }).first().click()
+  await window.getByText('建立账号基线').waitFor()
   await window.getByPlaceholder('在这里写下你的想法…').fill('选题验收账号')
   await window.getByRole('button', { name: '保存并继续' }).click()
   for (let index = 0; index < 6; index += 1) {
     await window.getByRole('button', { name: '跳过这一问' }).click()
   }
-  await window.getByRole('button', { name: '跳过 AI，手动填写字段' }).click()
+  await window.getByRole('button', { name: '手动填写字段' }).click()
   await window.getByRole('button', { name: '保存为草稿' }).click()
   await window.getByRole('button', { name: '保存并锁定' }).click()
   await window.getByRole('button', { name: '解锁编辑' }).waitFor()
 
   await window.getByRole('button', { name: '选题生成' }).first().click()
-  await window.getByText('让热点成为你自己的内容方向。').waitFor()
-  await window.getByLabel('热点关键词 / 手动主题').fill('AI Agent 工作流落地')
-  await window.getByLabel('生成数量').selectOption('2')
+  await window.getByText('独立并行生成多条选题草稿').waitFor()
+  await window.locator('textarea[name="seedKeyword"]').fill('AI Agent 工作流落地')
+  await window.getByLabel('数量').click()
+  await window.getByRole('option', { name: '2 条' }).click()
   await window.getByRole('button', { name: '生成 2 条选题' }).click()
+  // 提示语必须精确到 toast：页面本身就有"…生成多条选题草稿"的说明，用局部文本会一直命中它而形同没断言
   await window.getByText('已生成 2 条选题草稿').waitFor({ timeout: 30_000 })
+  if (await window.locator('.topic-card').count() !== 2) throw new Error('选题生成没有产出 2 个候选')
   await window.getByText('AI Agent 真正落地前，先跨过这三道业务坎').first().waitFor()
-  await window.screenshot({ path: resolve(artifactDir, 'topic-generation.png'), fullPage: false, animations: 'disabled' })
+  await capture(window, { path: resolve(artifactDir, 'topic-generation.png'), fullPage: false, animations: 'disabled' })
 
   const card = window.locator('.topic-card').first()
   await card.getByTitle('加入选题库').click()

@@ -6,7 +6,12 @@
   display: grid;
   grid-template-columns: 224px 1fr;
   height: 100%;
-  min-width: 1080px;
+  /* 缩放 125%/150% 时 CSS 视口会缩到 ~940/790px，这里再兜底 min-width 就等于整站横向溢出 */
+  min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .app-shell { grid-template-columns: 188px 1fr; }
 }
 
 /* ── 侧边栏 ── */
@@ -104,6 +109,9 @@
   border-radius: 50%;
   background: var(--success);
 }
+
+.gateway-status-dot.unverified { background: var(--warning); }
+.gateway-status-dot.failed { background: var(--danger); }
 
 .sidebar-system {
   padding: 10px;
@@ -288,3 +296,55 @@
 }
 .gateway-alert:hover { background: var(--amber-600); color: #fff; }
 :root[data-theme="dark"] .gateway-alert { background: var(--amber-50); color: var(--amber-600); }
+
+/* ── 当前作品条：一篇文章贯穿写作→评审→配图→排版→发布 ── */
+.work-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin: var(--space-md) var(--space-xl) var(--space-sm);
+  padding: 9px var(--space-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-1);
+}
+.work-bar-icon { color: var(--primary); flex-shrink: 0; }
+.work-bar-title {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.work-bar-title:hover { color: var(--primary); }
+.work-bar-meta { color: var(--text-tertiary); font-size: 12px; }
+.work-bar-stages { margin-left: auto; }
+
+/* ── 任务中心：生成台账的可见入口 ── */
+.task-center-dialog { width: min(620px, 100%); }
+.task-center-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
+.task-center-dialog > header h2 { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.task-center-dialog > header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 12.5px; line-height: 1.6; }
+.task-center-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); border-top: 1px solid var(--border-subtle); padding-top: var(--space-md); }
+.task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+}
+.task-item-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.task-item-main strong { font-size: 13px; }
+.task-item-main small { display: inline-flex; align-items: center; gap: 4px; color: var(--text-tertiary); font-size: 11.5px; }
+.task-item-detail { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11.5px; }

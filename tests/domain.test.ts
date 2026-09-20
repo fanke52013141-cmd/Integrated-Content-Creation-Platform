@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createAccountFields,
   referenceNeedsDraftWarning,
+  resolveExternalUrl,
   serializeAccountXml,
   serializeWizardXml,
   validateAccountFields
@@ -46,5 +47,16 @@ describe('account domain', () => {
       targetId: 'topic-1',
       createdAt: new Date(0).toISOString()
     })).toBe(true)
+  })
+})
+
+describe("外部链接白名单", () => {
+  it("只放行 http/https，其余协议和畸形输入一律拒绝", () => {
+    expect(resolveExternalUrl("https://mp.weixin.qq.com/s/demo")?.protocol).toBe("https:")
+    expect(resolveExternalUrl(" http://example.com/x ")?.href).toBe("http://example.com/x")
+    for (const rejected of ["", "   ", "not a url", "javascript:alert(1)", "file:///C:/Windows/win.ini", "data:text/html,<script>1</script>", `https://example.com/${"a".repeat(4_000)}`]) {
+      expect(resolveExternalUrl(rejected), rejected).toBeNull()
+    }
+    for (const malformed of [undefined, null, 42, {}]) expect(resolveExternalUrl(malformed)).toBeNull()
   })
 })

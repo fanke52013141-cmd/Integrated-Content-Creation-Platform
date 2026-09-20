@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  CheckCircle2, CloudUpload, KeyRound, LoaderCircle, RotateCcw, Save, Send, TestTube2
+  CheckCircle2, ClipboardList, CloudUpload, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud
 } from 'lucide-react'
 import type { AccountProfileSummary, Article, ArticleLayout, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
@@ -8,7 +8,8 @@ import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
-import { errorMessage, formatDate, isSafeUrl } from '../lib'
+import { errorMessage, formatDate, isSafeUrl, markdownTitle } from '../lib'
+import { useReportWork } from '../active-work'
 
 const statusNames: Record<Publication['status'], { label: string; badge: string }> = {
   draft: { label: '草稿箱', badge: 'primary' },
@@ -46,6 +47,14 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const channelReady = Boolean(channel?.enabled && channel?.hasAppSecret && channel?.appId)
   const coverReady = Boolean(coverAssetId || manualMediaId.trim())
 
+  useReportWork(selectedLayoutArticle ? {
+    articleId: selectedLayoutArticle.id,
+    title: markdownTitle(selectedLayoutArticle.rawMarkdown),
+    accountId: selectedLayoutArticle.accountId,
+    versionCount: selectedLayoutArticle.versionCount,
+    status: selectedLayoutArticle.status
+  } : {}, 'publishing')
+
   const refresh = async (): Promise<void> => {
     const [nextChannel, nextArticles, nextLayouts, nextPublications] = await Promise.all([
       window.moliu.publishing.getWechatChannel(), window.moliu.articles.list(), window.moliu.layouts.list(), window.moliu.publishing.list()
@@ -75,8 +84,11 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         const packs = await window.moliu.visuals.list(selectedLayout.articleId)
         const assets = (await Promise.all(packs.map((pack) => window.moliu.visuals.listAssets(pack.id)))).flat()
         if (!cancelled) setCoverAssets(assets)
-      } catch {
-        if (!cancelled) setCoverAssets([])
+      } catch (error) {
+        if (!cancelled) {
+          setCoverAssets([])
+          showToast({ type: 'error', message: `封面素材加载失败：${errorMessage(error)}` })
+        }
       }
     })()
     return () => { cancelled = true }
@@ -179,6 +191,52 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     }
   }
 
+  /** 阶段D：人工复盘「目标/结果/经验」，经验可一键写进账号记忆 */
+  const saveRetro = async (publication: Publication, retro: { goal: string; result: string; lesson: string }): Promise<void> => {
+    try {
+      await window.moliu.publishing.saveRetro({ id: publication.id, ...retro })
+      await refresh()
+      showToast({ type: 'success', message: '发布复盘已保存' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  const rememberLesson = async (publication: Publication, lesson: string): Promise<void> => {
+    const profileId = articles.find((article) => article.id === publication.articleId)?.accountId ?? currentAccount?.id
+    if (!profileId) return showToast({ type: 'error', message: '这篇文章还没有绑定账号定位' })
+    try {
+      const result = await window.moliu.accounts.addMemory({ profileId, insight: lesson, source: '发布复盘' })
+      showToast(result.created
+        ? { type: 'success', message: '经验已写入账号记忆' }
+        : { type: 'info', message: '同样的经验之前已经记过' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  /** 受控打开系统浏览器：统一走主进程 openExternal，渲染层不新建窗口 */
+  const openUrl = (url: string): void => {
+    void window.moliu.app.openExternal(url)
+      .then((ok) => { if (!ok) showToast({ type: 'error', message: '无法打开链接：仅支持 http/https 地址' }) })
+      .catch((error) => showToast({ type: 'error', message: `打开链接失败：${errorMessage(error)}` }))
+  }
+
+  /** 手动把选中的封面图片资产上传到公众号素材库并回填 media_id */
+  const uploadCover = async (): Promise<void> => {
+    if (!coverAssetId) return
+    setBusy(true)
+    try {
+      const updated = await window.moliu.publishing.uploadWechatCover({ assetId: coverAssetId })
+      setCoverAssets((current) => current.map((asset) => (asset.id === updated.id ? updated : asset)))
+      showToast({ type: 'success', message: '封面已上传，发布时将使用该素材' })
+    } catch (error) {
+      showToast({ type: 'error', message: `封面上传失败：${errorMessage(error)}` })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const versionMismatch = selectedLayout && selectedLayoutArticle && selectedLayout.articleVersionId !== selectedLayoutArticle.currentVersionId
 
   return <div className="page publishing-page">
@@ -262,7 +320,9 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
           <footer className="publish-section-foot">
             {!channelReady && <span className="micro-copy">请先完成第一步并保存连接。</span>}
             {!coverReady && channelReady && <span className="micro-copy">请在「智能配图」生成封面，或手动填写素材标识。</span>}
+            {coverAssetId && <span className="micro-copy">推送时会自动上传所选封面；也可先手动上传。</span>}
             <span style={{ flex: 1 }} />
+            <button className="button ghost compact" disabled={busy || !coverAssetId} onClick={() => void uploadCover()} title="上传到公众号素材库并回填素材标识"><UploadCloud size={14} />上传封面素材</button>
             <button
               className="button primary large"
               disabled={busy || !channelReady || !layoutId || !coverReady}
@@ -286,9 +346,13 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
               key={item.id}
               item={item}
               url={urls[item.id] ?? ''}
+              canRemember={Boolean(articles.find((article) => article.id === item.articleId)?.accountId ?? currentAccount)}
               onUrl={(value) => setUrls((current) => ({ ...current, [item.id]: value }))}
               onPublished={() => markPublished(item)}
               onRetry={() => retry(item)}
+              onOpen={openUrl}
+              onSaveRetro={(retro) => saveRetro(item, retro)}
+              onRemember={(lesson) => rememberLesson(item, lesson)}
               busy={busy}
             />
           )) : (
@@ -298,15 +362,23 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   </div>
 }
 
-function PublicationRow({ item, url, onUrl, onPublished, onRetry, busy }: {
+function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, onOpen, onSaveRetro, onRemember, busy }: {
   item: Publication
   url: string
+  canRemember: boolean
   onUrl(value: string): void
   onPublished(): Promise<void>
   onRetry(): Promise<void>
+  onOpen(url: string): void
+  onSaveRetro(retro: { goal: string; result: string; lesson: string }): Promise<void>
+  onRemember(lesson: string): Promise<void>
   busy: boolean
 }): React.JSX.Element {
   const status = statusNames[item.status]
+  const [retro, setRetro] = useState({ goal: item.retro?.goal ?? '', result: item.retro?.result ?? '', lesson: item.retro?.lesson ?? '' })
+  const [savingRetro, setSavingRetro] = useState(false)
+  const unchanged = retro.goal === (item.retro?.goal ?? '') && retro.result === (item.retro?.result ?? '') && retro.lesson === (item.retro?.lesson ?? '')
+  const hasRetro = Boolean(item.retro)
   return (
     <div className="publication-row">
       <div className="publication-main">
@@ -320,16 +392,36 @@ function PublicationRow({ item, url, onUrl, onPublished, onRetry, busy }: {
       {item.status === 'draft' ? (
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
-          <button className="button ghost compact" onClick={() => void window.moliu.hotspots.openSource('https://mp.weixin.qq.com/')}>公众号后台</button>
+          <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>公众号后台</button>
           <button className="button secondary compact" disabled={!url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={14} />标记已发布</button>
         </div>
       ) : item.status === 'failed' ? (
         <button className="button secondary compact" disabled={busy} onClick={() => void onRetry()}><RotateCcw size={14} />重推</button>
       ) : item.publishedUrl ? (
         isSafeUrl(item.publishedUrl)
-          ? <a href={item.publishedUrl} target="_blank" rel="noopener noreferrer" className="break-all">查看文章</a>
+          ? <button className="button ghost compact" onClick={() => onOpen(item.publishedUrl ?? '')}>查看文章</button>
           : <span className="break-all">{item.publishedUrl}</span>
       ) : null}
+      <details className="publication-retro" open={hasRetro}>
+        <summary><ClipboardList size={14} />发布复盘{hasRetro ? '' : '（目标 / 结果 / 经验）'}</summary>
+        <label className="field"><span>目标</span><input name="retroGoal" autoComplete="off" value={retro.goal} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, goal: event.target.value }))} placeholder="这篇发出去想达成什么？" /></label>
+        <label className="field"><span>结果</span><input name="retroResult" autoComplete="off" value={retro.result} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, result: event.target.value }))} placeholder="阅读、涨粉或转化，写下真实数字" /></label>
+        <label className="field"><span>经验</span><textarea name="retroLesson" rows={2} value={retro.lesson} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, lesson: event.target.value }))} placeholder="下次要保留或改掉什么？" /></label>
+        <footer>
+          <button
+            className="button secondary compact"
+            disabled={unchanged || savingRetro}
+            onClick={() => { setSavingRetro(true); void onSaveRetro(retro).finally(() => setSavingRetro(false)) }}
+          >
+            {savingRetro ? <LoaderCircle size={14} className="spin" /> : <Save size={14} />}保存复盘
+          </button>
+          {item.retro?.lesson && (
+            <button className="button ghost compact" disabled={!canRemember} title={canRemember ? '把这条经验写入账号记忆' : '这篇文章还没有绑定账号定位'} onClick={() => void onRemember(item.retro?.lesson ?? '')}>
+              <Lightbulb size={14} />记为账号经验
+            </button>
+          )}
+        </footer>
+      </details>
     </div>
   )
 }

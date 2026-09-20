@@ -35,11 +35,22 @@ import type {
 const api: MoliuApi = {
   app: {
     bootstrap: () => ipcRenderer.invoke('app:bootstrap'),
-    getDataPath: () => ipcRenderer.invoke('app:data-path')
+    getDataPath: () => ipcRenderer.invoke('app:data-path'),
+    openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url),
+    exportArticle: (input: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }) =>
+      ipcRenderer.invoke('app:export-article', input),
+    exportLayout: (input: { layoutId: string; targetDir?: string }) => ipcRenderer.invoke('app:export-layout', input),
+    createBackup: (input?: { targetDir?: string }) => ipcRenderer.invoke('app:backup-create', input),
+    restoreBackup: (input: { bundleDir: string }) => ipcRenderer.invoke('app:backup-restore', input),
+    listBackups: () => ipcRenderer.invoke('app:backup-list')
+  },
+  clipboard: {
+    writeRichText: (html: string, text: string) => ipcRenderer.invoke('clipboard:writeRichText', { html, text })
   },
   generation: {
     cancel: (domain: string) => ipcRenderer.invoke('generation:cancel', domain),
     active: () => ipcRenderer.invoke('generation:active'),
+    list: (limit?: number) => ipcRenderer.invoke('generation:list', limit),
     events: (callback: (event: GenerationEvent) => void): (() => void) => {
       const listener = (_e: Electron.IpcRendererEvent, data: GenerationEvent): void => callback(data)
       ipcRenderer.on('generation:events', listener)
@@ -94,7 +105,6 @@ const api: MoliuApi = {
     saveSourcePreferences: (input: SaveHotSourcePreferencesInput) =>
       ipcRenderer.invoke('hotspots:preferences:save', input),
     refresh: (sourceIds?: string[]) => ipcRenderer.invoke('hotspots:refresh', sourceIds),
-    openSource: (url: string) => ipcRenderer.invoke('hotspots:open-source', url),
     listFavorites: () => ipcRenderer.invoke('hotspots:favorites:list'),
     addFavorite: (input: AddHotFavoriteInput) =>
       ipcRenderer.invoke('hotspots:favorites:add', input),
@@ -136,7 +146,8 @@ const api: MoliuApi = {
       ipcRenderer.invoke('materials:add-search-result', input),
     addManual: (input: SaveManualMaterialInput) => ipcRenderer.invoke('materials:add-manual', input),
     addFile: (input: AddFileMaterialInput) => ipcRenderer.invoke('materials:add-file', input),
-    remove: (id: string) => ipcRenderer.invoke('materials:remove', id)
+    remove: (id: string) => ipcRenderer.invoke('materials:remove', id),
+    usage: () => ipcRenderer.invoke('materials:usage')
   },
   frameworks: {
     listTemplates: () => ipcRenderer.invoke('frameworks:templates:list'),
@@ -175,7 +186,7 @@ const api: MoliuApi = {
     start: (input: StartReviewInput) => ipcRenderer.invoke('reviews:start', input),
     updateProblem: (input: UpdateReviewProblemInput) => ipcRenderer.invoke('reviews:problems:update', input),
     addManualProblem: (input: AddManualReviewProblemInput) => ipcRenderer.invoke('reviews:problems:add', input),
-    apply: (taskId: string, providerId: string, model: string) => ipcRenderer.invoke('reviews:apply', taskId, providerId, model),
+    apply: (taskId: string, providerId: string, model: string, force?: boolean) => ipcRenderer.invoke('reviews:apply', taskId, providerId, model, force),
     onStream: (callback: (event: StreamEvent) => void): (() => void) => {
       const listener = (_e: Electron.IpcRendererEvent, data: StreamEvent): void => callback(data)
       ipcRenderer.on('reviews:stream', listener)
@@ -210,6 +221,7 @@ const api: MoliuApi = {
     list: () => ipcRenderer.invoke('publishing:list'),
     pushWechatDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-draft', input),
     update: (input) => ipcRenderer.invoke('publishing:update', input),
+    saveRetro: (input) => ipcRenderer.invoke('publishing:retro', input),
     uploadWechatCover: (input) => ipcRenderer.invoke('publishing:wechat:upload-cover', input)
   }
 }

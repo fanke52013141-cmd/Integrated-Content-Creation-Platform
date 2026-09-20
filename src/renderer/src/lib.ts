@@ -9,17 +9,32 @@ const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   minute: '2-digit'
 })
 
+const secondDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+})
+
 const fullDateFormatter = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
   hour: '2-digit',
-  minute: '2-digit'
+  minute: '2-digit',
+  second: '2-digit'
 })
 
 export function formatDate(value: string): string {
   return dateFormatter.format(new Date(value))
+}
+
+/** 同名作品要靠时间分辨时用这一份（精确到秒） */
+export function formatTimedDate(value: string): string {
+  return secondDateFormatter.format(new Date(value))
 }
 
 export function formatFullDate(value: string): string {

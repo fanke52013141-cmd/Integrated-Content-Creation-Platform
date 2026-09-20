@@ -3,9 +3,13 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
+  DatabaseBackup,
+  Download,
+  FolderArchive,
   KeyRound,
   Plus,
   Radio,
+  RotateCcw,
   ScrollText,
   Server,
   ShieldCheck,
@@ -59,6 +63,20 @@ const emptyForm = (): SaveProviderInput => ({
   apiKey: ''
 })
 
+/** 把"配置已保存"和"连通性已验证"分成两件事展示，验证失败或配置改动后不再显示为可用 */
+function providerState(provider: ProviderSummary): { label: string; tone: string; note: string } {
+  const { verification } = provider
+  const testedAt = verification.lastTestAt ? `${formatDate(verification.lastTestAt)}验证` : ''
+  if (!provider.enabled) return { label: '已停用', tone: 'muted', note: `${formatDate(provider.updatedAt)} 更新` }
+  if (!verification.configured) return { label: '未配置密钥', tone: 'muted', note: `保存访问密钥后才能验证连接 · ${formatDate(provider.updatedAt)} 更新` }
+  if (verification.verified) return { label: '已验证', tone: 'success', note: testedAt }
+  if (verification.lastTestStatus === 'failure') {
+    return { label: '验证失败', tone: 'danger', note: `${testedAt} · ${verification.lastTestError || '连接不可用'}` }
+  }
+  if (verification.stale) return { label: '需重新验证', tone: 'warning', note: `配置已修改，${testedAt || '此前验证'}已失效` }
+  return { label: '未验证', tone: 'warning', note: `配置已保存但尚未验证连接 · ${formatDate(provider.updatedAt)} 更新` }
+}
+
 function newModel(isDefault = false): SaveProviderModelInput {
   return {
     modelId: '',
@@ -67,6 +85,12 @@ function newModel(isDefault = false): SaveProviderModelInput {
     isDefault,
     enabled: true
   }
+}
+
+/** 备份包只展示目录名，完整路径留在 title 里供核对 */
+function bundleName(path: string): string {
+  const segments = path.split(/[\\/]/).filter(Boolean)
+  return segments[segments.length - 1] ?? path
 }
 
 export function ProvidersPage({
@@ -92,9 +116,14 @@ export function ProvidersPage({
   const [logsTarget, setLogsTarget] = useState<{ id?: string; name: string }>()
   const [logs, setLogs] = useState<ModelCallLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
+  const [dataPath, setDataPath] = useState('')
+  const [backups, setBackups] = useState<string[]>([])
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [restoringPath, setRestoringPath] = useState<string>()
 
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
+    void loadWorkspace()
   }, [])
 
   const selected = useMemo(
@@ -249,6 +278,9 @@ export function ProvidersPage({
         ...current,
         [provider.id]: `${result.message} · ${result.latencyMs}ms`
       }))
+      if (!result.ok) showToast({ type: 'error', message: result.message })
+      // 结果已在主进程落库，刷新后卡片上的验证状态与页面提示保持一致
+      await onRefresh()
     } catch (error) {
       setTestStatus((current) => ({
         ...current,
@@ -289,6 +321,62 @@ export function ProvidersPage({
       showToast({ type: 'success', message: '供应商已删除' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  async function refreshBackups(): Promise<void> {
+    try {
+      setBackups(await window.moliu.app.listBackups())
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  async function loadWorkspace(): Promise<void> {
+    try {
+      setDataPath(await window.moliu.app.getDataPath())
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+    await refreshBackups()
+  }
+
+  /** 不传 targetDir：主进程直接落到数据目录的 backups 子目录，备份不需要选路径 */
+  async function createBackup(): Promise<void> {
+    setBackupBusy(true)
+    try {
+      const result = await window.moliu.app.createBackup()
+      showToast({ type: 'success', message: `备份已创建：${result.path}` })
+      await refreshBackups()
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  async function restoreBackup(bundleDir: string): Promise<void> {
+    if (!(await confirm({
+      title: `恢复备份“${bundleName(bundleDir)}”？`,
+      message: '恢复会覆盖当前内容（账号、文章、配图与模型配置），且不可撤销。应用会先在数据目录保留一份 pre-restore 副本，需要时可以把 moliu.db.pre-restore 换回去。',
+      danger: true,
+      confirmLabel: '恢复'
+    }))) {
+      return
+    }
+    setRestoringPath(bundleDir)
+    try {
+      const result = await window.moliu.app.restoreBackup({ bundleDir })
+      await onRefresh()
+      await refreshBackups()
+      showToast({
+        type: 'success',
+        message: result.restoredImages > 0 ? `已恢复 ${result.restoredImages} 张图片` : '备份已恢复'
+      })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setRestoringPath(undefined)
     }
   }
 
@@ -376,12 +464,12 @@ export function ProvidersPage({
                 <div className="provider-card-copy">
                   <div>
                     <strong>{provider.displayName}</strong>
-                    <span className={`status-pill ${provider.enabled && provider.hasApiKey ? 'success' : ''}`}>
-                      {provider.enabled && provider.hasApiKey ? '可用' : '未就绪'}
+                    <span className={`status-pill ${providerState(provider).tone}`}>
+                      {providerState(provider).label}
                     </span>
                   </div>
                   <p>{provider.defaultModel} · {provider.models.length} 个模型</p>
-                  <small>{testStatus[provider.id] || `${formatDate(provider.updatedAt)} 更新`}</small>
+                  <small>{testStatus[provider.id] || providerState(provider).note}</small>
                 </div>
                 <div className="provider-actions">
                   <button
@@ -685,6 +773,48 @@ export function ProvidersPage({
         onRefresh={onRefresh}
         showToast={showToast}
       />}
+
+      <section className="panel" style={{ display: 'grid', gap: '10px' }}>
+        <div className="section-heading">
+          <div>
+            <h3><DatabaseBackup size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} />数据与备份</h3>
+          </div>
+          <div className="section-heading-actions">
+            <button
+              className="button secondary"
+              disabled={backupBusy}
+              onClick={() => void createBackup()}
+              title="一键导出整库快照与全部配图，落在数据目录的 backups 文件夹"
+            >
+              {backupBusy ? <span className="spinner tiny" /> : <Download size={15} />}立即备份
+            </button>
+          </div>
+        </div>
+
+        <p className="micro-copy">
+          数据目录：<code style={{ userSelect: 'all', wordBreak: 'break-all' }} title={dataPath}>{dataPath || '正在读取…'}</code>
+          {' '}全部内容都留在本机这个目录里，换机时整体拷贝或用下面的备份包迁移。
+        </p>
+
+        <div className="version-list" style={{ maxHeight: 'none', overflow: 'visible' }}>
+          {backups.length ? backups.map((bundle) => (
+            <article key={bundle} className="version-item">
+              <span className="version-icon"><FolderArchive size={15} /></span>
+              <span style={{ minWidth: 0 }}>
+                <strong>{bundleName(bundle)}</strong>
+              </span>
+              <button
+                className="button ghost compact"
+                disabled={restoringPath !== undefined || backupBusy}
+                onClick={() => void restoreBackup(bundle)}
+                title={bundle}
+              >
+                {restoringPath === bundle ? <span className="spinner tiny" /> : <RotateCcw size={15} />}恢复
+              </button>
+            </article>
+          )) : <p className="micro-copy">暂无本地备份。首次配置完成后建议立刻备份一份。</p>}
+        </div>
+      </section>
 
       {logsOpen && (
         <ModalBase open onClose={() => setLogsOpen(false)} titleId="provider-logs-title" bare className="source-manager-dialog provider-logs-dialog">

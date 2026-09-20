@@ -2,6 +2,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 interface ErrorBoundaryProps {
   children: ReactNode
+  /** 页面级边界：出错后回到哪里，而不是整页刷新 */
+  onReset?(): void
 }
 
 interface ErrorBoundaryState {
@@ -25,7 +27,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private readonly handleReload = (): void => {
-    window.location.reload()
+    if (this.props.onReset) this.setState({ error: null, errorInfo: null, retryKey: this.state.retryKey + 1 })
+    else window.location.reload()
   }
 
   private readonly handleRetry = (): void => {

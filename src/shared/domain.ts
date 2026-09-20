@@ -108,3 +108,18 @@ export function validateTopicSchema(fields: TopicSchemaField[]): string[] {
   }
   return [...new Set(errors)]
 }
+
+/**
+ * 外部链接白名单：只放行 http/https，其余协议（file:、javascript: 等）返回 null 由调用方提示。
+ * 主进程与渲染层共用同一判断，避免各处各写一套。
+ */
+export function resolveExternalUrl(raw: unknown): URL | null {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > 4_000) return null
+  let url: URL
+  try {
+    url = new URL(raw.trim())
+  } catch {
+    return null
+  }
+  return url.protocol === 'http:' || url.protocol === 'https:' ? url : null
+}

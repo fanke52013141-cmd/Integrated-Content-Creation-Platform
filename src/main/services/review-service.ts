@@ -1,5 +1,5 @@
 import { escapeXml } from '../../shared/domain.js'
-import type { ReviewProblem, ReviewRole, StartReviewInput, StartReviewResult, StreamEvent } from '../../shared/contracts.js'
+import type { ReviewFailure, ReviewProblem, ReviewRole, StartReviewInput, StartReviewResult, StreamEvent } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 import { callModelWithFallback } from '../gateway/stream-helper.js'
@@ -20,24 +20,35 @@ export class ReviewService {
   ): Promise<StartReviewResult> {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('成稿不存在')
-    const roles = input.roleIds.map(id => this.database.getReviewRole(id)).filter(Boolean)
-    if (roles.length !== input.roleIds.length) throw new Error('部分评审角色不存在')
-    const task = this.database.createReviewTask(article.id, input.roleIds)
+    const roles = input.roleIds.map(id => this.database.getReviewRole(id))
+    if (roles.some(role => !role)) throw new Error('部分评审角色不存在')
+    // 评审固定绑定当前文章版本，应用时据此判断意见是否已经过期
+    const task = this.database.createReviewTask({
+      articleId: article.id,
+      articleVersionId: article.currentVersionId,
+      articleVersionNumber: article.versionCount,
+      roleIds: input.roleIds
+    })
     const total = roles.length
+    let failures: ReviewFailure[] = []
+    let settled = false
     try {
-      const settled = await Promise.allSettled(
+      const results = await Promise.allSettled(
         roles.map((role, index) => this.run(task.id, article, role!, input.fallbackProviderId, input.fallbackModel, index, total, onStream, signal))
       )
-      const failed = settled.flatMap((x, i) =>
+      failures = results.flatMap((x, i) =>
         x.status === 'rejected'
-          ? [{ roleId: input.roleIds[i], message: x.reason instanceof Error ? x.reason.message : '评审失败' }]
+          ? [{ roleId: input.roleIds[i], roleName: roles[i]?.name ?? '评审角色', message: x.reason instanceof Error ? x.reason.message : '评审失败' }]
           : []
       )
-      return { task: this.database.getReviewTask(task.id)!, failed }
+      // 全部角色失败记 failed，部分失败记 partial，只有全绿才是 completed
+      const status = failures.length === 0 ? 'completed' : failures.length === total ? 'failed' : 'partial'
+      this.database.finishReviewTask(task.id, status, failures)
+      settled = true
+      return { task: this.database.getReviewTask(task.id)!, failed: failures }
     } finally {
-      // 无论成功失败，评审结束后任务都不再处于 running 态
-      const latest = this.database.getReviewTask(task.id)
-      if (latest && latest.status === 'running') this.database.markReviewTaskCompleted(task.id)
+      // 中断/异常退出时任务不能停在 running，也不能伪装成评审完成
+      if (!settled) this.database.finishReviewTask(task.id, 'failed', [{ roleId: '', roleName: '评审任务', message: '评审未完成即中断' }])
     }
   }
 
@@ -89,13 +100,19 @@ export class ReviewService {
     taskId: string,
     providerId: string,
     model: string,
+    options?: { force?: boolean },
     onStream?: (event: StreamEvent) => void,
     signal?: AbortSignal
   ) {
     const task = this.database.getReviewTask(taskId)
     if (!task) throw new Error('评审任务不存在')
+    if (task.status === 'failed') throw new Error('该次评审所有角色都失败，没有可用意见')
     const article = this.database.getArticle(task.articleId)
     if (!article) throw new Error('关联成稿不存在')
+    // 评审意见是针对某个版本给出的；正文变了就不能静默套用旧位置旧建议
+    if (!options?.force && task.articleVersionId && task.articleVersionId !== article.currentVersionId) {
+      throw new Error(`评审基线是第 ${task.articleVersionNumber} 版，文章已改到第 ${article.versionCount} 版。请重新评审，或确认按当前正文套用旧意见。`)
+    }
     const lines = task.opinions.flatMap(op => op.problems.filter(p => p.adopted).map(p => `位置：${p.position}\n问题：${p.issue}\n建议：${p.suggestion}`))
     if (!lines.length) throw new Error('请至少采纳一条评审意见')
     const result = await this.articles.revise({

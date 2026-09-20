@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 
@@ -18,12 +18,17 @@ interface SelectProps {
   ariaLabel?: string
   /** 选项为空时的提示 */
   emptyText?: string
+  /** 覆盖"多少个选项起启用搜索框"，一般不传 */
+  searchable?: boolean
 }
+
+// 超过这个数量，滚动找选项就比重打一遍标题更累（作品多起来后下拉尤其明显）
+const SEARCH_THRESHOLD = 12
 
 /**
  * Apple 风格自定义下拉。
  * - portal + fixed 定位，避免被父容器 overflow 裁切
- * - 键盘导航：↑/↓/Enter/Esc/Home/End
+ * - 键盘导航：↑/↓/Enter/Esc/Home/End；选项多时顶部自动出现搜索框
  * - 选中项蓝色对勾，hover 态高亮
  * - 点击外部、Escape、选中后自动关闭
  * - 不依赖任何第三方库
@@ -35,12 +40,21 @@ export function Select({
   placeholder = '请选择',
   disabled = false,
   ariaLabel,
-  emptyText = '暂无选项'
+  emptyText = '暂无选项',
+  searchable
 }: SelectProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const allowSearch = searchable ?? options.length > SEARCH_THRESHOLD
+  const visible = useMemo(() => {
+    const keyword = query.trim().toLowerCase()
+    if (!allowSearch || !keyword) return options
+    return options.filter((option) => `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(keyword))
+  }, [allowSearch, options, query])
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(0, options.findIndex((option) => option.value === value))
   )
@@ -90,16 +104,22 @@ export function Select({
     }
   }, [open, positionPopover])
 
-  // 打开时聚焦选中项
+  // 打开时定位到选中项；带搜索框时直接把焦点交给它，打字即可收窄
   useEffect(() => {
     if (!open) return
-    setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)))
-    const item = listRef.current?.querySelector<HTMLLIElement>(`[data-index="${activeIndex}"]`)
+    setQuery('')
+    const index = Math.max(0, visible.findIndex((option) => option.value === value))
+    setActiveIndex(index)
+    if (allowSearch) {
+      requestAnimationFrame(() => searchRef.current?.focus())
+      return
+    }
+    const item = listRef.current?.querySelector<HTMLLIElement>(`[data-index="${index}"]`)
     requestAnimationFrame(() => item?.scrollIntoView({ block: 'nearest' }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // 点击外部关闭
+  // 点击外部、Escape 关闭。焦点多半还在触发器上（弹层是 portal），所以 Escape 必须挂在文档上
   useEffect(() => {
     if (!open) return
     const onPointerDown = (event: PointerEvent): void => {
@@ -108,8 +128,18 @@ export function Select({
       if (popoverRef.current?.contains(target)) return
       setOpen(false)
     }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
     document.addEventListener('pointerdown', onPointerDown, true)
-    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
   }, [open])
 
   const selectOption = useCallback((option: SelectOption): void => {
@@ -126,15 +156,11 @@ export function Select({
   }
 
   const onListKeydown = (event: React.KeyboardEvent): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      setOpen(false)
-      triggerRef.current?.focus()
-      return
-    }
+    // 正在搜索框里打字时，Home/End 属于光标移动，不能被列表抢走
+    const typing = event.target instanceof HTMLInputElement
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setActiveIndex((current) => Math.min(options.length - 1, current + 1))
+      setActiveIndex((current) => Math.min(visible.length - 1, current + 1))
       return
     }
     if (event.key === 'ArrowUp') {
@@ -142,6 +168,7 @@ export function Select({
       setActiveIndex((current) => Math.max(0, current - 1))
       return
     }
+    if (typing && (event.key === 'Home' || event.key === 'End')) return
     if (event.key === 'Home') {
       event.preventDefault()
       setActiveIndex(0)
@@ -149,12 +176,12 @@ export function Select({
     }
     if (event.key === 'End') {
       event.preventDefault()
-      setActiveIndex(options.length - 1)
+      setActiveIndex(visible.length - 1)
       return
     }
     if (event.key === 'Enter') {
       event.preventDefault()
-      const option = options[activeIndex]
+      const option = visible[activeIndex]
       if (option) selectOption(option)
     }
   }
@@ -187,31 +214,49 @@ export function Select({
       </button>
 
       {open && createPortal(
-        <div ref={popoverRef} className="select-popover" style={popoverStyle}>
-          {options.length ? (
-            <ul ref={listRef} id={listId} role="listbox" className="select-list" onKeyDown={onListKeydown}>
-              {options.map((option, index) => {
-                const isSelected = option.value === value
-                const isActive = index === activeIndex
-                return (
-                  <li
-                    key={`${option.value}:${index}`}
-                    data-index={index}
-                    role="option"
-                    aria-selected={isSelected}
-                    className={`select-option ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}`}
-                    onClick={() => selectOption(option)}
-                    onMouseMove={() => setActiveIndex(index)}
-                  >
-                    <span className="select-option-label">{option.label}</span>
-                    {option.hint && <span className="select-option-hint">{option.hint}</span>}
-                    {isSelected && <Check size={14} className="select-option-check" />}
-                  </li>
-                )
-              })}
-            </ul>
-          ) : (
+        <div ref={popoverRef} className="select-popover" style={popoverStyle} onKeyDown={onListKeydown}>
+          {!options.length ? (
             <div className="select-empty">{emptyText}</div>
+          ) : (
+            <>
+              {allowSearch && (
+                <input
+                  ref={searchRef}
+                  className="select-search"
+                  name="selectSearch"
+                  autoComplete="off"
+                  value={query}
+                  placeholder="输入关键词筛选…"
+                  aria-label={ariaLabel ? `${ariaLabel}：筛选选项` : '筛选选项'}
+                  onChange={(event) => { setQuery(event.target.value); setActiveIndex(0) }}
+                />
+              )}
+              {visible.length ? (
+                <ul ref={listRef} id={listId} role="listbox" className="select-list">
+                  {visible.map((option, index) => {
+                    const isSelected = option.value === value
+                    const isActive = index === activeIndex
+                    return (
+                      <li
+                        key={`${option.value}:${index}`}
+                        data-index={index}
+                        role="option"
+                        aria-selected={isSelected}
+                        className={`select-option ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}`}
+                        onClick={() => selectOption(option)}
+                        onMouseMove={() => setActiveIndex(index)}
+                      >
+                        <span className="select-option-label">{option.label}</span>
+                        {option.hint && <span className="select-option-hint">{option.hint}</span>}
+                        {isSelected && <Check size={14} className="select-option-check" />}
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div className="select-empty">没有匹配的选项</div>
+              )}
+            </>
           )}
         </div>,
         document.body

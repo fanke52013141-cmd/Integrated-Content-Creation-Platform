@@ -3,16 +3,22 @@ import { useLocation, useNavigate as useRouterNavigate, useSearchParams } from '
 import type {
   AccountProfileSummary,
   AppBootstrap,
+  GenerationDomain,
   GenerationEvent,
   ProviderSummary
 } from '../../shared/contracts'
+import { GENERATION_DOMAIN_LABELS } from '../../shared/contracts'
 import { Layout, type RouteId } from './components/Layout'
+import { DOMAIN_ROUTE, TaskCenterDialog } from './components/WorkContext'
+import { ActiveWorkProvider, useOpenWork } from './active-work'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Toast, type ToastItem, type ToastState } from './components/Toast'
 import { useAutoAriaHidden } from './components/Icon'
 import { useKeyboardShortcuts } from './components/useKeyboardShortcuts'
 import { ShortcutPanel } from './components/ShortcutPanel'
 import { errorMessage } from './lib'
 
+const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
 const AccountPage = lazy(() => import('./pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const HotspotsPage = lazy(() => import('./pages/HotspotsPage').then(m => ({ default: m.HotspotsPage })))
 const TopicsPage = lazy(() => import('./pages/TopicsPage').then(m => ({ default: m.TopicsPage })))
@@ -38,25 +44,18 @@ const initialBootstrap: AppBootstrap = {
   accounts: []
 }
 
-const ROUTE_IDS: RouteId[] = ['accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers', 'prompts']
+const ROUTE_IDS: RouteId[] = ['home', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers', 'prompts']
 
-/** 生成域 → 中文与所属页面（用于任务提示与「在当前页则不重复提醒」判断） */
-const DOMAIN_LABELS: Record<string, string> = {
-  account: '账号定位', 'hotspot-filter': '热点筛选', topics: '选题', frameworks: '框架',
-  articles: '文章', reviews: '评审', visuals: '配图'
-}
-const DOMAIN_ROUTES: Record<string, RouteId> = {
-  account: 'accounts', 'hotspot-filter': 'hotspots', topics: 'topics', frameworks: 'frameworks',
-  articles: 'articles', reviews: 'reviews', visuals: 'visuals'
-}
+const DOMAIN_LABELS = GENERATION_DOMAIN_LABELS
+const DOMAIN_ROUTES: Record<string, RouteId> = DOMAIN_ROUTE
 
-export function App(): React.JSX.Element {
+function AppShell(): React.JSX.Element {
   useAutoAriaHidden()
   const location = useLocation()
   const routerNavigate = useRouterNavigate()
   const route: RouteId = useMemo(() => {
     const pathname = location.pathname.replace(/^\//, '')
-    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'accounts'
+    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'home'
   }, [location.pathname])
 
   const navigate = useCallback((next: RouteId, params?: Record<string, string>): void => {
@@ -73,6 +72,8 @@ export function App(): React.JSX.Element {
   const [fatalError, setFatalError] = useState<string>()
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const [shortcutPanelOpen, setShortcutPanelOpen] = useState(false)
+  const [taskCenterOpen, setTaskCenterOpen] = useState(false)
+  const openWork = useOpenWork()
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     // P1-8: 从 DOM 读取由 theme-init.js 预设的 data-theme，避免与初始 HTML 不一致
     const preset = document.documentElement.dataset.theme
@@ -94,6 +95,11 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // 带作品参数进入（从首页、任务中心或其他页面的「去某阶段」）→ 立即成为当前作品
+  useEffect(() => {
+    if (focusArticleId) void openWork(focusArticleId, route).catch(() => undefined)
+  }, [focusArticleId, openWork])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -118,7 +124,7 @@ export function App(): React.JSX.Element {
   // 全局生成任务指示：订阅主进程生命周期事件，顶栏展示运行中任务，跨页面提醒完成/失败
   const routeRef = useRef(route)
   useEffect(() => { routeRef.current = route }, [route])
-  const [runningDomains, setRunningDomains] = useState<string[]>([])
+  const [runningDomains, setRunningDomains] = useState<GenerationDomain[]>([])
   useEffect(() => {
     let alive = true
     void window.moliu.generation.active()
@@ -206,9 +212,21 @@ export function App(): React.JSX.Element {
         onNavigate={navigate}
         onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
         onSwitchAccount={(id) => void handleSwitchAccount(id)}
+        onShowTasks={() => setTaskCenterOpen(true)}
       >
-        <Suspense fallback={<PageFallback />}>
-          {route === 'accounts' && (
+        {/* 页面级错误边界：某一页渲染崩溃只停在这一页，不带走整个应用，也不丢已保存的作品 */}
+        <ErrorBoundary key={route} onReset={() => navigate('home')}>
+          <Suspense fallback={<PageFallback />}>
+            {route === 'home' && (
+              <HomePage
+                accounts={data.accounts}
+                providers={data.providers}
+                onNavigate={navigate}
+                onShowTasks={() => setTaskCenterOpen(true)}
+                showToast={showToast}
+              />
+            )}
+            {route === 'accounts' && (
             <AccountPage
               accounts={data.accounts}
               providers={data.providers}
@@ -249,6 +267,8 @@ export function App(): React.JSX.Element {
             <MaterialsPage
               searchService={data.searchService}
               onNavigate={navigate}
+              focusArticleId={focusArticleId}
+              returnTo={returnTo}
               showToast={showToast}
             />
           )}
@@ -269,6 +289,8 @@ export function App(): React.JSX.Element {
               currentAccountId={currentAccount?.id}
               onNavigate={navigate}
               focusFrameworkId={focusFrameworkId}
+              focusArticleId={focusArticleId}
+              importMode={searchParams.get('import') === '1'}
               showToast={showToast}
             />
           )}
@@ -278,10 +300,20 @@ export function App(): React.JSX.Element {
           {route === 'publishing' && <PublishingPage onNavigate={navigate} focusArticleId={focusArticleId} currentAccount={currentAccount} showToast={showToast} />}
           {route === 'prompts' && <PromptsPage showToast={showToast} />}
         </Suspense>
+        </ErrorBoundary>
       </Layout>
+      <TaskCenterDialog open={taskCenterOpen} onClose={() => setTaskCenterOpen(false)} onNavigate={navigate} />
       <Toast toasts={toasts} onDismiss={dismissToast} />
       <ShortcutPanel open={shortcutPanelOpen} onClose={() => setShortcutPanelOpen(false)} />
     </>
+  )
+}
+
+export function App(): React.JSX.Element {
+  return (
+    <ActiveWorkProvider>
+      <AppShell />
+    </ActiveWorkProvider>
   )
 }
 

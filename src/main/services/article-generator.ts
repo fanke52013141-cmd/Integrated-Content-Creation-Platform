@@ -113,7 +113,7 @@ export class ArticleGenerator {
         { role: 'user', content: [
           `<改稿任务>第 ${context.index + 1} 个独立改稿候选。</改稿任务>`,
           context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
-          `<原稿>\n${escapeXml(context.article.rawMarkdown)}\n</原稿>`,
+          `<原稿>\n${escapeXml(context.input.baseMarkdown?.trim() || context.article.rawMarkdown)}\n</原稿>`,
           `<修改指令>\n${escapeXml(context.instruction)}\n</修改指令>`,
           context.framework ? context.framework.rawXml : '<框架>未要求对齐</框架>'
         ].join('\n\n') }

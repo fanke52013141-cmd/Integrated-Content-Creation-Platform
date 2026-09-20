@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { _electron as electron } from 'playwright-core'
+import { capture } from './lib/evidence.mjs'
 
 const server = createServer(async (request, response) => {
   if (request.method !== 'POST' || request.url !== '/v1/chat/completions') return response.writeHead(404).end()
@@ -36,20 +37,20 @@ try {
   await window.getByRole('button', { name: '模型网关' }).first().click()
   await window.getByRole('button', { name: /空白配置/ }).click()
   await window.getByLabel('显示名称').fill('本地框架验收模型')
-  await window.getByLabel('Base URL').fill(`http://127.0.0.1:${address.port}/v1`)
-  await window.locator('.provider-editor').getByLabel(/API Key/).fill('framework-smoke-key')
+  await window.getByLabel('接口地址').fill(`http://127.0.0.1:${address.port}/v1`)
+  await window.locator('.provider-editor').getByLabel(/访问密钥/).fill('framework-smoke-key')
   await window.getByLabel('显示别名').fill('Smoke Framework Model')
-  await window.getByLabel('API 模型 ID').fill('moliu-framework-smoke')
-  await window.locator('.provider-editor').getByRole('button', { name: '加密保存' }).click()
+  await window.getByLabel('模型标识').fill('moliu-framework-smoke')
+  await window.locator('.provider-editor').getByRole('button', { name: '测试并加密保存' }).click()
   await window.getByText('供应商配置已加密保存').waitFor()
 
   await window.getByRole('button', { name: '内容框架' }).first().click()
-  await window.getByText('先把文章想清楚，再开始写。').waitFor()
+  await window.getByText('把选题拆成结构化章节，锁定后作为写作基线').waitFor()
   await window.getByLabel('补充主题（未选选题时必填）').fill('AI 创作者为什么需要内容框架')
-  await window.getByRole('button', { name: '生成内容框架' }).click()
+  await window.getByRole('button', { name: '生成框架' }).click()
   await window.getByText('已生成 3 个可编辑框架').waitFor({ timeout: 30_000 })
   await window.getByText('先有框架，创作才有方向').first().waitFor()
-  await window.screenshot({ path: resolve(artifactDir, 'framework-generation.png'), fullPage: false, animations: 'disabled' })
+  await capture(window, { path: resolve(artifactDir, 'framework-generation.png'), fullPage: false, animations: 'disabled' })
 
   const card = window.locator('.framework-card').first()
   await card.getByTitle('锁定').click()

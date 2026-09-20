@@ -1,9 +1,10 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { _electron as electron } from 'playwright-core'
+import { capture } from './lib/evidence.mjs'
 
 // 本地 mock 模型服务：供应商保存前会先做连接测试（测试通过才允许保存），
 // 因此冒烟用本地服务而非真实厂商端点，既过门禁又不依赖外网。
@@ -49,9 +50,11 @@ try {
   await window.waitForTimeout(1_000)
   console.log(`renderer:url: ${window.url()}`)
   console.log(`renderer:body: ${(await window.locator('body').innerText()).slice(0, 500)}`)
-  await window.screenshot({ path: resolve(artifactDir, 'smoke-debug.png') })
-  await window.getByRole('heading', { name: '账号定位' }).waitFor({ timeout: 10_000 })
-  await window.screenshot({ path: resolve(artifactDir, 'dashboard.png') })
+  await capture(window, { path: resolve(artifactDir, 'smoke-debug.png') })
+  // F09：启动落在创作台，第一步是连模型而不是配账号
+  await window.getByRole('heading', { name: '创作台' }).waitFor({ timeout: 10_000 })
+  await window.getByText('第一步：连接一个文本模型').waitFor()
+  await capture(window, { path: resolve(artifactDir, 'dashboard.png') })
 
   await window.getByRole('button', { name: '模型网关' }).first().click()
   await window.getByRole('heading', { name: '模型网关' }).waitFor()
@@ -68,7 +71,7 @@ try {
   await window.getByRole('heading', { name: '账号定位' }).waitFor()
   await window.getByRole('button', { name: '新建账号' }).first().click()
   await window.getByText('建立账号基线').waitFor()
-  await window.screenshot({ path: resolve(artifactDir, 'account-wizard.png') })
+  await capture(window, { path: resolve(artifactDir, 'account-wizard.png') })
 
   await window.getByPlaceholder('在这里写下你的想法…').fill('心流验收号')
   await window.getByRole('button', { name: '保存并继续' }).click()
@@ -80,7 +83,7 @@ try {
   await window.getByRole('heading', { name: '心流验收号' }).waitFor()
   await window.getByRole('button', { name: '保存并锁定' }).click()
   await window.getByRole('button', { name: '解锁编辑' }).waitFor()
-  await window.screenshot({ path: resolve(artifactDir, 'account-locked.png') })
+  await capture(window, { path: resolve(artifactDir, 'account-locked.png') })
 } finally {
   await application.close()
 }
@@ -100,3 +103,9 @@ try {
 } finally {
   await application.close()
 }
+
+// mock 服务与临时数据目录必须显式释放，否则事件循环不退出，批量回归会卡在这里
+await new Promise((done) => modelServer.close(done))
+const requiredPrefix = `${resolve(tmpdir())}${sep}moliu-electron-smoke-`
+if (!userDataDir.startsWith(requiredPrefix)) throw new Error('Refusing to clean an unexpected smoke-test directory')
+await rm(userDataDir, { recursive: true, force: true })

@@ -20,6 +20,7 @@ import { ReviewService } from './services/review-service.js'
 import { VisualPackGenerator } from './services/visual-pack-generator.js'
 import { VisualAssetService } from './services/visual-asset-service.js'
 import { FileMaterialService } from './services/file-material-service.js'
+import { WorkspaceService } from './services/workspace-service.js'
 import { ArticleLayoutService } from './services/article-layout-service.js'
 import { WechatPublishService } from './services/wechat-publish-service.js'
 import { WeiboLoginService } from './services/weibo-login-service.js'
@@ -110,6 +111,7 @@ if (!hasLock) {
       const imagesDir = join(dataPath, 'images')
       const visualAssetService = new VisualAssetService(database, gateway, imagesDir)
       const fileMaterialService = new FileMaterialService(database)
+      const workspaceService = new WorkspaceService(database, dataPath)
       const articleLayoutService = new ArticleLayoutService(database)
       const wechatPublishService = new WechatPublishService(database, keyStore, visualAssetService, process.env.MOLIU_WECHAT_API_BASE || 'https://api.weixin.qq.com')
       const weiboLoginService = new WeiboLoginService(keyStore, database)
@@ -132,6 +134,7 @@ if (!hasLock) {
         weiboLoginService,
         visualAssets: visualAssetService,
         fileMaterials: fileMaterialService,
+        workspace: workspaceService,
         dataPath
       })
       registerAssetProtocol(imagesDir)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Code2, Copy, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
+import { Code2, Copy, FileDown, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
 import type { Article, ArticleLayout, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
@@ -7,7 +7,9 @@ import { Select } from '../components/Select'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { useConfirm } from '../components/useConfirm'
-import { errorMessage, formatDate, markdownTitle, sanitizeHtml } from '../lib'
+import { errorMessage, formatDate, formatTimedDate, markdownTitle, sanitizeHtml } from '../lib'
+import { disambiguateOptions, resolveLayoutSelection } from '../../../shared/creation-state'
+import { useReportWork } from '../active-work'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
 const platformHints: Record<LayoutPlatform, string> = { wechat: '可直接推送草稿箱', xiaohongshu: '纯文本，复制使用', web: '通用网页样式' }
@@ -29,9 +31,19 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [selectedId, setSelectedId] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const selected = layouts.find((item) => item.id === selectedId)
+  // 选中态始终限定在当前文章的排版稿集合内：切文章不会出现侧栏是 B、预览是 A
+  const effectiveSelectedId = useMemo(() => resolveLayoutSelection(layouts, articleId, selectedId), [layouts, articleId, selectedId])
+  const selected = layouts.find((item) => item.id === effectiveSelectedId)
   const articleLayouts = useMemo(() => layouts.filter((item) => item.articleId === articleId), [layouts, articleId])
   const article = articles.find((item) => item.id === articleId)
+
+  useReportWork(article ? {
+    articleId: article.id,
+    title: markdownTitle(article.rawMarkdown),
+    accountId: article.accountId,
+    versionCount: article.versionCount,
+    status: article.status
+  } : {}, 'layouts')
 
   const refresh = async (): Promise<void> => {
     const [nextArticles, nextLayouts] = await Promise.all([window.moliu.articles.list(), window.moliu.layouts.list()])
@@ -45,7 +57,6 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
     })
     setSelectedId((current) => nextLayouts.some((item) => item.id === current) ? current : nextLayouts[0]?.id ?? '')
   }
-
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
   useEffect(() => { void window.moliu.layouts.themes().then(setThemes).catch(() => undefined) }, [])
 
@@ -69,8 +80,35 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   }
 
   const copy = async (text: string, message: string): Promise<void> => {
-    await navigator.clipboard.writeText(text)
-    showToast({ type: 'success', message })
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast({ type: 'success', message })
+    } catch (error) {
+      showToast({ type: 'error', message: `复制失败：${errorMessage(error)}` })
+    }
+  }
+
+  /** 带格式复制：由主进程同时写入 HTML 与纯文本，粘贴到公众号编辑器才保留样式 */
+  const copyRich = async (html: string, text: string): Promise<void> => {
+    try {
+      const ok = await window.moliu.clipboard.writeRichText(html, text)
+      showToast(ok
+        ? { type: 'success', message: '已复制带格式正文，可直接粘贴到公众号编辑器' }
+        : { type: 'error', message: '复制失败：主进程未写入剪贴板，请重试' })
+    } catch (error) {
+      showToast({ type: 'error', message: `复制失败：${errorMessage(error)}` })
+    }
+  }
+
+  /** 导出单文件 HTML（图片内嵌，离线可读）；path 为 null 表示用户在保存框取消 */
+  const exportHtml = async (item: ArticleLayout): Promise<void> => {
+    try {
+      const result = await window.moliu.app.exportLayout({ layoutId: item.id })
+      if (result.path) showToast({ type: 'success', message: `已导出单文件 HTML：${result.path}` })
+      else showToast({ type: 'info', message: '已取消导出' })
+    } catch (error) {
+      showToast({ type: 'error', message: `导出失败：${errorMessage(error)}` })
+    }
   }
 
   const remove = async (): Promise<void> => {
@@ -105,7 +143,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       <>
         <section className="layout-composer">
           <label className="field"><span>文章</span>
-            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={articles.map((item) => ({ value: item.id, label: markdownTitle(item.rawMarkdown), hint: item.status === 'locked' ? '已锁定' : '草稿' }))} />
+            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={disambiguateOptions(articles.map((item) => ({ value: item.id, label: markdownTitle(item.rawMarkdown), hint: item.status === 'locked' ? '已锁定' : '草稿', distinct: formatTimedDate(item.updatedAt) })))} />
           </label>
           <label className="field"><span>平台</span>
             <Select value={platform} onChange={(value) => setPlatform(value as LayoutPlatform)} ariaLabel="平台" options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], hint: platformHints[key] }))} />
@@ -130,7 +168,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           <aside className="layout-versions">
             <header><h3>排版稿 <small>{articleLayouts.length}</small></h3></header>
             {articleLayouts.length ? articleLayouts.map((item) => (
-              <button key={item.id} className={`layout-version-item ${item.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
+              <button key={item.id} className={`layout-version-item ${item.id === effectiveSelectedId ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
                 <strong>{platformNames[item.platform]}{item.themeId && item.themeId !== 'custom' ? ` · ${themes.find((theme) => theme.id === item.themeId)?.name ?? item.themeId}` : ''}</strong>
                 <small>{formatDate(item.createdAt)}</small>
               </button>
@@ -143,7 +181,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <div>
                     <span className={`badge ${selected.platform === 'wechat' ? 'success' : 'neutral'}`}>{platformNames[selected.platform]}</span>
                     <h3>{selected.title}</h3>
-                    <p>{selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
+                    <p>来自《{markdownTitle(articles.find((item) => item.id === selected.articleId)?.rawMarkdown ?? '')}》 · {selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
                     <div className="layout-counters">
                       <span className={`badge ${titleLimits[selected.platform] && selected.title.length > titleLimits[selected.platform] ? 'danger' : 'neutral'}`}>
                         标题 {selected.title.length}{titleLimits[selected.platform] ? `/${titleLimits[selected.platform]}` : ''} 字
@@ -154,8 +192,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <button className="icon-button danger" title="删除排版稿" aria-label="删除排版稿" onClick={() => void remove()}><Trash2 size={16} /></button>
                 </header>
                 <div className="layout-actions">
+                  {selected.platform !== 'xiaohongshu' && (
+                    <button className="button primary compact" onClick={() => void copyRich(selected.html, selected.plainText)}><Copy size={14} />复制图文（带格式）</button>
+                  )}
                   <button className="button secondary compact" onClick={() => void copy(selected.plainText, '发布文案已复制')}><Copy size={14} />复制发布文案</button>
                   <button className="button ghost compact" onClick={() => void copy(selected.html, '网页源码已复制')}><Code2 size={14} />复制源码</button>
+                  <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={14} />导出 HTML 文件</button>
                   {selected.platform === 'wechat' && (
                     <button className="button primary compact" onClick={() => onNavigate('publishing', { articleId: selected.articleId })}><Send size={14} />去发布</button>
                   )}

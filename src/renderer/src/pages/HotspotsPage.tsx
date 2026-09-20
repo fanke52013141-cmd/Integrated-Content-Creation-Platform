@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -74,6 +74,10 @@ export function HotspotsPage({
   const [sourceManagerOrder, setSourceManagerOrder] = useState<HotSource[]>([])
   const [sourceManagerHidden, setSourceManagerHidden] = useState<Set<string>>(new Set())
   const [draggedSourceId, setDraggedSourceId] = useState<string>()
+  // dragstart 之后 React 还没来得及提交 state，drop 就可能已经触发；这时 onDrop 闭包里读到的
+  // draggedSourceId 还是 undefined，拖拽排序会被静默丢掉（整机负载高时尤其容易复现）。
+  // 所以判断依据同步写进 ref，state 只留着画"正在拖拽"的样式。
+  const draggingSourceIdRef = useRef<string | undefined>(undefined)
   const [activeSourceId, setActiveSourceId] = useState<string>()
   const [weiboDialogOpen, setWeiboDialogOpen] = useState(false)
   const [weiboConfigured, setWeiboConfigured] = useState(false)
@@ -284,7 +288,8 @@ export function HotspotsPage({
   async function openSource(url: string): Promise<void> {
     if (!url) return
     try {
-      await window.moliu.hotspots.openSource(url)
+      const ok = await window.moliu.app.openExternal(url)
+      if (!ok) showToast({ type: 'error', message: '无法打开链接：仅支持 http/https 地址' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     }
@@ -438,14 +443,6 @@ export function HotspotsPage({
     setHiddenSourceIds(new Set(sourceManagerHidden))
     setSourceManagerOpen(false)
     await persistSourcePreferences(sourceManagerOrder, sourceManagerHidden, true)
-  }
-
-  function reorderWallSource(targetId: string): void {
-    if (!draggedSourceId || draggedSourceId === targetId) return
-    const reordered = moveSource(sources, draggedSourceId, targetId)
-    setSources(reordered)
-    setDraggedSourceId(undefined)
-    void persistSourcePreferences(reordered, hiddenSourceIds)
   }
 
   function openFilterDialog(scope: 'wall' | 'favorites' = 'wall'): void {
@@ -997,14 +994,20 @@ export function HotspotsPage({
                     key={source.id}
                     className={draggedSourceId === source.id ? 'dragging' : ''}
                     draggable
-                    onDragStart={() => setDraggedSourceId(source.id)}
-                    onDragEnd={() => setDraggedSourceId(undefined)}
+                    onDragStart={() => {
+                      draggingSourceIdRef.current = source.id
+                      setDraggedSourceId(source.id)
+                    }}
+                    onDragEnd={() => {
+                      draggingSourceIdRef.current = undefined
+                      setDraggedSourceId(undefined)
+                    }}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => {
-                      if (!draggedSourceId || draggedSourceId === source.id) return
-                      setSourceManagerOrder((current) =>
-                        moveSource(current, draggedSourceId, source.id)
-                      )
+                      const movingId = draggingSourceIdRef.current
+                      if (!movingId || movingId === source.id) return
+                      draggingSourceIdRef.current = undefined
+                      setSourceManagerOrder((current) => moveSource(current, movingId, source.id))
                       setDraggedSourceId(undefined)
                     }}
                   >

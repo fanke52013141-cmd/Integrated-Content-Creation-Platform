@@ -282,6 +282,38 @@ describe('AppDatabase', () => {
     database.close()
   })
 
+  it('records a publication retro and drops it once every field is blank', () => {
+    const database = new AppDatabase(':memory:')
+    const article = database.saveArticle({
+      materialIds: [], manualOutline: '<框架><标题>测试</标题></框架>', status: 'locked',
+      rawMarkdown: '# 复盘\n\n正文。', source: 'manual'
+    })
+    const layout = database.saveArticleLayout({
+      articleId: article.id, articleVersionId: article.currentVersionId,
+      articleStatusSnapshot: 'locked', platform: 'wechat',
+      title: '复盘标题', html: '<p>正文。</p>', plainText: '正文。'
+    })
+    const publication = database.createPublication({
+      articleId: article.id, articleVersionId: article.currentVersionId, layoutId: layout.id,
+      channelId: 'wechat-official', status: 'published', title: '复盘标题', thumbMediaId: 'thumb-1',
+      publishedUrl: 'https://example.com/post'
+    })
+    expect(publication.retro).toBeUndefined()
+
+    const saved = database.savePublicationRetro(publication.id, {
+      goal: ' 验证这个选题判断是否成立 ', result: '阅读 1200，涨粉 8', lesson: ' 标题带具体数字更有效 '
+    })
+    expect(saved.retro).toMatchObject({
+      goal: '验证这个选题判断是否成立', result: '阅读 1200，涨粉 8', lesson: '标题带具体数字更有效'
+    })
+    expect(saved.retro?.updatedAt).toBeTruthy()
+    expect(database.listPublications()[0]?.retro?.lesson).toBe('标题带具体数字更有效')
+
+    const cleared = database.savePublicationRetro(publication.id, { goal: '  ', result: '', lesson: '   ' })
+    expect(cleared.retro).toBeUndefined()
+    database.close()
+  })
+
   it('manages account redlines, platform bindings, and deduped memories', () => {
     const database = new AppDatabase(':memory:')
     const account = database.saveAccount({

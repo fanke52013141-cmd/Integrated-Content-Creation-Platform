@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FolderHeart, Search } from 'lucide-react'
 import type { Material } from '../../../shared/contracts'
 import type { RouteId } from './Layout'
@@ -19,12 +19,32 @@ interface MaterialPickerProps {
 export function MaterialPicker({ materials, selected, onToggle, onNavigate, maxHeight = 176 }: MaterialPickerProps): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [usage, setUsage] = useState<Record<string, Array<{ id: string; title: string }>>>({})
+
+  // 引用数来自文章库；预览模式或旧主进程无此接口时静默降级，不显示引用徽标
+  useEffect(() => {
+    let alive = true
+    const load = async (): Promise<void> => {
+      try {
+        const map = await window.moliu.materials.usage()
+        if (alive) setUsage(map)
+      } catch { /* 拿不到引用数据：保持空 map */ }
+    }
+    void load()
+    return () => { alive = false }
+  }, [])
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     if (!keyword) return materials
     return materials.filter((material) => material.title.toLowerCase().includes(keyword))
   }, [materials, query])
+
+  // 已选素材置顶，便于在长列表中确认勾选结果
+  const visible = useMemo(
+    () => [...filtered].sort((a, b) => Number(selected.has(b.id)) - Number(selected.has(a.id))),
+    [filtered, selected]
+  )
 
   return (
     <div className="material-picker">
@@ -45,7 +65,7 @@ export function MaterialPicker({ materials, selected, onToggle, onNavigate, maxH
         </label>
       )}
       <div className="material-picker-list" style={{ maxHeight: expanded ? 320 : maxHeight }}>
-        {filtered.length ? filtered.map((material) => (
+        {visible.length ? visible.map((material) => (
           <label key={material.id} className={selected.has(material.id) ? 'selected' : ''}>
             <input
               type="checkbox"
@@ -55,15 +75,16 @@ export function MaterialPicker({ materials, selected, onToggle, onNavigate, maxH
               onChange={(event) => onToggle(material.id, event.target.checked)}
             />
             <span>{material.title}</span>
+            {(usage[material.id]?.length ?? 0) > 0 && <small className="badge neutral">引用 {usage[material.id]!.length}</small>}
             <small>{material.kind === 'web' ? '网页' : material.kind === 'image' ? '图片' : '文字'}</small>
           </label>
         )) : (
           <p className="material-picker-empty">{materials.length ? '没有匹配的素材' : '暂无素材，可先到素材库收集'}</p>
         )}
       </div>
-      {filtered.length > 6 && (
+      {visible.length > 6 && (
         <button className="button ghost tiny material-picker-expand" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? '收起' : `展开全部 ${filtered.length} 条`}
+          {expanded ? '收起' : `展开全部 ${visible.length} 条`}
         </button>
       )}
     </div>

@@ -12,8 +12,10 @@ import { EmptyState } from '../components/EmptyState'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
+import { useReportWork } from '../active-work'
 import { availableModels, DEFAULT_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate, markdownTitle } from '../lib'
+import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
+import { disambiguateOptions } from '../../../shared/creation-state'
 
 interface VisualsPageProps {
   providers: ProviderSummary[]
@@ -46,6 +48,14 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
   const selected = articles.find((article) => article.id === articleId)
   const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
+
+  useReportWork(selected ? {
+    articleId: selected.id,
+    title: markdownTitle(selected.rawMarkdown),
+    accountId: selected.accountId,
+    versionCount: selected.versionCount,
+    status: selected.status
+  } : {}, 'visuals')
 
   const refresh = async (): Promise<void> => {
     const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.list(), window.moliu.visuals.list()])
@@ -95,7 +105,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       await refreshAssets([pack.id])
       showToast({ type: 'success', message: '图片已生成' })
     } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
+      showToast({ type: 'error', message: `第 ${slot + 1} 张${kind === 'cover' ? '封面' : kind === 'inline' ? '文内图' : '发布图'}生成失败：${errorMessage(error)}` })
     } finally {
       setImageBusyKey('')
     }
@@ -129,9 +139,10 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     setBatchState({ packId: pack.id, done: 0, total: todo.length, phase: 'generate' })
     let ok = 0
     let cancelled = false
+    let stopped = false
     const failed: string[] = []
     for (const item of todo) {
-      if (batchStopRef.current) break
+      if (batchStopRef.current) { stopped = true; break }
       try {
         await window.moliu.visuals.generateImage({ packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt, providerId: target.providerId, model: target.modelId })
         ok += 1
@@ -144,7 +155,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     }
     await refreshAssets([pack.id])
     setBatchState(null)
-    if (cancelled) showToast({ type: 'info', message: `批量生成已停止（成功 ${ok} 张）` })
+    if (cancelled || stopped) showToast({ type: 'info', message: `批量生成已停止（成功 ${ok} 张${failed.length ? `，失败 ${failed.length} 张` : ''}，未生成 ${todo.length - ok - failed.length} 张）` })
     else if (failed.length) showToast({ type: 'warning', message: `生成完成：成功 ${ok} 张，失败 ${failed.length} 张（${failed[0]}）` })
     else showToast({ type: 'success', message: `全部 ${ok} 张图片已生成` })
   }
@@ -250,7 +261,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       <>
         <section className="visual-composer">
           <label className="field"><span>文章</span>
-            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={articles.map((article) => ({ value: article.id, label: markdownTitle(article.rawMarkdown), hint: article.status === 'locked' ? '已锁定' : '草稿' }))} />
+            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={disambiguateOptions(articles.map((article) => ({ value: article.id, label: markdownTitle(article.rawMarkdown), hint: article.status === 'locked' ? '已锁定' : '草稿', distinct: formatTimedDate(article.updatedAt) })))} />
           </label>
           <label className="field"><span>方案模型</span>
             <Select value={modelTarget} onChange={setModelTarget} ariaLabel="方案模型" options={availableModels(providers).map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />

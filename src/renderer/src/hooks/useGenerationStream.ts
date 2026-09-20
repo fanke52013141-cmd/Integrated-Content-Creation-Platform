@@ -1,7 +1,17 @@
 import { useCallback, useState } from 'react'
-import type { StreamEvent } from '../../../shared/contracts'
+import type { GenerationDomain, StreamEvent } from '../../../shared/contracts'
 
 export type StreamDomain = 'topics' | 'frameworks' | 'articles' | 'reviews' | 'visuals' | 'hotspots'
+
+/** 流式通道名与主进程互斥域并非一一同名：热点筛选走 hotspot-filter，取消必须打到真实域 */
+const CANCEL_DOMAIN: Record<StreamDomain, GenerationDomain> = {
+  topics: 'topics',
+  frameworks: 'frameworks',
+  articles: 'articles',
+  reviews: 'reviews',
+  visuals: 'visuals',
+  hotspots: 'hotspot-filter'
+}
 
 const STREAM_SUBSCRIBERS: Record<StreamDomain, (callback: (event: StreamEvent) => void) => () => void> = {
   topics: (callback) => window.moliu.topics.onStream(callback),
@@ -44,7 +54,7 @@ export function useGenerationStream(domain: StreamDomain): {
   }, [domain])
 
   const cancel = useCallback((): void => {
-    void window.moliu.generation.cancel(domain)
+    void window.moliu.generation.cancel(CANCEL_DOMAIN[domain])
   }, [domain])
 
   return { active, content, run, cancel }

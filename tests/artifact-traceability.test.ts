@@ -186,7 +186,10 @@ describe('INT-03 删除溯源链 - 上游删除后下游保留与失效标记', 
       name: '内容编辑', systemPrompt: '你是编辑', extractionTag: '评审意见',
       extractionOccurrence: 'last', dimensions: ['准确性'], sortOrder: 0
     })
-    const reviewTask = database.createReviewTask(article.id, [reviewRole.id])
+    const reviewTask = database.createReviewTask({
+      articleId: article.id, articleVersionId: article.currentVersionId,
+      articleVersionNumber: article.versionCount, roleIds: [reviewRole.id]
+    })
     database.saveVisualPack({
       articleId: article.id, articleVersionId: article.currentVersionId,
       articleStatusSnapshot: 'draft', providerId: 'p1', model: 'm1', rawXml: '<配图方案/>',

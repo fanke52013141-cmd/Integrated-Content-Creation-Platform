@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowLeft,
   ArrowUpRight,
   BookOpenText,
   Check,
@@ -37,18 +38,28 @@ interface MaterialsPageProps {
   searchService: SearchServiceSummary
   onNavigate(route: RouteId): void
   showToast(toast: ToastState): void
+  /** 上一步来源路由：提供时显示「返回上一步」，否则沿用默认返回行为 */
+  returnTo?: string
+  /** 选题交接直接带过来的标题，用于预填搜索框；缺省时由关联选题推导 */
+  seedTitle?: string
+  /** 预留：从文章页跳回时聚焦的文章 id */
+  focusArticleId?: string
 }
 
 export function MaterialsPage({
   searchService,
   onNavigate,
-  showToast
+  showToast,
+  returnTo,
+  seedTitle
 }: MaterialsPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const [view, setView] = useState<'search' | 'collection'>('search')
   const [materials, setMaterials] = useState<Material[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [query, setQuery] = useState('')
+  const queryDirty = useRef(false)
+  const seeded = useRef(false)
   const [type, setType] = useState<'web' | 'image'>('web')
   const [count, setCount] = useState(10)
   const [relatedTopicId, setRelatedTopicId] = useState(() => {
@@ -62,6 +73,9 @@ export function MaterialsPage({
   const [manualOpen, setManualOpen] = useState(false)
   const [collectionQuery, setCollectionQuery] = useState('')
   const [collectionKind, setCollectionKind] = useState<'all' | Material['kind']>('all')
+  const [usage, setUsage] = useState<Record<string, Array<{ id: string; title: string }>>>({})
+  const [usageReady, setUsageReady] = useState(false)
+  const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all')
 
   async function refresh(): Promise<void> {
     const [nextMaterials, nextTopics] = await Promise.all([
@@ -70,6 +84,14 @@ export function MaterialsPage({
     ])
     setMaterials(nextMaterials)
     setTopics(nextTopics)
+    // 引用关系依赖文章库；接口缺失或失败时静默降级，不影响素材列表
+    try {
+      setUsage(await window.moliu.materials.usage())
+      setUsageReady(true)
+    } catch {
+      setUsage({})
+      setUsageReady(false)
+    }
   }
 
   useEffect(() => {
@@ -78,6 +100,16 @@ export function MaterialsPage({
 
   useEffect(() => setCount(type === 'web' ? 10 : 5), [type])
 
+  // 选题→素材交接：用关联选题标题预填搜索框，仅在首次且用户尚未输入时生效
+  useEffect(() => {
+    if (seeded.current || queryDirty.current) return
+    const related = topics.find((topic) => topic.id === relatedTopicId)
+    const seed = seedTitle?.trim() || related?.fields['选题主题'] || related?.seedKeyword
+    if (!seed) return
+    setQuery(seed)
+    seeded.current = true
+  }, [relatedTopicId, seedTitle, topics])
+
   const savedKeys = useMemo(() => new Set(materials
     .filter((material) => material.externalId)
     .map((material) => `${material.origin}:${material.externalId}`)), [materials])
@@ -85,11 +117,16 @@ export function MaterialsPage({
     const needle = collectionQuery.trim().toLocaleLowerCase('zh-CN')
     return materials.filter((material) => {
       if (collectionKind !== 'all' && material.kind !== collectionKind) return false
+      if (usageFilter !== 'all') {
+        const used = (usage[material.id]?.length ?? 0) > 0
+        if (usageFilter === 'used' && !used) return false
+        if (usageFilter === 'unused' && used) return false
+      }
       if (!needle) return true
       return [material.title, material.summary, material.sourceName, material.sourceNote]
         .filter(Boolean).some((value) => value!.toLocaleLowerCase('zh-CN').includes(needle))
     })
-  }, [collectionKind, collectionQuery, materials])
+  }, [collectionKind, collectionQuery, materials, usage, usageFilter])
 
   async function search(): Promise<void> {
     if (!query.trim()) return showToast({ type: 'error', message: '请输入搜索词' })
@@ -123,6 +160,17 @@ export function MaterialsPage({
       } else {
         showToast({ type: 'error', message: '该来源已在素材库中' })
       }
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  /** 外部链接统一交给主进程白名单打开，失败要给出提示而不是静默无反应 */
+  async function openSource(url: string | undefined): Promise<void> {
+    if (!url) return
+    try {
+      const ok = await window.moliu.app.openExternal(url)
+      if (!ok) showToast({ type: 'error', message: '无法打开链接：仅支持 http/https 地址' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     }
@@ -173,7 +221,7 @@ export function MaterialsPage({
     <div className="page materials-page">
       <section className="page-intro materials-intro">
         <div>
-          
+          {returnTo && <button className="button ghost compact" onClick={() => onNavigate(returnTo as RouteId)}><ArrowLeft size={14} />返回上一步</button>}
           <h2>素材库</h2>
         </div>
         <button className="button secondary" onClick={() => setManualOpen(true)}><Upload size={16} />添加文字素材</button>
@@ -200,7 +248,7 @@ export function MaterialsPage({
                   <button className={type === 'web' ? 'active' : ''} onClick={() => setType('web')}><FileText size={15} />网页</button>
                   <button className={type === 'image' ? 'active' : ''} onClick={() => setType('image')}><Image size={15} />图片</button>
                 </div>
-                <label className="material-query-input"><Search size={17} /><input type="search" inputMode="search" name="query" autoComplete="off" value={query} maxLength={100} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void search()} placeholder={type === 'web' ? '输入一个主题、人物、案例或事实关键词…' : '输入一个图片参考关键词…'} /></label>
+                <label className="material-query-input"><Search size={17} /><input type="search" inputMode="search" name="query" autoComplete="off" value={query} maxLength={100} onChange={(event) => { queryDirty.current = true; setQuery(event.target.value) }} onKeyDown={(event) => event.key === 'Enter' && void search()} placeholder={type === 'web' ? '输入一个主题、人物、案例或事实关键词…' : '输入一个图片参考关键词…'} /></label>
                 <Select
                   value={String(count)}
                   onChange={(value) => setCount(Number(value))}
@@ -227,7 +275,7 @@ export function MaterialsPage({
                       {(searchResult.results as MaterialSearchWebResult[]).map((result) => {
                         const saved = savedKeys.has(`doubao_web:${result.id}`)
                         return <article className="web-material-result" key={result.id}>
-                          <div className="material-result-main"><button onClick={() => void window.moliu.hotspots.openSource(result.sourceUrl)}>{result.title}<ExternalLink size={14} /></button><div className="material-result-meta"><span>{result.sourceName || '未知来源'}</span>{result.publishedAt && <span>{formatDate(result.publishedAt)}</span>}{result.authority && <span>{result.authority}</span>}</div><p>{result.summary || result.snippet || '该结果未提供可用摘要'}</p></div>
+                          <div className="material-result-main"><button onClick={() => void openSource(result.sourceUrl)}>{result.title}<ExternalLink size={14} /></button><div className="material-result-meta"><span>{result.sourceName || '未知来源'}</span>{result.publishedAt && <span>{formatDate(result.publishedAt)}</span>}{result.authority && <span>{result.authority}</span>}</div><p>{result.summary || result.snippet || '该结果未提供可用摘要'}</p></div>
                           <button className={`button compact ${saved ? 'secondary' : 'primary'}`} disabled={saved || !result.summary.trim()} onClick={() => void addSearchResult(result)}>{saved ? <Check size={14} /> : <Plus size={14} />}{saved ? '已入库' : '加入素材'}</button>
                         </article>
                       })}
@@ -236,7 +284,7 @@ export function MaterialsPage({
                     <div className="image-material-results">
                       {(searchResult.results as MaterialSearchImageResult[]).map((result) => {
                         const saved = savedKeys.has(`doubao_image:${result.id}`)
-                        return <article key={result.id} className="image-material-result"><img src={result.imageUrl} alt="" loading="lazy" decoding="async" width={result.imageWidth ?? 120} height={result.imageHeight ?? 120} /><div><strong>{result.title}</strong><p>{result.sourceName || '未知来源'} · {result.imageWidth ?? '?'} × {result.imageHeight ?? '?'} · {result.watermark === '1' ? '有水印' : '水印未知/无'}</p><button className="button ghost compact" onClick={() => void window.moliu.hotspots.openSource(result.sourceUrl)}>查看来源 <ArrowUpRight size={13} /></button></div><button className={`button compact ${saved ? 'secondary' : 'primary'}`} disabled={saved} onClick={() => void addSearchResult(result)}>{saved ? <Check size={14} /> : <Plus size={14} />}{saved ? '已入库' : '保存参考'}</button></article>
+                        return <article key={result.id} className="image-material-result"><img src={result.imageUrl} alt="" loading="lazy" decoding="async" width={result.imageWidth ?? 120} height={result.imageHeight ?? 120} /><div><strong>{result.title}</strong><p>{result.sourceName || '未知来源'} · {result.imageWidth ?? '?'} × {result.imageHeight ?? '?'} · {result.watermark === '1' ? '有水印' : '水印未知/无'}</p><button className="button ghost compact" onClick={() => void openSource(result.sourceUrl)}>查看来源 <ArrowUpRight size={13} /></button></div><button className={`button compact ${saved ? 'secondary' : 'primary'}`} disabled={saved} onClick={() => void addSearchResult(result)}>{saved ? <Check size={14} /> : <Plus size={14} />}{saved ? '已入库' : '保存参考'}</button></article>
                       })}
                     </div>
                   )}
@@ -260,8 +308,8 @@ export function MaterialsPage({
         </section>
       ) : (
         <section className="material-collection-workspace">
-          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input type="search" inputMode="search" name="collectionQuery" autoComplete="off" value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源…" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div><button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={14} />添加文字</button></header>
-          {filteredMaterials.length ? <div className="material-collection-list"><VirtualList items={filteredMaterials} estimateSize={() => 100} renderItem={(material) => <MaterialRow key={material.id} material={material} onRemove={() => void remove(material)} />} /></div> : <div className="large-empty"><h3>{materials.length ? '没有匹配的素材' : '暂无素材'}</h3></div>}
+          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input type="search" inputMode="search" name="collectionQuery" autoComplete="off" value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源…" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div>{usageReady && <div>{([['all', '全部引用'], ['used', '已引用'], ['unused', '未引用']] as const).map(([value, label]) => <button key={value} className={usageFilter === value ? 'active' : ''} onClick={() => setUsageFilter(value)}>{label}</button>)}</div>}<button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={14} />添加文字</button></header>
+          {filteredMaterials.length ? <div className="material-collection-list"><VirtualList items={filteredMaterials} estimateSize={() => 100} renderItem={(material) => <MaterialRow key={material.id} material={material} refs={usage[material.id] ?? []} onOpen={(url) => void openSource(url)} onRemove={() => void remove(material)} />} /></div> : <div className="large-empty"><h3>{materials.length ? '没有匹配的素材' : '暂无素材'}</h3></div>}
         </section>
       )}
 
@@ -271,11 +319,11 @@ export function MaterialsPage({
   )
 }
 
-function MaterialRow({ material, onRemove }: { material: Material; onRemove(): void }): React.JSX.Element {
+function MaterialRow({ material, refs, onOpen, onRemove }: { material: Material; refs: Array<{ id: string; title: string }>; onOpen(url: string | undefined): void; onRemove(): void }): React.JSX.Element {
   return <article className="material-row">
     <span className={`material-kind-mark ${material.kind}`}>{material.kind === 'web' ? <FileText size={16} /> : material.kind === 'image' ? <Image size={16} /> : <BookOpenText size={16} />}</span>
-    <div className="material-row-main"><div><strong>{material.title}</strong><span className="material-origin">{material.origin === 'manual_text' ? '手动文字' : material.kind === 'image' ? '图片参考' : '网页 Summary'}</span></div><p>{material.kind === 'image' ? `${material.imageWidth ?? '?'} × ${material.imageHeight ?? '?'} · ${material.watermark === '1' ? '有水印' : '授权需确认'}` : material.summary}</p><small>{material.sourceName || material.sourceNote || '个人整理'} · {formatDate(material.createdAt)}</small></div>
-    <div className="material-row-actions">{material.sourceUrl && <button className="icon-button" title="打开来源" aria-label="打开来源" onClick={() => void window.moliu.hotspots.openSource(material.sourceUrl!)}><ExternalLink size={15} /></button>}<button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div>
+    <div className="material-row-main"><div><strong>{material.title}</strong><span className="material-origin">{material.origin === 'manual_text' ? '手动文字' : material.kind === 'image' ? '图片参考' : '网页 Summary'}</span></div><p>{material.kind === 'image' ? `${material.imageWidth ?? '?'} × ${material.imageHeight ?? '?'} · ${material.watermark === '1' ? '有水印' : '授权需确认'}` : material.summary}</p><small>{material.sourceName || material.sourceNote || '个人整理'} · {formatDate(material.createdAt)}</small>{refs.length ? <details className="micro-copy"><summary className="badge neutral">被 {refs.length} 篇文章引用</summary>{refs.map((ref) => <div key={ref.id}>{ref.title}</div>)}</details> : null}</div>
+    <div className="material-row-actions">{material.sourceUrl && <button className="icon-button" title="打开来源" aria-label="打开来源" onClick={() => onOpen(material.sourceUrl)}><ExternalLink size={15} /></button>}<button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div>
   </article>
 }
 
