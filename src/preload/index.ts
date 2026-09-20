@@ -26,6 +26,7 @@ import type {
   ReviseArticleInput,
   SaveArticleInput,
   RestoreArticleVersionInput,
+  RenameArticleVersionInput,
   SaveReviewRoleInput, StartReviewInput, UpdateReviewProblemInput, AddManualReviewProblemInput,
   StreamEvent,
   GenerationEvent,
@@ -170,6 +171,7 @@ const api: MoliuApi = {
     revise: (input: ReviseArticleInput) => ipcRenderer.invoke('articles:revise', input),
     save: (input: SaveArticleInput) => ipcRenderer.invoke('articles:save', input),
     restore: (input: RestoreArticleVersionInput) => ipcRenderer.invoke('articles:restore', input),
+    renameVersion: (input: RenameArticleVersionInput) => ipcRenderer.invoke('articles:rename-version', input),
     setLocked: (id: string, locked: boolean) => ipcRenderer.invoke('articles:set-locked', id, locked),
     remove: (id: string) => ipcRenderer.invoke('articles:remove', id),
     onStream: (callback: (event: StreamEvent) => void): (() => void) => {

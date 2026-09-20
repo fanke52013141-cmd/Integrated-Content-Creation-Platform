@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { DatabaseSync } from 'node:sqlite'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { AppDatabase } from '../src/main/database.js'
 import { createAccountFields, serializeAccountXml } from '../src/shared/domain.js'
 
@@ -280,6 +283,58 @@ describe('AppDatabase', () => {
     const restored = database.restoreArticleVersion(changed.id, changed.versions.find((version) => version.versionNumber === 1)!.id)
     expect(restored).toMatchObject({ versionCount: 3, status: 'draft', rawMarkdown: expect.stringContaining('第一版') })
     database.close()
+  })
+
+  it('names a history version without creating a new one, and clears the name again', () => {
+    const database = new AppDatabase(':memory:')
+    const first = database.saveArticle({
+      materialIds: [], manualOutline: '<框架><标题>测试</标题></框架>', status: 'draft',
+      rawMarkdown: '# 第一版\n\n第一版正文。', source: 'generate'
+    })
+    const second = database.saveArticle({
+      id: first.id, materialIds: [], manualOutline: first.manualOutline, status: 'draft',
+      rawMarkdown: '# 第二版\n\n第二版正文。', source: 'manual'
+    })
+    const firstVersionId = second.versions.find((version) => version.versionNumber === 1)!.id
+    expect(second.versions.find((version) => version.versionNumber === 2)!.label).toBeUndefined()
+
+    const named = database.renameArticleVersion(second.id, firstVersionId, '  AI 初稿  ')
+    expect(named.versionCount).toBe(2)
+    expect(named.currentVersionId).toBe(second.currentVersionId)
+    expect(named.rawMarkdown).toContain('第二版')
+    expect(named.versions.find((version) => version.id === firstVersionId)!.label).toBe('AI 初稿')
+    expect(named.versions.find((version) => version.versionNumber === 2)!.rawMarkdown).toContain('第二版')
+
+    const cleared = database.renameArticleVersion(second.id, firstVersionId, '   ')
+    expect(cleared.versions.find((version) => version.id === firstVersionId)!.label).toBeUndefined()
+    expect(() => database.renameArticleVersion(second.id, 'not-a-version', '串稿')).toThrow('该版本不属于这篇文章')
+    database.close()
+  })
+
+  it('adds columns an existing database is missing instead of crashing on "no such column"', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'moliu-schema-self-heal-'))
+    const file = join(dir, 'moliu.db')
+    try {
+      // 先按"本轮之前"的形状建一张 article_versions：没有 label 列
+      const legacy = new DatabaseSync(file)
+      legacy.exec(`CREATE TABLE article_versions (
+        id TEXT PRIMARY KEY, article_id TEXT NOT NULL, version_number INTEGER NOT NULL,
+        source TEXT NOT NULL CHECK(source IN ('generate','revise','manual','restore')),
+        instruction TEXT, provider_id TEXT, model TEXT,
+        raw_markdown TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(article_id, version_number)
+      )`)
+      legacy.close()
+
+      const database = new AppDatabase(file)
+      const article = database.saveArticle({
+        materialIds: [], manualOutline: '<框架><标题>测试</标题></框架>', status: 'draft',
+        rawMarkdown: '# 老库新列\n\n正文。', source: 'manual'
+      })
+      expect(database.renameArticleVersion(article.id, article.currentVersionId, '补的列能用').versions[0].label).toBe('补的列能用')
+      database.close()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('records a publication retro and drops it once every field is blank', () => {

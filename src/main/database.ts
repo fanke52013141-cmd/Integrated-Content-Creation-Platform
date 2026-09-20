@@ -255,7 +255,7 @@ interface MaterialRow {
 interface FrameworkTemplateRow { id: string; name: string; sections_json: string; is_default: number; is_system: number; created_at: string; updated_at: string }
 interface FrameworkRow { id: string; topic_id: string | null; account_id: string | null; material_ids_json: string; template_id: string | null; manual_topic: string; status: FrameworkStatus; current_version_id: string; version_count: number; sections_json: string; raw_xml: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
 interface ArticleRow { id: string; framework_id: string | null; account_id: string | null; material_ids_json: string; manual_outline: string; status: ArticleStatus; current_version_id: string; version_count: number; raw_markdown: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
-interface ArticleVersionRow { id: string; article_id: string; version_number: number; source: ArticleVersionSource; instruction: string | null; provider_id: string | null; model: string | null; raw_markdown: string; created_at: string }
+interface ArticleVersionRow { id: string; article_id: string; version_number: number; source: ArticleVersionSource; instruction: string | null; provider_id: string | null; model: string | null; label: string | null; raw_markdown: string; created_at: string }
 interface GenerationTaskRow { id: string; domain: GenerationDomain; label: string; status: GenerationTask['status']; detail: string; started_at: string; finished_at: string | null }
 interface ReviewRoleRow { id:string; name:string; system_prompt:string; provider_id:string|null; model:string|null; extraction_tag:string; extraction_occurrence:'first'|'last'; dimensions_json:string; sort_order:number; created_at:string; updated_at:string }
 interface ReviewTaskRow { id:string; article_id:string; article_version_id:string; article_version_number:number; role_ids_json:string; failures_json:string; status:'running'|'completed'|'partial'|'failed'|'applied'; created_at:string; updated_at:string }
@@ -605,6 +605,7 @@ export class AppDatabase {
         id TEXT PRIMARY KEY, article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
         version_number INTEGER NOT NULL, source TEXT NOT NULL CHECK(source IN ('generate','revise','manual','restore')),
         instruction TEXT, provider_id TEXT REFERENCES providers(id) ON DELETE SET NULL, model TEXT,
+        label TEXT NOT NULL DEFAULT '',
         raw_markdown TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(article_id, version_number)
       );
       CREATE TABLE IF NOT EXISTS review_roles (id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,system_prompt TEXT NOT NULL,provider_id TEXT,model TEXT,extraction_tag TEXT NOT NULL,extraction_occurrence TEXT NOT NULL,dimensions_json TEXT NOT NULL,sort_order INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
@@ -687,12 +688,37 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_publications_article ON publications(article_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
     `)
+    this.ensureAddedColumns()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
     this.ensureFrameworkTemplate()
     this.ensureReviewRoles()
     this.markInterruptedGenerationTasks()
+  }
+
+  /**
+   * CREATE TABLE IF NOT EXISTS 不会给已经存在的表补列，缺列会让读写直接抛 "no such column"。
+   * 这里只把本轮新增的列补上（默认值就是它的语义），不搬数据、不重建表——
+   * 旧库里的历史项目数据迁移是明确不做的事，这里做的只是"同一张表别因为多了一列就崩"。
+   */
+  private ensureAddedColumns(): void {
+    const added: Array<[string, string, string]> = [
+      ['providers', 'last_test_status', 'TEXT'],
+      ['providers', 'last_test_at', 'TEXT'],
+      ['providers', 'last_test_error', 'TEXT'],
+      ['model_calls', 'error_message', 'TEXT'],
+      ['review_tasks', 'article_version_id', "TEXT NOT NULL DEFAULT ''"],
+      ['review_tasks', 'article_version_number', 'INTEGER NOT NULL DEFAULT 1'],
+      ['review_tasks', 'failures_json', "TEXT NOT NULL DEFAULT '[]'"],
+      ['publications', 'retro_json', 'TEXT'],
+      ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"]
+    ]
+    for (const [table, column, definition] of added) {
+      const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as unknown as Array<{ name: string }>
+      if (!columns.length || columns.some((item) => item.name === column)) continue
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+    }
   }
 
   /** 上次进程退出/崩溃时仍在 running 的任务，重启后如实标记为中断，不留"假进行中" */
@@ -1774,6 +1800,16 @@ export class AppDatabase {
     })
   }
 
+  renameArticleVersion(articleId: string, versionId: string, label: string): Article {
+    const current = this.getArticle(articleId)
+    if (!current) throw new Error('成稿不存在')
+    const version = this.db.prepare('SELECT id FROM article_versions WHERE id=? AND article_id=?').get(versionId, articleId)
+    if (!version) throw new Error('该版本不属于这篇文章')
+    // 命名只改标签，绝不产生新版本：给旧版起名不该把当前稿顶掉
+    this.db.prepare('UPDATE article_versions SET label=? WHERE id=?').run(label.trim(), versionId)
+    return this.getArticle(articleId)!
+  }
+
   setArticleLocked(id: string, locked: boolean): Article {
     if (!this.getArticle(id)) throw new Error('成稿不存在')
     this.db.prepare('UPDATE articles SET status=?,updated_at=? WHERE id=?').run(locked ? 'locked' : 'draft', new Date().toISOString(), id)
@@ -2268,6 +2304,7 @@ function mapArticleVersion(row: ArticleVersionRow): ArticleVersion {
     instruction: row.instruction ?? undefined,
     providerId: row.provider_id ?? undefined,
     model: row.model ?? undefined,
+    label: row.label?.trim() || undefined,
     rawMarkdown: row.raw_markdown,
     createdAt: row.created_at
   }

@@ -56,6 +56,7 @@ import type {
   ReviseArticleInput,
   SaveArticleInput,
   RestoreArticleVersionInput,
+  RenameArticleVersionInput,
   SaveReviewRoleInput, StartReviewInput, UpdateReviewProblemInput, AddManualReviewProblemInput,
   TopicSchemaField,
   UpdateHotFavoriteTagsInput
@@ -709,6 +710,10 @@ export function registerIpc(options: {
   handle('articles:restore', (_event, raw: RestoreArticleVersionInput) => {
     const input = z.object({ articleId: articleIdSchema, versionId: articleIdSchema }).parse(raw)
     return database.restoreArticleVersion(input.articleId, input.versionId)
+  })
+  handle('articles:rename-version', (_event, raw: RenameArticleVersionInput) => {
+    const input = z.object({ articleId: articleIdSchema, versionId: articleIdSchema, label: z.string().max(60) }).parse(raw)
+    return database.renameArticleVersion(input.articleId, input.versionId, input.label)
   })
   handle('articles:set-locked', (_event, id: string, locked: boolean) => database.setArticleLocked(requireId(id), Boolean(locked)))
   handle('articles:remove', (_event, id: string) => database.removeArticle(requireId(id)))

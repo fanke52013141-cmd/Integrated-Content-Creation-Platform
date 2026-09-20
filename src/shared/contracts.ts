@@ -612,7 +612,7 @@ export interface SaveFrameworkTemplateInput { id?: string; name: string; section
 
 export type ArticleStatus = 'draft' | 'locked'
 export type ArticleVersionSource = 'generate' | 'revise' | 'manual' | 'restore'
-export interface ArticleVersion { id: string; articleId: string; versionNumber: number; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; rawMarkdown: string; createdAt: string }
+export interface ArticleVersion { id: string; articleId: string; versionNumber: number; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; label?: string; rawMarkdown: string; createdAt: string }
 export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
 export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
@@ -620,6 +620,7 @@ export interface ReviseArticleInput { articleId: string; instruction: string; al
 export interface ReviseArticleResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
 export interface SaveArticleInput { id?: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; rawMarkdown: string; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string }
 export interface RestoreArticleVersionInput { articleId: string; versionId: string }
+export interface RenameArticleVersionInput { articleId: string; versionId: string; label: string }
 export type ReviewSeverity = 'high' | 'medium' | 'low'
 export interface ReviewRole { id: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number; createdAt: string; updatedAt: string }
 export interface ReviewProblem { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean; isManual: boolean }
@@ -873,6 +874,8 @@ export interface MoliuApi {
     revise(input: ReviseArticleInput): Promise<ReviseArticleResult>
     save(input: SaveArticleInput): Promise<Article>
     restore(input: RestoreArticleVersionInput): Promise<Article>
+    /** §7.4：历史版本除了比较与恢复，还要能被命名，否则几十版之后只能靠版本号认 */
+    renameVersion(input: RenameArticleVersionInput): Promise<Article>
     setLocked(id: string, locked: boolean): Promise<Article>
     remove(id: string): Promise<void>
     /** 订阅流式生成事件，返回取消订阅函数 */

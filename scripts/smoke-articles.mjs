@@ -94,10 +94,29 @@ try {
   await window.getByText('更锋利的开头：别急着写').first().waitFor()
   if (!reviseSawUnsavedDraft) throw new Error('改稿请求未携带屏幕上的未保存草稿')
 
+  // §7.4：历史版本要能命名——版本堆多之后，光靠"第 N 版"认不出哪一版是什么
+  const firstVersionRow = window.locator('.article-history div').filter({ hasText: '第 1 版' })
+  await firstVersionRow.getByRole('button', { name: '命名' }).click()
+  const nameInput = window.locator('input[name="versionName-1"]')
+  await nameInput.waitFor()
+  await nameInput.fill('AI 初稿')
+  await nameInput.press('Enter')
+  await window.getByText('已把这一版命名为「AI 初稿」').last().waitFor()
+  if (await window.locator('input[name="versionName-1"]').count() !== 0) throw new Error('回车保存后命名输入框没有收起')
+  const namedRows = window.locator('.article-history div').filter({ hasText: 'AI 初稿' })
+  if (await namedRows.count() !== 1) throw new Error(`命名后版本行没有显示自定义名称（命中 ${await namedRows.count()} 行）`)
+  await namedRows.getByRole('button', { name: '改名' }).click()
+  const renameInput = window.locator('input[name="versionName-1"]')
+  await renameInput.waitFor()
+  if (await renameInput.inputValue() !== 'AI 初稿') throw new Error('再次命名时输入框没有带回现有名称')
+  await renameInput.press('Escape')
+  if (await window.locator('input[name="versionName-1"]').count() !== 0) throw new Error('Esc 后命名输入框没有收起')
+  if (await namedRows.count() !== 1) throw new Error('Esc 只是取消，却把版本名称弄丢了')
+
   // §7.4：改完得能先看清"这一版和上一版差在哪"，再决定要不要换回去（比较本身不改内容）
-  await window.locator('.article-history div').filter({ hasText: '第 1 版' }).getByText('对比').click()
+  await namedRows.getByText('对比').click()
   const diffDialog = window.getByRole('dialog')
-  await diffDialog.getByText('第 1 版 ↔ 屏幕上的正文').waitFor()
+  await diffDialog.getByText('AI 初稿 ↔ 屏幕上的正文').waitFor()
   const removedLines = await diffDialog.locator('.article-diff-row.removed').allInnerTexts()
   const addedLines = await diffDialog.locator('.article-diff-row.added').allInnerTexts()
   if (!removedLines.some((line) => line.includes('很多创作者不是不会写'))) throw new Error(`差异里没有旧稿被删的那句：${JSON.stringify(removedLines)}`)
@@ -106,11 +125,24 @@ try {
   await diffDialog.getByRole('button', { name: '关闭' }).click()
   if (await window.locator('.article-diff').count() !== 0) throw new Error('关闭后差异弹窗仍在')
 
+  // 版本名称落在库里，不只是界面状态
+  const namedArticleTitle = await window.locator('.article-editor-head h2').innerText()
+  await window.reload()
+  await window.waitForLoadState('domcontentloaded')
+  await window.getByRole('button', { name: '文章创作' }).first().click()
+  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  if (await window.locator('.article-history').count() === 0) {
+    await window.locator('.article-list-item', { hasText: namedArticleTitle }).first().click()
+  }
+  if (!(await window.locator('.article-history').innerText()).includes('AI 初稿')) throw new Error('重开应用后版本名称没有留住')
+  await window.locator('.article-history').scrollIntoViewIfNeeded()
+  await capture(window, { path: resolve(artifactDir, 'article-version-named.png'), animations: 'disabled', timeout: 90_000 })
+
   // 验收任务 2：比较改稿结果后撤销这次 AI 修改（恢复历史版本另起一版，不覆盖改稿记录）
   await window.locator('.article-history').getByRole('button', { name: '恢复' }).first().click()
   await window.getByText('已从历史版本创建新草稿').waitFor()
   await window.getByRole('heading', { name: '先搭框架，再写文章' }).first().waitFor()
-  if (await window.locator('.article-history div').count() !== 3) throw new Error('恢复历史版本没有另起新版本')
+  if (await window.locator('.article-history > div').count() !== 3) throw new Error('恢复历史版本没有另起新版本')
   await window.getByRole('button', { name: '源码编辑' }).click()
   const rolledBack = await window.locator(editorSelector).inputValue()
   if (!rolledBack.includes('很多创作者不是不会写') || rolledBack.includes('别急着写')) throw new Error('撤销 AI 修改后编辑器正文没有回到旧版本')
@@ -277,7 +309,7 @@ try {
   const articleCountAfter = Number(await window.locator('.article-list h3 small').innerText())
   if (articleCountAfter !== articleCountBefore + 2) throw new Error(`部分失败那批应净增 2 篇（补 1 坏 1），实际 ${articleCountBefore} → ${articleCountAfter}`)
   await capture(window, { path: resolve(artifactDir, 'article-partial-retry.png'), animations: 'disabled', timeout: 90_000 })
-  console.log('Article smoke test passed: provider verification state, draft kept across pages, revise from unsaved draft, AI revision undone from history as a new version, keyboard-only reach/save at 1180px under 100%/125%/150% zoom, lock persisted, per-account list scoping, 63-article list and article picker searchable, partially failed batch retried one by one')
+  console.log('Article smoke test passed: provider verification state, draft kept across pages, revise from unsaved draft, history versions named/reopened, AI revision compared line by line and undone from history as a new version, keyboard-only reach/save at 1180px under 100%/125%/150% zoom, lock persisted, per-account list scoping, 63-article list and article picker searchable, partially failed batch retried one by one')
 } finally { await application.close(); await new Promise((resolve) => server.close(resolve)) }
 if (calls < 3) throw new Error(`Expected at least 3 model calls (connection test, generate, revise), got ${calls}`)
 const database = new DatabaseSync(resolve(userDataDir, 'moliu.db'))
