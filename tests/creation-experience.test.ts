@@ -176,6 +176,37 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
     database.close()
   })
 
+  it('模型返回无法识别的内容时按失败处理，不能显示为评审完成', async () => {
+    const { database, articleId, roleIds } = setup()
+    const gateway = makeGateway((_attempt, request) => ok(request, '我觉得这篇文章整体还可以。'))
+    const service = new ReviewService(database, gateway, new ArticleGenerator(database, gateway, prompts))
+    const result = await service.start({ articleId, roleIds, fallbackProviderId: PROVIDER_ID, fallbackModel: MODEL_ID })
+
+    expect(result.task.status).toBe('failed')
+    expect(result.task.opinions).toHaveLength(0)
+    expect(result.failed).toHaveLength(roleIds.length)
+    expect(result.failed.every((item) => item.message.includes('未返回可识别的评审意见'))).toBe(true)
+    database.close()
+  })
+
+  it('重复提交同一角色只执行一次，失败数量不被重复勾选放大', async () => {
+    const { database, articleId, roleIds } = setup()
+    const gateway = makeGateway((_attempt, request) => ok(request, opinion))
+    const service = new ReviewService(database, gateway, new ArticleGenerator(database, gateway, prompts))
+    const result = await service.start({
+      articleId,
+      roleIds: [roleIds[0], roleIds[0]],
+      fallbackProviderId: PROVIDER_ID,
+      fallbackModel: MODEL_ID
+    })
+
+    expect(result.task.status).toBe('completed')
+    expect(result.task.roleIds).toEqual([roleIds[0]])
+    expect(result.task.opinions).toHaveLength(1)
+    expect(gateway.chat).toHaveBeenCalledTimes(1)
+    database.close()
+  })
+
   it('全部成功记为 completed 并绑定评审所依据的文章版本', async () => {
     const { database, articleId, roleIds } = setup()
     const gateway = makeGateway((_attempt, request) => ok(request, opinion))

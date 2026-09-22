@@ -76,8 +76,10 @@ export function renderLayoutMarkdown(
   customCss?: string
 ): { title: string; html: string; plainText: string; themeId: string } {
   const lines = markdown.trim().split(/\r?\n/)
-  const title = (lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, '') || '未命名文章').trim()
-  const body = lines.filter((line) => !/^#\s+/.test(line)).join('\n')
+  const titleIndex = lines.findIndex((line) => /^#\s+/.test(line))
+  const title = (titleIndex >= 0 ? lines[titleIndex].replace(/^#\s+/, '') : '未命名文章').trim()
+  // 仅把第一处一级标题作为文章标题；正文里后续的一级标题仍是合法 Markdown，不能静默丢弃。
+  const body = lines.filter((_line, index) => index !== titleIndex).join('\n')
   const resolvedThemeId = themeId || 'wechat-green'
 
   const plainText = platform === 'xiaohongshu'

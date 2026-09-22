@@ -20,14 +20,17 @@ export class ReviewService {
   ): Promise<StartReviewResult> {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('成稿不存在')
-    const roles = input.roleIds.map(id => this.database.getReviewRole(id))
+    // 页面用 Set 管理勾选项，但 IPC 仍是公开边界；去重可避免同一角色被并发执行两次并把统计夸大。
+    const roleIds = [...new Set(input.roleIds)]
+    if (!roleIds.length) throw new Error('请至少选择一个评审角色')
+    const roles = roleIds.map(id => this.database.getReviewRole(id))
     if (roles.some(role => !role)) throw new Error('部分评审角色不存在')
     // 评审固定绑定当前文章版本，应用时据此判断意见是否已经过期
     const task = this.database.createReviewTask({
       articleId: article.id,
       articleVersionId: article.currentVersionId,
       articleVersionNumber: article.versionCount,
-      roleIds: input.roleIds
+      roleIds
     })
     const total = roles.length
     let failures: ReviewFailure[] = []
@@ -38,7 +41,7 @@ export class ReviewService {
       )
       failures = results.flatMap((x, i) =>
         x.status === 'rejected'
-          ? [{ roleId: input.roleIds[i], roleName: roles[i]?.name ?? '评审角色', message: x.reason instanceof Error ? x.reason.message : '评审失败' }]
+          ? [{ roleId: roleIds[i], roleName: roles[i]?.name ?? '评审角色', message: x.reason instanceof Error ? x.reason.message : '评审失败' }]
           : []
       )
       // 全部角色失败记 failed，部分失败记 partial，只有全绿才是 completed
@@ -84,6 +87,11 @@ export class ReviewService {
     })
     const raw = typeof response.extracted === 'string' ? response.extracted : response.content
     const parsed = parseOpinion(raw)
+    // 成功拿到 HTTP 响应不等于成功完成评审。无法识别的问题和总体建议不能作为
+    // 可采纳的意见保存，否则全角色都返回闲聊时界面会错误地提示“评审完成”。
+    if (!parsed.problems.length && !parsed.overall) {
+      throw new Error('模型未返回可识别的评审意见，请调整角色指令或更换模型后重试')
+    }
     this.database.addReviewOpinion({
       taskId, role, providerId: response.providerId, model: response.model,
       dimensions: role.dimensions, overallSuggestion: parsed.overall,

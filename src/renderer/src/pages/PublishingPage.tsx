@@ -316,18 +316,19 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
               <input name="thumbMediaId" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={manualMediaId} onChange={(event) => setManualMediaId(event.target.value)} placeholder="从公众号素材库复制的 thumb_media_id" />
             </label>
           )}
-          {versionMismatch && <p className="visual-warning">所选排版稿不是该文章的当前版本，推送内容会与最新草稿不一致。</p>}
+          {versionMismatch && <p className="visual-warning">所选排版稿不是该文章的当前版本。请回到「文章排版」重新生成后再推送，避免发布旧正文。</p>}
           <footer className="publish-section-foot">
             {!channelReady && <span className="micro-copy">请先完成第一步并保存连接。</span>}
+            {versionMismatch && <span className="micro-copy">当前排版稿已过期，重新排版后即可推送。</span>}
             {!coverReady && channelReady && <span className="micro-copy">请在「智能配图」生成封面，或手动填写素材标识。</span>}
             {coverAssetId && <span className="micro-copy">推送时会自动上传所选封面；也可先手动上传。</span>}
             <span style={{ flex: 1 }} />
             <button className="button ghost compact" disabled={busy || !coverAssetId} onClick={() => void uploadCover()} title="上传到公众号素材库并回填素材标识"><UploadCloud size={14} />上传封面素材</button>
             <button
               className="button primary large"
-              disabled={busy || !channelReady || !layoutId || !coverReady}
+              disabled={busy || !channelReady || !layoutId || !coverReady || Boolean(versionMismatch)}
               onClick={() => void push()}
-              title={!channelReady ? '先保存公众号连接' : !coverReady ? '缺少封面图片' : undefined}
+              title={!channelReady ? '先保存公众号连接' : versionMismatch ? '请重新生成当前文章版本的排版稿' : !coverReady ? '缺少封面图片' : undefined}
             >
               {busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}推送草稿箱
             </button>

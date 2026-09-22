@@ -149,7 +149,11 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     setRevising(true)
     try {
       const result = await stream.run(() => window.moliu.articles.revise({ articleId: selected.id, instruction: instruction.trim(), alignFramework, providerId: target.providerId, model: target.modelId, count, baseMarkdown: dirty ? draft : undefined }))
-      await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id); clearInstruction(); markSaved()
+      // 单候选会在当前文章上新建版本；多候选则创建新文章。后一种情况下，
+      // 原稿的工作草稿仍是用户尚未决定是否采纳的内容，不能因生成候选被清除。
+      const revisedCurrentArticle = result.articles.some((article) => article.id === selected.id)
+      await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id); clearInstruction()
+      if (revisedCurrentArticle) markSaved()
       setLastFailed(result.failed)
       showToast({ type: result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已完成 ${result.articles.length} 个改稿候选，${result.failed.length} 个失败` : '改稿新版本已保存' })
     } catch (error) {
@@ -163,10 +167,29 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     try { const saved = await window.moliu.articles.save({ id: selected.id, frameworkId: selected.frameworkId, accountId: selected.accountId, materialIds: selected.materialIds, manualOutline: selected.manualOutline, status: selected.status, rawMarkdown: draft, source: 'manual', providerId: selected.providerId, model: selected.model }); await refresh(); setSelectedId(saved.id); markSaved(); showToast({ type: 'success', message: '手动编辑已保存为新版本' }) }
     catch (error) { showToast({ type: 'error', message: `保存失败，内容仍留在本地草稿：${errorMessage(error)}` }) }
   }
-  async function toggleLock(): Promise<void> { if (!selected) return; try { await window.moliu.articles.setLocked(selected.id, selected.status !== 'locked'); await refresh(); showToast({ type: 'success', message: selected.status === 'locked' ? '已恢复为草稿' : '已锁定成稿版本' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
+  async function toggleLock(): Promise<void> {
+    if (!selected) return
+    // 锁定后的评审、配图与排版都以库内版本为准。明确拦住未保存的工作草稿，
+    // 避免用户以为锁住了屏幕内容，实际下游仍在使用旧正文。
+    if (selected.status !== 'locked' && dirty) {
+      showToast({ type: 'warning', message: '正文还有未保存修改，请先保存后再锁定' })
+      return
+    }
+    try { await window.moliu.articles.setLocked(selected.id, selected.status !== 'locked'); await refresh(); showToast({ type: 'success', message: selected.status === 'locked' ? '已恢复为草稿' : '已锁定成稿版本' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+  }
   async function renameVersion(versionId: string, label: string): Promise<void> { if (!selected) return; try { await window.moliu.articles.renameVersion({ articleId: selected.id, versionId, label }); await refresh(); showToast({ type: 'success', message: label.trim() ? `已把这一版命名为「${label.trim()}」` : '已清除这一版的名称' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
   async function restore(versionId: string): Promise<void> { if (!selected) return; try { await window.moliu.articles.restore({ articleId: selected.id, versionId }); await refresh(); markSaved(); showToast({ type: 'success', message: '已从历史版本创建新草稿' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
-  async function remove(): Promise<void> { if (!selected || !(await confirm({ title: '确认操作', message: '确定删除这篇成稿及其全部本地版本吗？', danger: true, confirmLabel: '确认' }))) return; try { await window.moliu.articles.remove(selected.id); await refresh(); showToast({ type: 'success', message: '成稿已删除' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
+  async function remove(): Promise<void> {
+    if (!selected || !(await confirm({ title: '确认操作', message: '确定删除这篇成稿及其全部本地版本吗？', danger: true, confirmLabel: '确认' }))) return
+    try {
+      await window.moliu.articles.remove(selected.id)
+      // 删除作品必须同时删掉浏览器中的工作草稿；否则同一设备上的后续用户
+      // 仍可能从 localStorage 恢复已删除正文。
+      discard(selected.rawMarkdown)
+      await refresh()
+      showToast({ type: 'success', message: '成稿已删除' })
+    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+  }
 
   /** F16：不依赖模型也能进入本工具——粘贴现成稿、导入 .md 文件、或从空白开始写 */
   async function importArticle(rawMarkdown: string, label: string): Promise<void> {

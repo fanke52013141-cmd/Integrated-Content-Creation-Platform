@@ -131,6 +131,7 @@ export function Layout({
         : { state: 'unverified', label: '模型网关已配置，尚未验证连通' }
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
+  const accountTriggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!accountMenuOpen) return
@@ -141,11 +142,23 @@ export function Layout({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [accountMenuOpen])
 
+  useEffect(() => {
+    if (!accountMenuOpen) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setAccountMenuOpen(false)
+      accountTriggerRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [accountMenuOpen])
+
   return (
     <div className="app-shell">
       <a href="#main" className="skip-link">跳到主内容</a>
       <aside className="sidebar">
-        <button className="brand" onClick={() => onNavigate('accounts')}>
+        <button className="brand" onClick={() => onNavigate('home')} aria-label="返回创作台">
           <span className="brand-mark"><img src="assets/ui/heartflow-brand.png" alt="" /></span>
           <span>
             <strong>心流</strong>
@@ -227,12 +240,16 @@ export function Layout({
             </button>
             <div className="account-menu" ref={accountMenuRef}>
               <button
+                ref={accountTriggerRef}
                 className={`account-chip ${accountMenuOpen ? 'open' : ''}`}
                 onClick={() => {
                   if (accounts.length) setAccountMenuOpen((open) => !open)
                   else onNavigate('accounts')
                 }}
                 title={accounts.length ? '切换当前账号' : '创建第一个账号'}
+                aria-haspopup={accounts.length ? 'dialog' : undefined}
+                aria-expanded={accounts.length ? accountMenuOpen : undefined}
+                aria-controls={accounts.length ? 'account-switcher' : undefined}
               >
                 <span className="avatar">
                   {currentAccount?.name.slice(0, 1) || <CircleUserRound size={16} />}
@@ -244,13 +261,12 @@ export function Layout({
                 {currentAccount?.status === 'locked' && <LockKeyhole size={13} />}
               </button>
               {accountMenuOpen && accounts.length > 0 && (
-                <div className="account-menu-popover" role="menu">
+                <div className="account-menu-popover" id="account-switcher" role="dialog" aria-label="切换当前账号">
                   <div className="account-menu-head">切换账号</div>
                   {accounts.map((account) => (
                     <button
                       key={account.id}
                       className={`account-menu-item ${account.isCurrent ? 'selected' : ''}`}
-                      role="menuitem"
                       onClick={() => {
                         setAccountMenuOpen(false)
                         if (!account.isCurrent) onSwitchAccount(account.id)
@@ -267,7 +283,6 @@ export function Layout({
                   ))}
                   <button
                     className="account-menu-item manage"
-                    role="menuitem"
                     onClick={() => {
                       setAccountMenuOpen(false)
                       onNavigate('accounts')

@@ -43,6 +43,11 @@ export class WechatPublishService {
     if (!article) throw new Error('文章不存在')
     const layout = this.database.listArticleLayouts(article.id).find(item => item.id === input.layoutId)
     if (!layout) throw new Error('排版稿不存在或不属于该文章')
+    // 发布是不可逆的外部交付。文章已经更新时，旧排版稿看起来仍然可用，
+    // 但实际会把旧正文推到草稿箱；在服务端再次校验，避免绕过界面直接调用 IPC。
+    if (layout.articleVersionId !== article.currentVersionId) {
+      throw new Error('所选排版稿不是文章当前版本，请重新排版后再推送')
+    }
 
     const thumbMediaId = await this.resolveThumbMediaId(input)
     const base = {

@@ -322,3 +322,29 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     database.close()
   })
 })
+
+describe('发布版本保护', () => {
+  it('文章更新后拒绝把旧排版稿推送到公众号草稿箱', async () => {
+    const database = new AppDatabase(':memory:')
+    const article = database.saveArticle({
+      materialIds: [], manualOutline: '', status: 'draft', rawMarkdown: '# 初稿\n\n旧正文', source: 'manual'
+    })
+    const layout = new ArticleLayoutService(database).create({ articleId: article.id, platform: 'wechat' })
+    database.saveArticle({
+      id: article.id, materialIds: [], manualOutline: '', status: 'draft', rawMarkdown: '# 初稿\n\n新正文', source: 'manual'
+    })
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const service = new WechatPublishService(
+      database,
+      { readWechatPublishSecret: () => 'secret' } as unknown as KeyStore,
+      { readAssetFile: async () => Buffer.alloc(0) } as unknown as VisualAssetService
+    )
+
+    await expect(service.pushDraft({ articleId: article.id, layoutId: layout.id, thumbMediaId: 'cover-id' }))
+      .rejects.toThrow('不是文章当前版本')
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(database.listPublications()).toHaveLength(0)
+    database.close()
+  })
+})
