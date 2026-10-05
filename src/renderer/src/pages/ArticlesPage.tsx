@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownIt from 'markdown-it'
 import {
-  BookOpenText, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, Download,
+  AlertTriangle, BookOpenText, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardPaste, Download,
   FilePenLine, FilePlus2, FileUp, FolderHeart, History, RotateCcw,
-  Image, LibraryBig, LoaderCircle, Lock, LockOpen, PenLine, Plus, Save, Search, Sliders, Sparkles,
+  Image, Info, LibraryBig, LoaderCircle, Lock, LockOpen, PenLine, Plus, Save, Search, Sliders, Sparkles,
   Trash2, WandSparkles, X
 } from 'lucide-react'
-import type { AccountProfileSummary, Article, ArticleSummary, ArticleVersion, GenerateArticlesInput, ReviseArticleInput, Framework, Material, ProviderSummary, VisualAsset } from '../../../shared/contracts'
+import type { AccountProfileSummary, Article, ArticleSummary, ArticleVersion, GenerateArticlesInput, LayoutViolation, ReviseArticleInput, Framework, Material, ProviderSummary, VisualAsset } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import { Select } from '../components/Select'
 import { ModalBase } from '../components/ModalBase'
@@ -335,7 +335,13 @@ function ArticleEditor({ article, draft, dirty, loadingDraft, draftStatus, edito
     onDraftChange(draft.slice(0, start) + before + draft.slice(start, end) + after + draft.slice(end))
     requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + before.length, end + before.length) })
   }
-  return (<div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div>{editorMode === 'source' && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}<div className="article-save-state">{dirty ? <><span className="badge warning" role="status">{draftStatus === 'error' ? '暂存失败' : draftStatus === 'saving' ? '正在本地暂存…' : '已本地暂存 · 待保存版本'}</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">{loadingDraft ? '正在读取草稿…' : '已保存版本'}</span>}<button className="button primary compact" disabled={!dirty || loadingDraft} onClick={onSave}><Save size={14} />保存</button></div><div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={14} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={14} />HTML</button></div></div>{editorMode === 'source' && <div className="markdown-formatting" role="toolbar" aria-label="正文格式">{[['标题', '\n## '], ['加粗', '**', '**'], ['列表', '\n- '], ['引用', '\n> '], ['链接', '[', '](https://)']].map(([label, before, after]) => <button key={label} className="button ghost compact" disabled={loadingDraft} onClick={() => insertFormatting(before, after)}>{label}</button>)}</div>}{editorMode === 'source' ? <textarea ref={editorRef} disabled={loadingDraft} maxLength={190000} className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck /> : <MarkdownPreview markdown={draft} />}<details className="article-revision"><summary>智能改稿 · 按要求生成新版本</summary><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); onRevise() } }} placeholder="输入改稿要求（Ctrl+Enter 生成改稿）" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><details className="composer-advanced revision-advanced"><summary><Sliders size={13} />候选 {count} 个</summary><label className="field"><span>候选数</span><Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="改稿候选数" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></label></details><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></details><details className="article-history"><summary><History size={16} />版本历史 · {article.versionCount} 个版本</summary>{article.versions.map((version) => <div key={version.id}><span>{version.label || `第 ${version.versionNumber} 版`}</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}{version.label ? ` · 第 ${version.versionNumber} 版` : ''}</small><div className="article-history-actions">{namingId === version.id ? <input className="article-version-name" name={`versionName-${version.versionNumber}`} autoComplete="off" defaultValue={version.label ?? ''} maxLength={60} placeholder="给这一版起个名字，回车保存" aria-label={`命名第 ${version.versionNumber} 版`} autoFocus onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); nameCancelRef.current = version.id; setNamingId(''); return } if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} onBlur={(event) => { const value = event.currentTarget.value; if (nameCancelRef.current === version.id) nameCancelRef.current = ''; else onRenameVersion(version.id, value); setNamingId('') }} /> : <button className="button ghost compact" onClick={() => setNamingId(version.id)}>{version.label ? '改名' : '命名'}</button>}<button className="button ghost compact" onClick={() => setCompareId(version.id)}>对比</button>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div></div>)}</details>
+  return (<div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div>{editorMode === 'source' && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}<div className="article-save-state">{dirty ? <><span className="badge warning" role="status">{draftStatus === 'error' ? '暂存失败' : draftStatus === 'saving' ? '正在本地暂存…' : '已本地暂存 · 待保存版本'}</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">{loadingDraft ? '正在读取草稿…' : '已保存版本'}</span>}<button className="button primary compact" disabled={!dirty || loadingDraft} onClick={onSave}><Save size={14} />保存</button></div><div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={14} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={14} />HTML</button></div></div>{editorMode === 'source' && <div className="markdown-formatting" role="toolbar" aria-label="正文格式">{[['标题', '\n## '], ['加粗', '**', '**'], ['列表', '\n- '], ['引用', '\n> '], ['链接', '[', '](https://)']].map(([label, before, after]) => <button key={label} className="button ghost compact" disabled={loadingDraft} onClick={() => insertFormatting(before, after)}>{label}</button>)}</div>}{editorMode === 'source' ? (
+          /* 源码模式左右并排：左边改字，右边同步看到微信里的真实排版（与正式排版同一渲染函数） */
+          <div className="article-split">
+            <textarea ref={editorRef} disabled={loadingDraft} maxLength={190000} className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck />
+            <WechatLivePreview markdown={draft} />
+          </div>
+        ) : <MarkdownPreview markdown={draft} />}<details className="article-revision"><summary>智能改稿 · 按要求生成新版本</summary><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); onRevise() } }} placeholder="输入改稿要求（Ctrl+Enter 生成改稿）" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><details className="composer-advanced revision-advanced"><summary><Sliders size={13} />候选 {count} 个</summary><label className="field"><span>候选数</span><Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="改稿候选数" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></label></details><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></details><details className="article-history"><summary><History size={16} />版本历史 · {article.versionCount} 个版本</summary>{article.versions.map((version) => <div key={version.id}><span>{version.label || `第 ${version.versionNumber} 版`}</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}{version.label ? ` · 第 ${version.versionNumber} 版` : ''}</small><div className="article-history-actions">{namingId === version.id ? <input className="article-version-name" name={`versionName-${version.versionNumber}`} autoComplete="off" defaultValue={version.label ?? ''} maxLength={60} placeholder="给这一版起个名字，回车保存" aria-label={`命名第 ${version.versionNumber} 版`} autoFocus onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); nameCancelRef.current = version.id; setNamingId(''); return } if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} onBlur={(event) => { const value = event.currentTarget.value; if (nameCancelRef.current === version.id) nameCancelRef.current = ''; else onRenameVersion(version.id, value); setNamingId('') }} /> : <button className="button ghost compact" onClick={() => setNamingId(version.id)}>{version.label ? '改名' : '命名'}</button>}<button className="button ghost compact" onClick={() => setCompareId(version.id)}>对比</button>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div></div>)}</details>
       <ModalBase open={Boolean(compareVersion)} onClose={() => setCompareId('')} titleId="article-diff-title" className="version-diff-dialog article-diff-dialog">
         {compareVersion && <>
           <h2 id="article-diff-title">{compareVersion.label || `第 ${compareVersion.versionNumber} 版`} ↔ 屏幕上的正文</h2>
@@ -348,6 +354,111 @@ function ArticleEditor({ article, draft, dirty, loadingDraft, draftStatus, edito
         </>}
       </ModalBase>
     </div>
+  )
+}
+
+/**
+ * 微信排版实时预览。
+ *
+ * 关键设计：预览调用主进程的 renderLayoutMarkdown（与正式排版同一函数），
+ * 因此「预览所见」= 「发布所得」。若在前端另写一套渲染，两份实现必然漂移，
+ * 预览反而会误导用户——那比没有预览更糟。
+ *
+ * 只读：contentEditable 的 markdown↔HTML 往返会静默丢表格与嵌套列表，
+ * 编辑仍在左侧源码区进行。
+ *
+ * 宽度档位模拟真机：微信正文渲染的就是我们输出的内联 HTML，
+ * 宽度是主要变量。但需诚实标注——微信客户端渲染引擎仍有细微差异。
+ */
+
+/** 预览宽度档位。375 是主流手机宽度 */
+const PREVIEW_WIDTHS = [
+  { id: 'phone', label: '手机', width: 375 },
+  { id: 'phone-lg', label: '大屏', width: 414 },
+  { id: 'tablet', label: '平板', width: 768 },
+  { id: 'full', label: '满宽', width: 0 }
+] as const
+
+function WechatLivePreview({ markdown, themeId }: { markdown: string; themeId?: string }): React.JSX.Element {
+  const [html, setHtml] = useState('')
+  const [violations, setViolations] = useState<LayoutViolation[]>([])
+  const [widthId, setWidthId] = useState<(typeof PREVIEW_WIDTHS)[number]['id']>('phone')
+  const [pending, setPending] = useState(false)
+
+  // 防抖 300ms：逐字符触发 IPC 会让主进程忙于排版，反而卡顿
+  useEffect(() => {
+    if (!markdown.trim()) {
+      setHtml('')
+      setViolations([])
+      return
+    }
+    let cancelled = false
+    setPending(true)
+    const timer = setTimeout(() => {
+      window.moliu.layouts.renderPreview({ markdown, platform: 'wechat', themeId })
+        .then((result) => {
+          if (cancelled) return
+          setHtml(result.html)
+          setViolations(result.violations ?? [])
+        })
+        .catch(() => {
+          if (!cancelled) setHtml('')
+        })
+        .finally(() => {
+          if (!cancelled) setPending(false)
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [markdown, themeId])
+
+  const activeWidth = PREVIEW_WIDTHS.find((item) => item.id === widthId)
+  const errors = violations.filter((violation) => violation.level === 'error')
+  const warns = violations.filter((violation) => violation.level === 'warn')
+
+  return (
+    <section className="live-preview" aria-label="微信排版预览">
+      <header className="live-preview-bar">
+        <span className="live-preview-title">
+          微信排版预览
+          {pending && <em className="live-preview-pending">渲染中…</em>}
+        </span>
+        <div className="segmented live-preview-widths" role="group" aria-label="预览宽度">
+          {PREVIEW_WIDTHS.map((item) => (
+            <button key={item.id} className={widthId === item.id ? 'active' : ''} onClick={() => setWidthId(item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* 合规提示：实时预览独有的价值——不预览就看不到格式会被丢弃 */}
+      {errors.length > 0 && (
+        <p className="live-preview-alert error" role="alert">
+          <AlertTriangle size={14} />
+          有 {errors.length} 处格式会在公众号丢失：{errors.map((violation) => violation.message).join('；')}
+        </p>
+      )}
+      {warns.length > 0 && (
+        <p className="live-preview-alert warn" role="note">
+          <Info size={14} />
+          {warns.length} 个提醒：{warns.map((violation) => violation.message).join('；')}
+        </p>
+      )}
+
+      <div className="live-preview-stage">
+        <div className="live-preview-canvas" style={{ maxWidth: activeWidth?.width ? `${activeWidth.width}px` : '100%' }}>
+          {html
+            ? <article className="article-markdown-preview" dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
+            : <p className="live-preview-empty">{pending ? '正在渲染…' : '开始输入即可看到微信里的真实排版效果'}</p>}
+        </div>
+      </div>
+      <p className="live-preview-foot micro-copy">
+        预览与实际发布使用同一套排版结果。宽度与真机一致，微信客户端的字体渲染与间距可能有细微差异。
+      </p>
+    </section>
   )
 }
 
