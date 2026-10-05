@@ -1,6 +1,6 @@
 {
   "name": "moliu-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "心流：本地优先的自媒体 AI 创作桌面应用",
   "main": "out/main/index.js",
@@ -25,7 +25,8 @@
     "test:smokes": "npm run build && node scripts/run-all-smokes.mjs",
     "test:live": "node scripts/live-provider-smoke.mjs",
     "package:win": "npm run build && node node_modules/electron-builder/out/cli/cli.js --win --x64",
-    "postinstall": "node node_modules/electron/install.js"
+    "postinstall": "node node_modules/electron/install.js",
+    "test:workflow": "npm run build && node scripts/smoke-workflow.mjs"
   },
   "dependencies": {
     "@hono/node-server": "2.0.12",

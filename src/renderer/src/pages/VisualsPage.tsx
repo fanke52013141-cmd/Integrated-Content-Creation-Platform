@@ -3,7 +3,7 @@ import {
   Copy, Image as ImageIcon, ImagePlus, LayoutTemplate, LoaderCircle, Palette,
   Sparkles, Trash2, UploadCloud, X
 } from 'lucide-react'
-import type { Article, ProviderSummary, VisualAsset, VisualPack, VisualPrompt, VisualAssetKind } from '../../../shared/contracts'
+import type { ArticleSummary, ProviderSummary, VisualAsset, VisualPack, VisualPrompt, VisualAssetKind } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
@@ -13,6 +13,8 @@ import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useReportWork } from '../active-work'
+import { useWorkDraft } from '../hooks/useWorkDraft'
+import { SavedVersionGate } from '../components/SavedVersionGate'
 import { availableModels, DEFAULT_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
 import { disambiguateOptions } from '../../../shared/creation-state'
@@ -28,7 +30,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const stream = useGenerationStream('visuals')
   const { confirm, ConfirmPortal } = useConfirm()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [packs, setPacks] = useState<VisualPack[]>([])
   const [articleId, setArticleId] = useState('')
   const [count, setCount] = useState(3)
@@ -49,23 +51,24 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const selected = articles.find((article) => article.id === articleId)
   const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
 
+  const workDraft = useWorkDraft(selected?.id ?? '', selected?.rawMarkdown ?? '', selected?.currentVersionId ?? '')
+  const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
   useReportWork(selected ? {
     articleId: selected.id,
     title: markdownTitle(selected.rawMarkdown),
     accountId: selected.accountId,
     versionCount: selected.versionCount,
-    status: selected.status
+    status: selected.status, savedMarkdown: selected.rawMarkdown, currentVersionId: selected.currentVersionId
   } : {}, 'visuals')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.list(), window.moliu.visuals.list()])
+    const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.visuals.list()])
     setArticles(nextArticles)
     setPacks(nextPacks)
     setArticleId((current) => {
-      if (nextArticles.some((article) => article.id === current)) return current
-      if (focusArticleId && nextArticles.some((article) => article.id === focusArticleId)) return focusArticleId
+      if (nextArticles.some(item => item.id === current)) return current
       const locked = nextArticles.find((article) => article.status === 'locked')
-      return locked?.id ?? nextArticles[0]?.id ?? ''
+      return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
     await refreshAssets(nextPacks.filter((pack) => pack.articleId === articleId).map((pack) => pack.id))
   }
@@ -77,7 +80,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     setAssetsByPack(Object.fromEntries(entries))
   }
 
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [focusArticleId])
+  useEffect(() => { if (focusArticleId) setArticleId(focusArticleId) }, [focusArticleId])
   useEffect(() => { void refreshAssets(currentPacks.map((pack) => pack.id)).catch(() => undefined) }, [articleId, packs.length])
 
   const generatePlan = async (): Promise<void> => {
@@ -95,7 +99,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const generateImage = async (pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void> => {
     const target = decodeTarget(imageTarget)
     if (!target) {
-      showToast({ type: 'warning', message: '请先在「模型网关」为供应商开启图片能力并添加生图模型' })
+      showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
       return
     }
     const key = `${pack.id}:${kind}:${slot}`
@@ -120,7 +124,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const generateAllImages = async (pack: VisualPack): Promise<void> => {
     const target = decodeTarget(imageTarget)
     if (!target) {
-      showToast({ type: 'warning', message: '请先在「模型网关」为供应商开启图片能力并添加生图模型' })
+      showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
       return
     }
     const slots = [
@@ -246,8 +250,10 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       onNavigate={onNavigate}
       title="智能配图"
       description="先生成封面 / 文内 / 发布三件套提示词，再逐张生成图片并上传公众号"
-      actions={articleId && <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />去排版</button>}
+      actions={articleId && <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />
+    去排版</button>}
     />
+    <SavedVersionGate article={selected} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
       <EmptyState
@@ -277,7 +283,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
           ) : (
             <button
               className="button primary"
-              disabled={!articleId || !modelTarget}
+              disabled={!articleId || !modelTarget || needsSavedVersion}
               onClick={() => void generatePlan()}
               title={!articleId ? '请先选择要配图的文章' : '请先选择方案模型'}
             >
@@ -294,7 +300,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
         </section>
 
         {!imageModels.length && (
-          <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「模型网关」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
+          <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
         )}
 
         {stream.active && <StreamingPreview content={stream.content} label="正在设计配图方案…" />}

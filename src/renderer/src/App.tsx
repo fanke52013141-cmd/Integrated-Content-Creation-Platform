@@ -19,6 +19,7 @@ import { useKeyboardShortcuts } from './components/useKeyboardShortcuts'
 import { ShortcutPanel } from './components/ShortcutPanel'
 import { errorMessage } from './lib'
 
+const DataPage = lazy(() => import('./pages/DataPage').then(m => ({ default: m.DataPage })))
 const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })))
 const AccountPage = lazy(() => import('./pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const HotspotsPage = lazy(() => import('./pages/HotspotsPage').then(m => ({ default: m.HotspotsPage })))
@@ -141,9 +142,9 @@ function AppShell(): React.JSX.Element {
       const label = DOMAIN_LABELS[event.domain] ?? event.domain
       const onSamePage = DOMAIN_ROUTES[event.domain] === routeRef.current
       if (event.status === 'done' && !onSamePage) {
-        showToast({ type: 'success', message: `${label}生成完成，可查看结果` })
+        showToast({ type: event.outcome === 'partial' ? 'warning' : event.outcome === 'cancelled' ? 'info' : 'success', message: event.message || `${label}生成完成，可查看结果` })
       }
-      if (event.status === 'failed' && !/已取消/.test(event.message ?? '')) {
+      if (event.status === 'failed' && event.outcome !== 'cancelled' && !/已取消/.test(event.message ?? '')) {
         showToast({ type: 'error', message: `${label}生成失败：${(event.message ?? '未知错误').slice(0, 80)}` })
       }
     })
@@ -237,6 +238,7 @@ function AppShell(): React.JSX.Element {
               showToast={showToast}
             />
           )}
+          {route === 'data' && <DataPage showToast={showToast} />}
           {route === 'providers' && (
             <ProvidersPage
               providers={data.providers as ProviderSummary[]}
@@ -285,7 +287,7 @@ function AppShell(): React.JSX.Element {
             />
           )}
           {route === 'articles' && (
-            <ArticlesPage
+            <ArticlesPage dirtyOnly={searchParams.get('dirty') === '1'}
               accounts={data.accounts}
               providers={data.providers}
               currentAccountId={currentAccount?.id}

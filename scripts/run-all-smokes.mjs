@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 
 // 一条命令跑完整端到端回归：逐个执行冒烟脚本，任一失败则以非零码退出。
-const suites = ['electron', 'hotspots', 'topics', 'materials', 'frameworks', 'articles', 'reviews', 'visuals', 'layouts', 'publishing', 'workspace']
+const suites = ['electron', 'hotspots', 'topics', 'materials', 'frameworks', 'articles', 'reviews', 'visuals', 'layouts', 'publishing', 'workspace', 'workflow']
 // 单个套件超过这个时间即判失败，避免脚本泄漏句柄（未关的 mock 服务、未 close 的应用）把整轮回归挂住
 const SUITE_TIMEOUT_MS = 5 * 60 * 1_000
 

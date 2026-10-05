@@ -32,7 +32,7 @@ try {
   const page = await app.firstWindow()
   page.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await page.waitForLoadState('domcontentloaded')
-  await page.getByRole('button', { name: '模型网关' }).first().click()
+  await page.getByRole('button', { name: 'AI 服务' }).first().click()
   await page.getByRole('button', { name: /空白配置/ }).click()
   await page.getByLabel('显示名称').fill('Review')
   await page.getByLabel('接口地址').fill(`http://127.0.0.1:${address.port}/v1`)

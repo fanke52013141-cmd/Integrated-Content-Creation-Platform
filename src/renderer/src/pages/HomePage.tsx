@@ -3,8 +3,7 @@ import {
   AlertTriangle, ArrowRight, Clock3, FileInput, Flame, Gauge, Image, Import, Layers,
   ListChecks, Newspaper, PenLine, Sparkles
 } from 'lucide-react'
-import type { AccountProfileSummary, Article, GenerationTask, ProviderSummary } from '../../../shared/contracts'
-import { DRAFT_PREFIX } from '../../../shared/creation-state'
+import type { AccountProfileSummary, ArticleSummary, GenerationTask, ProviderSummary } from '../../../shared/contracts'
 import { articleTitleOf, useActiveWork } from '../active-work'
 import type { RouteId } from '../components/Layout'
 import { PageHeader } from '../components/PageHeader'
@@ -25,7 +24,7 @@ interface HomePageProps {
  */
 export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToast }: HomePageProps): React.JSX.Element {
   const { work, setWork } = useActiveWork()
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [tasks, setTasks] = useState<GenerationTask[]>([])
   const [pendingDrafts, setPendingDrafts] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -35,11 +34,11 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   const load = useCallback(async (): Promise<void> => {
     try {
-      const [nextArticles, nextTasks] = await Promise.all([window.moliu.articles.list(), window.moliu.generation.list(20)])
+      const [nextArticles, nextTasks, dirtyArticles] = await Promise.all([window.moliu.articles.listSummaries({ limit: 30 }).then(result => result.items), window.moliu.generation.list(20), window.moliu.articles.listSummaries({ dirtyOnly: true, limit: 1 })])
       setArticles(nextArticles)
       setTasks(nextTasks)
       // 工作草稿存在本地而非库里，因此这里能直接告诉用户"有稿子还没保存回去"
-      setPendingDrafts(Object.keys(localStorage).filter((key) => key.startsWith(DRAFT_PREFIX)).length)
+      setPendingDrafts(dirtyArticles.total)
       setLoading(false)
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
@@ -51,7 +50,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   // 上下文里的作品可能已被删除，这里以真实列表为准
   useEffect(() => {
-    if (work && !loading && !articles.some((article) => article.id === work.articleId)) setWork(null)
+    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.get(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: article.rawMarkdown.split('\n')[0], hasWorkDraft: false, layoutStale: false }]) }); return () => { alive = false } }
   }, [work, articles, loading, setWork])
 
   const resume = useMemo(() => articles.find((article) => article.id === work?.articleId), [articles, work])
@@ -68,18 +67,19 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   return (
     <div className="page home-page">
-      <PageHeader title="创作台" description={configured ? '接着上次那篇写，或者开一篇新的。' : '先连上 AI 服务，然后开始第一篇。'} />
+      <PageHeader title="创作台" description={configured ? '接着上次那篇写，或者选择适合你的创作入口。' : '可以先导入已有文章；需要智能生成时再连接 AI 服务。'} />
 
       {!configured && (
         <section className="home-setup">
           <div>
-            <h3><Gauge size={16} /> 第一步：连接一个文本模型</h3>
+            <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
             <p className="micro-copy">填一次接口地址和密钥，验证通过后就能写。搜索、生图、公众号推送都可以以后再配，不影响先把内容写出来。</p>
           </div>
-          <button className="button primary" onClick={() => onNavigate('providers')}><ArrowRight size={15} />去模型网关</button>
+          <button className="button primary" onClick={() => onNavigate('providers')}><ArrowRight size={15} />去AI 服务</button>
         </section>
       )}
 
+      <p className="micro-copy creation-entry-note">账号定位、热点与评审可按需要使用。已有正文可以直接编辑、排版和导出。</p>
       <section className="home-resume">
         <header><h3><Layers size={15} /> 继续上次作品</h3></header>
         {loading ? <p className="micro-copy">正在读取本地作品…</p> : resume ? (
@@ -98,7 +98,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
         ) : (
           <div className="home-empty-card">
             <p className="micro-copy">{work ? '上次打开的作品已被删除。' : '还没有开始中的作品。挑一个入口，或直接导入一篇现成稿子。'}</p>
-            {!verified && <p className="inline-alert"><AlertTriangle size={13} /> 模型网关尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
+            {!verified && <p className="inline-alert"><AlertTriangle size={13} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
           </div>
         )}
       </section>
@@ -124,7 +124,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
         <ul className="home-pending-list">
           {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="micro-copy">没有卡住的任务，也没有未保存的本地草稿。</li>}
           {stuckTasks.length > 0 && <li><span>{stuckTasks.length} 个生成任务未全部成功</span><button className="text-button" onClick={onShowTasks}>查看原因</button></li>}
-          {pendingDrafts > 0 && <li><span>{pendingDrafts} 篇有未保存的本地修改</span><button className="text-button" onClick={() => onNavigate('articles')}>回去保存</button></li>}
+          {pendingDrafts > 0 && <li><span>{pendingDrafts} 篇有本地暂存修改，尚未保存为版本</span><button className="text-button" onClick={() => onNavigate('articles', { dirty: '1' })}>查看待保存作品</button></li>}
           {unlockedDrafts > 0 && <li><span>{unlockedDrafts} 篇仍是草稿状态</span><button className="text-button" onClick={() => onNavigate('articles')}>继续打磨</button></li>}
         </ul>
       </section>
@@ -137,7 +137,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
               <li key={article.id}>
                 <button className="home-recent-item" onClick={() => onNavigate('articles', { articleId: article.id })}>
                   <strong>{articleTitleOf(article.rawMarkdown)}</strong>
-                  <small>{article.status === 'locked' ? '已锁定' : '草稿'} · 第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>
+                  <small>{article.status === 'locked' ? '已锁定' : '草稿'} · 第 {article.versionCount} 版{article.hasWorkDraft ? ' · 有本地修改' : ''}{article.layoutStale ? ' · 排版需检查' : ''}{article.publicationStatus ? ` · ${article.publicationStatus === 'published' ? '已发布' : article.publicationStatus === 'draft' ? '已推送草稿箱' : '交付待处理'}` : ''} · {formatDate(article.updatedAt)}</small>
                 </button>
               </li>
             ))}

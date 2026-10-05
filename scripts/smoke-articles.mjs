@@ -48,7 +48,7 @@ try {
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
 
-  await window.getByRole('button', { name: '模型网关' }).first().click()
+  await window.getByRole('button', { name: 'AI 服务' }).first().click()
   await window.getByRole('button', { name: /空白配置/ }).click()
   await window.getByLabel('显示名称').fill('本地成稿验收模型')
   await window.getByLabel('接口地址').fill(`http://127.0.0.1:${address.port}/v1`)
@@ -75,19 +75,20 @@ try {
   // F02：编辑留下的未保存草稿，切页再回来必须还在
   await window.getByRole('button', { name: '源码编辑' }).click()
   await window.locator(editorSelector).fill(`${ARTICLE}\n\n${DRAFT_MARKER}：这一段没有保存，只存在于本地工作草稿。`)
-  await window.getByText('未保存', { exact: true }).waitFor()
+  await window.locator('.article-save-state').getByText('已本地暂存 · 待保存版本', { exact: true }).waitFor()
   await window.getByRole('button', { name: '素材库' }).first().click()
   // F10：切到别的页面，作品条依然跟着这篇稿子，并如实标出有未保存修改
-  await window.locator('.work-bar').getByText('有未保存修改').waitFor()
+  await window.locator('.work-bar').getByText('已本地暂存 · 待保存版本').waitFor()
   await window.getByRole('button', { name: '文章创作' }).first().click()
   await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
   await window.getByRole('button', { name: '源码编辑' }).click()
   const restored = await window.locator(editorSelector).inputValue()
   if (!restored.includes(DRAFT_MARKER)) throw new Error('切换到其他页面后，未保存的本地草稿丢失')
-  await window.getByText('未保存', { exact: true }).waitFor()
+  await window.locator('.article-save-state').getByText('已本地暂存 · 待保存版本', { exact: true }).waitFor()
   await capture(window, { path: resolve(artifactDir, 'article-draft-kept.png'), animations: 'disabled', timeout: 90_000 })
 
   // F02：改稿必须以屏幕上的未保存草稿为原稿，而不是库里的旧版本
+  await window.locator('.article-revision > summary').click()
   await window.getByPlaceholder('输入改稿要求（Ctrl+Enter 生成改稿）').fill('把开头改得更犀利一些')
   await window.getByRole('button', { name: '生成改稿' }).click()
   await window.getByText('改稿新版本已保存').waitFor({ timeout: 30_000 })
@@ -95,6 +96,7 @@ try {
   if (!reviseSawUnsavedDraft) throw new Error('改稿请求未携带屏幕上的未保存草稿')
 
   // §7.4：历史版本要能命名——版本堆多之后，光靠"第 N 版"认不出哪一版是什么
+  await window.locator('.article-history summary').click()
   const firstVersionRow = window.locator('.article-history div').filter({ hasText: '第 1 版' })
   await firstVersionRow.getByRole('button', { name: '命名' }).click()
   const nameInput = window.locator('input[name="versionName-1"]')
@@ -134,6 +136,7 @@ try {
   if (await window.locator('.article-history').count() === 0) {
     await window.locator('.article-list-item', { hasText: namedArticleTitle }).first().click()
   }
+  await window.locator('.article-history summary').click()
   if (!(await window.locator('.article-history').innerText()).includes('AI 初稿')) throw new Error('重开应用后版本名称没有留住')
   await window.locator('.article-history').scrollIntoViewIfNeeded()
   await capture(window, { path: resolve(artifactDir, 'article-version-named.png'), animations: 'disabled', timeout: 90_000 })
@@ -174,7 +177,7 @@ try {
     if (!onEditor) throw new Error(`缩放 ${zoom} 下从导出按钮再按 Tab 走不到正文编辑器`)
     await window.keyboard.press('Control+End')
     await window.keyboard.type(`\n\n缩放 ${zoom} 下只用键盘补写的一段。`)
-    await window.getByText('未保存', { exact: true }).waitFor()
+    await window.locator('.article-save-state').getByText('已本地暂存 · 待保存版本', { exact: true }).waitFor()
     await window.keyboard.press('Control+s')
     // 上一轮的同类 toast 还在堆叠里，用 last() 避免 strict mode 误判成"没保存"
     const saved = await window.getByText('手动编辑已保存为新版本').last().waitFor({ timeout: 15_000 }).then(() => true).catch(() => false)
@@ -245,20 +248,17 @@ try {
   // 截图要拍在未筛选的 63 篇上，才看得出列表是在自己框里滚动而不是把页面撑到几千像素
   await capture(window, { path: resolve(artifactDir, 'article-list-at-scale.png'), animations: 'disabled', timeout: 90_000 })
   // 虚拟化生效的另一半：滚到底要能换出末尾那篇，而不是永远只有开头那几行
-  const scrolled = await window.evaluate(() => {
-    const scroller = [...document.querySelectorAll('.article-list div')].find((element) => element.scrollHeight > element.clientHeight + 200 && element.querySelector('.article-list-item'))
-    if (!scroller) return false
-    scroller.scrollTop = scroller.scrollHeight
-    return true
-  })
-  if (!scrolled) throw new Error('63 篇列表没有可滚动的容器（虚拟化没生效或被拉高）')
+  await window.locator('.article-pagination').getByRole('button', { name: '下一页' }).click()
+  await window.locator('.article-pagination').getByRole('button', { name: '下一页' }).click()
   await window.locator('.article-list-item', { hasText: '批量作品 01' }).waitFor({ timeout: 5_000 })
   const listSearch = window.locator('input[name="articleListQuery"]')
   await listSearch.fill('批量作品 57')
+  await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
   const found = await window.locator('.article-list-item').allInnerTexts()
   if (found.length !== 1 || !found[0].includes('批量作品 57')) throw new Error(`63 篇里搜不到「批量作品 57」，实际 ${JSON.stringify(found)}`)
   await listSearch.fill('')
   await window.locator('.article-list-status').getByRole('button', { name: '已锁定', exact: true }).click()
+  await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
   const lockedOnly = await window.locator('.article-list-item').allInnerTexts()
   if (lockedOnly.length !== 1 || !lockedOnly[0].includes('先搭框架，再写文章')) throw new Error(`状态筛选没有只留下锁定稿，实际 ${JSON.stringify(lockedOnly)}`)
   await capture(window, { path: resolve(artifactDir, 'article-list-status-filter.png'), animations: 'disabled', timeout: 90_000 })

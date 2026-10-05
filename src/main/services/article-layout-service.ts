@@ -50,6 +50,7 @@ export class ArticleLayoutService {
   constructor(private readonly database: AppDatabase) {}
 
   create(input: CreateArticleLayoutInput) {
+    this.database.workflow.assertSaved(input.articleId)
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('文章不存在')
     const rendered = renderLayoutMarkdown(article.rawMarkdown, input.platform, input.themeId, input.customCss)

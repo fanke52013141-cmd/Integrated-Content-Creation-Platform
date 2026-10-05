@@ -4,15 +4,12 @@ import type { ImportVisualAssetInput, GenerateVisualAssetInput, VisualAsset, Vis
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 
-const ALLOWED_IMPORT_EXT = ['.png', '.jpg', '.webp']
-void ALLOWED_IMPORT_EXT
-
 /** 从二进制头部嗅探图片扩展名（生图接口可能返回 png 或 jpeg） */
 function sniffImageExt(bytes: Uint8Array): string {
   if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return '.png'
   if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return '.jpg'
   if (bytes.length > 12 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return '.webp'
-  return '.png'
+  throw new Error('文件不是可识别的 PNG / JPG / WebP 图片')
 }
 
 /**
@@ -108,6 +105,7 @@ export class VisualAssetService {
   async removeAsset(id: string): Promise<void> {
     const asset = this.database.getVisualAsset(id)
     if (!asset) return
+    if (this.database.workflow.isAssetReferenced(asset.fileName)) throw new Error('图片仍被正文、草稿或历史排版引用，请先移除引用后再删除')
     this.database.removeVisualAsset(id)
     try {
       await unlink(join(this.imagesDir, asset.fileName))
@@ -119,6 +117,7 @@ export class VisualAssetService {
   /** 删除整个视觉包时清理其下所有图片文件 */
   async removePackAssets(packId: string): Promise<void> {
     const assets = this.database.listVisualAssets(packId)
+    if (assets.some(asset => this.database.workflow.isAssetReferenced(asset.fileName))) throw new Error('配图方案中的图片仍被文章引用，不能删除')
     for (const asset of assets) {
       try {
         await unlink(join(this.imagesDir, asset.fileName))

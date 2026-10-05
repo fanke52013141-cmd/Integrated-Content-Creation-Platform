@@ -30,6 +30,9 @@ import {
   type GenerationDomain
 } from './services/generation-registry.js'
 import { GENERATION_DOMAIN_LABELS } from '../shared/contracts.js'
+import { generationOutcome } from './services/generation-outcome.js'
+import { OperationGate } from './services/operation-gate.js'
+import { registerPublishingIpc } from './ipc-publishing.js'
 import { resolveExternalUrl, validateAccountFields, validateTopicSchema } from '../shared/domain.js'
 import type {
   AddAccountMemoryInput,
@@ -186,15 +189,15 @@ export function registerIpc(options: {
     sendToStream(event, 'generation:events', { id: taskId, domain, status: 'started', at: new Date().toISOString() })
     try {
       const result = await task(run.signal)
-      const failed = (result as { failed?: unknown[] } | null)?.failed
-      const partial = Array.isArray(failed) && failed.length > 0
-      database.finishGenerationTask(taskId, partial ? 'partial' : 'succeeded', partial ? `${failed?.length} 项未完成` : '')
-      sendToStream(event, 'generation:events', { id: taskId, domain, status: 'done', at: new Date().toISOString() })
+      const outcome = generationOutcome(result, run.signal.aborted)
+      database.workflow.saveTaskResults(taskId, outcome.articleId, outcome.resultIds)
+      database.finishGenerationTask(taskId, outcome.status, outcome.detail)
+      sendToStream(event, 'generation:events', { id: taskId, domain, status: outcome.status === 'failed' ? 'failed' : 'done', outcome: outcome.status, message: outcome.detail, at: new Date().toISOString() })
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败'
       database.finishGenerationTask(taskId, run.signal.aborted ? 'cancelled' : 'failed', message)
-      sendToStream(event, 'generation:events', { id: taskId, domain, status: 'failed', message, at: new Date().toISOString() })
+      sendToStream(event, 'generation:events', { id: taskId, domain, status: 'failed', outcome: run.signal.aborted ? 'cancelled' : 'failed', message, at: new Date().toISOString() })
       throw error
     } finally {
       endGeneration(domain)
@@ -676,6 +679,7 @@ export function registerIpc(options: {
   handle('articles:generate', (event, raw: GenerateArticlesInput) => {
     const input = z.object({
       frameworkId: articleIdSchema.optional(), accountId: articleIdSchema.optional(),
+      accountSelection: z.discriminatedUnion('mode', [z.object({ mode: z.literal('inherit') }), z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('specific'), accountId: articleIdSchema })]).optional(),
       materialIds: z.array(articleIdSchema).max(30), manualOutline: z.string().trim().min(1).max(30_000).optional(),
       providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3)
     }).refine((value) => Boolean(value.frameworkId || value.manualOutline), { message: '请选择框架或填写手动框架' }).parse(raw)
@@ -692,7 +696,7 @@ export function registerIpc(options: {
     const input = z.object({
       articleId: articleIdSchema, instruction: z.string().trim().min(1).max(8_000), alignFramework: z.boolean(),
       providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
-      baseMarkdown: z.string().max(200_000).optional()
+      baseMarkdown: z.string().max(200_000).optional(), expectedVersionId: articleIdSchema.optional(), draftRevision: z.number().int().nonnegative().optional()
     }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.revise(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
@@ -703,7 +707,7 @@ export function registerIpc(options: {
       materialIds: z.array(articleIdSchema).max(30), manualOutline: z.string().max(30_000), status: z.enum(['draft', 'locked']),
       rawMarkdown: z.string().trim().min(1).max(200_000), source: z.enum(['generate', 'revise', 'manual', 'restore']),
       instruction: z.string().max(8_000).optional(), providerId: articleIdSchema.optional(),
-      model: z.string().trim().min(1).max(160).optional()
+      model: z.string().trim().min(1).max(160).optional(), expectedVersionId: articleIdSchema.optional(), draftRevision: z.number().int().nonnegative().optional()
     }).parse(raw)
     return database.saveArticle(input)
   })
@@ -717,6 +721,17 @@ export function registerIpc(options: {
   })
   handle('articles:set-locked', (_event, id: string, locked: boolean) => database.setArticleLocked(requireId(id), Boolean(locked)))
   handle('articles:remove', (_event, id: string) => database.removeArticle(requireId(id)))
+  handle('articles:summaries', (_event, raw: unknown = {}) => database.workflow.listSummaries(z.object({
+    offset: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(500).optional(),
+    search: z.string().max(200).optional(), status: z.enum(['draft', 'locked']).optional(),
+    accountId: articleIdSchema.optional(), dirtyOnly: z.boolean().optional()
+  }).parse(raw)))
+  handle('articles:draft:get', (_event, id: string) => database.workflow.getDraft(requireId(id)))
+  handle('articles:draft:save', (_event, raw: unknown) => database.workflow.saveDraft(z.object({
+    articleId: articleIdSchema, baseVersionId: articleIdSchema, content: z.string().max(200_000), expectedRevision: z.number().int().nonnegative().optional()
+  }).parse(raw)))
+  handle('articles:draft:discard', (_event, id: string) => database.workflow.discardDraft(requireId(id)))
+  handle('articles:draft:commit', (_event, id: string, revision: number) => database.commitWorkDraft(requireId(id), z.number().int().positive().parse(revision)))
   handle('reviews:roles:list',()=>database.listReviewRoles())
   handle('reviews:roles:save',(_e,raw:SaveReviewRoleInput)=>database.saveReviewRole(z.object({id:z.string().optional(),name:z.string().trim().min(1).max(80),systemPrompt:z.string().trim().min(1).max(12000),providerId:z.string().uuid().optional(),model:z.string().trim().max(160).optional(),extractionTag:z.string().trim().min(1).max(50),extractionOccurrence:z.enum(['first','last']),dimensions:z.array(z.string().trim().min(1).max(50)).max(10),sortOrder:z.number().int().min(0)}).parse(raw)))
   handle('reviews:roles:remove',(_e,id:string)=>database.removeReviewRole(requireId(id)))
@@ -727,7 +742,7 @@ export function registerIpc(options: {
   handle('reviews:apply',(event,taskId:string,providerId:string,model:string,force?:boolean)=>runGeneration(event,'reviews',(signal)=>reviewService.apply(requireId(taskId),requireId(providerId),model,{force:Boolean(force)},(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal)))
   handle('visuals:list',(_e,articleId?:string)=>database.listVisualPacks(articleId?requireId(articleId):undefined))
   handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
-  handle('visuals:remove',(_e,id:string)=>{const packId=requireId(id);void visualAssets.removePackAssets(packId);database.removeVisualPack(packId)})
+  handle('visuals:remove',async(_e,id:string)=>{const packId=requireId(id);await visualAssets.removePackAssets(packId);database.removeVisualPack(packId)})
   handle('visuals:list-assets',(_e,packId:string)=>database.listVisualAssets(requireId(packId)))
   handle('visuals:generate-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(8_000),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),size:z.string().trim().max(40).optional()}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualAssets.generate(input,signal))})
   handle('visuals:import-image',(_e,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().max(8_000),filePath:z.string().trim().min(1).max(1_000)}).parse(raw);return visualAssets.importFromFile(input)})
@@ -737,21 +752,17 @@ export function registerIpc(options: {
   handle('layouts:themes',()=>listLayoutThemes())
   handle('layouts:create',(_e,raw:unknown)=>articleLayoutService.create(z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional()}).parse(raw)))
   handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))
-  handle('publishing:wechat:get',()=>database.getWechatPublishChannel())
-  handle('publishing:wechat:save',(_e,raw:unknown)=>{const input=z.object({appId:z.string().trim().max(100),appSecret:z.string().trim().min(1).max(1000).optional(),enabled:z.boolean()}).parse(raw);return database.saveWechatPublishChannel({appId:input.appId,enabled:input.enabled},input.appSecret?keyStore.encrypt(input.appSecret):undefined)})
-  handle('publishing:wechat:test',()=>wechatPublishService.test())
-  handle('publishing:list',()=>database.listPublications())
-  handle('publishing:wechat:push-draft',(_e,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),layoutId:z.string().uuid(),thumbMediaId:z.string().trim().max(200).optional(),coverAssetId:z.string().uuid().optional(),author:z.string().trim().max(100).optional(),digest:z.string().trim().max(120).optional(),contentSourceUrl:z.string().trim().url().optional()}).refine((value)=>Boolean(value.thumbMediaId||value.coverAssetId),{message:'请先生成或导入封面图片，或手动填写封面素材标识'}).parse(raw);return wechatPublishService.pushDraft(input)})
-  handle('publishing:wechat:upload-cover',(_e,raw:unknown)=>{const input=z.object({assetId:z.string().uuid()}).parse(raw);return wechatPublishService.uploadAsset(input.assetId)})
-  handle('publishing:update',(_e,raw:unknown)=>{const input=z.object({id:z.string().uuid(),status:z.literal('published'),publishedUrl:z.string().url()}).parse(raw);return database.markPublicationPublished(input.id,input.publishedUrl)})
-  handle('publishing:retro',(_e,raw:unknown)=>{const input=z.object({id:z.string().uuid(),goal:z.string().trim().max(2_000),result:z.string().trim().max(2_000),lesson:z.string().trim().max(2_000)}).parse(raw);return database.savePublicationRetro(input.id,{goal:input.goal,result:input.result,lesson:input.lesson})})
+  registerPublishingIpc(handle, database, keyStore, wechatPublishService)
+
 }
+
+const operationGate = new OperationGate()
 
 function handle(
   channel: string,
   listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown
 ): void {
-  ipcMain.handle(channel, listener)
+  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), channel === 'app:backup-create' || channel === 'app:backup-restore'))
 }
 
 function requireId(value: string): string {

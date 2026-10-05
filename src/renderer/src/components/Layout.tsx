@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  FolderArchive,
   Braces,
   Check,
   ChevronRight,
@@ -32,6 +33,7 @@ import {
   type RouteId
 } from '../../../shared/creation-flow'
 import { WorkBar } from './WorkContext'
+import { useActiveWork } from '../active-work'
 
 /**
  * 侧边栏图标表：仅提供视觉，不参与顺序 —— 顺序统一由 shared/creation-flow 决定。
@@ -99,11 +101,17 @@ export function Layout({
   currentAccount,
   generationLabel,
   children,
-  onNavigate,
+  onNavigate: navigate,
   onToggleTheme,
   onSwitchAccount,
   onShowTasks
 }: LayoutProps): React.JSX.Element {
+  const { work } = useActiveWork()
+  const onNavigate = (next: RouteId, params?: Record<string, string>): void => {
+    const carriesWork = ['articles', 'reviews', 'visuals', 'layouts', 'publishing'].includes(next)
+    navigate(next, params ?? (carriesWork && work ? { articleId: work.articleId } : undefined))
+  }
+
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
   const crumb = routeBreadcrumbs(route)
   const gatewayReady = usableProviders.length > 0
@@ -207,12 +215,13 @@ export function Layout({
         </nav>
 
         <div className="sidebar-system">
+          <button className={`nav-item ${route === 'data' ? 'active' : ''}`} onClick={() => onNavigate('data')}><span className="nav-icon"><FolderArchive size={16} /></span><span>数据与备份</span></button>
           <button
             className={`nav-item ${route === 'providers' ? 'active' : ''}`}
             onClick={() => onNavigate('providers')}
           >
             <span className="nav-icon"><Settings2 size={16} /></span>
-            <span>模型网关</span>
+            <span>AI 服务</span>
             {gatewayState && (
               <span className={`gateway-status-dot ${gatewayState.state}`} title={gatewayState.label} aria-label={gatewayState.label} />
             )}

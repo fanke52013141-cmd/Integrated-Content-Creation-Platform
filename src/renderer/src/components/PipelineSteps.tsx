@@ -1,6 +1,8 @@
 import { ChevronRight } from 'lucide-react'
 import { PIPELINE_STAGES } from '../../../shared/creation-flow'
 import type { RouteId } from './Layout'
+import { useActiveWork } from '../active-work'
+import { WORKBAR_STAGES } from '../../../shared/creation-flow'
 
 /**
  * 流程步骤条只做「当前位置」指示，不显示完成勾：
@@ -9,7 +11,8 @@ import type { RouteId } from './Layout'
  * 阶段顺序来自 shared/creation-flow 的 PIPELINE_STAGES，
  * 与侧边栏分组、作品栏阶段同源，改流程只需改那一个文件。
  */
-export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNavigate(route: RouteId): void }): React.JSX.Element | null {
+export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
+  const { work } = useActiveWork()
   const index = PIPELINE_STAGES.findIndex((stage) => stage.id === current)
   if (index < 0) return null
   return (
@@ -22,10 +25,10 @@ export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNav
             <button
               type="button"
               className={`pipeline-step ${state}`}
-              onClick={() => onNavigate(stage.id)}
+              onClick={() => onNavigate(stage.id, work && WORKBAR_STAGES.some(item => item.id === stage.id) ? { articleId: work.articleId } : undefined)}
               aria-current={stage.id === current ? 'step' : undefined}
             >
-              {stage.label}
+              {stage.label}{stage.id === 'reviews' || stage.id === 'hotspots' || stage.id === 'accounts' ? '（可选）' : ''}
             </button>
           </span>
         )

@@ -64,7 +64,7 @@ try {
   const window = await application.firstWindow()
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
-  await window.getByRole('button', { name: '模型网关' }).first().click()
+  await window.getByRole('button', { name: 'AI 服务' }).first().click()
   // F17：搜索能力单独分层在「素材搜索」视图里
   await window.getByRole('button', { name: '素材搜索' }).click()
   const searchPanel = window.locator('.search-service-panel')

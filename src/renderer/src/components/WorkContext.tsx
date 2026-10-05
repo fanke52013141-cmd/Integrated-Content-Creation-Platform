@@ -8,6 +8,7 @@ import { ModalBase } from './ModalBase'
 import { EmptyState } from './EmptyState'
 import { formatDate, errorMessage } from '../lib'
 import { useEffect, useState } from 'react'
+import { useWorkDraft } from '../hooks/useWorkDraft'
 import { CircleDashed, Clock3, ListChecks } from 'lucide-react'
 
 /** 作品栏阶段：只含成稿之后的推进阶段，顺序与顶部流水线一致 */
@@ -35,6 +36,7 @@ const TASK_STATE: Record<GenerationTask['status'], { label: string; badge: strin
 /** 统一作品页头：不管在哪一页，都能看见正在写的到底是哪篇、什么状态、下一步去哪 */
 export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSummary[]; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
   const { work, setWork } = useActiveWork()
+  const local = useWorkDraft(work?.articleId ?? '', work?.savedMarkdown ?? '', work?.currentVersionId ?? '')
   if (!work) return null
   const account = accounts.find((item) => item.id === work.accountId)
   return (
@@ -42,7 +44,7 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
       <Layers size={15} className="work-bar-icon" aria-hidden />
       <button className="work-bar-title" title={work.title} onClick={() => onNavigate('articles', { articleId: work.articleId })}>{work.title}</button>
       <span className="work-bar-meta">{account?.name ?? '未绑定账号'} · 第 {work.versionCount} 版{work.status === 'locked' ? ' · 已锁定' : ''}</span>
-      <span className={`badge ${work.dirty ? 'warning' : 'success'}`} role="status">{work.dirty ? '有未保存修改' : '已保存'}</span>
+      <span className={`badge ${local.dirty || local.status === 'error' ? 'warning' : 'success'}`} role="status">{local.status === 'loading' ? '读取草稿…' : local.status === 'saving' ? '正在暂存…' : local.status === 'error' ? '暂存失败' : local.dirty ? '已本地暂存 · 待保存版本' : `已保存第 ${work.versionCount} 版`}</span>
       <div className="segmented work-bar-stages" role="group" aria-label="创作阶段">
         {STAGES.map((stage) => (
           <button
@@ -94,7 +96,11 @@ export function TaskCenterDialog({ open, onClose, onNavigate }: { open: boolean;
                 </span>
                 {task.detail && <span className="task-item-detail" title={task.detail}>{task.detail}</span>}
                 <span className={`badge ${state.badge}`}>{state.label}</span>
-                <button className="button ghost compact" onClick={() => { onNavigate(DOMAIN_ROUTE[task.domain]); onClose() }}>打开{GENERATION_DOMAIN_LABELS[task.domain]}</button>
+                {task.status === 'running' && <button className="button ghost compact" onClick={() => void window.moliu.generation.cancel(task.domain)}>取消任务</button>}
+                <button className="button ghost compact" onClick={() => {
+                  const target: Record<string, string> | undefined = task.articleId ? { articleId: task.articleId } : task.resultIds?.[0] && task.domain === 'frameworks' ? { frameworkId: task.resultIds[0] } : undefined
+                  onNavigate(task.articleId ? DOMAIN_ROUTE[task.domain] : task.domain === 'frameworks' && target ? 'articles' : DOMAIN_ROUTE[task.domain], target); onClose()
+                }}>{task.status === 'failed' || task.status === 'partial' ? '查看结果与失败原因' : '打开结果'}</button>
               </li>
             )
           })}

@@ -25,6 +25,7 @@ export type RouteId =
   | 'materials'
   | 'providers'
   | 'prompts'
+  | 'data'
 
 /** 侧边栏分组名 */
 export type NavGroupTitle = '总览' | '准备' | '创作' | '发布'
@@ -94,7 +95,8 @@ export const ALL_ROUTE_IDS: readonly RouteId[] = [
   ...CREATION_FLOW.map((stage) => stage.id),
   ...RESOURCE_ROUTES,
   'providers',
-  'prompts'
+  'prompts',
+  'data'
 ] as const
 
 /** 面包屑分组名（系统页归入「系统」） */
@@ -103,7 +105,8 @@ export const SYSTEM_GROUP = '系统'
 /** 非创作链路的页面（资源区与系统设置）标签与分组 */
 const EXTRA_ROUTES = {
   materials: { label: '素材库', group: '资源' },
-  providers: { label: '模型网关', group: SYSTEM_GROUP },
+  data: { label: '数据与备份', group: SYSTEM_GROUP },
+  providers: { label: 'AI 服务', group: SYSTEM_GROUP },
   prompts: { label: '提示词', group: SYSTEM_GROUP }
 } as const satisfies Record<string, { label: string; group: string }>
 

@@ -17,6 +17,7 @@ export class VisualPackGenerator {
     onStream?: (event: StreamEvent) => void,
     signal?: AbortSignal
   ) {
+    this.database.workflow.assertSaved(input.articleId)
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('文章不存在')
 

@@ -68,7 +68,7 @@ try {
   const routes = [
     { id: 'dashboard', label: '流水线总览', expect: '创作工作台' },
     { id: 'accounts', label: '账号定位', expect: '账号定位' },
-    { id: 'providers', label: '模型网关', expect: '模型网关' },
+    { id: 'providers', label: 'AI 服务', expect: 'AI 服务' },
     { id: 'hotspots', label: '热点洞察', expect: '热点洞察' },
     { id: 'topics', label: '选题生成', expect: '选题生成' },
     { id: 'frameworks', label: '内容框架', expect: '内容框架' },

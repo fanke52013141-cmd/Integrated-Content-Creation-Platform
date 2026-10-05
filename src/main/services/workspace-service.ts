@@ -1,14 +1,14 @@
 import { dialog } from 'electron'
-import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
+import { copyFile, mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
 import { basename, extname, join, resolve, sep } from 'node:path'
 import type { LocalFileResult } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import { renderLayoutMarkdown } from './article-layout-service.js'
+import { localAssetNames, replaceLocalAssets } from './local-assets.js'
 
 export type ExportFormat = 'markdown' | 'html'
-
-const ASSET_PATTERN = /moliu-asset:\/\/assets\/([^"'()\s>]+)/g
 
 /**
  * 本地交付与数据安全：把文章导出成 Markdown / 自包含 HTML（图片转 data URI），
@@ -38,15 +38,26 @@ export class WorkspaceService {
   async exportArticle(input: { articleId: string; format: ExportFormat; targetDir?: string }): Promise<LocalFileResult> {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('文章不存在')
-    const fileName = `${slug(articleTitle(article.rawMarkdown))}.${input.format === 'html' ? 'html' : 'md'}`
-    const body = input.format === 'html'
-      ? await this.embedImages(renderLayoutMarkdown(article.rawMarkdown, 'web').html)
-      : article.rawMarkdown
+    this.database.workflow.assertSaved(article.id)
+    const fileName = `${slug(articleTitle(article.rawMarkdown))}-V${article.versionCount}-${article.id.slice(0, 8)}.${input.format === 'html' ? 'html' : 'md'}`
     const directory = input.targetDir ? this.insideData(input.targetDir) : await this.pickDirectory([formatFilter('Markdown', ['md']), formatFilter('HTML', ['html'])])
     if (!directory) return { path: null }
     await mkdir(directory, { recursive: true })
-    const target = join(directory, fileName)
-    await writeFile(target, body, 'utf8')
+    let body: string
+    if (input.format === 'html') body = await this.embedImages(wrapDocument(articleTitle(article.rawMarkdown), renderLayoutMarkdown(article.rawMarkdown, 'web').html))
+    else {
+      const replacements = new Map<string, string>()
+      const folder = `${fileName.slice(0, -3)}-assets`
+      const names = localAssetNames(article.rawMarkdown)
+      if (names.length) await mkdir(join(directory, folder), { recursive: true })
+      for (const name of names) {
+        const destination = `${randomUUID()}${extname(name)}`
+        await copyFile(join(this.imagesDir, name), join(directory, folder, destination), constants.COPYFILE_EXCL)
+        replacements.set(name, `./${encodeURIComponent(folder)}/${encodeURIComponent(destination)}`)
+      }
+      body = replaceLocalAssets(article.rawMarkdown, replacements)
+    }
+    const target = await this.writeUnique(directory, fileName, body)
     return { path: target }
   }
 
@@ -54,12 +65,12 @@ export class WorkspaceService {
   async exportLayout(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult> {
     const layout = this.database.getArticleLayout(input.layoutId)
     if (!layout) throw new Error('排版稿不存在')
-    const fileName = `${slug(layout.title)}-排版稿.html`
+    this.database.workflow.assertSaved(layout.articleId)
+    const fileName = `${slug(layout.title)}-排版稿-${layout.id.slice(0, 8)}.html`
     const directory = input.targetDir ? this.insideData(input.targetDir) : await this.pickDirectory([formatFilter('HTML', ['html'])])
     if (!directory) return { path: null }
     await mkdir(directory, { recursive: true })
-    const target = join(directory, fileName)
-    await writeFile(target, await this.embedImages(wrapDocument(layout.title, layout.html)), 'utf8')
+    const target = await this.writeUnique(directory, fileName, await this.embedImages(wrapDocument(layout.title, layout.html)))
     return { path: target }
   }
 
@@ -68,19 +79,21 @@ export class WorkspaceService {
     // 默认直接落到 userData/backups：一键备份不需要选路径，且与 listBackupBundles/恢复同处一地
     const parent = input?.targetDir ? this.insideData(input.targetDir) : join(this.dataPath, 'backups')
     if (!parent) throw new Error('未选择备份位置')
-    const bundle = join(parent, `moliu-backup-${stamp}`)
+    const bundle = join(parent, `moliu-backup-${stamp}-${randomUUID().slice(0, 8)}`)
     await mkdir(bundle, { recursive: true })
     this.database.backupTo(join(bundle, 'moliu.db'))
     const imageCount = await this.copyImages(join(bundle, 'images'))
     const checksum = await sha256(join(bundle, 'moliu.db'))
     await writeFile(join(bundle, 'manifest.json'), JSON.stringify({
       app: 'moliu',
+      formatVersion: 2,
       createdAt: new Date().toISOString(),
       database: 'moliu.db',
       checksum,
       images: imageCount,
+      imageChecksums: await this.imageChecksums(join(bundle, 'images')),
       counts: {
-        articles: this.database.listArticles().length,
+        articles: this.database.workflow.listSummaries({ limit: 1 }).total,
         materials: this.database.listMaterials().length,
         accounts: this.database.listAccounts().length
       }
@@ -93,9 +106,12 @@ export class WorkspaceService {
     const bundle = this.insideData(input.bundleDir)
     const manifestFile = join(bundle, 'manifest.json')
     let expectedChecksum: string | undefined
+    let imageChecksums: Record<string, string> = {}
     try {
-      const manifest = JSON.parse(await readFile(manifestFile, 'utf8')) as { checksum?: string }
+      const manifest = JSON.parse(await readFile(manifestFile, 'utf8')) as { app?: string; checksum?: string; imageChecksums?: Record<string, string> }
+      if (manifest.app !== 'moliu' || !manifest.checksum || !manifest.imageChecksums) throw new Error('备份清单不完整')
       expectedChecksum = manifest.checksum
+      imageChecksums = manifest.imageChecksums
     } catch {
       throw new Error('备份缺少 manifest.json，无法确认完整性')
     }
@@ -103,9 +119,29 @@ export class WorkspaceService {
     const checksum = await sha256(dbFile)
     if (expectedChecksum && expectedChecksum !== checksum) throw new Error('备份文件校验不一致，可能已损坏，已停止恢复')
     if (!this.database.isDatabaseFile(dbFile)) throw new Error('备份中的 moliu.db 不是本应用的数据库')
-    const restoredImages = await this.restoreImages(join(bundle, 'images'))
-    this.database.restoreFrom(dbFile)
-    return { restoredImages }
+    const stagedImages = join(this.dataPath, `images-restore-${randomUUID()}`)
+    const rollbackImages = join(this.dataPath, `images-pre-restore-${randomUUID()}`)
+    await mkdir(stagedImages)
+    let movedOriginal = false
+    let installedNew = false
+    try {
+      for (const [file, expected] of Object.entries(imageChecksums)) {
+        if (file !== basename(file) || !/\.(png|jpe?g|webp|gif)$/i.test(file)) throw new Error('备份图片文件名无效')
+        const source = join(bundle, 'images', file)
+        if (await sha256(source) !== expected) throw new Error(`备份图片“${file}”校验不一致`)
+        await copyFile(source, join(stagedImages, file))
+      }
+      try { await rename(this.imagesDir, rollbackImages); movedOriginal = true }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+      await rename(stagedImages, this.imagesDir)
+      installedNew = true
+      this.database.restoreFrom(dbFile)
+      return { restoredImages: Object.keys(imageChecksums).length }
+    } catch (error) {
+      if (installedNew) await rm(this.imagesDir, { recursive: true, force: true })
+      if (movedOriginal) await rename(rollbackImages, this.imagesDir)
+      throw error
+    } finally { await rm(stagedImages, { recursive: true, force: true }) }
   }
 
   private async copyImages(target: string): Promise<number> {
@@ -121,31 +157,34 @@ export class WorkspaceService {
     return files.length
   }
 
-  private async restoreImages(source: string): Promise<number> {
-    let files: string[] = []
-    try {
-      files = (await readdir(source)).filter((file) => ['.png', '.jpg', '.webp'].includes(extname(file).toLowerCase()))
-    } catch {
-      return 0
+  private async imageChecksums(directory: string): Promise<Record<string, string>> {
+    const result: Record<string, string> = {}
+    const files = await readdir(directory).catch(() => [] as string[])
+    for (const file of files) result[file] = await sha256(join(directory, file))
+    return result
+  }
+
+  private async writeUnique(directory: string, fileName: string, body: string): Promise<string> {
+    const ext = extname(fileName)
+    for (let suffix = 0; suffix < 1000; suffix += 1) {
+      const target = join(directory, suffix ? `${fileName.slice(0, -ext.length)}-${suffix}${ext}` : fileName)
+      try { await writeFile(target, body, { encoding: 'utf8', flag: 'wx' }); return target }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error }
     }
-    await mkdir(this.imagesDir, { recursive: true })
-    for (const file of files) await copyFile(join(source, file), join(this.imagesDir, file))
-    return files.length
+    throw new Error('该目录中同名导出过多，请选择其他位置')
   }
 
   /** 把 moliu-asset://assets/x.png 换成 data URI，导出的文件脱离应用也能看图 */
   private async embedImages(html: string): Promise<string> {
-    const names = [...new Set([...html.matchAll(ASSET_PATTERN)].map((match) => basename(decodeURIComponent(match[1]))))]
+    const names = localAssetNames(html)
     const table = new Map<string, string>()
     for (const name of names) {
       try {
         const bytes = await readFile(join(this.imagesDir, name))
         table.set(name, `data:${mimeOf(name)};base64,${bytes.toString('base64')}`)
-      } catch {
-        // 图片文件已丢失时保留原地址，不阻断导出
-      }
+      } catch { throw new Error(`图片“${name}”已丢失，请重新导入后导出`) }
     }
-    return html.replace(ASSET_PATTERN, (match, raw: string) => table.get(basename(decodeURIComponent(raw))) ?? match)
+    return replaceLocalAssets(html, table)
   }
 
   private async pickDirectory(filters?: Electron.FileFilter[]): Promise<string | null> {
@@ -184,7 +223,8 @@ function articleTitle(markdown: string): string {
 }
 
 function slug(value: string): string {
-  return value.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || '未命名文章'
+  const clean = value.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60).replace(/[. ]+$/, '') || '未命名文章'
+  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(clean) ? `文章-${clean}` : clean
 }
 
 function mimeOf(name: string): string {

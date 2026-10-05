@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Code2, Copy, FileDown, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
-import type { Article, ArticleLayout, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
+import type { ArticleSummary, ArticleLayout, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
@@ -10,6 +10,8 @@ import { useConfirm } from '../components/useConfirm'
 import { errorMessage, formatDate, formatTimedDate, markdownTitle, sanitizeHtml } from '../lib'
 import { disambiguateOptions, resolveLayoutSelection } from '../../../shared/creation-state'
 import { useReportWork } from '../active-work'
+import { useWorkDraft } from '../hooks/useWorkDraft'
+import { SavedVersionGate } from '../components/SavedVersionGate'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
 const platformHints: Record<LayoutPlatform, string> = { wechat: '可直接推送草稿箱', xiaohongshu: '纯文本，复制使用', web: '通用网页样式' }
@@ -22,7 +24,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   showToast(toast: ToastState): void
 }): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [layouts, setLayouts] = useState<ArticleLayout[]>([])
   const [themes, setThemes] = useState<LayoutThemeInfo[]>([])
   const [articleId, setArticleId] = useState('')
@@ -37,23 +39,24 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const articleLayouts = useMemo(() => layouts.filter((item) => item.articleId === articleId), [layouts, articleId])
   const article = articles.find((item) => item.id === articleId)
 
+  const workDraft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
+  const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
   useReportWork(article ? {
     articleId: article.id,
     title: markdownTitle(article.rawMarkdown),
     accountId: article.accountId,
     versionCount: article.versionCount,
-    status: article.status
+    status: article.status, savedMarkdown: article.rawMarkdown, currentVersionId: article.currentVersionId
   } : {}, 'layouts')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextLayouts] = await Promise.all([window.moliu.articles.list(), window.moliu.layouts.list()])
+    const [nextArticles, nextLayouts] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.layouts.list()])
     setArticles(nextArticles)
     setLayouts(nextLayouts)
     setArticleId((current) => {
-      if (nextArticles.some((item) => item.id === current)) return current
-      if (focusArticleId && nextArticles.some((item) => item.id === focusArticleId)) return focusArticleId
+      if (nextArticles.some(item => item.id === current)) return current
       const locked = nextArticles.find((item) => item.status === 'locked')
-      return locked?.id ?? nextArticles[0]?.id ?? ''
+      return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
     setSelectedId((current) => nextLayouts.some((item) => item.id === current) ? current : nextLayouts[0]?.id ?? '')
   }
@@ -67,7 +70,8 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
     setSelectedId((current) => resolveLayoutSelection(layouts, nextArticleId, current))
   }
 
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [focusArticleId])
+  useEffect(() => { if (focusArticleId) setArticleId(focusArticleId) }, [focusArticleId])
   useEffect(() => { void window.moliu.layouts.themes().then(setThemes).catch(() => undefined) }, [])
 
   const create = async (): Promise<void> => {
@@ -140,6 +144,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       title="文章排版"
       description="把成稿渲染为平台格式，直接推送公众号草稿箱"
     />
+    <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
       <EmptyState
@@ -169,7 +174,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           </label>
           <button
             className="button primary"
-            disabled={busy || !articleId}
+            disabled={busy || !articleId || needsSavedVersion}
             onClick={() => void create()}
             title={!articleId ? '请先选择要排版的文章' : undefined}
           >

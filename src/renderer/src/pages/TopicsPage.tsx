@@ -305,7 +305,7 @@ export function TopicsPage({
                   className="button primary"
                   disabled={!models.length}
                   onClick={() => void generate()}
-                  title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+                  title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
                 >
                   <Sparkles size={16} />
                   {`生成 ${count} 条选题`}
@@ -314,7 +314,7 @@ export function TopicsPage({
               {/* 禁用原因就近说明；账号未锁定的情况页面顶部已有阻塞提示，此处只补模型缺失 */}
               {!stream.active && !models.length && (
                 <p className="form-hint" role="note">
-                  还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+                  还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>AI 服务</button> 配置。
                 </p>
               )}
             </footer>

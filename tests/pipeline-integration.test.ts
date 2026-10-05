@@ -202,7 +202,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
 
     // === 阶段 9：发布到公众号草稿箱 ===
     // 配置微信渠道 + mock 微信 API
-    database.saveWechatPublishChannel({ appId: 'wx-test-app-id', enabled: true })
+    database.saveWechatPublishChannel({ appId: 'wx-test-app-id', enabled: true }, Buffer.from('test-secret'))
     const keyStore = { readWechatPublishSecret: () => 'wx-test-secret' } as unknown as KeyStore
     const publishService = new WechatPublishService(database, keyStore, { readAssetFile: async () => Buffer.alloc(0) } as unknown as VisualAssetService)
     // mock 微信 token 和 draft/add 接口
@@ -342,7 +342,7 @@ describe('发布版本保护', () => {
     )
 
     await expect(service.pushDraft({ articleId: article.id, layoutId: layout.id, thumbMediaId: 'cover-id' }))
-      .rejects.toThrow('不是文章当前版本')
+      .rejects.toThrow('正文已有新版本')
     expect(fetchMock).not.toHaveBeenCalled()
     expect(database.listPublications()).toHaveLength(0)
     database.close()

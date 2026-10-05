@@ -49,7 +49,8 @@ const PAGES = [
   ['layouts', '文章排版'],
   ['publishing', '发布管理'],
   ['materials', '素材库'],
-  ['providers', '模型网关'],
+  ['providers', 'AI 服务'],
+  ['data', '数据与备份'],
   ['prompts', '提示词']
 ]
 

@@ -1,6 +1,6 @@
-# 墨流 Desktop
+# 心流 Desktop
 
-本地优先的自媒体 AI 创作桌面应用。当前首期范围是“模型网关 + 账号定位 AI”纵向切片。
+本地优先的自媒体 AI 创作桌面应用。支持账号定位、选题、框架、正文、评审、配图、排版、公众号草稿交付与复盘，也可以直接导入 Markdown 开始编辑。
 
 ## 开发
 
@@ -9,12 +9,16 @@ npm.cmd install
 npm.cmd run dev
 ```
 
+已打包时，双击仓库根目录的 `启动优化版.cmd` 可运行优化版。它使用独立的 `%LOCALAPPDATA%\心流-optimized-0.2` 数据目录。
+
 ## 验证
 
 ```powershell
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
+npm.cmd run test:workflow
+npm.cmd run test:smokes
 ```
 
 ## 本地数据
@@ -25,13 +29,17 @@ npm.cmd run build
 
 ## 当前范围
 
-- OpenAI-compatible Provider 配置、加密保存和连接测试
-- 账号定位七问向导
-- AI 结构化生成八个默认字段
-- 草稿、锁定、版本历史及版本恢复
-- 下游引用固定账号版本；引用草稿时保留状态快照供 UI 警告
+- AI 服务配置、加密保存、连接测试与生图
+- 账号定位、热点、素材与内容框架
+- 正文编辑、数据库草稿暂存、版本历史、命名、对比和恢复
+- 多角色评审、配图、三种平台排版和本地导出
+- 公众号交付预检、本地图片上传、完整交付快照、失败重试与结果待确认处理
+- 数据与备份独立页面，数据库和图片完整性校验与失败自动回退
+- 生成任务台账及结果定位，文章摘要分页查询
 
-原生 Claude/Gemini、图像模型和后续创作模块不在当前版本范围内。
+当前 AI 接口使用 OpenAI-compatible 协议。公众号推送进入草稿箱，正式发布仍在公众号后台完成。
+
+0.2.0 优化的具体行为、验证与限制见 [优化说明](docs/workflow-optimization.md)。本次按新版本数据结构实现，没有提供旧项目迁移工具。
 
 真实供应商联调通过 `test:live` 执行，Key 只允许从
 `MOLIU_LIVE_API_KEY` 环境变量注入，禁止写入脚本或提交到仓库。

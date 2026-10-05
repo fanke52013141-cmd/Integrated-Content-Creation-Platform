@@ -90,7 +90,8 @@ describe('本地导出', () => {
     const workspace = new WorkspaceService(database, dataPath)
 
     const markdownFile = await workspace.exportArticle({ articleId: article.id, format: 'markdown', targetDir: join(dataPath, 'out') })
-    expect(readFileSync(String(markdownFile.path), 'utf8')).toBe(article.rawMarkdown)
+    expect(readFileSync(String(markdownFile.path), 'utf8')).not.toContain('moliu-asset://')
+    expect(readFileSync(String(markdownFile.path), 'utf8')).toContain('-assets/')
 
     const htmlFile = await workspace.exportArticle({ articleId: article.id, format: 'html', targetDir: join(dataPath, 'out') })
     const html = readFileSync(String(htmlFile.path), 'utf8')
@@ -174,7 +175,7 @@ describe('整库备份与恢复', () => {
     const workspace = new WorkspaceService(database, dataPath)
     const bundle = join(dataPath, 'backups', 'moliu-backup-fake')
     mkdirSync(bundle, { recursive: true })
-    writeFileSync(join(bundle, 'manifest.json'), JSON.stringify({ checksum: 'x' }), 'utf8')
+    writeFileSync(join(bundle, 'manifest.json'), JSON.stringify({ app: 'moliu', imageChecksums: {}, checksum: 'x' }), 'utf8')
     writeFileSync(join(bundle, 'moliu.db'), 'not a database', 'utf8')
     await expect(workspace.restoreBackup({ bundleDir: bundle })).rejects.toThrow('校验不一致')
     database.close()

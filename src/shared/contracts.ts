@@ -614,11 +614,17 @@ export type ArticleStatus = 'draft' | 'locked'
 export type ArticleVersionSource = 'generate' | 'revise' | 'manual' | 'restore'
 export interface ArticleVersion { id: string; articleId: string; versionNumber: number; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; label?: string; rawMarkdown: string; createdAt: string }
 export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
-export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
+export type AccountSelection = { mode: 'inherit' } | { mode: 'none' } | { mode: 'specific'; accountId: string }
+export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; accountSelection?: AccountSelection; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
-export interface ReviseArticleInput { articleId: string; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string }
+export interface ReviseArticleInput { articleId: string; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string; expectedVersionId?: string; draftRevision?: number }
 export interface ReviseArticleResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
-export interface SaveArticleInput { id?: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; rawMarkdown: string; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string }
+export interface SaveArticleInput { id?: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; rawMarkdown: string; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; expectedVersionId?: string; draftRevision?: number }
+export interface WorkDraft { articleId: string; baseVersionId: string; content: string; revision: number; updatedAt: string }
+export interface SaveWorkDraftInput { articleId: string; baseVersionId: string; content: string; expectedRevision?: number }
+export type ArticleSummary = Omit<Article, 'versions' | 'references'> & { title: string; hasWorkDraft: boolean; layoutStale: boolean; publicationStatus?: PublicationStatus }
+export interface ArticleListQuery { offset?: number; limit?: number; search?: string; status?: ArticleStatus; accountId?: string; dirtyOnly?: boolean }
+export interface ArticleListResult { items: ArticleSummary[]; total: number }
 export interface RestoreArticleVersionInput { articleId: string; versionId: string }
 export interface RenameArticleVersionInput { articleId: string; versionId: string; label: string }
 export type ReviewSeverity = 'high' | 'medium' | 'low'
@@ -672,11 +678,14 @@ export interface CreateArticleLayoutInput { articleId: string; platform: LayoutP
 /** 排版主题元信息（完整 CSS 在主进程，不经 IPC 传输） */
 export interface LayoutThemeInfo { id: string; name: string; description: string; accent: string }
 export const CUSTOM_LAYOUT_THEME_ID = 'custom'
-export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string }
+export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
-export type PublicationStatus = 'draft' | 'published' | 'failed'
-export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string }
-export interface PushWechatDraftInput { articleId: string; layoutId: string; /** 手动粘贴的素材 id（兜底）；与 coverAssetId 二选一 */ thumbMediaId?: string; /** 直接引用已上传/已生成图片资产的 id，推送前自动上传换取 media_id */ coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string }
+export type PublicationStatus = 'draft' | 'published' | 'failed' | 'unknown'
+export interface PublicationSnapshot { appId: string; html: string; input: PushWechatDraftInput }
+export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot }
+export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId?: string; coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string; appId?: string }
+export interface PublishFormDraft { articleId: string; layoutId: string; appId: string; coverAssetId: string; thumbMediaId: string; author: string; digest: string; contentSourceUrl: string }
+export interface DeliveryCheck { ready: boolean; issues: string[]; localImageCount: number; title: string; articleVersionNumber: number; appId: string }
 export interface UpdatePublicationInput { id: string; status: 'published'; publishedUrl: string }
 /** 发布复盘：人工记录「目标 / 结果 / 经验」，用来喂给账号记忆 */
 export interface PublicationRetro { goal: string; result: string; lesson: string; updatedAt: string }
@@ -729,6 +738,7 @@ export interface GenerationEvent {
   id: string
   domain: GenerationDomain
   status: 'started' | 'done' | 'failed'
+  outcome?: GenerationTask['status']
   message?: string
   at: string
 }
@@ -742,6 +752,8 @@ export interface GenerationTask {
   detail: string
   startedAt: string
   finishedAt?: string
+  articleId?: string
+  resultIds?: string[]
 }
 
 /** 本地导出/备份的返回：path 为 null 表示用户取消 */
@@ -869,7 +881,12 @@ export interface MoliuApi {
   }
   articles: {
     list(): Promise<Article[]>
+    listSummaries(query?: ArticleListQuery): Promise<ArticleListResult>
     get(id: string): Promise<Article | null>
+    getDraft(articleId: string): Promise<WorkDraft | null>
+    saveDraft(input: SaveWorkDraftInput): Promise<WorkDraft>
+    discardDraft(articleId: string): Promise<void>
+    commitDraft(articleId: string, revision: number): Promise<Article>
     generate(input: GenerateArticlesInput): Promise<GenerateArticlesResult>
     revise(input: ReviseArticleInput): Promise<ReviseArticleResult>
     save(input: SaveArticleInput): Promise<Article>
@@ -917,7 +934,11 @@ export interface MoliuApi {
   publishing: {
     getWechatChannel(): Promise<WechatPublishChannel>
     saveWechatChannel(input: SaveWechatPublishChannelInput): Promise<WechatPublishChannel>
-    testWechatChannel(): Promise<{ ok: boolean; latencyMs: number; message: string }>
+    testWechatChannel(input?: SaveWechatPublishChannelInput): Promise<{ ok: boolean; latencyMs: number; message: string }>
+    getForm(articleId: string): Promise<PublishFormDraft | null>
+    saveForm(input: PublishFormDraft): Promise<void>
+    preflight(input: PushWechatDraftInput): Promise<DeliveryCheck>
+    retry(publicationId: string): Promise<Publication>
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
     update(input: UpdatePublicationInput): Promise<Publication>

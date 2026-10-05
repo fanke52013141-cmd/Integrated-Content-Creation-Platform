@@ -425,6 +425,11 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     articles: {
+      listSummaries: () => Promise.resolve({ items: [], total: 0 }),
+      getDraft: () => Promise.resolve(null),
+      saveDraft: (input: any) => Promise.resolve({ ...input, revision: (input.expectedRevision ?? 0) + 1, updatedAt: new Date().toISOString() }),
+      discardDraft: () => void_(),
+      commitDraft: () => void_(),
       list: () => emptyArray(),
       get: (): Promise<null> => Promise.resolve(null),
       generate: () => Promise.resolve({ articles: [], failed: [] }),
@@ -477,6 +482,10 @@ function createMockBridge(): MoliuApi {
       remove: () => void_()
     },
     publishing: {
+      getForm: () => Promise.resolve(null),
+      saveForm: (input: unknown) => Promise.resolve(input),
+      preflight: () => Promise.resolve({ ready: false, issues: ['请配置公众号连接'], localImageCount: 0, title: '', articleVersionNumber: 0, appId: '' }),
+      retry: () => void_(),
       getWechatChannel: () => Promise.resolve({ id: 'wechat-official', displayName: '公众号', appId: '', enabled: false, hasAppSecret: false, updatedAt: new Date().toISOString() }),
       saveWechatChannel: (input: unknown) => Promise.resolve(input),
       testWechatChannel: () => Promise.resolve({ ok: false, message: '演示环境未配置' }),

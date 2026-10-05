@@ -6,7 +6,7 @@ import {
   Image, LibraryBig, LoaderCircle, Lock, LockOpen, PenLine, Plus, Save, Search, Sliders, Sparkles,
   Trash2, WandSparkles, X
 } from 'lucide-react'
-import type { AccountProfileSummary, Article, ArticleVersion, Framework, Material, ProviderSummary, VisualAsset } from '../../../shared/contracts'
+import type { AccountProfileSummary, Article, ArticleSummary, ArticleVersion, GenerateArticlesInput, ReviseArticleInput, Framework, Material, ProviderSummary, VisualAsset } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import { Select } from '../components/Select'
 import { ModalBase } from '../components/ModalBase'
@@ -25,12 +25,12 @@ import { diffLines } from '../../../shared/text-diff'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, markdownTitle, sanitizeHtml } from '../lib'
 
-interface ArticlesPageProps { accounts: AccountProfileSummary[]; providers: ProviderSummary[]; currentAccountId?: string; onNavigate(route: RouteId, params?: Record<string, string>): void; focusFrameworkId?: string; focusArticleId?: string; importMode?: boolean; showToast(toast: ToastState): void }
+interface ArticlesPageProps { accounts: AccountProfileSummary[]; providers: ProviderSummary[]; currentAccountId?: string; onNavigate(route: RouteId, params?: Record<string, string>): void; focusFrameworkId?: string; focusArticleId?: string; importMode?: boolean; dirtyOnly?: boolean; showToast(toast: ToastState): void }
 
-export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate, focusFrameworkId, focusArticleId, importMode, showToast }: ArticlesPageProps): React.JSX.Element {
+export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate, focusFrameworkId, focusArticleId, importMode, dirtyOnly, showToast }: ArticlesPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const stream = useGenerationStream('articles')
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [frameworks, setFrameworks] = useState<Framework[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -41,13 +41,16 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const [manualOutline, setManualOutline] = useDraftState('article-outline')
   const [count, setCount] = useState(1)
   const [revising, setRevising] = useState(false)
+  const failedRequest = useRef<{ kind: 'generate'; input: GenerateArticlesInput } | { kind: 'revise'; input: ReviseArticleInput } | undefined>(undefined)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [instruction, setInstruction, clearInstruction] = useDraftState('article-instruction')
   const [alignFramework, setAlignFramework] = useState(true)
-  const [editorMode, setEditorMode] = useState<'visual' | 'source'>('visual')
+  const [editorMode, setEditorMode] = useState<'visual' | 'source'>('source')
   const [inheritedMaterials, setInheritedMaterials] = useState(false)
   const [frameworkAccountHint, setFrameworkAccountHint] = useState('')
   const [listQuery, setListQuery] = useState('')
+  const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
   const [listStatus, setListStatus] = useState<'all' | 'locked' | 'draft'>('all')
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
   // F19：写作参数是「一次性」的，进入编辑后默认收起，避免常驻在正文上方抢走注意力
@@ -56,11 +59,12 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
 
   const models = useMemo(() => availableModels(providers), [providers])
   const [modelTarget, setModelTarget] = useModelTarget(models)
-  const selected = articles.find((article) => article.id === selectedId)
+  const [selected, setSelected] = useState<Article>()
+  useEffect(() => { let alive = true; if (selected?.id !== selectedId) setSelected(undefined); if (selectedId) void window.moliu.articles.get(selectedId).then(value => { if (alive) setSelected(value ?? undefined) }).catch(error => showToast({ type: 'error', message: errorMessage(error) })); return () => { alive = false } }, [selectedId, articles])
   const selectedFramework = frameworks.find((framework) => framework.id === frameworkId)
   const usableMaterials = materials.filter((material) => material.kind !== 'image')
   // 正文按文章隔离的工作草稿：切页、切文章、重启后回到用户最后写下的字
-  const { draft, dirty, setDraft, markSaved, discard } = useWorkDraft(selected?.id ?? '', selected?.rawMarkdown ?? '')
+  const { draft, dirty, setDraft, markSaved, discard, flush, status: draftStatus, conflict: draftConflict, error: draftError } = useWorkDraft(selected?.id ?? '', selected?.rawMarkdown ?? '', selected?.currentVersionId ?? '')
   const accountInitialized = useRef(false)
   useReportWork(selected ? {
     articleId: selected.id,
@@ -68,7 +72,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     accountId: selected.accountId,
     versionCount: selected.versionCount,
     status: selected.status,
-    dirty
+    dirty, savedMarkdown: selected.rawMarkdown, currentVersionId: selected.currentVersionId
   } : {}, 'articles')
 
   // F11：把配图方案里已生成/已导入的图片直接插进正文，不再要求用户手写 moliu-asset 地址
@@ -88,19 +92,21 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
 
   async function refresh(): Promise<void> {
     const [nextArticles, nextFrameworks, nextMaterials] = await Promise.all([
-      window.moliu.articles.list(), window.moliu.frameworks.list(), window.moliu.materials.list()
+      window.moliu.articles.listSummaries({ limit: 30, offset: page * 30, search: listQuery, status: listStatus === 'all' ? undefined : listStatus, accountId: accountFilter === 'current' ? currentAccountId : undefined, dirtyOnly }).then(result => { setTotal(result.total); return result.items }), window.moliu.frameworks.list(), window.moliu.materials.list()
     ])
     setArticles(nextArticles); setFrameworks(nextFrameworks); setMaterials(nextMaterials)
     // 勾选可跨页保留，但素材可能已在素材库被删除：留着的 id 会让生成整体报错
     setMaterialIds((current) => new Set([...current].filter((id) => nextMaterials.some((item) => item.id === id && item.kind !== 'image'))))
     setSelectedId((current) => {
-      const wanted = focusArticleId && nextArticles.some((article) => article.id === focusArticleId) ? focusArticleId : current
-      return nextArticles.some((article) => article.id === wanted) ? wanted : nextArticles[0]?.id ?? ''
+      const wanted = current || focusArticleId || ''
+      return wanted || nextArticles[0]?.id || ''
     })
     if (!nextArticles.length) setComposerOpen(true)
     if (focusFrameworkId && nextFrameworks.some((f) => f.id === focusFrameworkId)) { setFrameworkId(focusFrameworkId); setComposerOpen(true) }
   }
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [page, listQuery, listStatus, accountFilter, dirtyOnly])
+  useEffect(() => { setPage(0) }, [listQuery, listStatus, accountFilter, dirtyOnly])
+  useEffect(() => { if (focusArticleId) setSelectedId(focusArticleId) }, [focusArticleId])
   useEffect(() => {
     // 未初始化才补默认账号；用户主动选「不使用账号定位」必须保持为空
     const next = resolveAccountSelection({ current: accountId, accounts, currentAccountId, initialized: accountInitialized.current })
@@ -133,10 +139,13 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     if (!frameworkId && !manualOutline.trim()) return showToast({ type: 'error', message: '请选择内容框架，或粘贴手动框架' })
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     try {
-      const result = await stream.run(() => window.moliu.articles.generate({ frameworkId: frameworkId || undefined, accountId: accountId || undefined, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count: candidateCount }))
+      const request: GenerateArticlesInput = { frameworkId: frameworkId || undefined, accountId: accountId || undefined, accountSelection: accountId ? { mode: 'specific', accountId } : { mode: 'none' }, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count: candidateCount }
+      failedRequest.current = { kind: 'generate', input: request }
+      const result = await stream.run(() => window.moliu.articles.generate(request))
       await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id)
       setLastFailed(result.failed)
-      showToast({ type: result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
+      if (stream.isCancelled()) { showToast({ type: 'info', message: `已取消，保留 ${result.articles.length} 篇已完成结果` }); return }
+      showToast({ type: !result.articles.length ? 'error' : result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消本次写作' } : { type: 'error', message: errorMessage(error) })
     }
@@ -148,13 +157,17 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     setRevising(true)
     try {
-      const result = await stream.run(() => window.moliu.articles.revise({ articleId: selected.id, instruction: instruction.trim(), alignFramework, providerId: target.providerId, model: target.modelId, count, baseMarkdown: dirty ? draft : undefined }))
+      const persistedDraft = await flush()
+      const request: ReviseArticleInput = { articleId: selected.id, instruction: instruction.trim(), alignFramework, providerId: target.providerId, model: target.modelId, count, baseMarkdown: dirty ? draft : undefined, expectedVersionId: selected.currentVersionId, draftRevision: persistedDraft?.revision ?? 0 }
+      failedRequest.current = { kind: 'revise', input: request }
+      const result = await stream.run(() => window.moliu.articles.revise(request))
       // 单候选会在当前文章上新建版本；多候选则创建新文章。后一种情况下，
       // 原稿的工作草稿仍是用户尚未决定是否采纳的内容，不能因生成候选被清除。
       const revisedCurrentArticle = result.articles.some((article) => article.id === selected.id)
       await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id); clearInstruction()
-      if (revisedCurrentArticle) markSaved()
+      if (revisedCurrentArticle) { const saved = result.articles.find(item => item.id === selected.id)!; setSelected(saved); await markSaved({ currentVersionId: saved.currentVersionId, consumedContent: request.baseMarkdown ?? selected.rawMarkdown, rebase: false }) }
       setLastFailed(result.failed)
+      if (stream.isCancelled()) { showToast({ type: 'info', message: `已取消，保留 ${result.articles.length} 篇已完成结果` }); return }
       showToast({ type: result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已完成 ${result.articles.length} 个改稿候选，${result.failed.length} 个失败` : '改稿新版本已保存' })
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消改稿' } : { type: 'error', message: errorMessage(error) })
@@ -162,10 +175,30 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       setRevising(false)
     }
   }
+  async function retryFailed(): Promise<void> {
+    const request = failedRequest.current
+    if (!request || !lastFailed.length) return
+    try {
+      const result = await stream.run(() => request.kind === 'generate'
+        ? window.moliu.articles.generate({ ...request.input, count: lastFailed.length })
+        : window.moliu.articles.revise({ ...request.input, count: lastFailed.length }))
+      await refresh(); if (result.articles[0]) setSelectedId(result.articles[0].id)
+      setLastFailed(result.failed)
+      showToast({ type: !result.articles.length ? 'error' : result.failed.length ? 'warning' : 'success', message: result.failed.length ? `补生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
+    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+  }
   async function saveManual(): Promise<void> {
     if (!selected || !draft.trim()) return
-    try { const saved = await window.moliu.articles.save({ id: selected.id, frameworkId: selected.frameworkId, accountId: selected.accountId, materialIds: selected.materialIds, manualOutline: selected.manualOutline, status: selected.status, rawMarkdown: draft, source: 'manual', providerId: selected.providerId, model: selected.model }); await refresh(); setSelectedId(saved.id); markSaved(); showToast({ type: 'success', message: '手动编辑已保存为新版本' }) }
+    try { const persisted = await flush(); if (!persisted) return; const saved = await window.moliu.articles.commitDraft(selected.id, persisted.revision); setSelected(saved); setSelectedId(saved.id); await markSaved({ currentVersionId: saved.currentVersionId, consumedContent: persisted.content }); await refresh(); showToast({ type: 'success', message: '手动编辑已保存为新版本' }) }
     catch (error) { showToast({ type: 'error', message: `保存失败，内容仍留在本地草稿：${errorMessage(error)}` }) }
+  }
+  async function saveAsNew(): Promise<void> {
+    if (!selected) return
+    try {
+      const local = await flush()
+      const saved = await window.moliu.articles.save({ frameworkId: selected.frameworkId, accountId: selected.accountId, materialIds: selected.materialIds, manualOutline: selected.manualOutline, status: 'draft', source: 'manual', rawMarkdown: local?.content ?? draft })
+      await refresh(); setSelectedId(saved.id); showToast({ type: 'success', message: '已另存为新文章，原文章及其修改仍保留' })
+    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
   }
   async function toggleLock(): Promise<void> {
     if (!selected) return
@@ -178,11 +211,12 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     try { await window.moliu.articles.setLocked(selected.id, selected.status !== 'locked'); await refresh(); showToast({ type: 'success', message: selected.status === 'locked' ? '已恢复为草稿' : '已锁定成稿版本' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
   }
   async function renameVersion(versionId: string, label: string): Promise<void> { if (!selected) return; try { await window.moliu.articles.renameVersion({ articleId: selected.id, versionId, label }); await refresh(); showToast({ type: 'success', message: label.trim() ? `已把这一版命名为「${label.trim()}」` : '已清除这一版的名称' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
-  async function restore(versionId: string): Promise<void> { if (!selected) return; try { await window.moliu.articles.restore({ articleId: selected.id, versionId }); await refresh(); markSaved(); showToast({ type: 'success', message: '已从历史版本创建新草稿' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
+  async function restore(versionId: string): Promise<void> { if (!selected) return; if (dirty && !(await confirm({ title: '恢复历史版本', message: '恢复会放弃当前未保存修改，是否继续？', confirmLabel: '恢复' }))) return; try { await discard(); const saved = await window.moliu.articles.restore({ articleId: selected.id, versionId }); setSelected(saved); await markSaved({ currentVersionId: saved.currentVersionId }); await refresh(); showToast({ type: 'success', message: '已从历史版本创建新草稿' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
   async function remove(): Promise<void> {
     if (!selected || !(await confirm({ title: '确认操作', message: '确定删除这篇成稿及其全部本地版本吗？', danger: true, confirmLabel: '确认' }))) return
     try {
       await window.moliu.articles.remove(selected.id)
+      setSelectedId('')
       // 删除作品必须同时删掉浏览器中的工作草稿；否则同一设备上的后续用户
       // 仍可能从 localStorage 恢复已删除正文。
       discard(selected.rawMarkdown)
@@ -245,14 +279,14 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
               className="button primary"
               disabled={!models.length}
               onClick={() => void generate()}
-              title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+              title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
             >
               <Sparkles size={16} />生成草稿
             </button>}
         {/* 禁用原因就近说明 */}
         {!stream.active && !models.length && (
           <p className="form-hint" role="note">
-            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>AI 服务</button> 配置。
           </p>
         )}
       </footer>
@@ -260,16 +294,18 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     {stream.active && <StreamingPreview content={stream.content} label={revising ? '正在改稿…' : '正在写作…'} />}
     {lastFailed.length > 0 && !stream.active && (
       <p className="inline-alert">上批有 {lastFailed.length} 个候选未成功：{lastFailed.map((item) => `第 ${item.index} 篇 ${item.message.slice(0, 50)}`).join('；')}
-        <button className="text-button" onClick={() => { setComposerOpen(true); void generate(lastFailed.length) }}><RotateCcw size={13} />只补生成 {lastFailed.length} 篇</button>
+        <button className="text-button" onClick={() => { void retryFailed() }}><RotateCcw size={13} />只补生成 {lastFailed.length} 篇</button>
       </p>
     )}
-    <section className="article-workbench"><aside className="article-list"><header><div><h3>文章 <small>{articles.length}</small></h3></div></header><div className="article-list-filters"><label className="search-field"><Search size={13} /><input name="articleListQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索标题…" /></label><div className="segmented article-list-status">{(['all', 'locked', 'draft'] as const).map((value) => <button key={value} className={listStatus === value ? 'active' : ''} onClick={() => setListStatus(value)}>{value === 'all' ? '全部' : value === 'locked' ? '已锁定' : '草稿'}</button>)}</div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的文章' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></div>{articles.length ? <div><VirtualList items={filteredArticles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{articleTitle(article.rawMarkdown)}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.references.some((reference) => reference.sourceStatusSnapshot === 'draft') && <em>引用草稿</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>{articles.length ? '没有匹配的文章' : '暂无文章'}</span></div>}</aside>{selected ? <ArticleEditor article={selected} draft={draft} dirty={dirty} editorMode={editorMode} imageAssets={imageAssets} instruction={instruction} alignFramework={alignFramework} count={count} onDraftChange={setDraft} onDiscard={() => discard(selected.rawMarkdown)} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} onRenameVersion={(versionId, label) => void renameVersion(versionId, label)} revising={revising} onExport={(format) => void exportAs(format)} /> : <div className="article-empty"><LibraryBig size={40} /><h3>{articles.length ? '没有匹配的文章' : '还没有文章'}</h3><p>{articles.length ? '换个关键词或筛选条件试试。' : '可以让模型按框架写一篇，也可以直接把写好的稿子导入进来慢慢打磨。'}</p><div className="article-empty-actions"><button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入现成稿</button><button className="button primary" onClick={() => { setComposerOpen(true); setImportOpen(false) }}><PenLine size={15} />开始写作</button></div></div>}</section>
+    {draftConflict && <p className="inline-alert">本地修改基于旧版本，保存会冲突。可以保留两份内容：<button className="button secondary compact" onClick={() => void saveAsNew()}>另存为新文章</button></p>}
+    {draftError && <p className="inline-alert" role="alert">{draftError}。请先保留正文副本，再重新加载。</p>}
+    <section className="article-workbench"><aside className="article-list"><header><div><h3>文章 <small>{total}</small></h3></div></header><div className="article-list-filters"><label className="search-field"><Search size={13} /><input name="articleListQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索标题…" /></label><div className="segmented article-list-status">{(['all', 'locked', 'draft'] as const).map((value) => <button key={value} className={listStatus === value ? 'active' : ''} onClick={() => setListStatus(value)}>{value === 'all' ? '全部' : value === 'locked' ? '已锁定' : '草稿'}</button>)}</div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的文章' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></div>{articles.length ? <div><VirtualList items={filteredArticles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{articleTitle(article.rawMarkdown)}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.hasWorkDraft && <em>待保存修改</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>{articles.length ? '没有匹配的文章' : '暂无文章'}</span></div>}<div className="article-pagination"><button className="button ghost compact" disabled={!page} onClick={() => setPage(page - 1)}>上一页</button><span>{page + 1} / {Math.max(1, Math.ceil(total / 30))}</span><button className="button ghost compact" disabled={(page + 1) * 30 >= total} onClick={() => setPage(page + 1)}>下一页</button></div></aside>{selected && selected.id === selectedId ? <ArticleEditor article={selected} draft={draft} dirty={dirty} editorMode={editorMode} imageAssets={imageAssets} instruction={instruction} alignFramework={alignFramework} count={count} onDraftChange={setDraft} loadingDraft={draftStatus === 'loading'} draftStatus={draftStatus} onDiscard={() => { void confirm({ title: '放弃修改', message: '确认放弃当前未保存修改？', danger: true, confirmLabel: '放弃修改' }).then(ok => { if (ok) void discard() }) }} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} onRenameVersion={(versionId, label) => void renameVersion(versionId, label)} revising={revising} onExport={(format) => void exportAs(format)} /> : <div className="article-empty"><LibraryBig size={40} /><h3>{articles.length ? '没有匹配的文章' : '还没有文章'}</h3><p>{articles.length ? '换个关键词或筛选条件试试。' : '可以让模型按框架写一篇，也可以直接把写好的稿子导入进来慢慢打磨。'}</p><div className="article-empty-actions"><button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入现成稿</button><button className="button primary" onClick={() => { setComposerOpen(true); setImportOpen(false) }}><PenLine size={15} />开始写作</button></div></div>}</section>
     <ImportDraftDialog open={importOpen} onClose={() => setImportOpen(false)} onImport={(markdown, label) => void importArticle(markdown, label)} />
     {ConfirmPortal}
   </div>
 }
 
-function ArticleEditor({ article, draft, dirty, editorMode, imageAssets, instruction, alignFramework, count, onDraftChange, onDiscard, onModeChange, onInstructionChange, onAlignChange, onCountChange, onSave, onRevise, onLock, onRemove, onRestore, onRenameVersion, onExport, revising }: { article: Article; draft: string; dirty: boolean; editorMode: 'visual' | 'source'; imageAssets: VisualAsset[]; instruction: string; alignFramework: boolean; count: number; onDraftChange(value: string): void; onDiscard(): void; onModeChange(value: 'visual' | 'source'): void; onInstructionChange(value: string): void; onAlignChange(value: boolean): void; onCountChange(value: number): void; onSave(): void; onRevise(): void; onLock(): void; onRemove(): void; onRestore(versionId: string): void; onRenameVersion(versionId: string, label: string): void; onExport(format: 'markdown' | 'html'): void; revising: boolean }): React.JSX.Element {
+function ArticleEditor({ article, draft, dirty, loadingDraft, draftStatus, editorMode, imageAssets, instruction, alignFramework, count, onDraftChange, onDiscard, onModeChange, onInstructionChange, onAlignChange, onCountChange, onSave, onRevise, onLock, onRemove, onRestore, onRenameVersion, onExport, revising }: { article: Article; draft: string; dirty: boolean; loadingDraft: boolean; draftStatus: 'loading' | 'saving' | 'saved' | 'error'; editorMode: 'visual' | 'source'; imageAssets: VisualAsset[]; instruction: string; alignFramework: boolean; count: number; onDraftChange(value: string): void; onDiscard(): void; onModeChange(value: 'visual' | 'source'): void; onInstructionChange(value: string): void; onAlignChange(value: boolean): void; onCountChange(value: number): void; onSave(): void; onRevise(): void; onLock(): void; onRemove(): void; onRestore(versionId: string): void; onRenameVersion(versionId: string, label: string): void; onExport(format: 'markdown' | 'html'): void; revising: boolean }): React.JSX.Element {
   const editorRef = useRef<HTMLTextAreaElement>(null)
   // §7.4：历史版本除了"恢复"还要能"比较"——比较不动任何内容，恢复才是动内容
   const [compareId, setCompareId] = useState('')
@@ -286,15 +322,20 @@ function ArticleEditor({ article, draft, dirty, editorMode, imageAssets, instruc
     const element = editorRef.current
     const start = element?.selectionStart ?? draft.length
     const end = element?.selectionEnd ?? draft.length
-    // 插在光标所在行的行尾；行尾还有字时另起一行，避免图片语法被粘进上一段
-    const lineEnd = draft.indexOf('\n', start)
-    const insertAt = lineEnd === -1 ? draft.length : lineEnd
-    const prefix = insertAt === start || !draft.slice(0, insertAt).trim() ? '' : '\n\n'
+    // 图片替换当前选区；未选中文字时在光标处插入，不重复原有正文。
+    const insertAt = start
+    const prefix = !draft.slice(0, insertAt).trim() ? '' : '\n\n'
     onDraftChange(`${draft.slice(0, insertAt)}${prefix}${snippet}\n\n${draft.slice(end)}`)
     const caret = insertAt + prefix.length + snippet.length
     requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(caret, caret) })
   }
-  return (<div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div>{editorMode === 'source' && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}<div className="article-save-state">{dirty ? <><span className="badge warning" role="status">未保存</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">已保存</span>}<button className="button primary compact" disabled={!dirty} onClick={onSave}><Save size={14} />保存</button></div><div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={14} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={14} />HTML</button></div></div>{editorMode === 'source' ? <textarea ref={editorRef} className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck /> : <MarkdownPreview markdown={draft} />}<section className="article-revision"><header><div><h3>智能改稿</h3></div></header><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); onRevise() } }} placeholder="输入改稿要求（Ctrl+Enter 生成改稿）" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><details className="composer-advanced revision-advanced"><summary><Sliders size={13} />候选 {count} 个</summary><label className="field"><span>候选数</span><Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="改稿候选数" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></label></details><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></section><section className="article-history"><header><History size={16} /><strong>版本历史</strong></header>{article.versions.map((version) => <div key={version.id}><span>{version.label || `第 ${version.versionNumber} 版`}</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}{version.label ? ` · 第 ${version.versionNumber} 版` : ''}</small><div className="article-history-actions">{namingId === version.id ? <input className="article-version-name" name={`versionName-${version.versionNumber}`} autoComplete="off" defaultValue={version.label ?? ''} maxLength={60} placeholder="给这一版起个名字，回车保存" aria-label={`命名第 ${version.versionNumber} 版`} autoFocus onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); nameCancelRef.current = version.id; setNamingId(''); return } if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} onBlur={(event) => { const value = event.currentTarget.value; if (nameCancelRef.current === version.id) nameCancelRef.current = ''; else onRenameVersion(version.id, value); setNamingId('') }} /> : <button className="button ghost compact" onClick={() => setNamingId(version.id)}>{version.label ? '改名' : '命名'}</button>}<button className="button ghost compact" onClick={() => setCompareId(version.id)}>对比</button>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div></div>)}</section>
+  function insertFormatting(before: string, after = ''): void {
+    const element = editorRef.current
+    const start = element?.selectionStart ?? draft.length, end = element?.selectionEnd ?? start
+    onDraftChange(draft.slice(0, start) + before + draft.slice(start, end) + after + draft.slice(end))
+    requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + before.length, end + before.length) })
+  }
+  return (<div className="article-editor"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p>{article.model || '手动创建'} · {article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={14} /> : <Lock size={14} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={14} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={14} />源码编辑</button></div>{editorMode === 'source' && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}<div className="article-save-state">{dirty ? <><span className="badge warning" role="status">{draftStatus === 'error' ? '暂存失败' : draftStatus === 'saving' ? '正在本地暂存…' : '已本地暂存 · 待保存版本'}</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">{loadingDraft ? '正在读取草稿…' : '已保存版本'}</span>}<button className="button primary compact" disabled={!dirty || loadingDraft} onClick={onSave}><Save size={14} />保存</button></div><div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={14} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={14} />HTML</button></div></div>{editorMode === 'source' && <div className="markdown-formatting" role="toolbar" aria-label="正文格式">{[['标题', '\n## '], ['加粗', '**', '**'], ['列表', '\n- '], ['引用', '\n> '], ['链接', '[', '](https://)']].map(([label, before, after]) => <button key={label} className="button ghost compact" disabled={loadingDraft} onClick={() => insertFormatting(before, after)}>{label}</button>)}</div>}{editorMode === 'source' ? <textarea ref={editorRef} disabled={loadingDraft} maxLength={190000} className="article-markdown-editor" name="articleMarkdown" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck /> : <MarkdownPreview markdown={draft} />}<details className="article-revision"><summary>智能改稿 · 按要求生成新版本</summary><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); onRevise() } }} placeholder="输入改稿要求（Ctrl+Enter 生成改稿）" /><footer><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><details className="composer-advanced revision-advanced"><summary><Sliders size={13} />候选 {count} 个</summary><label className="field"><span>候选数</span><Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="改稿候选数" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></label></details><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={15} className="spin" /> : <Sparkles size={15} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></details><details className="article-history"><summary><History size={16} />版本历史 · {article.versionCount} 个版本</summary>{article.versions.map((version) => <div key={version.id}><span>{version.label || `第 ${version.versionNumber} 版`}</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}{version.label ? ` · 第 ${version.versionNumber} 版` : ''}</small><div className="article-history-actions">{namingId === version.id ? <input className="article-version-name" name={`versionName-${version.versionNumber}`} autoComplete="off" defaultValue={version.label ?? ''} maxLength={60} placeholder="给这一版起个名字，回车保存" aria-label={`命名第 ${version.versionNumber} 版`} autoFocus onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); nameCancelRef.current = version.id; setNamingId(''); return } if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} onBlur={(event) => { const value = event.currentTarget.value; if (nameCancelRef.current === version.id) nameCancelRef.current = ''; else onRenameVersion(version.id, value); setNamingId('') }} /> : <button className="button ghost compact" onClick={() => setNamingId(version.id)}>{version.label ? '改名' : '命名'}</button>}<button className="button ghost compact" onClick={() => setCompareId(version.id)}>对比</button>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div></div>)}</details>
       <ModalBase open={Boolean(compareVersion)} onClose={() => setCompareId('')} titleId="article-diff-title" className="version-diff-dialog article-diff-dialog">
         {compareVersion && <>
           <h2 id="article-diff-title">{compareVersion.label || `第 ${compareVersion.versionNumber} 版`} ↔ 屏幕上的正文</h2>

@@ -32,7 +32,7 @@ async function expectText(text, label) {
 
 // 1. 首启三步引导
 await expectText('三步开始第一篇文章', 'P2-2 首启三步引导条')
-await expectText('第一步 · 配置模型网关', '引导步骤一')
+await expectText('第一步 · 配置AI 服务', '引导步骤一')
 await window.screenshot({ path: resolve(artifactDir, 'ux-accounts-guide.png') })
 
 // 2. 离线创建并锁定账号（走手动向导，无 LLM）

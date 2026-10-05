@@ -29,7 +29,7 @@ const routes = [
   ['内容评审', 'reviews'],
   ['文章排版', 'layouts'],
   ['发布管理', 'publishing'],
-  ['模型网关', 'providers'],
+  ['AI 服务', 'providers'],
   ['提示词', 'prompts']
 ]
 

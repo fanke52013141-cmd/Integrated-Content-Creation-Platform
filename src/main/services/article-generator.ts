@@ -26,7 +26,9 @@ export class ArticleGenerator {
     if (input.frameworkId && !framework) throw new Error('所选内容框架不存在')
     const manualOutline = input.manualOutline?.trim() ?? ''
     if (!framework && !manualOutline) throw new Error('请选择内容框架，或粘贴一个手动框架')
-    const account = this.resolveAccount(input.accountId ?? framework?.accountId)
+    const selection = input.accountSelection
+    const accountId = selection?.mode === 'none' ? undefined : selection?.mode === 'specific' ? selection.accountId : input.accountId ?? framework?.accountId
+    const account = this.resolveAccount(accountId)
     const materials = this.resolveMaterials(input.materialIds)
     const outline = framework?.rawXml ?? `<手动框架>\n${escapeXml(manualOutline)}\n</手动框架>`
     const total = input.count
@@ -39,6 +41,7 @@ export class ArticleGenerator {
   async revise(input: ReviseArticleInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<ReviseArticleResult> {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('待修改成稿不存在')
+    if (input.expectedVersionId && input.expectedVersionId !== article.currentVersionId) throw new Error('文章已有新版本，请重新加载后改稿')
     const instruction = input.instruction.trim()
     if (!instruction) throw new Error('请填写修改指令')
     const account = this.resolveAccount(article.accountId)
@@ -124,12 +127,18 @@ export class ArticleGenerator {
       onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
       onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
     })
-    const targetId = context.input.count === 1 ? context.article.id : undefined
+    const current = this.database.getArticle(context.article.id)
+    const draft = this.database.workflow.getDraft(context.article.id)
+    const unchanged = current?.currentVersionId === context.article.currentVersionId &&
+      (draft?.revision ?? 0) === (context.input.draftRevision ?? 0)
+    const targetId = context.input.count === 1 && unchanged ? context.article.id : undefined
     const article = this.database.saveArticle({
       id: targetId, frameworkId: context.article.frameworkId, accountId: context.article.accountId,
       materialIds: context.article.materialIds, manualOutline: context.article.manualOutline,
       status: 'draft', rawMarkdown: normalizeMarkdown(response.content), source: 'revise', instruction: context.instruction,
-      providerId: response.providerId, model: response.model
+      providerId: response.providerId, model: response.model,
+      expectedVersionId: targetId ? context.article.currentVersionId : undefined,
+      draftRevision: targetId ? context.input.draftRevision : undefined
     })
     context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
     if (targetId) return article

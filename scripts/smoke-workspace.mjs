@@ -35,8 +35,8 @@ try {
 
   // F09 创作台：未配置模型时先教「连一个文本模型」，且导入不依赖模型
   await window.getByRole('button', { name: '创作台' }).first().click()
-  await window.getByText('第一步：连接一个文本模型').waitFor()
-  await window.getByText('先连上 AI 服务，然后开始第一篇。').waitFor()
+  await window.getByText('需要 AI 写作时，连接文本模型').waitFor()
+  await window.getByText('可以先导入已有文章；需要智能生成时再连接 AI 服务。').waitFor()
   await capture(window, { path: resolve(artifactDir, 'home-setup.png'), animations: 'disabled', timeout: 90_000 })
 
   // F16：导入 .md 文件即成本地草稿，缺标题时自动补出可辨认的名字
@@ -112,11 +112,12 @@ try {
   await window.keyboard.press('Escape')
 
   // F02/F09：未保存的本地草稿要在创作台被数出来并给回去的入口
-  await window.evaluate(({ id, body }) => localStorage.setItem(`moliu:work-draft:${id}`, `${body}\n\n未保存的段落`), { id: articleId, body: IMPORTED_BODY })
+  await window.evaluate(async ({ id, body }) => { const article = await window.moliu.articles.get(id); await window.moliu.articles.saveDraft({ articleId: id, baseVersionId: article.currentVersionId, content: `${body}\n\n未保存的段落` }); }, { id: articleId, body: IMPORTED_BODY })
+  await window.reload(); await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('有未保存修改').first().waitFor()
+  await window.getByText('已本地暂存 · 待保存版本').first().waitFor()
   await window.getByRole('button', { name: '创作台' }).first().click()
-  await window.getByText('篇有未保存的本地修改').waitFor()
+  await window.getByText(/篇有本地暂存修改，尚未保存为版本/).waitFor()
   await window.getByText(/个生成任务未全部成功/).waitFor()
 
   console.log('Workspace smoke passed: home setup card, import to draft, work bar stages, export inside data dir, backup/restore, failure ledger, unsaved draft count')

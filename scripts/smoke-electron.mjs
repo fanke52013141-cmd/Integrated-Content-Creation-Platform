@@ -53,11 +53,11 @@ try {
   await capture(window, { path: resolve(artifactDir, 'smoke-debug.png') })
   // F09：启动落在创作台，第一步是连模型而不是配账号
   await window.getByRole('heading', { name: '创作台' }).waitFor({ timeout: 10_000 })
-  await window.getByText('第一步：连接一个文本模型').waitFor()
+  await window.getByText('需要 AI 写作时，连接文本模型').waitFor()
   await capture(window, { path: resolve(artifactDir, 'dashboard.png') })
 
-  await window.getByRole('button', { name: '模型网关' }).first().click()
-  await window.getByRole('heading', { name: '模型网关' }).waitFor()
+  await window.getByRole('button', { name: 'AI 服务' }).first().click()
+  await window.getByRole('heading', { name: 'AI 服务' }).waitFor()
   await window.getByRole('button', { name: /空白配置/ }).click()
   await window.getByLabel('显示名称').fill('本地冒烟模型')
   await window.getByLabel('接口地址').fill(`http://127.0.0.1:${modelPort}/v1`)

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { GenerationDomain, StreamEvent } from '../../../shared/contracts'
 
 export type StreamDomain = 'topics' | 'frameworks' | 'articles' | 'reviews' | 'visuals' | 'hotspots'
@@ -33,13 +33,17 @@ export function useGenerationStream(domain: StreamDomain): {
   content: string
   run<T>(task: () => Promise<T>): Promise<T>
   cancel(): void
+  isCancelled(): boolean
 } {
+  const cancelled = useRef(false)
   const [active, setActive] = useState(false)
   const [content, setContent] = useState('')
 
   const run = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+    cancelled.current = false
     setActive(true)
     setContent('')
+    const unsubscribeStatus = window.moliu.generation.events(event => { if (event.domain === CANCEL_DOMAIN[domain] && event.outcome === 'cancelled') cancelled.current = true })
     const unsubscribe = STREAM_SUBSCRIBERS[domain]((event) => {
       if (event.phase === 'start' && event.index === 0) setContent('')
       else if (event.phase === 'delta' && event.index === 0) setContent((prev) => prev + (event.delta ?? ''))
@@ -47,17 +51,18 @@ export function useGenerationStream(domain: StreamDomain): {
     try {
       return await task()
     } finally {
-      unsubscribe()
+      unsubscribe(); unsubscribeStatus()
       setActive(false)
       setContent('')
     }
   }, [domain])
 
   const cancel = useCallback((): void => {
+    cancelled.current = true
     void window.moliu.generation.cancel(CANCEL_DOMAIN[domain])
   }, [domain])
 
-  return { active, content, run, cancel }
+  return { active, content, run, cancel, isCancelled: () => cancelled.current }
 }
 
 /** 判断错误是否由用户取消引起（用于把报错降级为提示） */

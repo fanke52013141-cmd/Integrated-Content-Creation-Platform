@@ -18,6 +18,7 @@ export class ReviewService {
     onStream?: (event: StreamEvent) => void,
     signal?: AbortSignal
   ): Promise<StartReviewResult> {
+    this.database.workflow.assertSaved(input.articleId)
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('成稿不存在')
     // 页面用 Set 管理勾选项，但 IPC 仍是公开边界；去重可避免同一角色被并发执行两次并把统计夸大。
@@ -114,6 +115,7 @@ export class ReviewService {
   ) {
     const task = this.database.getReviewTask(taskId)
     if (!task) throw new Error('评审任务不存在')
+    this.database.workflow.assertSaved(task.articleId)
     if (task.status === 'failed') throw new Error('该次评审所有角色都失败，没有可用意见')
     const article = this.database.getArticle(task.articleId)
     if (!article) throw new Error('关联成稿不存在')

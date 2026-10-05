@@ -1,365 +1,175 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  CheckCircle2, ClipboardList, CloudUpload, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud
-} from 'lucide-react'
-import type { AccountProfileSummary, Article, ArticleLayout, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
+import { useEffect, useState } from 'react'
+import { CheckCircle2, ClipboardList, CloudUpload, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud } from 'lucide-react'
+import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
-import { errorMessage, formatDate, isSafeUrl, markdownTitle } from '../lib'
+import { SavedVersionGate } from '../components/SavedVersionGate'
+import { errorMessage, formatDate, isSafeUrl, markdownTitle, sanitizeHtml } from '../lib'
 import { useReportWork } from '../active-work'
+import { usePublishForm } from '../hooks/usePublishForm'
+import { useWorkDraft } from '../hooks/useWorkDraft'
 
 const statusNames: Record<Publication['status'], { label: string; badge: string }> = {
-  draft: { label: '草稿箱', badge: 'primary' },
-  published: { label: '已发布', badge: 'success' },
-  failed: { label: '推送失败', badge: 'danger' }
+  draft: { label: '草稿箱', badge: 'primary' }, published: { label: '已发布', badge: 'success' },
+  failed: { label: '推送失败', badge: 'danger' }, unknown: { label: '结果待确认', badge: 'warning' }
 }
 
 export function PublishingPage({ onNavigate, focusArticleId, currentAccount, showToast }: {
-  onNavigate(route: RouteId, params?: Record<string, string>): void
-  focusArticleId?: string
-  currentAccount?: AccountProfileSummary
-  showToast(toast: ToastState): void
+  onNavigate(route: RouteId, params?: Record<string, string>): void; focusArticleId?: string; currentAccount?: AccountProfileSummary; showToast(toast: ToastState): void
 }): React.JSX.Element {
   const [channel, setChannel] = useState<WechatPublishChannel>()
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [layouts, setLayouts] = useState<ArticleLayout[]>([])
   const [publications, setPublications] = useState<Publication[]>([])
-  const [coverAssets, setCoverAssets] = useState<VisualAsset[]>([])
+  const [assets, setAssets] = useState<{ articleId: string; items: VisualAsset[] }>({ articleId: '', items: [] })
   const [appId, setAppId] = useState('')
   const [secret, setSecret] = useState('')
   const [enabled, setEnabled] = useState(false)
   const [layoutId, setLayoutId] = useState('')
-  const [coverAssetId, setCoverAssetId] = useState('')
-  const [manualMediaId, setManualMediaId] = useState('')
-  const [showManual, setShowManual] = useState(false)
-  const [author, setAuthor] = useState('')
-  const [digest, setDigest] = useState('')
-  const [sourceUrl, setSourceUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const [channelOpen, setChannelOpen] = useState(true)
   const [urls, setUrls] = useState<Record<string, string>>({})
-
-  const wechatLayouts = useMemo(() => layouts.filter((item) => item.platform === 'wechat'), [layouts])
-  const selectedLayout = wechatLayouts.find((item) => item.id === layoutId)
-  const selectedLayoutArticle = articles.find((item) => item.id === selectedLayout?.articleId)
-  const channelReady = Boolean(channel?.enabled && channel?.hasAppSecret && channel?.appId)
-  const coverReady = Boolean(coverAssetId || manualMediaId.trim())
-
-  useReportWork(selectedLayoutArticle ? {
-    articleId: selectedLayoutArticle.id,
-    title: markdownTitle(selectedLayoutArticle.rawMarkdown),
-    accountId: selectedLayoutArticle.accountId,
-    versionCount: selectedLayoutArticle.versionCount,
-    status: selectedLayoutArticle.status
-  } : {}, 'publishing')
+  const [check, setCheck] = useState<DeliveryCheck>()
+  const [checking, setChecking] = useState(false)
+  const wechatLayouts = layouts.filter(item => item.platform === 'wechat')
+  const selectedLayout = wechatLayouts.find(item => item.id === layoutId)
+  const article = articles.find(item => item.id === (selectedLayout?.articleId ?? focusArticleId))
+  const coverAssets = assets.articleId === article?.id ? assets.items : []
+  const authorDefault = articles.find(item => item.id === article?.id)?.accountId === currentAccount?.id ? currentAccount?.name ?? '' : ''
+  const { form, loaded, error: formError, update } = usePublishForm(article, channel?.appId ?? '', layoutId, authorDefault)
+  const draft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
+  const selectedCover = coverAssets.find(item => item.id === form.coverAssetId)
+  const channelReady = Boolean(channel?.enabled && channel.hasAppSecret && channel.appId && channel.lastTestStatus === 'success')
+  const input = { articleId: article?.id ?? '', layoutId, appId: channel?.appId, coverAssetId: selectedCover?.id, thumbMediaId: selectedCover ? undefined : form.thumbMediaId.trim() || undefined,
+    author: form.author.trim() || undefined, digest: form.digest.trim() || undefined, contentSourceUrl: form.contentSourceUrl.trim() || undefined }
+  useReportWork(article ? { articleId: article.id, title: article.title, accountId: article.accountId, versionCount: article.versionCount, status: article.status, savedMarkdown: article.rawMarkdown, currentVersionId: article.currentVersionId } : {}, 'publishing')
 
   const refresh = async (): Promise<void> => {
-    const [nextChannel, nextArticles, nextLayouts, nextPublications] = await Promise.all([
-      window.moliu.publishing.getWechatChannel(), window.moliu.articles.list(), window.moliu.layouts.list(), window.moliu.publishing.list()
+    const [nextChannel, result, nextLayouts, nextPublications] = await Promise.all([
+      window.moliu.publishing.getWechatChannel(), window.moliu.articles.listSummaries({ limit: 500 }), window.moliu.layouts.list(), window.moliu.publishing.list()
     ])
-    setChannel(nextChannel)
-    setArticles(nextArticles)
-    setLayouts(nextLayouts)
-    setPublications(nextPublications)
-    setAppId(nextChannel.appId)
-    setEnabled(nextChannel.enabled)
-    setLayoutId((current) => {
-      if (nextLayouts.some((item) => item.id === current && item.platform === 'wechat')) return current
-      if (focusArticleId) {
-        const match = nextLayouts.find((item) => item.platform === 'wechat' && item.articleId === focusArticleId)
-        if (match) return match.id
-      }
-      return nextLayouts.find((item) => item.platform === 'wechat')?.id ?? ''
+    setChannel(nextChannel); setArticles(result.items); setLayouts(nextLayouts); setPublications(nextPublications)
+    setAppId(nextChannel.appId); setEnabled(nextChannel.enabled)
+    setLayoutId(current => {
+      if (current && nextLayouts.some(item => item.id === current && item.platform === 'wechat')) return current
+      if (focusArticleId) return nextLayouts.find(item => item.platform === 'wechat' && item.articleId === focusArticleId)?.id ?? ''
+      return nextLayouts.find(item => item.platform === 'wechat')?.id ?? ''
     })
+    if (nextChannel.lastTestStatus === 'success') setChannelOpen(false)
   }
-
-  // 加载所选排版稿对应文章的封面图片资产
+  useEffect(() => { setLayoutId(''); void refresh().catch(reason => showToast({ type: 'error', message: errorMessage(reason) })) }, [focusArticleId])
   useEffect(() => {
-    if (!selectedLayout?.articleId) { setCoverAssets([]); return }
-    let cancelled = false
-    void (async () => {
-      try {
-        const packs = await window.moliu.visuals.list(selectedLayout.articleId)
-        const assets = (await Promise.all(packs.map((pack) => window.moliu.visuals.listAssets(pack.id)))).flat()
-        if (!cancelled) setCoverAssets(assets)
-      } catch (error) {
-        if (!cancelled) {
-          setCoverAssets([])
-          showToast({ type: 'error', message: `封面素材加载失败：${errorMessage(error)}` })
-        }
-      }
-    })()
-    return () => { cancelled = true }
-  }, [selectedLayout?.articleId, publications.length])
-
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
-
-  // 作者默认当前账号名；摘要默认文章首段（字段为空时才预填，可随时改）
+    let alive = true
+    if (!article) { setAssets({ articleId: '', items: [] }); return }
+    const id = article.id
+    void window.moliu.visuals.list(id).then(packs => Promise.all(packs.map(pack => window.moliu.visuals.listAssets(pack.id)))).then(groups => {
+      if (alive) setAssets({ articleId: id, items: groups.flat().filter(asset => asset.kind === 'cover') })
+    }).catch(reason => { if (alive) showToast({ type: 'error', message: `封面读取失败：${errorMessage(reason)}` }) })
+    return () => { alive = false }
+  }, [article?.id, publications.length])
   useEffect(() => {
-    setAuthor((current) => current || currentAccount?.name || '')
-  }, [currentAccount?.name])
-  useEffect(() => {
-    const article = selectedLayoutArticle
-    if (!article || digest) return
-    const paragraph = article.rawMarkdown
-      .split('\n')
-      .map((line) => line.replace(/^#+\s*/, '').replace(/[*_>`~[\]]/g, '').trim())
-      .find((line) => line.length > 10)
-    if (paragraph) setDigest(paragraph.slice(0, 120))
-  }, [selectedLayoutArticle?.id, digest])
+    let alive = true
+    setCheck(undefined)
+    if (!loaded || !article || !selectedLayout) { setChecking(false); return }
+    setChecking(true)
+    const timer = window.setTimeout(() => {
+      void window.moliu.publishing.preflight(input).then(value => { if (alive) setCheck(value) })
+        .catch(reason => { if (alive) setCheck({ ready: false, issues: [errorMessage(reason)], localImageCount: 0, title: selectedLayout.title, articleVersionNumber: article.versionCount, appId: channel?.appId ?? '' }) })
+        .finally(() => { if (alive) setChecking(false) })
+    }, 200)
+    return () => { alive = false; window.clearTimeout(timer) }
+  }, [loaded, article?.id, article?.currentVersionId, layoutId, channel?.appId, channel?.enabled, form.coverAssetId, form.thumbMediaId, form.author, form.digest, form.contentSourceUrl, selectedCover?.id, draft.dirty, draft.status])
 
-  const save = async (): Promise<void> => {
+  const perform = async (operation: () => Promise<void>): Promise<void> => {
     setBusy(true)
-    try {
-      await window.moliu.publishing.saveWechatChannel({ appId: appId.trim(), appSecret: secret.trim() || undefined, enabled })
-      setSecret('')
-      await refresh()
-      showToast({ type: 'success', message: '公众号连接已加密保存' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setBusy(false)
-    }
+    try { await operation() } catch (reason) { showToast({ type: 'error', message: errorMessage(reason) }) }
+    finally { setBusy(false) }
   }
-
-  const test = async (): Promise<void> => {
-    setBusy(true)
-    try {
-      const result = await window.moliu.publishing.testWechatChannel()
-      showToast({ type: 'success', message: `${result.message} · ${result.latencyMs}ms` })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setBusy(false)
-    }
+  const save = () => perform(async () => {
+    await window.moliu.publishing.saveWechatChannel({ appId: appId.trim(), appSecret: secret.trim() || undefined, enabled })
+    setSecret(''); await refresh(); showToast({ type: 'success', message: enabled ? '公众号已验证并加密保存' : '公众号连接已停用' })
+  })
+  const test = () => perform(async () => {
+    const result = await window.moliu.publishing.testWechatChannel({ appId: appId.trim(), appSecret: secret.trim() || undefined, enabled })
+    showToast({ type: 'success', message: `${result.message} · ${result.latencyMs}ms` })
+  })
+  const report = async (result: Publication): Promise<void> => {
+    await refresh()
+    showToast({ type: result.status === 'draft' ? 'success' : result.status === 'unknown' ? 'warning' : 'error', message: result.status === 'draft' ? '已进入公众号草稿箱，请到公众号后台正式发布' : result.errorMessage ?? '推送未完成' })
   }
-
-  const push = async (): Promise<void> => {
-    if (!selectedLayout) return
-    setBusy(true)
-    try {
-      const result = await window.moliu.publishing.pushWechatDraft({
-        articleId: selectedLayout.articleId,
-        layoutId: selectedLayout.id,
-        coverAssetId: coverAssetId || undefined,
-        thumbMediaId: (!coverAssetId && manualMediaId.trim()) || undefined,
-        author: author.trim() || undefined,
-        digest: digest.trim() || undefined,
-        contentSourceUrl: sourceUrl.trim() || undefined
-      })
-      await refresh()
-      if (result.status === 'draft') {
-        showToast({ type: 'success', message: '已推送到公众号草稿箱，请到 mp.weixin.qq.com 群发或定时发布' })
-      } else {
-        showToast({ type: 'error', message: result.errorMessage || '推送失败' })
-      }
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const retry = async (publication: Publication): Promise<void> => {
-    setBusy(true)
-    try {
-      const result = await window.moliu.publishing.pushWechatDraft({
-        articleId: publication.articleId,
-        layoutId: publication.layoutId,
-        thumbMediaId: publication.thumbMediaId || undefined
-      })
-      await refresh()
-      showToast(result.status === 'draft' ? { type: 'success', message: '重推成功，已进入草稿箱' } : { type: 'error', message: result.errorMessage || '重推失败' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setBusy(false)
-    }
-  }
-
+  const push = () => perform(async () => { await draft.flush(); await report(await window.moliu.publishing.pushWechatDraft(input)) })
+  const retry = (publication: Publication) => perform(async () => { await report(await window.moliu.publishing.retry(publication.id)) })
   const markPublished = async (publication: Publication): Promise<void> => {
-    const url = urls[publication.id]?.trim()
-    if (!url) return
-    try {
-      await window.moliu.publishing.update({ id: publication.id, status: 'published', publishedUrl: url })
-      await refresh()
-      showToast({ type: 'success', message: '发布链接已记录' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
+    const url = urls[publication.id]?.trim(); if (!url) return
+    await perform(async () => { await window.moliu.publishing.update({ id: publication.id, status: 'published', publishedUrl: url }); await refresh(); showToast({ type: 'success', message: '发布链接已记录' }) })
   }
-
-  /** 阶段D：人工复盘「目标/结果/经验」，经验可一键写进账号记忆 */
   const saveRetro = async (publication: Publication, retro: { goal: string; result: string; lesson: string }): Promise<void> => {
-    try {
-      await window.moliu.publishing.saveRetro({ id: publication.id, ...retro })
-      await refresh()
-      showToast({ type: 'success', message: '发布复盘已保存' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
+    await perform(async () => { await window.moliu.publishing.saveRetro({ id: publication.id, ...retro }); await refresh(); showToast({ type: 'success', message: '发布复盘已保存' }) })
   }
-
   const rememberLesson = async (publication: Publication, lesson: string): Promise<void> => {
-    const profileId = articles.find((article) => article.id === publication.articleId)?.accountId ?? currentAccount?.id
+    const profileId = articles.find(item => item.id === publication.articleId)?.accountId
     if (!profileId) return showToast({ type: 'error', message: '这篇文章还没有绑定账号定位' })
-    try {
-      const result = await window.moliu.accounts.addMemory({ profileId, insight: lesson, source: '发布复盘' })
-      showToast(result.created
-        ? { type: 'success', message: '经验已写入账号记忆' }
-        : { type: 'info', message: '同样的经验之前已经记过' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
+    await perform(async () => { const result = await window.moliu.accounts.addMemory({ profileId, insight: lesson, source: '发布复盘' }); showToast({ type: 'info', message: result.created ? '经验已写入账号记忆' : '这条经验已经记录过' }) })
   }
-
-  /** 受控打开系统浏览器：统一走主进程 openExternal，渲染层不新建窗口 */
-  const openUrl = (url: string): void => {
-    void window.moliu.app.openExternal(url)
-      .then((ok) => { if (!ok) showToast({ type: 'error', message: '无法打开链接：仅支持 http/https 地址' }) })
-      .catch((error) => showToast({ type: 'error', message: `打开链接失败：${errorMessage(error)}` }))
-  }
-
-  /** 手动把选中的封面图片资产上传到公众号素材库并回填 media_id */
-  const uploadCover = async (): Promise<void> => {
-    if (!coverAssetId) return
-    setBusy(true)
-    try {
-      const updated = await window.moliu.publishing.uploadWechatCover({ assetId: coverAssetId })
-      setCoverAssets((current) => current.map((asset) => (asset.id === updated.id ? updated : asset)))
-      showToast({ type: 'success', message: '封面已上传，发布时将使用该素材' })
-    } catch (error) {
-      showToast({ type: 'error', message: `封面上传失败：${errorMessage(error)}` })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const versionMismatch = selectedLayout && selectedLayoutArticle && selectedLayout.articleVersionId !== selectedLayoutArticle.currentVersionId
+  const openUrl = (url: string): void => { void window.moliu.app.openExternal(url).catch(reason => showToast({ type: 'error', message: errorMessage(reason) })) }
+  const uploadCover = () => perform(async () => {
+    if (!selectedCover) return
+    const updated = await window.moliu.publishing.uploadWechatCover({ assetId: selectedCover.id })
+    setAssets(current => ({ ...current, items: current.items.map(asset => asset.id === updated.id ? updated : asset) }))
+    showToast({ type: 'success', message: '封面已上传到当前公众号' })
+  })
 
   return <div className="page publishing-page">
-    <PageHeader
-      route="publishing"
-      onNavigate={onNavigate}
-      title="发布管理"
-      description="配置公众号 → 选封面 → 推送草稿箱 → 记录正式链接"
-    />
-
-    {!layouts.length && (
-      <p className="inline-alert"><Send size={14} />还没有可发布的排版稿：先在「文章排版」生成一份微信公众号排版稿，下方三步即可走通。</p>
-    )}
-
+    <PageHeader route="publishing" onNavigate={onNavigate} title="排版交付" description="核对当前作品，推送公众号草稿箱，再记录正式发布链接" />
+    <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
     <section className="publish-channel">
-          <header className="publish-section-head">
-            <div>
-              <h3><KeyRound size={16} />第一步 · 连接公众号</h3>
-              <p>AppID / AppSecret 来自 mp.weixin.qq.com「设置与开发 → 基本配置」，本机 IP 需加入白名单。</p>
-            </div>
-            <span className={`status-pill ${channelReady ? 'success' : 'muted'}`}>{channelReady ? '已连接' : '未配置'}</span>
-          </header>
-          <div className="publish-fields">
-            <label className="field"><span>应用标识 AppID</span>
-              <input name="appId" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={appId} onChange={(event) => setAppId(event.target.value)} placeholder="wx 开头的应用标识" />
-            </label>
-            <label className="field"><span>应用密钥 AppSecret {channel?.hasAppSecret && <em>已保存，留空表示不修改</em>}</span>
-              <input type="password" name="appSecret" autoComplete="new-password" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={secret} onChange={(event) => setSecret(event.target.value)} placeholder="公众号应用密钥" />
-            </label>
-            <label className="publish-enabled"><input type="checkbox" name="enabled" autoComplete="off" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />启用通道</label>
-          </div>
-          <footer className="publish-section-foot">
-            <span className="micro-copy">密钥使用系统级加密存储，仅本机可解密。</span>
-            <span style={{ flex: 1 }} />
-            <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试连接</button>
-            <button className="button primary" disabled={busy} onClick={() => void save()}><Save size={14} />保存</button>
-          </footer>
-        </section>
-
-        <section className="publish-draft">
-          <header className="publish-section-head">
-            <div>
-              <h3><CloudUpload size={16} />第二步 · 推送草稿箱</h3>
-              <p>封面会自动上传到公众号素材库并回填素材标识。</p>
-            </div>
-          </header>
-          <div className="publish-draft-grid">
-            <label className="field"><span>排版稿</span>
-              <Select value={layoutId} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map((item) => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} />
-            </label>
-            <label className="field"><span>封面图片</span>
-              <Select
-                value={coverAssetId}
-                onChange={setCoverAssetId}
-                ariaLabel="封面图片"
-                placeholder={coverAssets.length ? '选择配图方案的封面' : '暂无配图，可手动填写素材标识'}
-                options={coverAssets.map((asset) => ({
-                  value: asset.id,
-                  label: asset.prompt.slice(0, 40) || (asset.source === 'generated' ? 'AI 生成封面' : '本地导入封面'),
-                  hint: asset.wechatMediaId ? '已上传素材库' : '未上传'
-                }))}
-              />
-            </label>
-            <label className="field"><span>作者</span><input name="author" autoComplete="name" value={author} onChange={(event) => setAuthor(event.target.value)} /></label>
-            <label className="field"><span>摘要</span><input name="digest" autoComplete="off" value={digest} maxLength={120} onChange={(event) => setDigest(event.target.value)} /></label>
-            <label className="field"><span>原文链接</span>
-              <input type="url" inputMode="url" name="sourceUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://（可选）" />
-            </label>
-          </div>
-          {!coverAssets.length && (
-            <button className="text-button" onClick={() => setShowManual((value) => !value)}>
-              {showManual ? '收起手动填写' : '没有封面图？手动填写公众号素材标识 thumbMediaId →'}
-            </button>
-          )}
-          {(showManual || (!coverAssets.length && coverReady && !coverAssetId)) && (
-            <label className="field"><span>封面素材标识（手动兜底）</span>
-              <input name="thumbMediaId" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={manualMediaId} onChange={(event) => setManualMediaId(event.target.value)} placeholder="从公众号素材库复制的 thumb_media_id" />
-            </label>
-          )}
-          {versionMismatch && <p className="visual-warning">所选排版稿不是该文章的当前版本。请回到「文章排版」重新生成后再推送，避免发布旧正文。</p>}
-          <footer className="publish-section-foot">
-            {!channelReady && <span className="micro-copy">请先完成第一步并保存连接。</span>}
-            {versionMismatch && <span className="micro-copy">当前排版稿已过期，重新排版后即可推送。</span>}
-            {!coverReady && channelReady && <span className="micro-copy">请在「智能配图」生成封面，或手动填写素材标识。</span>}
-            {coverAssetId && <span className="micro-copy">推送时会自动上传所选封面；也可先手动上传。</span>}
-            <span style={{ flex: 1 }} />
-            <button className="button ghost compact" disabled={busy || !coverAssetId} onClick={() => void uploadCover()} title="上传到公众号素材库并回填素材标识"><UploadCloud size={14} />上传封面素材</button>
-            <button
-              className="button primary large"
-              disabled={busy || !channelReady || !layoutId || !coverReady || Boolean(versionMismatch)}
-              onClick={() => void push()}
-              title={!channelReady ? '先保存公众号连接' : versionMismatch ? '请重新生成当前文章版本的排版稿' : !coverReady ? '缺少封面图片' : undefined}
-            >
-              {busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}推送草稿箱
-            </button>
-          </footer>
-        </section>
-
-        <section className="publication-log">
-          <header className="publish-section-head">
-            <div>
-              <h3><Send size={16} />第三步 · 发布记录</h3>
-              <p>推送成功后到 mp.weixin.qq.com 群发，把正式链接回填到这里归档。</p>
-            </div>
-          </header>
-          {publications.length ? publications.map((item) => (
-            <PublicationRow
-              key={item.id}
-              item={item}
-              url={urls[item.id] ?? ''}
-              canRemember={Boolean(articles.find((article) => article.id === item.articleId)?.accountId ?? currentAccount)}
-              onUrl={(value) => setUrls((current) => ({ ...current, [item.id]: value }))}
-              onPublished={() => markPublished(item)}
-              onRetry={() => retry(item)}
-              onOpen={openUrl}
-              onSaveRetro={(retro) => saveRetro(item, retro)}
-              onRemember={(lesson) => rememberLesson(item, lesson)}
-              busy={busy}
-            />
-          )) : (
-            <EmptyState icon={Send} title="暂无发布记录" description="完成第一次推送后，记录会显示在这里。" />
-          )}
-        </section>
+      <header className="publish-section-head"><div><h3><KeyRound size={16} />公众号连接</h3><p>{channelReady ? `当前目标：${channel?.appId}` : '连接验证成功后才能推送；也可以在排版页导出文件。'}</p></div>
+        <span className={`status-pill ${channelReady ? 'success' : 'muted'}`}>{channelReady ? '验证通过' : channel?.lastTestStatus === 'failure' ? '验证失败' : channel?.hasAppSecret ? '待验证' : '未配置'}</span>
+        <button className="text-button" onClick={() => setChannelOpen(value => !value)}>{channelOpen ? '收起配置' : '修改连接'}</button></header>
+      {channelOpen && <>
+        <p className="micro-copy">在公众号后台「设置与开发 → 基本配置」获取凭证，并将当前公网 IP 加入白名单。</p>
+        <div className="publish-fields">
+          <label className="field"><span>AppID</span><input name="appId" disabled={busy} autoComplete="off" value={appId} onChange={event => setAppId(event.target.value)} /></label>
+          <label className="field"><span>AppSecret {channel?.hasAppSecret && <em>同一公众号留空保留密钥</em>}</span><input type="password" name="appSecret" disabled={busy} autoComplete="new-password" value={secret} onChange={event => setSecret(event.target.value)} /></label>
+          <label className="publish-enabled"><input type="checkbox" disabled={busy} checked={enabled} onChange={event => setEnabled(event.target.checked)} />启用连接</label>
+        </div>
+        <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
+          <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试当前配置</button>
+          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存停用'}</button></footer>
+      </>}
+    </section>
+    <section className="publish-draft">
+      <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览</h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
+      <div className="publish-draft-grid">
+        <label className="field"><span>排版稿</span><Select value={layoutId} disabled={busy} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map(item => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} /></label>
+        <label className="field"><span>封面图片</span><Select value={selectedCover?.id ?? ''} onChange={value => update({ coverAssetId: value, thumbMediaId: '' })} disabled={!loaded || busy} ariaLabel="封面图片" placeholder="选择当前文章的封面" options={coverAssets.map(asset => ({ value: asset.id, label: asset.prompt.slice(0, 40) || '封面图片' }))} /></label>
+        <label className="field"><span>作者</span><input name="author" disabled={!loaded || busy} value={form.author} onChange={event => update({ author: event.target.value })} maxLength={100} /></label>
+        <label className="field"><span>摘要</span><input name="digest" disabled={!loaded || busy} value={form.digest} onChange={event => update({ digest: event.target.value })} maxLength={120} /></label>
+        <label className="field"><span>原文链接（可选）</span><input type="url" name="sourceUrl" disabled={!loaded || busy} value={form.contentSourceUrl} onChange={event => update({ contentSourceUrl: event.target.value })} /></label>
+      </div>
+      <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
+      {selectedLayout ? <div className="delivery-preview">
+        <div><strong>{selectedLayout.title}</strong><p className="micro-copy">正文第 {article?.versionCount} 版 · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
+          {selectedCover?.url && <img className="delivery-cover" src={selectedCover.url} alt="将要交付的封面" />}</div>
+        <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html) }} /></details>
+      </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" description="生成一份当前文章的微信公众号排版稿后继续。" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
+      {formError && <p className="inline-alert">{formError}</p>}
+      {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+      <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过，推送后还需在公众号后台正式发布。' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
+        {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}
+        <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={14} />上传封面</button>
+        <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}推送草稿箱</button>
+      </footer>
+    </section>
+    <section className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>推送到草稿箱与正式发布分别记录；结果待确认时请先核对公众号后台。</p></div></header>
+      {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={Boolean(articles.find(article => article.id === item.articleId)?.accountId)}
+        onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
+        onSaveRetro={retro => saveRetro(item, retro)} onRemember={lesson => rememberLesson(item, lesson)} busy={busy} />)
+        : <EmptyState icon={Send} title="暂无交付记录" description="第一次推送后会保存完整交付快照。" />}
+    </section>
   </div>
 }
 
@@ -390,11 +200,11 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         <small>{formatDate(item.updatedAt)} · 封面 {item.thumbMediaId ? '已设置' : '未设置'}</small>
         {item.errorMessage && <em>{item.errorMessage}</em>}
       </div>
-      {item.status === 'draft' ? (
+      {item.status === 'draft' || item.status === 'unknown' ? (
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
           <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>公众号后台</button>
-          <button className="button secondary compact" disabled={!url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={14} />标记已发布</button>
+          <button className="button secondary compact" disabled={busy || !url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={14} />标记已发布</button>
         </div>
       ) : item.status === 'failed' ? (
         <button className="button secondary compact" disabled={busy} onClick={() => void onRetry()}><RotateCcw size={14} />重推</button>

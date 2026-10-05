@@ -14,6 +14,8 @@ export interface ActiveWork {
   status: ArticleStatus
   stage: RouteId
   dirty?: boolean
+  savedMarkdown?: string
+  currentVersionId?: string
 }
 
 const STORAGE_KEY = 'moliu:active-work'
@@ -51,8 +53,10 @@ export function ActiveWorkProvider({ children }: { children: ReactNode }): React
   const setWork = useCallback((next: ActiveWork | null): void => {
     setWorkState((current) => {
       if (JSON.stringify(current) === JSON.stringify(next)) return current
-      if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      else localStorage.removeItem(STORAGE_KEY)
+      try {
+        if (next) { const { savedMarkdown: _body, ...metadata } = next; localStorage.setItem(STORAGE_KEY, JSON.stringify(metadata)) }
+        else localStorage.removeItem(STORAGE_KEY)
+      } catch { /* 当前作品仍可在内存中继续使用 */ }
       return next
     })
   }, [])
@@ -70,11 +74,11 @@ export function useActiveWork(): ActiveWorkValue {
 /** 页面把当前选中作品上报给统一页头；未选中时不覆盖已有上下文 */
 export function useReportWork(input: Partial<ActiveWork> & { articleId?: string }, stage: RouteId): void {
   const { setWork } = useActiveWork()
-  const { articleId, title, accountId, versionCount, status, dirty } = input
+  const { articleId, title, accountId, versionCount, status, dirty, savedMarkdown, currentVersionId } = input
   useEffect(() => {
     if (!articleId || !title) return
-    setWork({ articleId, title, accountId, versionCount: versionCount ?? 1, status: status ?? 'draft', stage, dirty })
-  }, [articleId, title, accountId, versionCount, status, dirty, stage, setWork])
+    setWork({ articleId, title, accountId, versionCount: versionCount ?? 1, status: status ?? 'draft', stage, dirty, savedMarkdown, currentVersionId })
+  }, [articleId, title, accountId, versionCount, status, dirty, savedMarkdown, currentVersionId, stage, setWork])
 }
 
 /** 打开某篇作品：写入上下文并跳到指定阶段 */
@@ -89,6 +93,8 @@ export function useOpenWork(): (articleId: string, stage?: RouteId) => Promise<A
       accountId: article.accountId,
       versionCount: article.versionCount,
       status: article.status,
+      savedMarkdown: article.rawMarkdown,
+      currentVersionId: article.currentVersionId,
       stage
     }
     setWork(next)

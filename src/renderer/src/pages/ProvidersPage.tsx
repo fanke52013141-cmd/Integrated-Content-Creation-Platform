@@ -116,14 +116,9 @@ export function ProvidersPage({
   const [logsTarget, setLogsTarget] = useState<{ id?: string; name: string }>()
   const [logs, setLogs] = useState<ModelCallLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
-  const [dataPath, setDataPath] = useState('')
-  const [backups, setBackups] = useState<string[]>([])
-  const [backupBusy, setBackupBusy] = useState(false)
-  const [restoringPath, setRestoringPath] = useState<string>()
 
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
-    void loadWorkspace()
   }, [])
 
   const selected = useMemo(
@@ -324,62 +319,6 @@ export function ProvidersPage({
     }
   }
 
-  async function refreshBackups(): Promise<void> {
-    try {
-      setBackups(await window.moliu.app.listBackups())
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
-  }
-
-  async function loadWorkspace(): Promise<void> {
-    try {
-      setDataPath(await window.moliu.app.getDataPath())
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
-    await refreshBackups()
-  }
-
-  /** 不传 targetDir：主进程直接落到数据目录的 backups 子目录，备份不需要选路径 */
-  async function createBackup(): Promise<void> {
-    setBackupBusy(true)
-    try {
-      const result = await window.moliu.app.createBackup()
-      showToast({ type: 'success', message: `备份已创建：${result.path}` })
-      await refreshBackups()
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setBackupBusy(false)
-    }
-  }
-
-  async function restoreBackup(bundleDir: string): Promise<void> {
-    if (!(await confirm({
-      title: `恢复备份“${bundleName(bundleDir)}”？`,
-      message: '恢复会覆盖当前内容（账号、文章、配图与模型配置），且不可撤销。应用会先在数据目录保留一份 pre-restore 副本，需要时可以把 moliu.db.pre-restore 换回去。',
-      danger: true,
-      confirmLabel: '恢复'
-    }))) {
-      return
-    }
-    setRestoringPath(bundleDir)
-    try {
-      const result = await window.moliu.app.restoreBackup({ bundleDir })
-      await onRefresh()
-      await refreshBackups()
-      showToast({
-        type: 'success',
-        message: result.restoredImages > 0 ? `已恢复 ${result.restoredImages} 张图片` : '备份已恢复'
-      })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setRestoringPath(undefined)
-    }
-  }
-
   function updateModel(index: number, patch: Partial<SaveProviderModelInput>): void {
     setForm((current) => {
       const models = current.models.map((model, modelIndex) => {
@@ -415,7 +354,7 @@ export function ProvidersPage({
     <div className="page providers-page">
       <section className="page-intro">
         <div>
-          <h2>模型网关</h2>
+          <h2>AI 服务</h2>
         </div>
         {view === 'models' && <button
           className="button secondary"
@@ -779,48 +718,6 @@ export function ProvidersPage({
         onRefresh={onRefresh}
         showToast={showToast}
       />}
-
-      <section className="panel" style={{ display: 'grid', gap: '10px' }}>
-        <div className="section-heading">
-          <div>
-            <h3><DatabaseBackup size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} />数据与备份</h3>
-          </div>
-          <div className="section-heading-actions">
-            <button
-              className="button secondary"
-              disabled={backupBusy}
-              onClick={() => void createBackup()}
-              title="一键导出整库快照与全部配图，落在数据目录的 backups 文件夹"
-            >
-              {backupBusy ? <span className="spinner tiny" /> : <Download size={15} />}立即备份
-            </button>
-          </div>
-        </div>
-
-        <p className="micro-copy">
-          数据目录：<code style={{ userSelect: 'all', wordBreak: 'break-all' }} title={dataPath}>{dataPath || '正在读取…'}</code>
-          {' '}全部内容都留在本机这个目录里，换机时整体拷贝或用下面的备份包迁移。
-        </p>
-
-        <div className="version-list" style={{ maxHeight: 'none', overflow: 'visible' }}>
-          {backups.length ? backups.map((bundle) => (
-            <article key={bundle} className="version-item">
-              <span className="version-icon"><FolderArchive size={15} /></span>
-              <span style={{ minWidth: 0 }}>
-                <strong>{bundleName(bundle)}</strong>
-              </span>
-              <button
-                className="button ghost compact"
-                disabled={restoringPath !== undefined || backupBusy}
-                onClick={() => void restoreBackup(bundle)}
-                title={bundle}
-              >
-                {restoringPath === bundle ? <span className="spinner tiny" /> : <RotateCcw size={15} />}恢复
-              </button>
-            </article>
-          )) : <p className="micro-copy">暂无本地备份。首次配置完成后建议立刻备份一份。</p>}
-        </div>
-      </section>
 
       {logsOpen && (
         <ModalBase open onClose={() => setLogsOpen(false)} titleId="provider-logs-title" bare className="source-manager-dialog provider-logs-dialog">

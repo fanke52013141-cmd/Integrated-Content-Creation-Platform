@@ -277,7 +277,7 @@ function AccountList({
 function FirstRunGuide({ providers, onNavigate, onCreate }: { providers: ProviderSummary[]; onNavigate(route: RouteId): void; onCreate(): void }): React.JSX.Element {
   const gatewayReady = providers.some((provider) => provider.enabled && provider.hasApiKey)
   const steps = [
-    { icon: Settings2, title: '第一步 · 配置模型网关', desc: gatewayReady ? '已配置，可以开始生成' : '填入任意 OpenAI 兼容服务的地址与密钥', done: gatewayReady, action: gatewayReady ? undefined : { label: '去配置', route: 'providers' as RouteId } },
+    { icon: Settings2, title: '第一步 · 配置AI 服务', desc: gatewayReady ? '已配置，可以开始生成' : '填入任意 OpenAI 兼容服务的地址与密钥', done: gatewayReady, action: gatewayReady ? undefined : { label: '去配置', route: 'providers' as RouteId } },
     { icon: WandSparkles, title: '第二步 · 创建并锁定账号', desc: '完成向导后「保存并锁定」，作为创作基线', done: false, action: { label: '新建账号', route: undefined as RouteId | undefined } },
     { icon: Flame, title: '第三步 · 去热点挑选题', desc: '收藏感兴趣的热点，一键带去生成选题', done: false, action: { label: '去热点', route: 'hotspots' as RouteId } }
   ]
@@ -561,7 +561,7 @@ function AccountWizard({
               </div>
               {!usableProviders.length && (
                 <button className="inline-alert" onClick={() => onNavigate('providers')}>
-                  <KeyRound size={16} />需要先配置模型网关 <ChevronRight size={15} />
+                  <KeyRound size={16} />需要先配置AI 服务 <ChevronRight size={15} />
                 </button>
               )}
               <button className="text-button" onClick={startManual}>手动填写字段</button>

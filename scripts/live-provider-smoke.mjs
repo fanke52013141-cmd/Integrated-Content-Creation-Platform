@@ -37,7 +37,7 @@ try {
   await window.waitForLoadState('domcontentloaded')
   await window.getByText('先把账号定位，做成可靠的创作基线。').waitFor()
 
-  await window.getByRole('button', { name: '模型网关' }).first().click()
+  await window.getByRole('button', { name: 'AI 服务' }).first().click()
   await window.getByRole('button', { name: '空白配置' }).click()
   const connectionInputs = window.locator('.provider-editor .form-grid input')
   await connectionInputs.nth(0).fill('真实联调中转站')

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Check, CircleCheckBig, FileText, Plus, RotateCcw, Settings2, Sparkles, X
 } from 'lucide-react'
-import type { Article, ProviderSummary, ReviewFailure, ReviewRole, ReviewTask, ReviewTaskStatus } from '../../../shared/contracts'
+import type { ArticleSummary, ProviderSummary, ReviewFailure, ReviewRole, ReviewTask, ReviewTaskStatus } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { ModalBase } from '../components/ModalBase'
@@ -15,6 +15,8 @@ import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream
 import { availableModels, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, markdownTitle } from '../lib'
 import { useReportWork } from '../active-work'
+import { useWorkDraft } from '../hooks/useWorkDraft'
+import { SavedVersionGate } from '../components/SavedVersionGate'
 import { isReviewBaselineStale } from '../../../shared/creation-state'
 
 interface ReviewsPageProps {
@@ -55,7 +57,7 @@ function reviewStatusOf(task: ReviewTask, live: boolean): { label: string; badge
 export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }: ReviewsPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const stream = useGenerationStream('reviews')
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [roles, setRoles] = useState<ReviewRole[]>([])
   const [tasks, setTasks] = useState<ReviewTask[]>([])
   const [articleId, setArticleId] = useState('')
@@ -72,23 +74,24 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     () => tasks.filter((task) => task.articleId === articleId),
     [tasks, articleId]
   )
+  const workDraft = useWorkDraft(selectedArticle?.id ?? '', selectedArticle?.rawMarkdown ?? '', selectedArticle?.currentVersionId ?? '')
+  const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
   useReportWork(selectedArticle ? {
     articleId: selectedArticle.id,
     title: markdownTitle(selectedArticle.rawMarkdown),
     accountId: selectedArticle.accountId,
     versionCount: selectedArticle.versionCount,
-    status: selectedArticle.status
+    status: selectedArticle.status, savedMarkdown: selectedArticle.rawMarkdown, currentVersionId: selectedArticle.currentVersionId
   } : {}, 'reviews')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextRoles] = await Promise.all([window.moliu.articles.list(), window.moliu.reviews.listRoles()])
+    const [nextArticles, nextRoles] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.reviews.listRoles()])
     setArticles(nextArticles)
     setRoles(nextRoles)
     setArticleId((current) => {
-      if (nextArticles.some((article) => article.id === current)) return current
-      if (focusArticleId && nextArticles.some((article) => article.id === focusArticleId)) return focusArticleId
+      if (nextArticles.some(item => item.id === current)) return current
       const locked = nextArticles.find((article) => article.status === 'locked')
-      return locked?.id ?? nextArticles[0]?.id ?? ''
+      return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
   }
 
@@ -102,7 +105,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     setReviewRunning(history.some((item) => item.domain === 'reviews' && item.status === 'running'))
   }
 
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [focusArticleId])
+  useEffect(() => { if (focusArticleId) setArticleId(focusArticleId) }, [focusArticleId])
   useEffect(() => {
     void Promise.all([refreshTasks(), refreshRunning()]).catch((error) => showToast({ type: 'error', message: errorMessage(error) }))
   }, [articleId, stream.active])
@@ -199,8 +203,10 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       onNavigate={onNavigate}
       title="内容评审"
       description="多角色交叉评审文章，采纳问题后一键生成改稿"
-      actions={<button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />评审角色</button>}
+      actions={<button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />
+    评审角色</button>}
     />
+    <SavedVersionGate article={selectedArticle} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
       <EmptyState
@@ -234,7 +240,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
             <>
               <button
                 className="button primary"
-                disabled={!selectedRoles.size || retrying}
+                disabled={!selectedRoles.size || retrying || needsSavedVersion}
                 onClick={() => void start()}
                 title={!selectedRoles.size ? '请先勾选至少一个评审角色' : undefined}
               >

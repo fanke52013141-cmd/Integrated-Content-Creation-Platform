@@ -34,7 +34,7 @@ try {
   const window = await application.firstWindow()
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
-  await window.getByRole('button', { name: '模型网关' }).first().click()
+  await window.getByRole('button', { name: 'AI 服务' }).first().click()
   await window.getByRole('button', { name: /空白配置/ }).click()
   await window.getByLabel('显示名称').fill('本地框架验收模型')
   await window.getByLabel('接口地址').fill(`http://127.0.0.1:${address.port}/v1`)

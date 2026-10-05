@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
-import { copyFileSync, existsSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, rmSync, renameSync } from 'node:fs'
+import { WorkflowRepository } from './repositories/workflow-repository.js'
 import { createHash } from 'node:crypto'
 import type {
   AccountField,
@@ -271,6 +272,7 @@ interface PromptVersionRow { id: string; prompt_key: string; version: number; co
 
 export class AppDatabase {
   private db: DatabaseSync
+  workflow: WorkflowRepository
   private readonly location: string
 
   constructor(path: string) {
@@ -279,6 +281,7 @@ export class AppDatabase {
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
     this.migrate()
+    this.workflow = new WorkflowRepository(this.db)
   }
 
   close(): void {
@@ -297,14 +300,29 @@ export class AppDatabase {
    */
   restoreFrom(sourcePath: string): void {
     if (!this.isDatabaseFile(sourcePath)) throw new Error('所选文件不是本应用的数据库备份')
-    copyFileSync(this.location, `${this.location}.pre-restore`)
+    const rollback = `${this.location}.pre-restore`
+    const staged = `${this.location}.restore-${crypto.randomUUID()}`
+    this.backupTo(rollback)
+    copyFileSync(sourcePath, staged)
     this.db.close()
-    copyFileSync(sourcePath, this.location)
-    for (const suffix of ['-wal', '-shm']) rmSync(`${this.location}${suffix}`, { force: true })
+    try {
+      for (const suffix of ['-wal', '-shm']) rmSync(`${this.location}${suffix}`, { force: true })
+      renameSync(staged, this.location)
+      this.reopen()
+    } catch (error) {
+      try { this.db.close() } catch { /* 连接可能已经关闭 */ }
+      for (const suffix of ['-wal', '-shm']) rmSync(`${this.location}${suffix}`, { force: true })
+      copyFileSync(rollback, this.location)
+      this.reopen()
+      throw new Error(`恢复未完成，已自动回到恢复前的数据：${error instanceof Error ? error.message : '未知错误'}`)
+    } finally { rmSync(staged, { force: true }) }
+  }
+
+  private reopen(): void {
     this.db = new DatabaseSync(this.location)
-    this.db.exec('PRAGMA journal_mode = WAL;')
-    this.db.exec('PRAGMA foreign_keys = ON;')
+    this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
     this.migrate()
+    this.workflow = new WorkflowRepository(this.db)
   }
 
   /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */
@@ -313,8 +331,10 @@ export class AppDatabase {
     let probe: DatabaseSync | undefined
     try {
       probe = new DatabaseSync(path, { readOnly: true })
-      const row = probe.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='articles'").get() as { n: number }
-      return row.n > 0
+      if (probe.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') return false
+      const required = ['articles', 'article_versions', 'providers', 'visual_assets', 'publications', 'work_drafts', 'publication_snapshots']
+      const tables = new Set(probe.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => String(row.name)))
+      return required.every(name => tables.has(name)) && probe.prepare('PRAGMA foreign_key_check').all().length === 0
     } catch {
       return false
     } finally {
@@ -617,7 +637,7 @@ export class AppDatabase {
       CREATE TABLE IF NOT EXISTS article_layouts (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),title TEXT NOT NULL,html TEXT NOT NULL,plain_text TEXT NOT NULL,theme_id TEXT,created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channels (id TEXT PRIMARY KEY CHECK(id='wechat-official'),display_name TEXT NOT NULL,app_id TEXT NOT NULL,enabled INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channel_secrets (channel_id TEXT PRIMARY KEY REFERENCES publish_channels(id) ON DELETE CASCADE,encrypted_secret BLOB NOT NULL,updated_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,retro_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed','unknown')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,retro_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS weibo_sessions (account TEXT PRIMARY KEY,encrypted_cookie BLOB NOT NULL,updated_at TEXT NOT NULL);
 
       CREATE TABLE IF NOT EXISTS prompt_defs (
@@ -742,7 +762,8 @@ export class AppDatabase {
     return rows.map((row) => ({
       id: row.id, domain: row.domain, label: row.label, status: row.status,
       detail: row.detail, 
-      startedAt: row.started_at, finishedAt: row.finished_at ?? undefined
+      startedAt: row.started_at, finishedAt: row.finished_at ?? undefined,
+      ...this.workflow.getTaskResults(row.id)
     }))
   }
 
@@ -1765,6 +1786,9 @@ export class AppDatabase {
     const now = new Date().toISOString()
     const existing = input.id ? this.getArticle(input.id) : null
     if (input.id && !existing) throw new Error('成稿不存在')
+    if (existing && input.expectedVersionId && existing.currentVersionId !== input.expectedVersionId) {
+      throw new Error('文章已有新版本，请重新加载或将当前修改另存为新文章')
+    }
     const version = (existing?.versionCount ?? 0) + 1
     this.transaction(() => {
       if (existing) {
@@ -1782,10 +1806,21 @@ export class AppDatabase {
         versionId, id, version, input.source, input.instruction ?? null, input.providerId ?? null,
         input.model ?? null, input.rawMarkdown, now
       )
+      if (input.draftRevision !== undefined) this.workflow.discardDraft(id, input.draftRevision)
     })
     const saved = this.getArticle(id)
     if (!saved) throw new Error('成稿保存失败')
     return saved
+  }
+
+  commitWorkDraft(articleId: string, revision: number): Article {
+    const article = this.getArticle(articleId)
+    const draft = this.workflow.getDraft(articleId)
+    if (!article || !draft) throw new Error('没有需要保存的工作草稿')
+    if (draft.revision !== revision) throw new Error('草稿在保存期间发生变化，请重新保存')
+    if (!draft.content.trim()) throw new Error('正文为空，请输入内容后保存')
+    return this.saveArticle({ ...article, source: 'manual', rawMarkdown: draft.content,
+      expectedVersionId: draft.baseVersionId, draftRevision: revision })
   }
 
   restoreArticleVersion(articleId: string, versionId: string): Article {
@@ -1830,16 +1865,31 @@ export class AppDatabase {
   saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
   getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?mapArticleLayout(row):null }
-  getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return mapWechatChannel(row) }
-  saveWechatPublishChannel(input:{appId:string;enabled:boolean},encryptedSecret?:Buffer):WechatPublishChannel { const now=new Date().toISOString();this.transaction(()=>{this.db.prepare("UPDATE publish_channels SET app_id=?,enabled=?,updated_at=? WHERE id='wechat-official'").run(input.appId,input.enabled?1:0,now);if(encryptedSecret)this.db.prepare("INSERT INTO publish_channel_secrets(channel_id,encrypted_secret,updated_at) VALUES('wechat-official',?,?) ON CONFLICT(channel_id) DO UPDATE SET encrypted_secret=excluded.encrypted_secret,updated_at=excluded.updated_at").run(encryptedSecret,now)});return this.getWechatPublishChannel() }
+  getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return { ...mapWechatChannel(row), ...this.workflow.getVerification() } }
+  saveWechatPublishChannel(input:{appId:string;enabled:boolean},encryptedSecret?:Buffer):WechatPublishChannel { const previous=this.getWechatPublishChannel(); if(previous.appId && previous.appId!==input.appId && !encryptedSecret) throw new Error("更换公众号时请同时填写新的 AppSecret"); const now=new Date().toISOString();this.transaction(()=>{this.workflow.clearVerification();this.db.prepare("UPDATE publish_channels SET app_id=?,enabled=?,updated_at=? WHERE id='wechat-official'").run(input.appId,input.enabled?1:0,now);if(encryptedSecret)this.db.prepare("INSERT INTO publish_channel_secrets(channel_id,encrypted_secret,updated_at) VALUES('wechat-official',?,?) ON CONFLICT(channel_id) DO UPDATE SET encrypted_secret=excluded.encrypted_secret,updated_at=excluded.updated_at").run(encryptedSecret,now)});return this.getWechatPublishChannel() }
   getEncryptedWechatPublishSecret():Buffer|null { const row=this.db.prepare("SELECT encrypted_secret FROM publish_channel_secrets WHERE channel_id='wechat-official'").get() as {encrypted_secret:Buffer}|undefined;return row?.encrypted_secret??null }
   saveWeiboSession(encryptedCookie:Buffer):void { const now=new Date().toISOString();this.db.prepare("INSERT INTO weibo_sessions(account,encrypted_cookie,updated_at) VALUES('weibo-hot',?,?) ON CONFLICT(account) DO UPDATE SET encrypted_cookie=excluded.encrypted_cookie,updated_at=excluded.updated_at").run(encryptedCookie,now) }
   getWeiboSessionMeta():{updatedAt?:string}|null { const row=this.db.prepare("SELECT updated_at FROM weibo_sessions WHERE account='weibo-hot'").get() as {updated_at:string}|undefined;return row?{updatedAt:row.updated_at}:null }
   getEncryptedWeiboCookie():Buffer|null { const row=this.db.prepare("SELECT encrypted_cookie FROM weibo_sessions WHERE account='weibo-hot'").get() as {encrypted_cookie:Buffer}|undefined;return row?.encrypted_cookie?Buffer.from(row.encrypted_cookie):null }
   clearWeiboSession():void { this.db.prepare("DELETE FROM weibo_sessions WHERE account='weibo-hot'").run() }
-  createPublication(input:Omit<Publication,'id'|'createdAt'|'updatedAt'>):Publication { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO publications(id,article_id,article_version_id,layout_id,channel_id,external_draft_id,status,title,thumb_media_id,published_url,error_message,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.layoutId,input.channelId,input.externalDraftId??null,input.status,input.title,input.thumbMediaId,input.publishedUrl??null,input.errorMessage??null,now,now);return this.getPublication(id)! }
-  listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(mapPublication) }
-  getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?mapPublication(row):null }
+  createPublication(input: Omit<Publication, 'id' | 'createdAt' | 'updatedAt'>): Publication {
+    const id = crypto.randomUUID(), now = new Date().toISOString()
+    this.transaction(() => {
+      this.db.prepare('INSERT INTO publications(id,article_id,article_version_id,layout_id,channel_id,external_draft_id,status,title,thumb_media_id,published_url,error_message,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.layoutId,input.channelId,input.externalDraftId??null,input.status,input.title,input.thumbMediaId,input.publishedUrl??null,input.errorMessage??null,now,now)
+      if (input.snapshot) this.workflow.saveSnapshot(id, input.snapshot)
+    })
+    return this.getPublication(id)!
+  }
+
+  updatePublicationOutcome(id: string, status: Publication['status'], thumbMediaId: string, error?: string, externalDraftId?: string): Publication {
+    this.db.prepare('UPDATE publications SET status=?,thumb_media_id=?,error_message=?,external_draft_id=?,updated_at=? WHERE id=?').run(status,thumbMediaId,error??null,externalDraftId??null,new Date().toISOString(),id)
+    const publication = this.getPublication(id)
+    if (!publication) throw new Error('交付记录不存在')
+    return publication
+  }
+
+  listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(row=>({...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id)})) }
+  getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id)}:null }
   markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
   /** 发布复盘：三项全空视为清除复盘 */
   savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string}):Publication {

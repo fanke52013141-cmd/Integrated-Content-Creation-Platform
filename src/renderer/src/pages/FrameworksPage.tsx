@@ -146,7 +146,7 @@ export function FrameworksPage({
           className="button primary"
           disabled={stream.active || !models.length}
           onClick={() => void generate()}
-          title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+          title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
         >
           {stream.active ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
           {stream.active ? '正在生成…' : '生成框架'}
@@ -154,7 +154,7 @@ export function FrameworksPage({
         {/* 禁用原因就近说明，并给出去哪里配置 */}
         {!stream.active && !models.length && (
           <p className="form-hint" role="note">
-            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>AI 服务</button> 配置。
           </p>
         )}
         {/* 其余前置条件（模板 / 主题）按钮本身可点，点击后由 toast 提示；
