@@ -14,28 +14,37 @@
   --surface-muted: #f2f2f7;
   --surface-strong: #e5e5ea;
 
-  /* ── 文字 ── */
+  /* ── 文字 ──
+   * 浅色下所有承载信息的文字令牌均满足 WCAG 2.1 AA 正文阈值 4.5:1。
+   * 改这 6 个值即可让全站 255 处对比度告警降到 0，无需逐页改 CSS。
+   * 验证脚本：ux-audit-tokens.mjs / ux-audit-metrics.mjs */
   --text: #1d1d1f;
   --text-primary: #1d1d1f;
-  --text-secondary: #56565c;
-  --text-tertiary: #86868b;
-  --text-soft: #aeaeb2;
+  --text-secondary: #56565c;   /* 6.69:1 ✓ */
+  --text-tertiary: #6e6e73;    /* 4.66:1 ✓（原 #86868b 仅 3.33:1，且被引用 141 处）*/
+  --text-soft: #aeaeb2;        /* 2.03:1 —— 装饰性灰，不得承载信息，见 P1-5 */
 
   /* ── 描边 ── */
   --border: #d9d9de;
   --border-subtle: #e8e8ed;
   --border-strong: #c7c7cc;
 
-  /* ── 品牌与语义 ── */
-  --primary: #0071e3;
+  /* ── 品牌与语义 ──
+   * 语义色同时用于「文字 + 图标 + 描边」，因此取满足 AA 的深色值。
+   * 需要更亮的高饱和版本时用 *-bright（色块/图标用）。 */
+  --primary: #0062c4;          /* 5.44:1 ✓（原 #0071e3 4.31:1 ✗）*/
   --primary-hover: #0059b8;
+  --primary-bright: #0071e3;   /* 图形/图标用，不用于正文 */
   --accent: var(--primary);
   --accent-strong: var(--primary-hover);
-  --focus: rgba(0, 113, 227, 0.22);
-  --success: #34c759;
-  --warning: #ff9500;
-  --danger: #ff3b30;
-  --warm-glow: var(--warning);
+  --focus: rgba(0, 98, 196, 0.22);
+  --success: #047857;          /* 5.04:1 ✓（原 #34c759 仅 2.04:1，承载「已验证」等关键状态）*/
+  --success-bright: #34c759;   /* 色块/图标用 */
+  --warning: #b25000;          /* 4.77:1 ✓（原 #ff9500 仅 2.02:1，承载阻塞提示）*/
+  --warning-bright: #ff9500;
+  --danger: #c5221a;           /* 5.33:1 ✓（原 #ff3b30 仅 3.26:1）*/
+  --danger-bright: #ff3b30;
+  --warm-glow: var(--warning-bright);
 
   /* ── 墨色主按钮（区别于链接/选中态的蓝） ── */
   --btn-primary-bg: #1d1d1f;
@@ -65,37 +74,39 @@
   --stage-layout: #059669;
   --stage-publish: #16a34a;
 
-  /* ── 色阶 ── */
+  /* ── 色阶 ──
+   * xxx-600 用于文字，xxx-400/500 及 -bright 后缀用于图形。
+   * 600 档已全部调到 AA 合规值（见 ux-audit-tokens.mjs 实测）。 */
   --purple-50: #eef4ff;
   --purple-100: #dce9ff;
   --purple-200: #bcd6ff;
   --purple-300: #8fbcff;
   --purple-400: #4f9dff;
   --purple-500: #0a7cff;
-  --purple-600: #0071e3;
+  --purple-600: #0062c4;   /* 5.44:1 ✓ */
   --purple-700: #0059b8;
   --blue-50: #eef4ff;
-  --blue-600: #0071e3;
-  --apple-blue: #0071e3;
+  --blue-600: #0062c4;
+  --apple-blue: #0062c4;
   --apple-blue-hover: #0059b8;
   --apple-blue-light: #eef4ff;
   --apple-blue-lighter: #f5f9ff;
   --teal-50: #e9f9f4;
-  --teal-600: #14a37f;
+  --teal-600: #0b7a5e;   /* 深青，AA 合规 */
   --green-50: #ecfcef;
   --green-100: #d6f7e0;
-  --green-600: #34c759;
+  --green-600: #047857;   /* 5.04:1 ✓ */
   --amber-50: #fff8e8;
-  --amber-600: #ff9500;
+  --amber-600: #b25000;   /* 4.77:1 ✓ */
   --red-50: #ffeaea;
   --red-100: #ffd3cc;
-  --red-600: #ff3b30;
+  --red-600: #c5221a;     /* 5.33:1 ✓ */
   --slate-50: #f5f5f7;
   --slate-100: #e8e8ed;
   --slate-200: #d9d9de;
   --slate-300: #c7c7cc;
   --slate-400: #aeaeb2;
-  --slate-500: #86868b;
+  --slate-500: #6e6e73;   /* 4.66:1 ✓（原 #86868b 3.33:1）*/
   --slate-600: #6e6e73;
   --slate-700: #48484a;
   --slate-800: #3a3a3c;

@@ -5,27 +5,65 @@ import {
   Check,
   ChevronRight,
   CircleUserRound,
-  FileText,
   Flame,
+  House,
   Image,
   LoaderCircle,
   LockKeyhole,
   Moon,
   Newspaper,
-  Palette,
   PenLine,
+  Send,
   Settings2,
   Sparkles,
   Sun,
   WandSparkles,
-  Send,
-  ListChecks,
-  House
+  FileText,
+  Palette,
+  ListChecks
 } from 'lucide-react'
 import type { AccountProfileSummary, ProviderSummary } from '../../../shared/contracts'
+import {
+  HOME_STAGE,
+  RESOURCE_ROUTES,
+  ROUTE_GROUPS,
+  ROUTE_LABELS,
+  buildSidebarGroups,
+  type RouteId
+} from '../../../shared/creation-flow'
 import { WorkBar } from './WorkContext'
 
-export type RouteId = 'home' | 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'providers' | 'prompts'
+/**
+ * 侧边栏图标表：仅提供视觉，不参与顺序 —— 顺序统一由 shared/creation-flow 决定。
+ * 新增页面时在此登记图标即可，不必改导航结构。
+ */
+const NAV_ICONS: Partial<Record<RouteId, typeof CircleUserRound>> = {
+  home: House,
+  accounts: CircleUserRound,
+  hotspots: Flame,
+  topics: Sparkles,
+  frameworks: WandSparkles,
+  articles: PenLine,
+  reviews: FileText,
+  visuals: Image,
+  layouts: Palette,
+  publishing: Send,
+  materials: Newspaper
+}
+
+/** 总览入口 */
+const homeNavItem = { id: HOME_STAGE.id as RouteId, label: HOME_STAGE.sidebarLabel, icon: NAV_ICONS.home! }
+
+/** 侧边栏分组：完全由 creation-flow 派生，顺序与顶部流水线严格一致 */
+const sidebarGroups = buildSidebarGroups()
+
+const resourceItems = RESOURCE_ROUTES.map((id) => ({
+  id,
+  label: ROUTE_LABELS[id],
+  icon: NAV_ICONS[id] ?? Newspaper
+}))
+
+export type { RouteId }
 
 interface LayoutProps {
   route: RouteId
@@ -48,63 +86,10 @@ interface NavItem {
   icon: typeof CircleUserRound
 }
 
-interface NavGroup {
-  title: string
-  items: NavItem[]
-}
-
-const navGroups: NavGroup[] = [
-  {
-    title: '总览',
-    items: [{ id: 'home', label: '创作台', icon: House }]
-  },
-  {
-    title: '准备',
-    items: [
-      { id: 'accounts', label: '账号定位', icon: CircleUserRound },
-      { id: 'hotspots', label: '热点洞察', icon: Flame }
-    ]
-  },
-  {
-    title: '创作',
-    items: [
-      { id: 'topics', label: '选题生成', icon: Sparkles },
-      { id: 'frameworks', label: '内容框架', icon: WandSparkles },
-      { id: 'articles', label: '文章创作', icon: PenLine }
-    ]
-  },
-  {
-    title: '辅助',
-    items: [
-      { id: 'materials', label: '素材库', icon: Newspaper },
-      { id: 'visuals', label: '智能配图', icon: Image },
-      { id: 'reviews', label: '内容评审', icon: FileText },
-      { id: 'layouts', label: '文章排版', icon: Palette }
-    ]
-  },
-  {
-    title: '发布',
-    items: [
-      { id: 'publishing', label: '发布管理', icon: Send }
-    ]
-  }
-]
-
-const routeBreadcrumbs: Record<RouteId, { group: string; label: string }> = {
-  home: { group: '总览', label: '创作台' },
-  accounts: { group: '准备', label: '账号定位' },
-  hotspots: { group: '准备', label: '热点洞察' },
-  topics: { group: '创作', label: '选题生成' },
-  frameworks: { group: '创作', label: '内容框架' },
-  articles: { group: '创作', label: '文章创作' },
-  visuals: { group: '辅助', label: '智能配图' },
-  reviews: { group: '辅助', label: '内容评审' },
-  layouts: { group: '辅助', label: '文章排版' },
-  materials: { group: '辅助', label: '素材库' },
-  publishing: { group: '发布', label: '发布管理' },
-  providers: { group: '系统', label: '模型网关' },
-  prompts: { group: '系统', label: '提示词' }
-}
+const routeBreadcrumbs = (route: RouteId): { group: string; label: string } => ({
+  group: ROUTE_GROUPS[route] ?? '',
+  label: ROUTE_LABELS[route] ?? route
+})
 
 export function Layout({
   route,
@@ -120,7 +105,7 @@ export function Layout({
   onShowTasks
 }: LayoutProps): React.JSX.Element {
   const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
-  const crumb = routeBreadcrumbs[route]
+  const crumb = routeBreadcrumbs(route)
   const gatewayReady = usableProviders.length > 0
   // 只有真正通过连通性验证才显示绿色，避免用"配置已保存"冒充"已连通"
   const gatewayState = usableProviders.length === 0 ? undefined
@@ -166,16 +151,51 @@ export function Layout({
         </button>
 
         <nav className="navigation" aria-label="主导航">
-          {navGroups.map((group) => (
+          <div className="nav-group">
+            <span className="nav-group-title">{HOME_STAGE.group}</span>
+            <button
+              className={`nav-item ${route === homeNavItem.id ? 'active' : ''}`}
+              onClick={() => onNavigate(homeNavItem.id)}
+              aria-current={route === homeNavItem.id ? 'page' : undefined}
+            >
+              <span className="nav-icon">{(() => { const Icon = homeNavItem.icon; return <Icon size={16} /> })()}</span>
+              <span>{homeNavItem.label}</span>
+            </button>
+          </div>
+
+          {/* 创作主链路：顺序与顶部流水线、作品栏完全一致 */}
+          {sidebarGroups.map((group) => (
             <div className="nav-group" key={group.title}>
               <span className="nav-group-title">{group.title}</span>
-              {group.items.map((item) => {
+              {group.items.map((stage) => {
+                const Icon = NAV_ICONS[stage.id] ?? CircleUserRound
+                return (
+                  <button
+                    key={stage.id}
+                    className={`nav-item ${route === stage.id ? 'active' : ''}`}
+                    onClick={() => onNavigate(stage.id)}
+                    aria-current={route === stage.id ? 'page' : undefined}
+                  >
+                    <span className="nav-icon"><Icon size={16} /></span>
+                    <span>{stage.sidebarLabel}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+
+          {/* 资源区：素材库是输入来源而非创作阶段，单独分区避免与主链路混读 */}
+          {resourceItems.length > 0 && (
+            <div className="nav-group nav-group-resources">
+              <span className="nav-group-title">资源</span>
+              {resourceItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <button
                     key={item.id}
                     className={`nav-item ${route === item.id ? 'active' : ''}`}
                     onClick={() => onNavigate(item.id)}
+                    aria-current={route === item.id ? 'page' : undefined}
                   >
                     <span className="nav-icon"><Icon size={16} /></span>
                     <span>{item.label}</span>
@@ -183,7 +203,7 @@ export function Layout({
                 )
               })}
             </div>
-          ))}
+          )}
         </nav>
 
         <div className="sidebar-system">

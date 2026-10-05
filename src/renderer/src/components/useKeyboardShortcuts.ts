@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { CREATION_FLOW } from '../../../shared/creation-flow'
 import type { RouteId } from './Layout'
 
 interface ShortcutHandlers {
@@ -10,18 +11,17 @@ interface ShortcutHandlers {
   onShowShortcuts?: () => void
 }
 
-const NAV_SHORTCUTS: Record<string, RouteId> = {
-  '1': 'accounts',
-  '2': 'hotspots',
-  '3': 'topics',
-  '4': 'frameworks',
-  '5': 'articles',
-  '6': 'materials',
-  '7': 'visuals',
-  '8': 'reviews',
-  '9': 'layouts',
-  '0': 'publishing'
-}
+/**
+ * 数字键1-9 依次对应创作主链路前 9 个阶段，0 为第 10 个（若有）。
+ * 顺序直接取自 shared/creation-flow，与侧边栏、顶部流水线、作品栏完全一致，
+ * 避免再出现「快捷键是一种顺序、导航又是另一种顺序」的情况。
+ */
+const NAV_SHORTCUTS: Record<string, RouteId> = Object.fromEntries(
+  CREATION_FLOW.map((stage, index) => [
+    String((index + 1) % 10),
+    stage.id
+  ])
+)
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -87,5 +87,10 @@ export const SHORTCUT_LIST: ShortcutInfo[] = [
   { keys: 'Ctrl+Enter', description: '在输入框内直接触发生成/改稿', category: '通用' },
   { keys: 'Ctrl+Shift+F', description: '前往素材库搜索', category: '通用' },
   { keys: 'Shift+?', description: '显示快捷键面板', category: '通用' },
-  { keys: '1-9, 0', description: '按侧边栏顺序快速切换页面', category: '导航' }
+  // 描述由流程定义生成，避免与实际按键映射不一致
+  {
+    keys: '1-9, 0',
+    description: `按创作流程顺序切换：${CREATION_FLOW.map((stage, i) => `${(i + 1) % 10} ${stage.sidebarLabel}`).join(' · ')}`,
+    category: '导航'
+  }
 ]

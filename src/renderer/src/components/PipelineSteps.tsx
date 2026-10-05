@@ -1,22 +1,13 @@
 import { ChevronRight } from 'lucide-react'
+import { PIPELINE_STAGES } from '../../../shared/creation-flow'
 import type { RouteId } from './Layout'
-
-/** 创作主链路（与侧边栏顺序一致） */
-export const PIPELINE_STAGES: Array<{ id: RouteId; label: string }> = [
-  { id: 'accounts', label: '账号' },
-  { id: 'hotspots', label: '热点' },
-  { id: 'topics', label: '选题' },
-  { id: 'frameworks', label: '框架' },
-  { id: 'articles', label: '文章' },
-  { id: 'reviews', label: '评审' },
-  { id: 'visuals', label: '配图' },
-  { id: 'layouts', label: '排版' },
-  { id: 'publishing', label: '发布' }
-]
 
 /**
  * 流程步骤条只做「当前位置」指示，不显示完成勾：
  * 完成与否取决于各阶段真实数据，导航序号推断出的「已完成」是假进度。
+ *
+ * 阶段顺序来自 shared/creation-flow 的 PIPELINE_STAGES，
+ * 与侧边栏分组、作品栏阶段同源，改流程只需改那一个文件。
  */
 export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNavigate(route: RouteId): void }): React.JSX.Element | null {
   const index = PIPELINE_STAGES.findIndex((stage) => stage.id === current)
@@ -32,6 +23,7 @@ export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNav
               type="button"
               className={`pipeline-step ${state}`}
               onClick={() => onNavigate(stage.id)}
+              aria-current={stage.id === current ? 'step' : undefined}
             >
               {stage.label}
             </button>

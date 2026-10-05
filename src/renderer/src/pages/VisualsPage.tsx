@@ -275,9 +275,21 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
           {stream.active ? (
             <button className="button danger" onClick={stream.cancel}><X size={15} />取消</button>
           ) : (
-            <button className="button primary" disabled={!articleId || !modelTarget} onClick={() => void generatePlan()}>
+            <button
+              className="button primary"
+              disabled={!articleId || !modelTarget}
+              onClick={() => void generatePlan()}
+              title={!articleId ? '请先选择要配图的文章' : '请先选择方案模型'}
+            >
               <Sparkles size={15} />生成方案
             </button>
+          )}
+          {/* 禁用原因就近说明，避免用户猜测按钮为何点不动 */}
+          {!articleId && (
+            <p className="form-hint" role="note">请先在上方选择要配图的文章</p>
+          )}
+          {articleId && !modelTarget && (
+            <p className="form-hint" role="note">请先在上方选择一个方案模型</p>
           )}
         </section>
 

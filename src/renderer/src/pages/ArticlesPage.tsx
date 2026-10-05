@@ -238,7 +238,24 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       {frameworkAccountHint && <p className="inline-alert">所选框架使用账号「{accounts.find((account) => account.id === frameworkAccountHint)?.name ?? '已删除'}」定位，当前写作账号不同。<button className="text-button" onClick={() => { setAccountId(frameworkAccountHint); setFrameworkAccountHint('') }}>改用框架账号</button><button className="text-button" onClick={() => setFrameworkAccountHint('')}>保持当前</button></p>}
       <MaterialPicker materials={usableMaterials} selected={materialIds} onToggle={(id, checked) => { setInheritedMaterials(false); setMaterialIds((current) => { const next = new Set(current); checked ? next.add(id) : next.delete(id); return next }) }} onNavigate={onNavigate} />
       <details className="composer-advanced"><summary><Sliders size={13} />高级选项</summary><label className="field article-count"><span>每批生成</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="每批生成" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 篇` }))} /></label><span className="micro-copy">一次生成多篇会按顺序排队，可在生成中随时取消。</span></details>
-      <footer>{stream.active ? <button className="button danger" onClick={stream.cancel}><X size={15} />取消生成</button> : <button className="button primary" disabled={!models.length} onClick={() => void generate()}><Sparkles size={16} />生成草稿</button>}</footer>
+      <footer>
+        {stream.active
+          ? <button className="button danger" onClick={stream.cancel}><X size={15} />取消生成</button>
+          : <button
+              className="button primary"
+              disabled={!models.length}
+              onClick={() => void generate()}
+              title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+            >
+              <Sparkles size={16} />生成草稿
+            </button>}
+        {/* 禁用原因就近说明 */}
+        {!stream.active && !models.length && (
+          <p className="form-hint" role="note">
+            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+          </p>
+        )}
+      </footer>
     </>}</section>
     {stream.active && <StreamingPreview content={stream.content} label={revising ? '正在改稿…' : '正在写作…'} />}
     {lastFailed.length > 0 && !stream.active && (

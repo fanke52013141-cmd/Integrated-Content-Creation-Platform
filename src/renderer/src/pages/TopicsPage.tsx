@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   FilePenLine,
+  Flame,
   FolderHeart,
   LibraryBig,
   Link2,
@@ -18,6 +19,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  WandSparkles,
   X
 } from 'lucide-react'
 import type {
@@ -34,7 +36,7 @@ import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
-import { PageHeader } from '../components/PageHeader'
+import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useDraftState } from '../hooks/useDraftState'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
@@ -299,10 +301,21 @@ export function TopicsPage({
               {stream.active ? (
                 <button className="button danger" onClick={stream.cancel}><X size={16} />取消生成</button>
               ) : (
-                <button className="button primary" disabled={!models.length} onClick={() => void generate()}>
+                <button
+                  className="button primary"
+                  disabled={!models.length}
+                  onClick={() => void generate()}
+                  title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+                >
                   <Sparkles size={16} />
                   {`生成 ${count} 条选题`}
                 </button>
+              )}
+              {/* 禁用原因就近说明；账号未锁定的情况页面顶部已有阻塞提示，此处只补模型缺失 */}
+              {!stream.active && !models.length && (
+                <p className="form-hint" role="note">
+                  还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+                </p>
               )}
             </footer>
           </>
@@ -369,9 +382,31 @@ export function TopicsPage({
           <div className="large-empty topic-empty">
             {view === 'drafts' ? <Sparkles size={34} /> : <LibraryBig size={34} />}
             <h3>{view === 'drafts' ? (listQuery ? '没有匹配的选题' : '还没有选题草稿') : (listQuery ? '没有匹配的选题' : '选题库还是空的')}</h3>
+            <p className="micro-copy">
+              {listQuery
+                ? '换个关键词试试，或清空搜索条件。'
+                : view === 'drafts'
+                  ? '在上方填一个主题，或切换到「热点」用关键词定位；生成后可以把选中的选题送进内容框架。'
+                  : '把草稿中的选题加入选题库后，热点刷新时才会拿它做定向筛选。'}
+            </p>
+            {!listQuery && view === 'drafts' && (
+              <div className="article-empty-actions">
+                <button className="button secondary" onClick={() => onNavigate('hotspots')}><Flame size={15} />从热点找选题</button>
+              </div>
+            )}
           </div>
         )}
       </section>
+
+      {/* 有选题时始终给出明确去向，避免生成完不知道下一步做什么 */}
+      {displayedTopics.length > 0 && (
+        <NextStepBar
+          text={`当前 ${displayedTopics.length} 条选题。选定一条后，去内容框架展开成文。`}
+          actionLabel="去内容框架"
+          icon={<WandSparkles size={14} />}
+          onAction={() => onNavigate('frameworks')}
+        />
+      )}
 
       {schemaOpen && (
         <SchemaDialog schema={schema} onClose={() => setSchemaOpen(false)} onSave={saveSchema} showToast={showToast} />

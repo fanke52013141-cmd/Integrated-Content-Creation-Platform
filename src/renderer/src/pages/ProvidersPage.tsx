@@ -653,8 +653,14 @@ export function ProvidersPage({
                         autoCorrect="off"
                         value={model.modelId}
                         onChange={(event) => updateModel(index, { modelId: event.target.value })}
-                        placeholder="gpt-5.4-mini…"
+                        placeholder="gpt-4o / deepseek-chat / doubao-pro"
+                        aria-label="模型标识"
                       />
+                      {/* 这是新手最容易填错的字段：它指外部服务商的模型名，不是显示名。
+                          说明填错的后果，避免反复试错。 */}
+                      <small className="field-help">
+                        服务商提供的模型名称，需与其官方文档一致。填错会导致「测试连接」失败。
+                      </small>
                     </label>
                   </div>
                   <div className="model-limit-fields">

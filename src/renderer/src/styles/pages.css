@@ -3055,7 +3055,7 @@
 .layout-version-item:hover { background: var(--surface-muted); }
 .layout-version-item.active { background: var(--purple-50); }
 :root[data-theme="dark"] .layout-version-item.active { background: var(--purple-100); }
-.layout-version-item small { color: var(--text-tertiary); font-size: 11.5px; }
+.layout-version-item small { color: var(--text-tertiary); font-size: 12px; }
 .layout-preview {
   display: flex;
   flex-direction: column;
@@ -3389,7 +3389,7 @@
   text-align: left;
 }
 .web-material-result > .material-result-main > button:hover { color: var(--primary); }
-.material-result-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-tertiary); }
+.material-result-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--text-tertiary); }
 .material-result-main p { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
 .image-material-result {
   display: flex;
@@ -3403,7 +3403,7 @@
 .image-material-result img { width: 84px; height: 84px; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
 .image-material-result > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .image-material-result strong { font-size: 13px; }
-.image-material-result p { font-size: 11.5px; color: var(--text-tertiary); }
+.image-material-result p { font-size: 12px; color: var(--text-tertiary); }
 .material-search-empty { padding: var(--space-2xl); text-align: center; color: var(--text-tertiary); }
 .material-saved-rail {
   display: flex;
@@ -3549,7 +3549,7 @@
 .article-list-filters .search-field { padding: 0 10px; }
 .article-list-filters .search-field input { padding: 6px 0; font-size: 12.5px; }
 .article-list-status { align-self: flex-start; }
-.article-list-status button { padding: 4px 10px; font-size: 11.5px; }
+.article-list-status button { padding: 7px 10px; font-size: 12px; } /* 高度补到 24px，WCAG 2.5.8 */
 
 /* 配图方案头部操作 */
 .visual-pack-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -3604,7 +3604,7 @@
 .first-run-step.done .first-run-icon { background: var(--green-50); color: var(--green-600); }
 .first-run-step > div { flex: 1; min-width: 0; }
 .first-run-step strong { display: block; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
-.first-run-step small { display: block; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.5; margin-top: 2px; }
+.first-run-step small { display: block; font-size: 12px; color: var(--text-tertiary); line-height: 1.5; margin-top: 2px; }
 .first-run-step .button { flex-shrink: 0; }
 
 @media (max-width: 1100px) {
@@ -3688,7 +3688,7 @@
 
 /* 列表工具行：账号筛选 + 搜索 */
 .topic-wall-tools { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
-.account-filter button { font-size: 12px; padding: 4px 10px; }
+.account-filter button { font-size: 12px; padding: 7px 10px; } /* 高度补到 24px，WCAG 2.5.8 */
 
 /* ═══════════════════════════════════════════════════════════
    流水线阶段色条：卡片左缘标识所属创作阶段
@@ -3792,7 +3792,7 @@
 }
 .home-entry:hover { border-color: var(--primary); background: var(--surface-solid); transform: translateY(-1px); }
 .home-entry strong { font-size: 13.5px; color: var(--text); }
-.home-entry small { color: var(--text-tertiary); font-size: 11.5px; line-height: 1.5; }
+.home-entry small { color: var(--text-tertiary); font-size: 12px; line-height: 1.5; }
 .home-entry-icon {
   display: inline-flex;
   align-items: center;
@@ -3826,7 +3826,7 @@
 }
 .home-recent-item:hover { background: var(--surface-muted); }
 .home-recent-item strong { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-recent-item small { color: var(--text-tertiary); font-size: 11.5px; white-space: nowrap; }
+.home-recent-item small { color: var(--text-tertiary); font-size: 12px; white-space: nowrap; }
 
 /* ═════════════ 文章工作台：写作面板收起态 + 导入 + 导出 ═════════════ */
 .composer-toggle {
@@ -3878,3 +3878,29 @@
 .file-pick input[type="file"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
 
 .inline-alert.danger { background: var(--red-50); color: var(--red-600); }
+
+/* ── 模型网关视图切换（.provider-tabs）
+   此前该类名在样式表中缺失，导致这两个按钮渲染为无样式的裸按钮、
+   高度仅 19px，低于 WCAG 2.5.8 最小命中区。补齐并与全站 .segmented 对齐。 */
+.provider-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+  margin-bottom: var(--space-base);
+}
+.provider-tabs button {
+  padding: 7px 18px;          /* 高度 ≈30px，满足 24px 最小命中区 */
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.provider-tabs button:hover:not(.active) { color: var(--text); }
+.provider-tabs button.active {
+  background: var(--surface-solid);
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}

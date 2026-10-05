@@ -48,6 +48,8 @@ import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useModelTarget } from '../lib/models'
 import { ModalBase } from '../components/ModalBase'
+import { NextStepBar } from '../components/PageHeader'
+import { PipelineSteps } from '../components/PipelineSteps'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 
@@ -543,6 +545,8 @@ export function HotspotsPage({
 
   return (
     <div className="hotspots-page">
+      {/* 流程步骤条：与其它创作页保持一致，顺序来自 shared/creation-flow */}
+      <PipelineSteps current="hotspots" onNavigate={onNavigate} />
       <section className="hotspot-hero">
         <div>
           <h2>
@@ -596,6 +600,16 @@ export function HotspotsPage({
           )}
         </div>
       </section>
+
+      {/* 链路引导：收藏热点后可直接带着关键词去生成选题 */}
+      {favorites.length > 0 && (
+        <NextStepBar
+          text={`已收藏 ${favorites.length} 条热点，可以带着它们去生成选题。`}
+          actionLabel="去生成选题"
+          icon={<Sparkles size={14} />}
+          onAction={() => onNavigate('topics')}
+        />
+      )}
 
       {view === 'wall' ? (
         <>

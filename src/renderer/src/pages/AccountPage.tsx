@@ -45,6 +45,7 @@ import { serializeAccountXml } from '../../../shared/domain'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
 import { ModalBase } from '../components/ModalBase'
+import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
@@ -52,6 +53,21 @@ import type { ToastState } from '../components/Toast'
 import { errorMessage, formatDate, formatFullDate } from '../lib'
 
 type AccountMode = 'list' | 'wizard' | 'editor'
+
+/**
+ * 账号定位的九个默认字段里，真正影响成稿质量的是前三个。
+ * 新手面对九个等权空白框容易直接放弃，因此明确标出「最少填哪几个」。
+ * 命名与 shared/contracts 中 DEFAULT 字段定义保持一致。
+ */
+const CORE_FIELD_NAMES = ['账号名称', '目标受众', '写作风格'] as const
+
+/** 完整度说明：光给百分比不解决问题，用户需要知道「达到多少才够用」 */
+function completenessHint(percent: number): string {
+  if (percent >= 80) return '很好'
+  if (percent >= 40) return '基本够用'
+  if (percent > 0) return '还能用，但成稿会比较泛'
+  return '尚未填写'
+}
 
 interface AccountPageProps {
   accounts: AccountProfileSummary[]
@@ -163,15 +179,14 @@ function AccountList({
 
   return (
     <div className="page account-list-page">
-      <section className="page-intro">
-        <div>
-          
-          <h2>账号定位</h2>
-        </div>
-        <button className="button primary" onClick={onCreate}>
-          <Plus size={16} />新建账号
-        </button>
-      </section>
+      {/* 统一用 PageHeader：与其它创作页共享同一套流程步骤条与页头结构 */}
+      <PageHeader
+        route="accounts"
+        onNavigate={onNavigate}
+        title="账号定位"
+        description="先定人群与表达方式，后续选题与成稿都会据此调整"
+        actions={<button className="button primary" onClick={onCreate}><Plus size={16} />新建账号</button>}
+      />
 
       {accounts.length ? (
         <>
@@ -208,8 +223,11 @@ function AccountList({
                         {account.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
                         {account.status === 'locked' ? '已锁定' : '草稿'}
                       </span>
-                      <span className={`badge ${account.completeness >= 100 ? 'success' : 'neutral'}`} title="默认九个定位字段的非空占比">
-                        完整度 {account.completeness}%
+                      <span
+                        className={`badge ${account.completeness >= 80 ? 'success' : 'neutral'}`}
+                        title="默认九个定位字段的非空占比"
+                      >
+                        完整度 {account.completeness}% · {completenessHint(account.completeness)}
                       </span>
                     </div>
                   </div>
@@ -227,6 +245,15 @@ function AccountList({
           </section>
           {!filtered.length && (
             <div className="center-empty"><Search size={25} /><strong>没有匹配的账号</strong></div>
+          )}
+          {/* 链路起点：定位建好后明确指向下一阶段，避免用户停在原地 */}
+          {accounts.length > 0 && (
+            <NextStepBar
+              text="账号定位是后续选题与成稿的基准，改完定位后去看今天有什么可写的热点。"
+              actionLabel="去看热点"
+              icon={<Flame size={14} />}
+              onAction={() => onNavigate('hotspots')}
+            />
           )}
         </>
       ) : (
@@ -737,8 +764,8 @@ function AccountEditor({
             {locked ? <Lock size={12} /> : <LockOpen size={12} />}
             {locked ? '已锁定' : '草稿'}
           </span>
-          <span className={`badge ${loadedAccount.completeness >= 100 ? 'success' : 'neutral'}`}>
-            完整度 {loadedAccount.completeness}%
+          <span className={`badge ${loadedAccount.completeness >= 80 ? 'success' : 'neutral'}`}>
+            完整度 {loadedAccount.completeness}% · {completenessHint(loadedAccount.completeness)}
           </span>
           {dirty && <span className="unsaved-dot">未保存</span>}
         </div>
@@ -795,6 +822,10 @@ function AccountEditor({
                 </button>
               )}
             </div>
+            {/* 告诉用户最少填哪几个就能开始，避免面对九个空框直接放弃 */}
+            <p className="field-priority-hint" role="note">
+              先填 <strong>账号名称、目标受众、写作风格</strong> 这 3 个就能开始写，其余可以之后补。
+            </p>
             <GeneratedFields
               fields={fields}
               locked={locked}
@@ -1264,22 +1295,38 @@ function GeneratedFields({
             {field.source === 'ai' && <small className="field-source-tag">AI</small>}
           </span>
           <div>
-            <input
-              className="field-name-input"
-              name="fieldName"
-              autoComplete="off"
-              value={field.name}
-              readOnly={locked}
-              onChange={(event) => update(field.id, { name: event.target.value })}
-              aria-label={`字段 ${index + 1} 名称`}
-            />
+            <div className="field-name-row">
+              <input
+                className="field-name-input"
+                name="fieldName"
+                autoComplete="off"
+                value={field.name}
+                readOnly={locked}
+                onChange={(event) => update(field.id, { name: event.target.value })}
+                aria-label={`字段 ${index + 1} 名称`}
+              />
+              {/* 标出最关键的三个字段，其余不标——避免九个框都显得同样重要而无从下手。
+                  锁定后仍显示（措辞改为「关键」），因为查看时用户同样需要知道重点在哪。 */}
+              {(CORE_FIELD_NAMES as readonly string[]).includes(field.name.trim()) && (
+                <span
+                  className="field-required-mark"
+                  title={locked
+                    ? '这三个字段对成稿质量影响最大'
+                    : '这三个字段对成稿质量影响最大，填完即可开始'}
+                >
+                  {locked ? '关键' : '必填'}
+                </span>
+              )}
+            </div>
             <textarea
               name="fieldValue"
               autoComplete="off"
               value={field.value}
               readOnly={locked}
               onChange={(event) => update(field.id, { value: event.target.value })}
-              placeholder="填写字段内容…"
+              placeholder={(CORE_FIELD_NAMES as readonly string[]).includes(field.name.trim())
+                ? '这个字段会直接影响成稿，优先填写'
+                : '可稍后补充'}
               aria-label={`${field.name || `字段 ${index + 1}`}内容`}
             />
           </div>

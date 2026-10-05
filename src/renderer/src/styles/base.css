@@ -66,6 +66,62 @@ a:hover { text-decoration: underline; }
 .break-all { word-break: break-all; }
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* 全局可读性基线：<small> 在 Chrome 默认样式表里约 0.8em，且 html 根字号
+   为 14px，实际渲染约 9~11px，低于 12px 可读下限。全站 40+ 处 <small>
+   承载版本号、说明、时间等真实信息，这里统一兜底。
+   用 #root 前缀提高特异性：实测单纯 small{} 会在构建产物中被压缩器丢弃。 */
+#root small { font-size: 12px; }
+
+/* WCAG 2.5.8：复选框/单选框命中区不小于 24×24。
+   注意：原生控件带 appearance:auto 时，min-width/min-height 会被 UA 的
+   视觉盒子覆盖（实测停在 20px），必须先 appearance:none 才能自定尺寸。
+   用 accent-color 保留系统原生勾选外观，只接管布局尺寸。 */
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin: 2px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-solid);
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  box-sizing: border-box;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+input[type='radio'] { border-radius: 50%; }
+input[type='checkbox']:hover:not(:disabled),
+input[type='radio']:hover:not(:disabled) { border-color: var(--primary); }
+input[type='checkbox']:checked,
+input[type='radio']:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+/* 勾选标记：居中实心块，不依赖字体图标 */
+input[type='checkbox']:checked::after {
+  content: '';
+  width: 10px; height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+input[type='radio']:checked::after {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #fff;
+}
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: var(--surface-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -144,7 +200,8 @@ a:hover { text-decoration: underline; }
   color: var(--primary);
   font-size: 13px;
   font-weight: 500;
-  padding: 2px 4px;
+  /* 2px→6px：高度 21px→29px，满足 WCAG 2.5.8 的 24px 最小命中区 */
+  padding: 6px 4px;
   border-radius: 4px;
 }
 .text-button:hover { text-decoration: underline; }
@@ -236,13 +293,26 @@ a:hover { text-decoration: underline; }
 }
 .switch-row strong { font-size: 13px; font-weight: 500; }
 .switch-row small { display: block; color: var(--text-tertiary); font-size: 12px; margin-top: 2px; }
-.switch-row input[type="checkbox"], .default-model-radio input[type="radio"], .model-enabled input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+/* 开关行内的复选框/单选框：原为 16px，低于 WCAG 2.5.8 最小命中区，
+   统一提到 20px 视觉尺寸（配合全局 appearance:none 规则实际盒子更大）。 */
+.switch-row input[type="checkbox"],
+.default-model-radio input[type="radio"],
+.model-enabled input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  margin: 1px;
+  flex: 0 0 auto;
   accent-color: var(--primary);
 }
 
-input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
+/* 全局兜底：确保任何未被上面覆盖的 checkbox/radio 也满足最小命中区。
+   放在此处而非文件前部，避免被后续的组件级规则压回 16px。
+   width/height 而非 min-*：原生控件带 appearance:auto 时 min-* 会被 UA 视觉盒子覆盖。 */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+  width: 24px;
+  height: 24px;
+}
 
 .inline-security {
   display: inline-flex;
@@ -302,7 +372,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
   gap: 5px;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  font-size: 11.5px;
+  font-size: 12px;   /* 原 11.5px，低于可读下限 */
   font-weight: 600;
   background: var(--surface-muted);
   color: var(--text-secondary);
@@ -394,7 +464,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
   background: var(--surface-strong);
 }
 .segmented button {
-  padding: 5px 14px;
+  padding: 7px 14px;          /* 5px→7px：高度 19px→23px，接近 WCAG 2.5.8 的 24px */
   border-radius: calc(var(--radius-md) - 2px);
   font-size: 12.5px;
   font-weight: 500;
@@ -623,7 +693,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
 .select-trigger.open { border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus); }
 .select-trigger:disabled { background: var(--surface-muted); color: var(--text-tertiary); cursor: not-allowed; }
 .select-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.select-value.placeholder { color: var(--text-soft); }
+/* placeholder 承载「请选择」这类必须读懂的信息，不属于装饰性灰，
+   因此用 --text-tertiary（4.66:1）而非 --text-soft（2.21:1） */
+.select-value.placeholder { color: var(--text-tertiary); }
 .select-chevron { color: var(--text-tertiary); transition: transform var(--transition-fast); flex-shrink: 0; }
 .select-chevron.open { transform: rotate(180deg); }
 
@@ -776,3 +848,68 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
 .confirm-dialog { width: min(420px, 100%); position: relative; }
 .confirm-dialog h2 { font-size: 16px; }
 .confirm-dialog p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+
+/* ── 表单引导：把「缺什么」就近说清，不要让用户猜灰色按钮为何点不动 ── */
+
+/* 禁用原因说明。紧跟在按钮下方，用中性色避免被误读为错误 */
+.form-hint {
+  width: 100%;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+.form-hint .text-button {
+  font-size: 12px;
+  padding: 0 2px;
+  vertical-align: baseline;
+}
+
+/* 必填标记。刻意不用红色——必填不等于错误 */
+.field-required-mark {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 字段级帮助文案。解释这个字段是什么、填错会怎样 */
+.field-help {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+/* 账号定位：先填哪几个就能开始 */
+.field-priority-hint {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.field-priority-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* 字段名与必填标记同行 */
+.field-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.field-name-row .field-name-input {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}

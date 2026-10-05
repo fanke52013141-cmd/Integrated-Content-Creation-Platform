@@ -220,7 +220,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
             <Select value={modelTarget} onChange={setModelTarget} ariaLabel="模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
           </label>
           <div className="review-role-options">
-            <span className="review-role-title">评审角色</span>
+            <span className="review-role-title">评审角色<span className="field-required-mark">必选</span></span>
             {roles.length ? roles.map((role) => (
               <label key={role.id} className={selectedRoles.has(role.id) ? 'selected' : ''}>
                 <input type="checkbox" name="roleId" autoComplete="off" checked={selectedRoles.has(role.id)} onChange={(event) => toggleRole(role.id, event.target.checked)} />
@@ -231,7 +231,20 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
           {stream.active ? (
             <button className="button danger" onClick={stream.cancel}><X size={15} />取消评审</button>
           ) : (
-            <button className="button primary" disabled={!selectedRoles.size || retrying} onClick={() => void start()}><Sparkles size={15} />{retrying ? '重跑失败角色中…' : '开始评审'}</button>
+            <>
+              <button
+                className="button primary"
+                disabled={!selectedRoles.size || retrying}
+                onClick={() => void start()}
+                title={!selectedRoles.size ? '请先勾选至少一个评审角色' : undefined}
+              >
+                <Sparkles size={15} />{retrying ? '重跑失败角色中…' : '开始评审'}
+              </button>
+              {/* 禁用原因就近说明：用户不必猜，也不必去别处找原因 */}
+              {!retrying && !selectedRoles.size && (
+                <p className="form-hint" role="note">勾选至少一个评审角色后即可开始</p>
+              )}
+            </>
           )}
         </section>
 

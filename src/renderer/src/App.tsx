@@ -9,6 +9,7 @@ import type {
 } from '../../shared/contracts'
 import { GENERATION_DOMAIN_LABELS } from '../../shared/contracts'
 import { Layout, type RouteId } from './components/Layout'
+import { ALL_ROUTE_IDS } from '../../shared/creation-flow'
 import { DOMAIN_ROUTE, TaskCenterDialog } from './components/WorkContext'
 import { ActiveWorkProvider, useOpenWork } from './active-work'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -44,7 +45,8 @@ const initialBootstrap: AppBootstrap = {
   accounts: []
 }
 
-const ROUTE_IDS: RouteId[] = ['home', 'accounts', 'hotspots', 'topics', 'frameworks', 'articles', 'visuals', 'reviews', 'layouts', 'publishing', 'materials', 'providers', 'prompts']
+// 合法路由来自 shared/creation-flow 的单一事实来源，不再手写第四份清单
+const ROUTE_IDS: readonly string[] = ALL_ROUTE_IDS
 
 const DOMAIN_LABELS = GENERATION_DOMAIN_LABELS
 const DOMAIN_ROUTES: Record<string, RouteId> = DOMAIN_ROUTE
@@ -55,7 +57,7 @@ function AppShell(): React.JSX.Element {
   const routerNavigate = useRouterNavigate()
   const route: RouteId = useMemo(() => {
     const pathname = location.pathname.replace(/^\//, '')
-    return (ROUTE_IDS as string[]).includes(pathname) ? (pathname as RouteId) : 'home'
+    return ROUTE_IDS.includes(pathname) ? (pathname as RouteId) : 'home'
   }, [location.pathname])
 
   const navigate = useCallback((next: RouteId, params?: Record<string, string>): void => {

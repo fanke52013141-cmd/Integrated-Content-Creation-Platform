@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check, ChevronDown, ChevronUp, FilePenLine, FolderHeart, Layers3, LoaderCircle,
-  Lock, LockOpen, Pencil, Plus, Save, Sparkles, Trash2, WandSparkles, X
+  Lock, LockOpen, Pencil, PenLine, Plus, Save, Sparkles, Trash2, WandSparkles, X
 } from 'lucide-react'
 import type {
   AccountProfileSummary, Framework, FrameworkSection, FrameworkTemplate, Material, ProviderSummary, Topic
@@ -13,7 +13,7 @@ import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
-import { PageHeader } from '../components/PageHeader'
+import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { MaterialPicker } from '../components/MaterialPicker'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useDraftSelection, useDraftState } from '../hooks/useDraftState'
@@ -139,7 +139,33 @@ export function FrameworksPage({
         })}
         onNavigate={onNavigate}
       />
-      <footer><label className="field framework-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} ariaLabel="生成数量" /></label><button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={14} />新建模板</button><button className="button primary" disabled={stream.active || !models.length} onClick={() => void generate()}>{stream.active ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}{stream.active ? '正在生成…' : '生成框架'}</button></footer>
+      <footer>
+        <label className="field framework-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} ariaLabel="生成数量" /></label>
+        <button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={14} />新建模板</button>
+        <button
+          className="button primary"
+          disabled={stream.active || !models.length}
+          onClick={() => void generate()}
+          title={!models.length ? '请先在「模型网关」配置文本模型' : undefined}
+        >
+          {stream.active ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
+          {stream.active ? '正在生成…' : '生成框架'}
+        </button>
+        {/* 禁用原因就近说明，并给出去哪里配置 */}
+        {!stream.active && !models.length && (
+          <p className="form-hint" role="note">
+            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>模型网关</button> 配置。
+          </p>
+        )}
+        {/* 其余前置条件（模板 / 主题）按钮本身可点，点击后由 toast 提示；
+            这里提前说明，避免用户反复试错 */}
+        {!stream.active && models.length > 0 && !templateId && (
+          <p className="form-hint" role="note">请先在上方选择一个框架模板</p>
+        )}
+        {!stream.active && models.length > 0 && templateId && !topicId && !manualTopic.trim() && (
+          <p className="form-hint" role="note">请先选择选题，或在上方填写框架主题</p>
+        )}
+      </footer>
     </section>
 
     <section className="framework-wall">
@@ -148,7 +174,28 @@ export function FrameworksPage({
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
       <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
-      {frameworks.length ? <div className="framework-card-grid"><VirtualList items={accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div> : <div className="large-empty"><WandSparkles size={34} /><h3>还没有内容框架</h3></div>}
+      {frameworks.length ? (
+        <>
+          <div className="framework-card-grid"><VirtualList items={accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
+          <NextStepBar
+            text="框架准备好后，去文章创作按它扩写成稿。"
+            actionLabel="去文章创作"
+            icon={<PenLine size={14} />}
+            onAction={() => onNavigate('articles')}
+          />
+        </>
+      ) : (
+        <div className="large-empty">
+          <WandSparkles size={34} />
+          <h3>还没有内容框架</h3>
+          <p className="micro-copy">
+            框架是文章的结构骨架。可以先选一个选题让AI 拆解，也可以不关联选题直接手写结构。
+          </p>
+          <div className="article-empty-actions">
+            <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={15} />先去选题</button>
+          </div>
+        </div>
+      )}
     </section>
     </div>
     {templateEditor && <TemplateDialog template={templateEditor === 'new' ? undefined : templateEditor} templates={templates} onClose={() => setTemplateEditor(undefined)} onSaved={async () => { setTemplateEditor(undefined); await refresh() }} showToast={showToast} />}

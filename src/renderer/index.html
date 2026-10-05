@@ -11,9 +11,60 @@
     <meta name="theme-color" content="#060201" media="(prefers-color-scheme: dark)" />
     <title>心流</title>
     <script src="/theme-init.js"></script>
+    <style>
+      /* 启动兜底：应用挂载成功后 #root 不再为空，本节点自动消失。
+         若脚本因任何原因未执行（资源加载失败 / 解析异常），用户看到的
+         是一句可读的说明，而不是纯白屏。纯 CSS 实现，不违反 CSP。 */
+      #boot-fallback {
+        position: fixed;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: #f5f5f7;
+        color: #1d1d1f;
+        font-family: -apple-system, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        z-index: 9999;
+      }
+      /* #root 始终为空说明应用从未挂载 → 显示兜底 */
+      #root:empty + #boot-fallback { display: grid; }
+      .boot-fallback-card { text-align: center; max-width: 380px; padding: 0 24px; }
+      .boot-fallback-mark {
+        width: 44px; height: 44px; margin: 0 auto 18px;
+        border-radius: 12px; display: grid; place-items: center;
+        background: #1d1d1f; color: #fff; font-size: 20px; font-weight: 600;
+      }
+      .boot-fallback-title { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+      .boot-fallback-desc { margin: 0; font-size: 13px; line-height: 1.6; color: #56565c; }
+      .boot-fallback-hint {
+        margin: 14px 0 0; font-size: 12px; line-height: 1.6; color: #6e6e73;
+        padding-top: 14px; border-top: 1px solid #e8e8ed;
+      }
+      .boot-fallback-hint code {
+        font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+        font-size: 11.5px; background: rgba(0, 0, 0, 0.05);
+        padding: 1px 5px; border-radius: 4px;
+      }
+      @media (prefers-color-scheme: dark) {
+        #boot-fallback { background: #0b0b0d; color: #f5f5f7; }
+        .boot-fallback-desc { color: #aeaeb2; }
+        .boot-fallback-hint { color: #8e8e93; border-top-color: #2a2a2e; }
+        .boot-fallback-hint code { background: rgba(255, 255, 255, 0.08); }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="boot-fallback" role="alert" aria-live="assertive">
+      <div class="boot-fallback-card">
+        <div class="boot-fallback-mark" aria-hidden="true">流</div>
+        <p class="boot-fallback-title">界面没有正常加载</p>
+        <p class="boot-fallback-desc">本地资源读取失败，应用没能启动。</p>
+        <p class="boot-fallback-hint">
+          请关闭应用后重新打开；若仍然失败，可检查安装目录是否完整，
+          或在源码目录执行 <code>npm run build</code> 后重试。
+        </p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

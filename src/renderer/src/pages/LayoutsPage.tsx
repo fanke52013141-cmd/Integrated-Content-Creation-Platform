@@ -167,8 +167,19 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               options={(themes.length ? themes : [{ id: 'wechat-green', name: '微信绿', description: '', accent: '' }]).map((theme) => ({ value: theme.id, label: theme.name, hint: theme.description }))}
             />
           </label>
-          <button className="button primary" disabled={busy || !articleId} onClick={() => void create()}><FileText size={15} />{busy ? '正在排版…' : '生成排版稿'}</button>
+          <button
+            className="button primary"
+            disabled={busy || !articleId}
+            onClick={() => void create()}
+            title={!articleId ? '请先选择要排版的文章' : undefined}
+          >
+            <FileText size={15} />{busy ? '正在排版…' : '生成排版稿'}
+          </button>
         </section>
+        {/* 禁用原因就近说明。真实前置是「先选文章」，平台已有默认值，不需要用户额外操作 */}
+        {!busy && !articleId && (
+          <p className="form-hint" role="note">请先在上方选择要排版的文章</p>
+        )}
 
         {articleLayouts.length > 0 && platform === 'wechat' && (
           <NextStepBar text="排版稿就绪，选好封面即可推送到公众号草稿箱。" actionLabel="去发布" onAction={() => onNavigate('publishing', { articleId })} />
@@ -182,7 +193,13 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                 <strong>{platformNames[item.platform]}{item.themeId && item.themeId !== 'custom' ? ` · ${themes.find((theme) => theme.id === item.themeId)?.name ?? item.themeId}` : ''}</strong>
                 <small>{formatDate(item.createdAt)}</small>
               </button>
-            )) : <EmptyState icon={FileText} title="暂无排版稿" description="选择平台后点击「生成排版稿」。" />}
+            )) : <EmptyState
+              icon={FileText}
+              title="暂无排版稿"
+              description={articleId
+                ? '当前文章还没有排版稿，点击上方「生成排版稿」即可。'
+                : '先在上方选择要排版的文章，再点击「生成排版稿」。'}
+            />}
           </aside>
           <main>
             {selected ? (

@@ -1,6 +1,7 @@
 import { Layers, X } from 'lucide-react'
 import type { AccountProfileSummary, GenerationDomain, GenerationTask } from '../../../shared/contracts'
 import { GENERATION_DOMAIN_LABELS } from '../../../shared/contracts'
+import { WORKBAR_STAGES } from '../../../shared/creation-flow'
 import { useActiveWork } from '../active-work'
 import type { RouteId } from './Layout'
 import { ModalBase } from './ModalBase'
@@ -9,13 +10,8 @@ import { formatDate, errorMessage } from '../lib'
 import { useEffect, useState } from 'react'
 import { CircleDashed, Clock3, ListChecks } from 'lucide-react'
 
-const STAGES: Array<{ id: RouteId; label: string }> = [
-  { id: 'articles', label: '正文' },
-  { id: 'reviews', label: '评审' },
-  { id: 'visuals', label: '配图' },
-  { id: 'layouts', label: '排版' },
-  { id: 'publishing', label: '发布' }
-]
+/** 作品栏阶段：只含成稿之后的推进阶段，顺序与顶部流水线一致 */
+const STAGES = WORKBAR_STAGES
 
 export const DOMAIN_ROUTE: Record<GenerationDomain, RouteId> = {
   account: 'accounts',
@@ -49,7 +45,14 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
       <span className={`badge ${work.dirty ? 'warning' : 'success'}`} role="status">{work.dirty ? '有未保存修改' : '已保存'}</span>
       <div className="segmented work-bar-stages" role="group" aria-label="创作阶段">
         {STAGES.map((stage) => (
-          <button key={stage.id} className={stage.id === work.stage ? 'active' : ''} onClick={() => onNavigate(stage.id, { articleId: work.articleId })}>{stage.label}</button>
+          <button
+            key={stage.id}
+            className={stage.id === work.stage ? 'active' : ''}
+            onClick={() => onNavigate(stage.id, { articleId: work.articleId })}
+            aria-current={stage.id === work.stage ? 'step' : undefined}
+          >
+            {stage.workBarLabel ?? stage.label}
+          </button>
         ))}
       </div>
       <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={14} /></button>
