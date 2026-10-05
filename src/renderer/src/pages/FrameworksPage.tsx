@@ -49,6 +49,7 @@ export function FrameworksPage({
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
+  const [loading, setLoading] = useState(true)
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
 
   const models = useMemo(() => availableModels(providers), [providers])
@@ -69,7 +70,7 @@ export function FrameworksPage({
     setMaterialIds((current) => new Set([...current].filter((id) => nextMaterials.some((item) => item.id === id && item.kind !== 'image'))))
   }
 
-  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [])
+  useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })).finally(() => setLoading(false)) }, [])
   useEffect(() => {
     // 只在首次拿到账号列表时补默认值；用户主动选「不使用账号定位」后必须保持为空
     const next = resolveAccountSelection({ current: accountId, accounts, currentAccountId, initialized: accountInitialized.current })
@@ -174,7 +175,18 @@ export function FrameworksPage({
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
       <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
-      {(() => {
+      {loading ? (
+        /* 首载骨架屏：数据没到之前不显示「空态」，避免误导用户以为数据丢了 */
+        <div className="wall-skeleton">
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="skeleton-card">
+              <span className="skeleton skeleton-line" style={{ width: '42%' }} />
+              <span className="skeleton skeleton-line" style={{ width: '88%' }} />
+              <span className="skeleton skeleton-line" style={{ width: '70%' }} />
+            </div>
+          ))}
+        </div>
+      ) : (() => {
         const displayed = accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks
         if (!frameworks.length) {
           return (

@@ -57,6 +57,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const [composerOpen, setComposerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(Boolean(importMode))
   const [importing, setImporting] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   // 页内跳转（如 文章→文章?import=1）不会重建组件：importMode 变化时同步打开导入面板
   useEffect(() => { if (importMode) setImportOpen(true) }, [importMode])
 
@@ -179,8 +180,10 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     }
   }
   async function retryFailed(): Promise<void> {
+    if (retrying) return
     const request = failedRequest.current
     if (!request || !lastFailed.length) return
+    setRetrying(true)
     try {
       const result = await stream.run(() => request.kind === 'generate'
         ? window.moliu.articles.generate({ ...request.input, count: lastFailed.length })
@@ -189,6 +192,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       setLastFailed(result.failed)
       showToast({ type: !result.articles.length ? 'error' : result.failed.length ? 'warning' : 'success', message: result.failed.length ? `补生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
     } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+    finally { setRetrying(false) }
   }
   async function saveManual(): Promise<void> {
     if (!selected || !draft.trim()) return
@@ -300,7 +304,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     {stream.active && <StreamingPreview content={stream.content} label={revising ? '正在改稿…' : '正在写作…'} />}
     {lastFailed.length > 0 && !stream.active && (
       <p className="inline-alert">上批有 {lastFailed.length} 个候选未成功：{lastFailed.map((item) => `第 ${item.index} 篇 ${item.message.slice(0, 50)}`).join('；')}
-        <button className="text-button" onClick={() => { void retryFailed() }}><RotateCcw size={13} />只补生成 {lastFailed.length} 篇</button>
+        <button className="text-button" disabled={retrying} onClick={() => { void retryFailed() }}><RotateCcw size={13} />只补生成 {lastFailed.length} 篇</button>
       </p>
     )}
     {draftConflict && <p className="inline-alert">本地修改基于旧版本，保存会冲突。可以保留两份内容：<button className="button secondary compact" onClick={() => void saveAsNew()}>另存为新文章</button></p>}

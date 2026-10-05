@@ -462,6 +462,7 @@ export function ProvidersPage({
               <div className="provider-empty">
                 <Unplug size={25} />
                 <strong>暂无供应商</strong>
+                <p className="micro-copy">在右侧选一个预设（OpenAI / DeepSeek / 智谱 GLM…）填入密钥即可，或点右上「空白配置」从零开始。</p>
               </div>
             )}
           </div>

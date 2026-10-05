@@ -339,6 +339,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
               imageBusyKey={imageBusyKey}
               imageModelReady={Boolean(imageTarget)}
               batch={batchState?.packId === pack.id ? batchState : null}
+              anyBatch={Boolean(batchState)}
               onCopy={copy}
               onGenerateImage={generateImage}
               onGenerateAll={() => void generateAllImages(pack)}
@@ -370,6 +371,8 @@ interface VisualPackCardProps {
   imageBusyKey: string
   imageModelReady: boolean
   batch: { done: number; total: number; phase: 'generate' | 'upload' } | null
+  /** 页面级：任意批量进行中（单图生成与批量共用取消域，需暂停单图入口） */
+  anyBatch: boolean
   onCopy(text: string): Promise<void>
   onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
   onGenerateAll(): void
@@ -381,7 +384,7 @@ interface VisualPackCardProps {
   onRemove(): void
 }
 
-function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelReady, batch, onCopy, onGenerateImage, onGenerateAll, onUploadAll, onStopBatch, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
+function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelReady, batch, anyBatch, onCopy, onGenerateImage, onGenerateAll, onUploadAll, onStopBatch, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
   const assetsFor = (kind: VisualAssetKind, slot: number): VisualAsset[] =>
     assets.filter((asset) => asset.kind === kind && asset.slot === slot)
 
@@ -422,7 +425,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
         </div>
         <VisualSlot
           pack={pack} kind="cover" slot={0} prompt={pack.cover.prompt} assets={assetsFor('cover', 0)}
-          imageBusyKey={imageBusyKey} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+          imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
         />
       </section>
 
@@ -443,7 +446,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
             </header>
             <VisualSlot
               pack={pack} kind={kind} slot={index} prompt={item.prompt} assets={assetsFor(kind, index)}
-              imageBusyKey={imageBusyKey} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+              imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
             />
             {item.alt && <small>替代文本：{item.alt}</small>}
           </div>
@@ -460,6 +463,8 @@ interface VisualSlotProps {
   prompt: string
   assets: VisualAsset[]
   imageBusyKey: string
+  /** 批量任务进行中：单图生成与批量共用同一个取消域，暂停单图入口避免被「停止批量」连带取消 */
+  batchActive?: boolean
   onCopy(text: string): Promise<void>
   onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
   onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
@@ -467,7 +472,7 @@ interface VisualSlotProps {
   onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
 }
 
-function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
+function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, batchActive, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
   const busy = imageBusyKey === `${pack.id}:${kind}:${slot}`
   return (
     <div className="visual-slot">
@@ -475,7 +480,7 @@ function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, onCopy, on
         <p>{prompt}</p>
         <div className="visual-slot-actions">
           <button className="button ghost tiny" onClick={() => void onCopy(prompt)}><Copy size={13} />复制提示词</button>
-          <button className="button secondary tiny" disabled={busy || !prompt} onClick={() => void onGenerateImage(pack, kind, slot, prompt)}>
+          <button className="button secondary tiny" disabled={busy || batchActive || !prompt} title={batchActive ? '批量任务进行中，请先完成或停止' : undefined} onClick={() => void onGenerateImage(pack, kind, slot, prompt)}>
             {busy ? <LoaderCircle size={13} className="spin" /> : <Sparkles size={13} />}{busy ? '生成中…' : '生成图片'}
           </button>
           <button className="button ghost tiny" onClick={() => onImport(pack.id, kind, slot, prompt)}><ImagePlus size={13} />导入本地</button>

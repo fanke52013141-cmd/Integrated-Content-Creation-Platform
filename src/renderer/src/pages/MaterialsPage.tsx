@@ -188,15 +188,18 @@ export function MaterialsPage({
     if (!items.length) return showToast({ type: 'info', message: '没有可入库的新结果' })
     setBulkSaving(true)
     let ok = 0
+    let failed = 0
     for (const item of items) {
       try {
         const saved = await window.moliu.materials.addSearchResult({ result: item, query: searchResult.query, relatedTopicId: relatedTopicId || undefined })
         if (saved.created) ok += 1
-      } catch { /* 单条失败不中断批量 */ }
+      } catch { /* 单条失败不中断批量，但要计数告知 */ failed += 1 }
     }
     setBulkSaving(false)
     await refresh()
-    showToast(ok ? { type: 'success', message: `已批量入库 ${ok} 条素材` } : { type: 'error', message: '批量入库失败，请逐条重试' })
+    if (ok && failed) showToast({ type: 'warning', message: `已入库 ${ok} 条，${failed} 条失败（稍后可逐条重试）` })
+    else if (ok) showToast({ type: 'success', message: `已批量入库 ${ok} 条素材` })
+    else showToast({ type: 'error', message: '批量入库失败，请逐条重试' })
   }
 
   async function remove(material: Material): Promise<void> {

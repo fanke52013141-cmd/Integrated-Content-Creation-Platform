@@ -560,6 +560,8 @@ input[type="checkbox"], input[type="radio"] {
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
 }
+/* 选题/框架列表首载骨架屏的容器 */
+.wall-skeleton { display: grid; gap: 10px; }
 
 .empty-state {
   display: flex;

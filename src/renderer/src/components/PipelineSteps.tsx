@@ -28,7 +28,8 @@ export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNav
               onClick={() => onNavigate(stage.id, work && WORKBAR_STAGES.some(item => item.id === stage.id) ? { articleId: work.articleId } : undefined)}
               aria-current={stage.id === current ? 'step' : undefined}
             >
-              {stage.label}{stage.id === 'reviews' || stage.id === 'hotspots' || stage.id === 'accounts' ? '（可选）' : ''}
+              {/* 「可选」语义由 creation-flow 的 optional 元数据声明 */}
+              {stage.label}{stage.optional ? '（可选）' : ''}
             </button>
           </span>
         )

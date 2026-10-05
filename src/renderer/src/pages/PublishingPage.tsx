@@ -161,7 +161,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过，推送后还需在公众号后台正式发布。' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
         {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}
         <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={14} />上传封面</button>
-        <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}推送草稿箱</button>
+        <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}{busy ? '正在推送…' : '推送草稿箱'}</button>
       </footer>
     </section>
     <section className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>推送到草稿箱与正式发布分别记录；结果待确认时请先核对公众号后台。</p></div></header>

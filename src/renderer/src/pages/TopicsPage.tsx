@@ -60,6 +60,7 @@ interface TopicsPageProps {
   accounts: AccountProfileSummary[]
   providers: ProviderSummary[]
   currentAccountId?: string
+  focusTopicId?: string
   onNavigate(route: RouteId, params?: Record<string, string>): void
   showToast(toast: ToastState): void
 }
@@ -68,21 +69,23 @@ export function TopicsPage({
   accounts,
   providers,
   currentAccountId,
+  focusTopicId,
   onNavigate,
   showToast
 }: TopicsPageProps): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const stream = useGenerationStream('topics')
   const [topics, setTopics] = useState<Topic[]>([])
+  const [loading, setLoading] = useState(true)
   const [schema, setSchema] = useState<TopicSchemaField[]>([])
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
   const [view, setView] = useState<TopicView>('drafts')
   const [accountId, setAccountId] = useState(currentAccountId ?? '')
   const [seedKeyword, setSeedKeyword] = useDraftState('topic-seed', readSeedHandoff())
+  // 初始化器只读不删（StrictMode 下会双调用，就地删除会丢值），清除放到 useEffect
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('moliu:topic-favorite-ids')
-      localStorage.removeItem('moliu:topic-favorite-ids')
       return new Set(raw ? JSON.parse(raw) as string[] : [])
     } catch {
       return new Set()
@@ -94,6 +97,9 @@ export function TopicsPage({
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
   const [schemaOpen, setSchemaOpen] = useState(false)
   const [editing, setEditing] = useState<Topic>()
+
+  // 「收藏」交接标记用完即清；初始化器只负责读
+  useEffect(() => { localStorage.removeItem('moliu:topic-favorite-ids') }, [])
 
   const lockedAccounts = accounts.filter((account) => account.status === 'locked')
   const models = useMemo(() => availableModels(providers), [providers])
@@ -118,8 +124,21 @@ export function TopicsPage({
   }
 
   useEffect(() => {
-    void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) }))
+    void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })).finally(() => setLoading(false))
   }, [])
+
+  // 任务中心「打开结果」：带 topicId 进入时直接展开对应选题的编辑器，并切到它所在的视图
+  useEffect(() => {
+    if (!focusTopicId) return
+    let alive = true
+    void window.moliu.topics.list().then((list) => {
+      const target = list.find((topic) => topic.id === focusTopicId)
+      if (!alive || !target) return
+      setView(target.isInLibrary ? 'library' : 'drafts')
+      setEditing(target)
+    }).catch(() => undefined)
+    return () => { alive = false }
+  }, [focusTopicId])
 
   const selectedFavorites = favorites.filter((favorite) => favoriteIds.has(favorite.id))
   const wallQuery = listQuery.trim().toLowerCase()
@@ -355,7 +374,18 @@ export function TopicsPage({
             </label>
           </div>
         </header>
-        {displayedTopics.length ? (
+        {loading ? (
+          /* 首载骨架屏：数据没到之前不显示「空态」，避免误导用户以为数据丢了 */
+          <div className="wall-skeleton">
+            {[0, 1, 2].map((index) => (
+              <div key={index} className="skeleton-card">
+                <span className="skeleton skeleton-line" style={{ width: '38%' }} />
+                <span className="skeleton skeleton-line" style={{ width: '86%' }} />
+                <span className="skeleton skeleton-line" style={{ width: '64%' }} />
+              </div>
+            ))}
+          </div>
+        ) : displayedTopics.length ? (
           <div className="topic-card-list">
             <VirtualList
               items={displayedTopics}

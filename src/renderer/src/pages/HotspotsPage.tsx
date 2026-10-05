@@ -336,15 +336,23 @@ export function HotspotsPage({
     }
   }
 
+  /** 批量收藏进行中：串行收藏 10 条可能要几秒，按钮要有明确反馈而不是像没点上 */
+  const [batchSaving, setBatchSaving] = useState(false)
   async function addSourceBatch(items: HotItem[]): Promise<void> {
-    let created = 0
-    for (const item of items.slice(0, 10)) {
-      if (await addFavorite(item, true)) created += 1
+    if (batchSaving) return
+    setBatchSaving(true)
+    try {
+      let created = 0
+      for (const item of items.slice(0, 10)) {
+        if (await addFavorite(item, true)) created += 1
+      }
+      showToast({
+        type: 'success',
+        message: created ? `已收藏 ${created}\u00A0条热点，源数据均已锁定` : '前 10\u00A0条热点均已收藏'
+      })
+    } finally {
+      setBatchSaving(false)
     }
-    showToast({
-      type: 'success',
-      message: created ? `已收藏 ${created}\u00A0条热点，源数据均已锁定` : '前 10\u00A0条热点均已收藏'
-    })
   }
 
   async function toggleFavoriteTag(favorite: HotFavorite, tag: HotFavoriteTag): Promise<void> {
@@ -647,9 +655,10 @@ export function HotspotsPage({
                       <button
                         className="button ghost compact"
                         title="收藏当前平台前 10 条"
+                        disabled={batchSaving}
                         onClick={() => void addSourceBatch(activeResult.items)}
                       >
-                        <Bookmark size={14} />收藏前 10 条
+                        {batchSaving ? <LoaderCircle size={14} className="spin" /> : <Bookmark size={14} />}{batchSaving ? '收藏中…' : '收藏前 10 条'}
                       </button>
                     )}
                     <button className="icon-button" aria-label="刷新当前平台" onClick={() => void refreshBatch([activeSource.id])}>
@@ -1188,12 +1197,6 @@ export function HotspotsPage({
       {ConfirmPortal}
     </div>
   )
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '刚刚更新'
-  return `更新于 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function formatDateTime(value: string): string {

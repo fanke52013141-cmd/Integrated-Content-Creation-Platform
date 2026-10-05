@@ -263,6 +263,7 @@ function AppShell(): React.JSX.Element {
               accounts={data.accounts}
               providers={data.providers}
               currentAccountId={currentAccount?.id}
+              focusTopicId={focusTopicId}
               onNavigate={navigate}
               showToast={showToast}
             />

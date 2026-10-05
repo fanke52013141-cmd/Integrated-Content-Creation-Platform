@@ -50,6 +50,8 @@ export interface FlowStage {
   inPipeline: boolean
   /** 作品栏只关心成稿之后的推进阶段 */
   inWorkBar: boolean
+  /** 可选阶段：流水线标注「（可选）」，语义收敛在数据里而不是展示层硬编码 id */
+  optional?: boolean
 }
 
 /**
@@ -60,15 +62,15 @@ export interface FlowStage {
  * 而是作为独立资源区放在侧边栏底部。
  */
 export const CREATION_FLOW: readonly FlowStage[] = [
-  { id: 'accounts',   label: '账号',   sidebarLabel: '账号定位', group: '准备', inPipeline: true,  inWorkBar: false },
-  { id: 'hotspots',   label: '热点',   sidebarLabel: '热点洞察', group: '准备', inPipeline: true,  inWorkBar: false },
+  { id: 'accounts',   label: '账号',   sidebarLabel: '账号定位', group: '准备', inPipeline: true,  inWorkBar: false, optional: true },
+  { id: 'hotspots',   label: '热点',   sidebarLabel: '热点洞察', group: '准备', inPipeline: true,  inWorkBar: false, optional: true },
   { id: 'topics',     label: '选题',   sidebarLabel: '选题生成', group: '创作', inPipeline: true,  inWorkBar: false },
   { id: 'frameworks', label: '框架',   sidebarLabel: '内容框架', group: '创作', inPipeline: true,  inWorkBar: false },
   { id: 'articles',   label: '文章',   sidebarLabel: '文章创作', workBarLabel: '正文', group: '创作', inPipeline: true, inWorkBar: true },
-  { id: 'reviews',    label: '评审',   sidebarLabel: '内容评审', group: '创作', inPipeline: true,  inWorkBar: true  },
-  { id: 'visuals',    label: '配图',   sidebarLabel: '智能配图', group: '创作', inPipeline: true,  inWorkBar: true  },
-  { id: 'layouts',    label: '排版',   sidebarLabel: '文章排版', group: '创作', inPipeline: true,  inWorkBar: true  },
-  { id: 'publishing', label: '发布',   sidebarLabel: '发布管理', group: '发布', inPipeline: true,  inWorkBar: true  }
+  { id: 'reviews',    label: '评审',   sidebarLabel: '内容评审', group: '创作', inPipeline: true,  inWorkBar: true,  optional: true },
+  { id: 'visuals',    label: '配图',   sidebarLabel: '智能配图', group: '创作', inPipeline: true,  inWorkBar: true },
+  { id: 'layouts',    label: '排版',   sidebarLabel: '文章排版', group: '创作', inPipeline: true,  inWorkBar: true },
+  { id: 'publishing', label: '发布',   sidebarLabel: '发布管理', group: '发布', inPipeline: true,  inWorkBar: true }
 ] as const
 
 /** 侧边栏分组渲染顺序 */

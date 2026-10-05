@@ -382,7 +382,9 @@ function AccountWizard({
       setBaselineId(saved.id)
       showToast({ type: 'info', message: '已先把答案保存为草稿基线，生成失败也不会丢失' })
       return saved.id
-    } catch {
+    } catch (error) {
+      // 基线保存失败必须可见：否则用户以为有兜底，实际生成失败会丢答案
+      showToast({ type: 'warning', message: `草稿基线保存失败，生成结果可能无法回退：${errorMessage(error)}` })
       return undefined
     }
   }
@@ -597,10 +599,10 @@ function AccountWizard({
             </button>
             <div className="divider" />
             <button className="button secondary full" disabled={saving} onClick={() => void save('draft')}>
-              <Save size={16} />保存为草稿
+              <Save size={16} />{saving ? '保存中…' : '保存为草稿'}
             </button>
             <button className="button primary full" disabled={saving} onClick={() => void save('locked')}>
-              <Lock size={16} />保存并锁定
+              <Lock size={16} />{saving ? '保存中…' : '保存并锁定'}
             </button>
             <p className="micro-copy">锁定后内容只读，可随时解锁继续编辑。</p>
           </aside>
@@ -831,7 +833,12 @@ function AccountEditor({
               locked={locked}
               onChange={updateFields}
               onAdd={() => updateFields([...fields, newCustomField()])}
-              onRemove={(id) => updateFields(fields.filter((field) => field.id !== id))}
+              onRemove={(id) => {
+                const field = fields.find((item) => item.id === id)
+                // 已填了内容的字段删除不可恢复，先确认；空字段直接删
+                if (field && !field.value.trim()) { updateFields(fields.filter((item) => item.id !== id)); return }
+                void confirm({ title: '删除字段', message: `「${field?.name || '未命名字段'}」的内容会一并删除。`, danger: true, confirmLabel: '删除' }).then((ok) => { if (ok) updateFields(fields.filter((item) => item.id !== id)) })
+              }}
             />
           </div>
 
@@ -979,6 +986,7 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
   onChanged(): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [kind, setKind] = useState<AccountRedlineKind>('dont')
   const [content, setContent] = useState('')
   const [busy, setBusy] = useState(false)
@@ -1006,6 +1014,8 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
   }
 
   async function remove(id: string): Promise<void> {
+    // 红线是用户手工积累的生成规则，删除不可恢复，先确认
+    if (!(await confirm({ title: '删除红线', message: '删除后，之后的生成将不再注入这条规则。', danger: true, confirmLabel: '删除' }))) return
     try {
       await window.moliu.accounts.removeRedline(id)
       onChanged()
@@ -1057,6 +1067,7 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
         ))}
         {!account.redlines.length && <p className="micro-copy">还没有红线。把“绝不做什么”写在这里，比在每次生成时反复叮嘱更可靠。</p>}
       </div>
+      {ConfirmPortal}
     </section>
   )
 }
@@ -1067,6 +1078,7 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
   onChanged(): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [platform, setPlatform] = useState('微信公众号')
   const [handle, setHandle] = useState('')
   const [note, setNote] = useState('')
@@ -1091,6 +1103,7 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
   }
 
   async function remove(id: string): Promise<void> {
+    if (!(await confirm({ title: '解绑平台账号', message: '解绑后，发布与数据回溯将不再关联这个平台身份。', danger: true, confirmLabel: '解绑' }))) return
     try {
       await window.moliu.accounts.removePlatformAccount(id)
       onChanged()
@@ -1154,6 +1167,7 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
         ))}
         {!account.platformAccounts.length && <p className="micro-copy">还没有绑定任何平台身份。</p>}
       </div>
+      {ConfirmPortal}
     </section>
   )
 }
@@ -1164,6 +1178,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
   onChanged(): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [insight, setInsight] = useState('')
   const [action, setAction] = useState('')
   const [source, setSource] = useState('用户自述')
@@ -1197,6 +1212,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
   }
 
   async function remove(id: string): Promise<void> {
+    if (!(await confirm({ title: '删除账号记忆', message: '这条经验会从账号的长期记忆中移除，之后的生成不再引用。', danger: true, confirmLabel: '删除' }))) return
     try {
       await window.moliu.accounts.removeMemory(id)
       onChanged()
@@ -1265,6 +1281,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
         ))}
         {!account.memories.length && <p className="micro-copy">还没有记忆。发布复盘后把有效经验记到这里，账号会越用越懂你。</p>}
       </div>
+      {ConfirmPortal}
     </section>
   )
 }

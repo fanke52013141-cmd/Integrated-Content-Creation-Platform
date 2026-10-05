@@ -98,7 +98,15 @@ export function TaskCenterDialog({ open, onClose, onNavigate }: { open: boolean;
                 <span className={`badge ${state.badge}`}>{state.label}</span>
                 {task.status === 'running' && <button className="button ghost compact" onClick={() => void window.moliu.generation.cancel(task.domain)}>取消任务</button>}
                 <button className="button ghost compact" onClick={() => {
-                  const target: Record<string, string> | undefined = task.articleId ? { articleId: task.articleId } : task.resultIds?.[0] && task.domain === 'frameworks' ? { frameworkId: task.resultIds[0] } : undefined
+                  // 生成任务按域携带定位参数：文章带 articleId、框架带 frameworkId（进文章页）、选题带 topicId（直接展开该条），
+                  // 让「打开结果」落在具体结果上，而不是只落到列表页
+                  const target: Record<string, string> | undefined = task.articleId
+                    ? { articleId: task.articleId }
+                    : task.resultIds?.[0] && task.domain === 'frameworks'
+                      ? { frameworkId: task.resultIds[0] }
+                      : task.resultIds?.[0] && task.domain === 'topics'
+                        ? { topicId: task.resultIds[0] }
+                        : undefined
                   onNavigate(task.articleId ? DOMAIN_ROUTE[task.domain] : task.domain === 'frameworks' && target ? 'articles' : DOMAIN_ROUTE[task.domain], target); onClose()
                 }}>{task.status === 'failed' || task.status === 'partial' ? '查看结果与失败原因' : '打开结果'}</button>
               </li>
