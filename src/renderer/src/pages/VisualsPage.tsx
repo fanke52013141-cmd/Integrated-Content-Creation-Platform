@@ -122,6 +122,11 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
 
   /** 批量生成整份方案的图片：封面 → 文内 → 发布，自动跳过已有图片的槽位 */
   const generateAllImages = async (pack: VisualPack): Promise<void> => {
+    // 批量状态与停止开关是全局单例：跨方案并发会互踩计数与进度，必须串行
+    if (batchState) {
+      showToast({ type: 'info', message: '已有一个批量任务进行中，请先等它完成或停止' })
+      return
+    }
     const target = decodeTarget(imageTarget)
     if (!target) {
       showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
@@ -166,6 +171,10 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
 
   /** 批量上传：把方案内所有未上传的图片资产上传公众号素材库 */
   const uploadAllAssets = async (pack: VisualPack): Promise<void> => {
+    if (batchState) {
+      showToast({ type: 'info', message: '已有一个批量任务进行中，请先等它完成或停止' })
+      return
+    }
     const pending = (assetsByPack[pack.id] ?? []).filter((asset) => !asset.wechatMediaId)
     if (!pending.length) {
       showToast({ type: 'info', message: '这套方案的图片都已上传过素材库' })
@@ -208,12 +217,17 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   }
 
   const uploadAsset = async (packId: string, asset: VisualAsset): Promise<void> => {
+    // 复用单图 busy 键防双击重复上传同一张图
+    if (imageBusyKey) return
+    setImageBusyKey(asset.id)
     try {
       await window.moliu.publishing.uploadWechatCover({ assetId: asset.id })
       await refreshAssets([packId])
       showToast({ type: 'success', message: '已上传到公众号素材库，推送时自动作为封面' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setImageBusyKey('')
     }
   }
 
@@ -239,8 +253,12 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   }
 
   const copy = async (text: string): Promise<void> => {
-    await navigator.clipboard.writeText(text)
-    showToast({ type: 'success', message: '提示词已复制' })
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast({ type: 'success', message: '提示词已复制' })
+    } catch (error) {
+      showToast({ type: 'error', message: `复制失败：${errorMessage(error)}` })
+    }
   }
 
   return <div className="page visuals-page">
@@ -472,7 +490,7 @@ function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, onCopy, on
                 <span className={`badge ${asset.source === 'generated' ? 'primary' : 'neutral'}`}>{asset.source === 'generated' ? 'AI 生成' : '本地导入'}</span>
                 {asset.wechatMediaId
                   ? <span className="badge success"><UploadCloud size={11} />已上传素材库</span>
-                  : <button className="button secondary tiny" onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}
+                  : <button className="button secondary tiny" disabled={Boolean(imageBusyKey)} onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}
                 <button className="icon-button danger" title="删除图片" aria-label="删除图片" onClick={() => void onRemoveAsset(pack.id, asset)}><Trash2 size={13} /></button>
               </figcaption>
             </figure>

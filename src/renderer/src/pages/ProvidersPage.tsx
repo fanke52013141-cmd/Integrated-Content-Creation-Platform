@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2,
   ChevronRight,
@@ -117,6 +117,15 @@ export function ProvidersPage({
   const [logs, setLogs] = useState<ModelCallLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
 
+  // 表单基线：记录最近一次「载入/保存」的表单快照。密钥与模型配置填写成本高，
+  // 切换供应商 / 选预设 / 新建空白前若未保存，必须先确认而不是静默丢弃
+  const formBaseline = useRef(JSON.stringify(emptyForm()))
+  const formDirty = JSON.stringify(form) !== formBaseline.current
+  const guardUnsavedForm = async (action: string): Promise<boolean> => {
+    if (!formDirty) return true
+    return confirm({ title: '有未保存的修改', message: `当前连接的修改还没保存，${action}会丢弃这些修改。`, danger: true, confirmLabel: '丢弃并继续' })
+  }
+
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
   }, [])
@@ -126,11 +135,12 @@ export function ProvidersPage({
     [providers, selectedId]
   )
 
-  function chooseProvider(provider: ProviderSummary): void {
+  async function chooseProvider(provider: ProviderSummary): Promise<void> {
+    if (provider.id !== selectedId && !(await guardUnsavedForm('切换到其他供应商'))) return
     clearAll()
     setSelectedId(provider.id)
     setDraftStatus(undefined)
-    setForm({
+    const next: SaveProviderInput = {
       id: provider.id,
       displayName: provider.displayName,
       protocol: provider.protocol,
@@ -150,14 +160,17 @@ export function ProvidersPage({
         enabled: model.enabled
       })),
       apiKey: ''
-    })
+    }
+    setForm(next)
+    formBaseline.current = JSON.stringify(next)
   }
 
-  function choosePreset(preset: ProviderPreset): void {
+  async function choosePreset(preset: ProviderPreset): Promise<void> {
+    if (!(await guardUnsavedForm('选择预设'))) return
     clearAll()
     setSelectedId(undefined)
     setDraftStatus(undefined)
-    setForm({
+    const next: SaveProviderInput = {
       ...emptyForm(),
       displayName: preset.displayName,
       baseUrl: preset.baseUrl,
@@ -171,7 +184,9 @@ export function ProvidersPage({
         isDefault: true,
         enabled: true
       }]
-    })
+    }
+    setForm(next)
+    formBaseline.current = JSON.stringify(next)
   }
 
   /** 保存前先测试：用表单里的接口地址/密钥/默认模型发一次最小请求 */
@@ -252,7 +267,7 @@ export function ProvidersPage({
         apiKey: form.apiKey?.trim() || undefined
       })
       await onRefresh()
-      chooseProvider(saved)
+      void chooseProvider(saved)
       showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
       if (returnTo && onNavigate && returnTo !== 'providers') {
         onNavigate(returnTo as ProvidersPageReturnRoute)
@@ -311,7 +326,9 @@ export function ProvidersPage({
     try {
       await window.moliu.providers.remove(selected.id)
       setSelectedId(undefined)
-      setForm(emptyForm())
+      const next = emptyForm()
+      setForm(next)
+      formBaseline.current = JSON.stringify(next)
       await onRefresh()
       showToast({ type: 'success', message: '供应商已删除' })
     } catch (error) {
@@ -358,10 +375,13 @@ export function ProvidersPage({
         </div>
         {view === 'models' && <button
           className="button secondary"
-          onClick={() => {
+          onClick={() => void (async () => {
+            if (!(await guardUnsavedForm('新建空白配置'))) return
             setSelectedId(undefined)
-            setForm(emptyForm())
-          }}
+            const next = emptyForm()
+            setForm(next)
+            formBaseline.current = JSON.stringify(next)
+          })()}
         >
           <Plus size={16} />空白配置
         </button>}

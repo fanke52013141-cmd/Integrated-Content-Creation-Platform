@@ -56,6 +56,9 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   // F19：写作参数是「一次性」的，进入编辑后默认收起，避免常驻在正文上方抢走注意力
   const [composerOpen, setComposerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(Boolean(importMode))
+  const [importing, setImporting] = useState(false)
+  // 页内跳转（如 文章→文章?import=1）不会重建组件：importMode 变化时同步打开导入面板
+  useEffect(() => { if (importMode) setImportOpen(true) }, [importMode])
 
   const models = useMemo(() => availableModels(providers), [providers])
   const [modelTarget, setModelTarget] = useModelTarget(models)
@@ -227,7 +230,9 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
 
   /** F16：不依赖模型也能进入本工具——粘贴现成稿、导入 .md 文件、或从空白开始写 */
   async function importArticle(rawMarkdown: string, label: string): Promise<void> {
+    if (importing) return
     if (!rawMarkdown.trim()) return showToast({ type: 'error', message: '内容为空，无法导入' })
+    setImporting(true)
     try {
       const saved = await window.moliu.articles.save({
         frameworkId: frameworkId || undefined, accountId: accountId || undefined, materialIds: [...materialIds],
@@ -236,6 +241,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       setImportOpen(false); await refresh(); setSelectedId(saved.id); setComposerOpen(false)
       showToast({ type: 'success', message: `${label}已保存为本地草稿` })
     } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+    finally { setImporting(false) }
   }
 
   /** F12：导出到本地文件，图片内嵌，脱离应用也能看 */
@@ -300,7 +306,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     {draftConflict && <p className="inline-alert">本地修改基于旧版本，保存会冲突。可以保留两份内容：<button className="button secondary compact" onClick={() => void saveAsNew()}>另存为新文章</button></p>}
     {draftError && <p className="inline-alert" role="alert">{draftError}。请先保留正文副本，再重新加载。</p>}
     <section className="article-workbench"><aside className="article-list"><header><div><h3>文章 <small>{total}</small></h3></div></header><div className="article-list-filters"><label className="search-field"><Search size={13} /><input name="articleListQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索标题…" /></label><div className="segmented article-list-status">{(['all', 'locked', 'draft'] as const).map((value) => <button key={value} className={listStatus === value ? 'active' : ''} onClick={() => setListStatus(value)}>{value === 'all' ? '全部' : value === 'locked' ? '已锁定' : '草稿'}</button>)}</div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的文章' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></div>{articles.length ? <div><VirtualList items={filteredArticles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{articleTitle(article.rawMarkdown)}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.hasWorkDraft && <em>待保存修改</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>{articles.length ? '没有匹配的文章' : '暂无文章'}</span></div>}<div className="article-pagination"><button className="button ghost compact" disabled={!page} onClick={() => setPage(page - 1)}>上一页</button><span>{page + 1} / {Math.max(1, Math.ceil(total / 30))}</span><button className="button ghost compact" disabled={(page + 1) * 30 >= total} onClick={() => setPage(page + 1)}>下一页</button></div></aside>{selected && selected.id === selectedId ? <ArticleEditor article={selected} draft={draft} dirty={dirty} editorMode={editorMode} imageAssets={imageAssets} instruction={instruction} alignFramework={alignFramework} count={count} onDraftChange={setDraft} loadingDraft={draftStatus === 'loading'} draftStatus={draftStatus} onDiscard={() => { void confirm({ title: '放弃修改', message: '确认放弃当前未保存修改？', danger: true, confirmLabel: '放弃修改' }).then(ok => { if (ok) void discard() }) }} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} onRenameVersion={(versionId, label) => void renameVersion(versionId, label)} revising={revising} onExport={(format) => void exportAs(format)} /> : <div className="article-empty"><LibraryBig size={40} /><h3>{articles.length ? '没有匹配的文章' : '还没有文章'}</h3><p>{articles.length ? '换个关键词或筛选条件试试。' : '可以让模型按框架写一篇，也可以直接把写好的稿子导入进来慢慢打磨。'}</p><div className="article-empty-actions"><button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入现成稿</button><button className="button primary" onClick={() => { setComposerOpen(true); setImportOpen(false) }}><PenLine size={15} />开始写作</button></div></div>}</section>
-    <ImportDraftDialog open={importOpen} onClose={() => setImportOpen(false)} onImport={(markdown, label) => void importArticle(markdown, label)} />
+    <ImportDraftDialog open={importOpen} busy={importing} onClose={() => setImportOpen(false)} onImport={(markdown, label) => void importArticle(markdown, label)} />
     {ConfirmPortal}
   </div>
 }
@@ -479,7 +485,7 @@ function articleTitle(markdown: string): string { return markdownTitle(markdown,
  * F16：没有模型也能用本工具。粘贴成稿、导入 .md 文件、或从空白稿开始写，
  * 三者都直接落成本地草稿版本，后续改稿/评审/配图仍按正常文章流程走。
  */
-function ImportDraftDialog({ open, onClose, onImport }: { open: boolean; onClose(): void; onImport(markdown: string, label: string): void }): React.JSX.Element {
+function ImportDraftDialog({ open, busy, onClose, onImport }: { open: boolean; busy?: boolean; onClose(): void; onImport(markdown: string, label: string): void }): React.JSX.Element {
   const [pasted, setPasted] = useState('')
   const [fileName, setFileName] = useState('')
   const [error, setError] = useState('')
@@ -507,8 +513,8 @@ function ImportDraftDialog({ open, onClose, onImport }: { open: boolean; onClose
     {error && <p className="inline-alert danger">{error}</p>}
     <footer>
       <label className="button secondary compact file-pick"><FileUp size={14} />选择 .md 文件<input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" onChange={(event) => void readPickedFile(event)} /></label>
-      <button className="button secondary" disabled={!pasted.trim()} onClick={() => onImport(withTitle(pasted), '粘贴稿')}><ClipboardPaste size={14} />导入粘贴内容</button>
-      <button className="button primary" onClick={() => onImport('# 未命名文章\n\n', '空白稿')}><FilePlus2 size={14} />从空白稿开始写</button>
+      <button className="button secondary" disabled={busy || !pasted.trim()} onClick={() => onImport(withTitle(pasted), '粘贴稿')}><ClipboardPaste size={14} />导入粘贴内容</button>
+      <button className="button primary" disabled={busy} onClick={() => onImport('# 未命名文章\n\n', '空白稿')}><FilePlus2 size={14} />从空白稿开始写</button>
     </footer>
   </ModalBase>
 }

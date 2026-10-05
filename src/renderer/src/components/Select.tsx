@@ -88,7 +88,8 @@ export function Select({
       top: Math.max(8, top),
       minWidth: rect.width,
       maxHeight: Math.max(160, maxHeight),
-      zIndex: 1000
+      // 必须高于模态遮罩(1100)与 toast(1200)，模态内下拉（如热点智能筛选）才能正常展开点选
+      zIndex: 1300
     })
   }, [])
 

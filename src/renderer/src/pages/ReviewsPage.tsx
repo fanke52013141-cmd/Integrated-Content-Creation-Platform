@@ -113,7 +113,12 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
 
   const runReview = async (roleIds: string[], article = articleId): Promise<void> => {
     const target = availableModelTarget(modelTarget)
-    if (!article || !roleIds.length || !target) return
+    if (!article || !roleIds.length) return
+    // 缺模型时不再静默返回：按钮点了没反应比报错更困惑
+    if (!target) {
+      showToast({ type: 'warning', message: '还没有可用模型：请先在「AI 服务」配置并启用一个供应商' })
+      return
+    }
     setLastFailed([])
     try {
       const result = await stream.run(() => window.moliu.reviews.start({
@@ -165,7 +170,10 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
 
   const apply = async (task: ReviewTask): Promise<void> => {
     const target = availableModelTarget(modelTarget)
-    if (!target) return
+    if (!target) {
+      showToast({ type: 'warning', message: '还没有可用模型：请先在「AI 服务」配置并启用一个供应商' })
+      return
+    }
     const stale = isReviewBaselineStale(task, selectedArticle)
     if (!(await confirm({
       title: stale ? '评审基线已过期' : '应用改稿？',

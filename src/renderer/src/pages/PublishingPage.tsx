@@ -138,7 +138,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         </div>
         <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
           <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试当前配置</button>
-          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存停用'}</button></footer>
+          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
       </>}
     </section>
     <section className="publish-draft">

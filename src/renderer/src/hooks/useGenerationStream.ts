@@ -36,10 +36,15 @@ export function useGenerationStream(domain: StreamDomain): {
   isCancelled(): boolean
 } {
   const cancelled = useRef(false)
+  const running = useRef(false)
   const [active, setActive] = useState(false)
   const [content, setContent] = useState('')
 
   const run = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+    // 防重入：按钮 disabled 挡得住鼠标，挡不住 Ctrl+Enter 等快捷键的连发；
+    // 并发生成会让先结束的一方在 finally 里提前收掉对方的订阅与状态
+    if (running.current) throw new Error('已有一个生成任务在进行中，请等它结束或先取消')
+    running.current = true
     cancelled.current = false
     setActive(true)
     setContent('')
@@ -52,6 +57,7 @@ export function useGenerationStream(domain: StreamDomain): {
       return await task()
     } finally {
       unsubscribe(); unsubscribeStatus()
+      running.current = false
       setActive(false)
       setContent('')
     }

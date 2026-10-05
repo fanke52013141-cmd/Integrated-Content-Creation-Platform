@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Braces, History, RotateCcw, Save } from 'lucide-react'
 import type { PromptDefSummary, PromptVersionInfo } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
+import { useConfirm } from '../components/useConfirm'
 import { errorMessage } from '../lib'
 
 export function PromptsPage({ showToast }: { showToast(toast: ToastState): void }): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
   const [defs, setDefs] = useState<PromptDefSummary[]>([])
   const [selectedKey, setSelectedKey] = useState('')
   const [draft, setDraft] = useState('')
@@ -20,14 +22,16 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
   }, [draft])
   const dirty = selected ? draft !== selected.activeContent : false
 
-  const loadDef = async (): Promise<void> => {
+  /** 返回最新列表：调用方需要把它传给 loadSelected，避免读到本渲染闭包里的旧 defs */
+  const loadDef = async (): Promise<PromptDefSummary[]> => {
     const list = await window.moliu.prompts.list()
     setDefs(list)
     setSelectedKey((x) => (list.some((d) => d.key === x) ? x : list[0]?.key ?? ''))
+    return list
   }
 
-  const loadSelected = async (key: string): Promise<void> => {
-    const d = defs.find((x) => x.key === key)
+  const loadSelected = async (key: string, list?: PromptDefSummary[]): Promise<void> => {
+    const d = (list ?? defs).find((x) => x.key === key)
     setDraft(d?.activeContent ?? '')
     setNote('')
     try {
@@ -48,9 +52,21 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
   }, [selectedKey])
 
   const reload = async (ok: string): Promise<void> => {
-    await loadDef()
-    if (selectedKey) await loadSelected(selectedKey)
+    const list = await loadDef()
+    if (selectedKey) await loadSelected(selectedKey, list)
     showToast({ type: 'success', message: ok })
+  }
+
+  /** 切换提示词前拦截：有未保存修改时先确认，避免静默丢稿 */
+  const switchTo = async (key: string): Promise<void> => {
+    if (key === selectedKey) return
+    if (dirty && !(await confirm({
+      title: '有未保存的修改',
+      message: `「${selected?.title ?? ''}」的修改还没有保存，切换将丢弃这些修改。`,
+      danger: true,
+      confirmLabel: '丢弃并切换'
+    }))) return
+    setSelectedKey(key)
   }
 
   const save = async (): Promise<void> => {
@@ -68,7 +84,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
   const restore = async (version: number): Promise<void> => {
     if (!selectedKey || !selected) return
-    if (!window.confirm(`确认将「${selected.title}」回滚到 v${version}？`)) return
+    if (!(await confirm({ title: '回滚版本', message: `确认将「${selected.title}」回滚到 v${version}？当前激活版本会退回该版本内容。`, confirmLabel: '回滚' }))) return
     setBusy(true)
     try {
       await window.moliu.prompts.restore({ key: selectedKey, version })
@@ -82,7 +98,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
   const reset = async (): Promise<void> => {
     if (!selectedKey || !selected) return
-    if (!window.confirm(`确认将「${selected.title}」重置回内置默认提示词？`)) return
+    if (!(await confirm({ title: '重置为默认', message: `确认将「${selected.title}」重置回内置默认提示词？自定义内容会被覆盖。`, danger: true, confirmLabel: '重置' }))) return
     setBusy(true)
     try {
       await window.moliu.prompts.reset(selectedKey)
@@ -112,7 +128,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 role="tab"
                 aria-selected={selectedKey === d.key}
                 className={`provider-card prompt-card ${selectedKey === d.key ? 'selected' : ''}`}
-                onClick={() => setSelectedKey(d.key)}
+                onClick={() => void switchTo(d.key)}
               >
                 <span className="provider-logo"><Braces size={17} /></span>
                 <span className="prompt-card-copy">
@@ -199,6 +215,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
           )}
         </section>
       </div>
+      {ConfirmPortal}
     </div>
   )
 }

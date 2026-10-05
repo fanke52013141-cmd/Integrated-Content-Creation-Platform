@@ -174,28 +174,43 @@ export function FrameworksPage({
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
       <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
-      {frameworks.length ? (
-        <>
-          <div className="framework-card-grid"><VirtualList items={accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
-          <NextStepBar
-            text="框架准备好后，去文章创作按它扩写成稿。"
-            actionLabel="去文章创作"
-            icon={<PenLine size={14} />}
-            onAction={() => onNavigate('articles')}
-          />
-        </>
-      ) : (
-        <div className="large-empty">
-          <WandSparkles size={34} />
-          <h3>还没有内容框架</h3>
-          <p className="micro-copy">
-            框架是文章的结构骨架。可以先选一个选题让AI 拆解，也可以不关联选题直接手写结构。
-          </p>
-          <div className="article-empty-actions">
-            <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={15} />先去选题</button>
-          </div>
-        </div>
-      )}
+      {(() => {
+        const displayed = accountFilter === 'current' ? frameworks.filter((framework) => framework.accountId === currentAccountId) : frameworks
+        if (!frameworks.length) {
+          return (
+            <div className="large-empty">
+              <WandSparkles size={34} />
+              <h3>还没有内容框架</h3>
+              <p className="micro-copy">
+                框架是文章的结构骨架。可以先选一个选题让AI 拆解，也可以不关联选题直接手写结构。
+              </p>
+              <div className="article-empty-actions">
+                <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={15} />先去选题</button>
+              </div>
+            </div>
+          )
+        }
+        if (!displayed.length) {
+          return (
+            <div className="large-empty">
+              <WandSparkles size={30} />
+              <h3>当前账号下还没有框架</h3>
+              <p className="micro-copy">切换到「全部账号」查看已有的 {frameworks.length} 个框架。</p>
+            </div>
+          )
+        }
+        return (
+          <>
+            <div className="framework-card-grid"><VirtualList items={displayed} estimateSize={() => 120} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
+            <NextStepBar
+              text="框架准备好后，去文章创作按它扩写成稿。"
+              actionLabel="去文章创作"
+              icon={<PenLine size={14} />}
+              onAction={() => onNavigate('articles')}
+            />
+          </>
+        )
+      })()}
     </section>
     </div>
     {templateEditor && <TemplateDialog template={templateEditor === 'new' ? undefined : templateEditor} templates={templates} onClose={() => setTemplateEditor(undefined)} onSaved={async () => { setTemplateEditor(undefined); await refresh() }} showToast={showToast} />}

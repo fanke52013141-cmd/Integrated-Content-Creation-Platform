@@ -29,6 +29,7 @@ import {
   RESOURCE_ROUTES,
   ROUTE_GROUPS,
   ROUTE_LABELS,
+  WORKBAR_STAGES,
   buildSidebarGroups,
   type RouteId
 } from '../../../shared/creation-flow'
@@ -108,7 +109,8 @@ export function Layout({
 }: LayoutProps): React.JSX.Element {
   const { work } = useActiveWork()
   const onNavigate = (next: RouteId, params?: Record<string, string>): void => {
-    const carriesWork = ['articles', 'reviews', 'visuals', 'layouts', 'publishing'].includes(next)
+    // 成稿之后的阶段默认携带当前作品；阶段集合来自 creation-flow 单一事实来源，不再手写副本
+    const carriesWork = WORKBAR_STAGES.some((stage) => stage.id === next)
     navigate(next, params ?? (carriesWork && work ? { articleId: work.articleId } : undefined))
   }
 

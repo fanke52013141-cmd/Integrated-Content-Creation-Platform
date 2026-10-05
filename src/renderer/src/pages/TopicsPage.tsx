@@ -517,6 +517,7 @@ function SchemaDialog({
 }): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
   const [fields, setFields] = useState<TopicSchemaField[]>(schema)
+  const [saving, setSaving] = useState(false)
   function update(index: number, patch: Partial<TopicSchemaField>): void {
     setFields((current) => current.map((field, currentIndex) => currentIndex === index ? { ...field, ...patch } : field))
   }
@@ -556,7 +557,22 @@ function SchemaDialog({
           ))}
         </div>
         <button className="button ghost compact" disabled={fields.length >= 20} onClick={() => setFields((current) => [...current, { id: crypto.randomUUID(), name: '', required: false, sortOrder: current.length }])}><Plus size={15} />添加字段</button>
-        <footer><button className="button ghost" onClick={() => void reset()}><RotateCcw size={15} />恢复默认</button><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" onClick={() => void onSave(fields)}>保存字段</button></footer>
+        <footer>
+          <button className="button ghost" onClick={() => void reset()}><RotateCcw size={15} />恢复默认</button>
+          <span />
+          <button className="button secondary" onClick={onClose}>取消</button>
+          {/* 有空名称的字段不允许保存（存进去生成提示词会输出空标签）；saving 态防双击重复提交 */}
+          <button
+            className="button primary"
+            disabled={saving || fields.some((field) => !field.name.trim())}
+            title={fields.some((field) => !field.name.trim()) ? '每个字段都需要名称' : undefined}
+            onClick={() => {
+              if (saving) return
+              setSaving(true)
+              Promise.resolve(onSave(fields.map((field) => ({ ...field, name: field.name.trim() })))).finally(() => setSaving(false))
+            }}
+          >{saving ? '保存中…' : '保存字段'}</button>
+        </footer>
       {ConfirmPortal}
     </ModalBase>
   )

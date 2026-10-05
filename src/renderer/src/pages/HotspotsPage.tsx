@@ -232,6 +232,9 @@ export function HotspotsPage({
         for (const result of next) merged[result.source.id] = result
         return merged
       })
+    } catch (error) {
+      // 单平台刷新失败也要可见：否则结果区静默保持旧数据，用户以为刷过了
+      showToast({ type: 'error', message: `刷新失败：${errorMessage(error)}` })
     } finally {
       setLoadingIds((current) => {
         const next = new Set(current)
@@ -656,7 +659,7 @@ export function HotspotsPage({
                 )}
               </header>
               {activeResult?.status === 'ready' ? (
-                <ol>
+                <ol className="hot-item-list">
                   {activeResult.items.map((item) => {
                     const key = hotItemKey(item)
                     const favorited = favoriteKeys.has(key)

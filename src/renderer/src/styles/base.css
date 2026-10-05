@@ -420,6 +420,8 @@ input[type="checkbox"], input[type="radio"] {
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-lg);
+  /* 窄窗口（125%/150% 缩放）下操作按钮换行，而不是把标题压成碎行 */
+  flex-wrap: wrap;
 }
 .page-intro h2 { font-size: 22px; font-family: var(--font-brand); letter-spacing: 0.02em; }
 .page-intro-actions { display: inline-flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }
@@ -482,6 +484,7 @@ input[type="checkbox"], input[type="radio"] {
 .pipeline-steps {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 10px 14px;
   border-radius: var(--radius-lg);

@@ -62,11 +62,9 @@ export function MaterialsPage({
   const seeded = useRef(false)
   const [type, setType] = useState<'web' | 'image'>('web')
   const [count, setCount] = useState(10)
-  const [relatedTopicId, setRelatedTopicId] = useState(() => {
-    const value = localStorage.getItem('moliu:material-related-topic-id') ?? ''
-    localStorage.removeItem('moliu:material-related-topic-id')
-    return value
-  })
+  // 只读取一次；清除放到 useEffect（useState 初始化器必须纯：StrictMode 下会双调用，就地删除会丢值）
+  const [relatedTopicId, setRelatedTopicId] = useState(() => localStorage.getItem('moliu:material-related-topic-id') ?? '')
+  useEffect(() => { localStorage.removeItem('moliu:material-related-topic-id') }, [])
   const [searching, setSearching] = useState(false)
   const [bulkSaving, setBulkSaving] = useState(false)
   const [searchResult, setSearchResult] = useState<MaterialSearchResult>()

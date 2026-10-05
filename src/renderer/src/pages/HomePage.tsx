@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, ArrowRight, Clock3, FileInput, Flame, Gauge, Image, Import, Layers,
-  ListChecks, Newspaper, PenLine, Sparkles
+  ListChecks, Newspaper, PenLine, Send, Sparkles
 } from 'lucide-react'
 import type { AccountProfileSummary, ArticleSummary, GenerationTask, ProviderSummary } from '../../../shared/contracts'
 import { articleTitleOf, useActiveWork } from '../active-work'
@@ -50,7 +50,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   // 上下文里的作品可能已被删除，这里以真实列表为准
   useEffect(() => {
-    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.get(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: article.rawMarkdown.split('\n')[0], hasWorkDraft: false, layoutStale: false }]) }); return () => { alive = false } }
+    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.get(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: articleTitleOf(article.rawMarkdown), hasWorkDraft: false, layoutStale: false }]) }); return () => { alive = false } }
   }, [work, articles, loading, setWork])
 
   const resume = useMemo(() => articles.find((article) => article.id === work?.articleId), [articles, work])
@@ -92,6 +92,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
               <button className="button secondary compact" onClick={() => onNavigate('reviews', { articleId: resume.id })}><ListChecks size={14} />评审</button>
               <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: resume.id })}><Image size={14} />配图</button>
               <button className="button secondary compact" onClick={() => onNavigate('layouts', { articleId: resume.id })}><Newspaper size={14} />排版</button>
+              <button className="button secondary compact" onClick={() => onNavigate('publishing', { articleId: resume.id })}><Send size={14} />发布</button>
               <button className="button primary" onClick={() => onNavigate('articles', { articleId: resume.id })}><PenLine size={15} />继续写作</button>
             </div>
           </div>
