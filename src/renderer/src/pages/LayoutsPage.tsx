@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Code2, Copy, FileDown, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
-import type { ArticleSummary, ArticleLayout, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
+import type { ArticleGenre, ArticleLayout, ArticleSummary, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { Select } from '../components/Select'
@@ -14,6 +14,15 @@ import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
+
+/** 文章类型的中文名。用于把主题的 suitedFor（英文 id）显示为可读文字 */
+const genreLabels: Record<ArticleGenre, string> = {
+  tutorial: '教程攻略',
+  analysis: '深度分析',
+  narrative: '叙事随笔',
+  professional: '专业科技',
+  listicle: '清单盘点'
+}
 const platformHints: Record<LayoutPlatform, string> = { wechat: '可直接推送草稿箱', xiaohongshu: '纯文本，复制使用', web: '通用网页样式' }
 /** 各平台标题字数上限（0 = 不限） */
 const titleLimits: Record<LayoutPlatform, number> = { wechat: 64, xiaohongshu: 20, web: 0 }
@@ -30,6 +39,9 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [articleId, setArticleId] = useState('')
   const [platform, setPlatform] = useState<LayoutPlatform>('wechat')
   const [themeId, setThemeId] = useState('wechat-green')
+  /** 文章类型。选中后自动推荐主题，把"选色块"变成"选内容类型" */
+  const [genre, setGenre] = useState<ArticleGenre | ''>('')
+  const [genres, setGenres] = useState<Array<{ id: ArticleGenre; label: string; hint: string }>>([])
   const [selectedId, setSelectedId] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -72,7 +84,13 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
 
   useEffect(() => { void refresh().catch((error) => showToast({ type: 'error', message: errorMessage(error) })) }, [focusArticleId])
   useEffect(() => { if (focusArticleId) setArticleId(focusArticleId) }, [focusArticleId])
-  useEffect(() => { void window.moliu.layouts.themes().then(setThemes).catch(() => undefined) }, [])
+  useEffect(() => {
+    void window.moliu.layouts.themes().then(setThemes).catch(() => undefined)
+    void window.moliu.layouts.genres().then(setGenres).catch(() => undefined)
+  }, [])
+
+  /** 当前主题的完整信息，用于展示"为什么推荐它" */
+  const selectedTheme = themes.find((theme) => theme.id === themeId)
 
   const create = async (): Promise<void> => {
     if (!articleId) return
@@ -85,7 +103,24 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       })
       await refresh()
       setSelectedId(item.id)
-      showToast({ type: 'success', message: `${platformNames[platform]}排版稿已生成` })
+      // 平台合规校验结果随排版稿返回：生成成功不等于发出去不丢格式，
+      // 这里如实告知问题数量，让用户在推送前就知道该不该改。
+      const violations = item.violations ?? []
+      const errors = violations.filter((violation) => violation.level === 'error')
+      const warns = violations.filter((violation) => violation.level === 'warn')
+      if (errors.length) {
+        showToast({
+          type: 'error',
+          message: `排版稿已生成，但有 ${errors.length} 个问题会导致公众号丢格式：${errors.map((violation) => violation.message).join('；')}`
+        })
+      } else if (warns.length) {
+        showToast({
+          type: 'warning',
+          message: `排版稿已生成，另有 ${warns.length} 个提醒：${warns.map((violation) => violation.message).join('；')}`
+        })
+      } else {
+        showToast({ type: 'success', message: `${platformNames[platform]}排版稿已生成` })
+      }
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     } finally {
@@ -163,15 +198,43 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           <label className="field"><span>平台</span>
             <Select value={platform} onChange={(value) => setPlatform(value as LayoutPlatform)} ariaLabel="平台" options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], hint: platformHints[key] }))} />
           </label>
+          <label className="field"><span>文章类型<em>用于推荐主题</em></span>
+            <Select
+              value={genre}
+              onChange={(value) => {
+                const next = value as ArticleGenre
+                setGenre(next)
+                // 按类型自动切到推荐主题，用户仍可手动改
+                const matched = themes.find((theme) => theme.suitedFor.includes(next))
+                if (matched) setThemeId(matched.id)
+              }}
+              ariaLabel="文章类型"
+              placeholder="选择文章类型"
+              options={genres.map((item) => ({ value: item.id, label: item.label, hint: item.hint }))}
+            />
+          </label>
           <label className="field"><span>主题<em>{platform === 'xiaohongshu' ? '（纯文本不适用）' : ''}</em></span>
             <Select
               value={themeId}
               onChange={setThemeId}
               ariaLabel="排版主题"
               disabled={platform === 'xiaohongshu'}
-              options={(themes.length ? themes : [{ id: 'wechat-green', name: '微信绿', description: '', accent: '' }]).map((theme) => ({ value: theme.id, label: theme.name, hint: theme.description }))}
+              options={(themes.length ? themes : []).map((theme) => ({
+                value: theme.id,
+                label: theme.name,
+                // 提示里带上适合的文章类型与视觉性格，省得"选了个色块但不知道合不合适"
+                hint: `${theme.personality}（适合${theme.suitedFor.map((g) => genreLabels[g] ?? g).join('、')}）`
+              }))}
             />
           </label>
+          {/* 当前主题的适配说明：把"为什么推荐它"讲清楚，而不是让用户猜 */}
+          {platform !== 'xiaohongshu' && selectedTheme && (
+            <p className="form-hint" role="note">
+              {genre && selectedTheme.suitedFor.includes(genre)
+                ? `已按「${genreLabels[genre] ?? genre}」推荐此主题：${selectedTheme.personality}`
+                : `此主题${selectedTheme.suitedFor.length ? `适合${selectedTheme.suitedFor.map((g) => genreLabels[g] ?? g).join('、')}` : ''}：${selectedTheme.personality}`}
+            </p>
+          )}
           <button
             className="button primary"
             disabled={busy || !articleId || needsSavedVersion}

@@ -4,6 +4,7 @@ import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
 import type { VisualAssetService } from './visual-asset-service.js'
 import { localAssetNames, replaceLocalAssets } from './local-assets.js'
+import { formatViolations, hasBlockingViolation, validateWechatLayout } from './layout-validator.js'
 
 interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number }
 class WechatRejectedError extends Error {}
@@ -45,6 +46,14 @@ export class WechatPublishService {
     if (!article) issues.push('文章不存在')
     if (!layout || layout.articleId !== input.articleId) issues.push('排版稿不属于当前文章')
     if (layout?.platform !== 'wechat') issues.push('请选择微信公众号排版稿')
+    // HTML 合规校验：preflight 已覆盖业务前置条件，但排版稿本身是否会被微信
+    // 过滤格式（<pre>、position 声明、外链图等）此前无人检查。
+    // 放在这里而不是推送时硬拦截，是为了让用户在点「推送」之前就看到问题。
+    if (layout?.platform === 'wechat') {
+      const violations = validateWechatLayout({ html: layout.html, title: layout.title })
+      const errors = violations.filter((violation) => violation.level === 'error')
+      if (errors.length) issues.push(`排版稿有${errors.length} 处格式会被公众号丢弃：${formatViolations(errors)}`)
+    }
     if (article && layout && layout.articleVersionId !== article.currentVersionId) issues.push('正文已有新版本，请重新排版')
     if (article) { try { this.database.workflow.assertSaved(article.id) } catch (error) { issues.push(errorMessage(error)) } }
     if (!channel.enabled || !channel.appId || !channel.hasAppSecret) issues.push('请先保存并启用公众号连接')

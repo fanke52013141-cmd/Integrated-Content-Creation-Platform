@@ -21,7 +21,9 @@ import type { WeiboLoginService } from './services/weibo-login-service.js'
 import type { VisualAssetService } from './services/visual-asset-service.js'
 import type { FileMaterialService } from './services/file-material-service.js'
 import type { WorkspaceService } from './services/workspace-service.js'
-import { listLayoutThemes } from './services/layout-themes.js'
+import { listArticleGenres, listLayoutThemes } from './services/layout-themes.js'
+import { renderLayoutMarkdown } from './services/article-layout-service.js'
+import { validateWechatLayout } from './services/layout-validator.js'
 import {
   activeGenerationDomains,
   beginGeneration,
@@ -750,10 +752,24 @@ export function registerIpc(options: {
   handle('visuals:remove-asset',(_e,id:string)=>visualAssets.removeAsset(requireId(id)))
   handle('layouts:list',(_e,articleId?:string)=>database.listArticleLayouts(articleId?requireId(articleId):undefined))
   handle('layouts:themes',()=>listLayoutThemes())
+  handle('layouts:genres',()=>listArticleGenres())
   handle('layouts:create',(_e,raw:unknown)=>articleLayoutService.create(z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional()}).parse(raw)))
   handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))
+  // 实时预览：复用与正式排版完全相同的渲染函数，保证「预览即所得」。
+  // 刻意不落库——预览是高频调用，存盘会带来无意义的版本记录。
+  handle('layouts:renderPreview',(_e,raw:unknown)=>{
+    const input=z.object({
+      markdown:z.string().max(200_000),
+      platform:z.enum(['wechat','xiaohongshu','web']).default('wechat'),
+      themeId:z.string().trim().min(1).max(60).optional()
+    }).parse(raw)
+    const rendered=renderLayoutMarkdown(input.markdown,input.platform,input.themeId)
+    // 一并返回合规校验结果：预览时就能告知「这个写法发出去会丢格式」，
+    // 这是实时预览独有的价值——不预览就看不到
+    return { ...rendered, violations: validateWechatLayout({ html: rendered.html, title: rendered.title }) }
+  })
+  // 发布相关 IPC 由独立模块注册（远端提交已重构为 registerPublishingIpc）
   registerPublishingIpc(handle, database, keyStore, wechatPublishService)
-
 }
 
 const operationGate = new OperationGate()

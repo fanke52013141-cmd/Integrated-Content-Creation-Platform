@@ -218,6 +218,10 @@ const api: MoliuApi = {
   layouts: {
     list: (articleId?: string) => ipcRenderer.invoke('layouts:list', articleId),
     themes: () => ipcRenderer.invoke('layouts:themes'),
+    genres: () => ipcRenderer.invoke('layouts:genres'),
+    // 实时预览：与正式排版同一套渲染，所见即所得
+    renderPreview: (input) =>
+      ipcRenderer.invoke('layouts:renderPreview', input),
     create: (input) => ipcRenderer.invoke('layouts:create', input),
     remove: (id: string) => ipcRenderer.invoke('layouts:remove', id)
   },

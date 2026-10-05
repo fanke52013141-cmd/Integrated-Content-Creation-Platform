@@ -60,6 +60,12 @@ export function isSafeUrl(value: string | undefined | null): value is string {
 }
 
 // P0-1: HTML 白名单 sanitize，仅允许排版用到的标签与 inline style
+//
+// 注意：section 与 leaf 属性是「预览保真」的必要条件。
+// 排版产物的组件容器用 <section>（微信过滤 div，但 section 可用），
+// 文字用 <span leaf=""> 包裹（微信正文渲染依赖）。
+// 若白名单缺这两项，预览会比实际发布结果「少东西」——
+// 那比不预览更糟：用户以为预览就是最终效果。
 const sanitizeConfig = {
   ALLOWED_TAGS: [
     'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -68,9 +74,11 @@ const sanitizeConfig = {
     'strong', 'em', 'b', 'i', 'u', 's', 'del', 'mark',
     'a', 'img',
     'pre', 'code',
+    // 组件容器与参考链接区都靠 section 承载
+    'section',
     'table', 'thead', 'tbody', 'tr', 'th', 'td'
   ],
-  ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'target', 'rel'],
+  ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'target', 'rel', 'leaf'],
   ALLOW_DATA_ATTR: false
 }
 

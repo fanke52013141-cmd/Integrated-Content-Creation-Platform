@@ -673,10 +673,36 @@ export interface ImportVisualAssetInput { packId: string; kind: VisualAssetKind;
 /** 渲染层直接上传文件内容（沙箱下拿不到本地路径） */
 export interface ImportVisualAssetDataInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; fileName: string; data: ArrayBuffer }
 export type LayoutPlatform = 'wechat' | 'xiaohongshu' | 'web'
+/** 排版平台合规校验的一条结果。error 会在推送前硬拦截，warn 仅提示 */
+export interface LayoutViolation {
+  level: 'error' | 'warn'
+  /** 规则标识，便于测试与批量定位 */
+  rule: string
+  message: string
+  /** 面向用户的修复建议 */
+  hint?: string
+}
 export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; createdAt: string }
+/** 生成排版稿的返回值：附带平台合规校验结果，供界面提示 */
+export type CreateArticleLayoutResult = ArticleLayout & { violations?: LayoutViolation[] }
 export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
-/** 排版主题元信息（完整 CSS 在主进程，不经 IPC 传输） */
-export interface LayoutThemeInfo { id: string; name: string; description: string; accent: string }
+/**
+ * 文章类型。用于「按内容类型选主题」——用户不该面对 5 个色块盲选，
+ * 而应该选"我要写教程"然后得到适合教程的主题。
+ */
+export type ArticleGenre = 'tutorial' | 'analysis' | 'narrative' | 'professional' | 'listicle'
+
+/** 排版主题元信息（完整 CSS 在主进程，不经IPC 传输） */
+export interface LayoutThemeInfo {
+  id: string
+  name: string
+  description: string
+  accent: string
+  /** 适合的文章类型，用于按类型推荐与分组 */
+  suitedFor: ArticleGenre[]
+  /** 视觉性格一句话，帮助用户在相似主题间区分 */
+  personality: string
+}
 export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
@@ -926,9 +952,16 @@ export interface MoliuApi {
   }
   layouts: {
     list(articleId?: string): Promise<ArticleLayout[]>
-    /** 可用排版主题清单（内置 + 说明） */
+    /** 可用排版主题清单（含适合的文章类型与视觉性格） */
     themes(): Promise<LayoutThemeInfo[]>
-    create(input: CreateArticleLayoutInput): Promise<ArticleLayout>
+    /** 文章类型清单，用于「按类型选主题」 */
+    genres(): Promise<Array<{ id: ArticleGenre; label: string; hint: string }>>
+    /**
+     * 实时预览渲染。与正式排版调用同一个 renderLayoutMarkdown，
+     * 因此预览所见即最终发布所得。不落库——预览是高频调用。
+     */
+    renderPreview(input: { markdown: string; platform?: LayoutPlatform; themeId?: string }): Promise<CreateArticleLayoutResult>
+    create(input: CreateArticleLayoutInput): Promise<CreateArticleLayoutResult>
     remove(id: string): Promise<void>
   }
   publishing: {

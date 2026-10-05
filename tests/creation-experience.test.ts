@@ -262,7 +262,8 @@ describe('F04 排版与预览共用完整 Markdown 语法', () => {
 
   it('排版输出保留强调、链接、图片、表格、列表与代码', () => {
     const { html } = renderLayoutMarkdown(sample, 'wechat', 'wechat-green')
-    expect(html).toMatch(/<strong[^>]*>重点<\/strong>/)
+    // 微信平台要求文字被 <span leaf=""> 包裹，因此强调标签内部会多一层 span
+    expect(html).toMatch(/<strong[^>]*>\s*<span leaf="">重点<\/span>\s*<\/strong>/)
     expect(html).toContain('example.com/cover.png')
     expect(html).toMatch(/<table/)
     expect(html).toMatch(/嵌套二/)

@@ -10,6 +10,7 @@
  * It is a no-op when the real bridge already exists.
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
+import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
   AccountMemory,
@@ -230,6 +231,24 @@ const DEMO_PROVIDER_PRESETS: ProviderPreset[] = [
 function createMockBridge(): MoliuApi {
   const emptyArray = <T>(): Promise<T[]> => Promise.resolve([])
   const void_ = (): Promise<void> => Promise.resolve()
+
+  // 主题与文章类型：与主进程 layout-themes.ts 保持一致。
+  // mock 提供真实数据是必要的——主题下拉若为空，界面改动无法在浏览器里验证。
+  const MOCK_ARTICLE_GENRES: Array<{ id: ArticleGenre; label: string; hint: string }> = [
+    { id: 'tutorial', label: '教程 / 攻略', hint: '步骤清晰、代码与列表多' },
+    { id: 'analysis', label: '深度分析', hint: '长文、观点鲜明、需要目录' },
+    { id: 'professional', label: '专业 / 科技', hint: '克制、理性、信息密度高' },
+    { id: 'narrative', label: '叙事 / 随笔', hint: '阅读体验优先、氛围感' },
+    { id: 'listicle', label: '清单 / 盘点', hint: '条目式、轻快' }
+  ]
+  const MOCK_LAYOUT_THEMES: LayoutThemeInfo[] = [
+    { id: 'wechat-green', name: '微信经典', description: '品牌绿点缀，百搭安全', accent: '#07c160', suitedFor: ['tutorial', 'listicle'], personality: '清晰友好，最不容易出错的选择' },
+    { id: 'magazine', name: '杂志衬线', description: '衬线标题，编辑部质感', accent: '#1a1a1a', suitedFor: ['analysis', 'narrative'], personality: '端庄有分量，适合长文与观点内容' },
+    { id: 'tech-blue', name: '科技蓝', description: '冷色理性，适合科技与干货', accent: '#2b6cb0', suitedFor: ['tutorial', 'professional'], personality: '理性克制，代码与数据密集时最稳' },
+    { id: 'warm-paper', name: '暖纸', description: '米色暖调，适合生活与随笔', accent: '#b4632a', suitedFor: ['narrative', 'listicle'], personality: '温和亲近，适合讲故事和日常观察' },
+    { id: 'minimal', name: '极简黑白', description: '去色相，靠字重与留白', accent: '#111111', suitedFor: ['professional', 'analysis'], personality: '克制到极致，适合严肃话题与高端品牌感' }
+  ]
+
   const demoRedlines: AccountRedline[] = []
   const demoBindings: AccountPlatformBinding[] = []
   const demoMemories: AccountMemory[] = []
@@ -477,7 +496,19 @@ function createMockBridge(): MoliuApi {
     },
     layouts: {
       list: () => emptyArray(),
-      themes: () => emptyArray(),
+      // mock 提供真实主题数据：否则界面上主题下拉是空的，
+      // 「按类型选主题」这类界面改动无法在浏览器环境里验证
+      themes: () => Promise.resolve(MOCK_LAYOUT_THEMES),
+      genres: () => Promise.resolve(MOCK_ARTICLE_GENRES),
+      // 预览渲染：mock 环境无法真实渲染，返回占位以免调用方崩溃
+      renderPreview: (input: { markdown: string; title?: string }) =>
+        Promise.resolve({
+          id: 'mock-preview', articleId: 'mock', articleVersionId: 'mock',
+          articleStatusSnapshot: 'draft', platform: 'wechat',
+          title: input.title ?? '预览', html: `<p>${input.markdown}</p>`,
+          plainText: input.markdown, themeId: 'wechat-green',
+          createdAt: new Date().toISOString(), violations: []
+        }),
       create: (input: unknown) => Promise.resolve(input),
       remove: () => void_()
     },
