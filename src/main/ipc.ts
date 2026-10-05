@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { AppDatabase } from './database.js'
 import type { ModelGateway } from './gateway/model-gateway.js'
+import { GatewayError } from './gateway/types.js'
 import { PROVIDER_PRESETS } from './gateway/presets.js'
 import type { PromptRegistry } from './gateway/prompt-registry.js'
 import type { KeyStore } from './security/key-store.js'
@@ -198,6 +199,13 @@ export function registerIpc(options: {
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败'
+      // 配置类失败（供应商/模型/能力未就绪）时模型从未运行：移除刚登记的任务行，
+      // 台账只记录真实跑过的任务；全局失败提示照常广播，让用户立刻知道缺什么。
+      if (error instanceof GatewayError && error.kind === 'ProviderConfigError') {
+        database.discardGenerationTask(taskId)
+        sendToStream(event, 'generation:events', { id: taskId, domain, status: 'failed', outcome: 'failed', message, at: new Date().toISOString() })
+        throw error
+      }
       database.finishGenerationTask(taskId, run.signal.aborted ? 'cancelled' : 'failed', message)
       sendToStream(event, 'generation:events', { id: taskId, domain, status: 'failed', outcome: run.signal.aborted ? 'cancelled' : 'failed', message, at: new Date().toISOString() })
       throw error

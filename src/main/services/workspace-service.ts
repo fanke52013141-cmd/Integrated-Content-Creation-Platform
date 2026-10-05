@@ -198,15 +198,37 @@ export class WorkspaceService {
     return resolve(result.filePaths[0])
   }
 
-  /** 清理导出用的临时目录（导出成功后用户选择「打开目录」前的容错） */
+  /**
+   * 备份清单：默认扫描 userData/backups，同时覆盖 userData 根与一级子目录里的
+   * 备份包——createBackup 允许自定义 targetDir，写入位置必须与列表位置一致，
+   * 否则自定义位置的备份在备份页看不到、也无法从界面恢复。
+   */
   async listBackupBundles(): Promise<string[]> {
-    const root = resolve(this.dataPath, 'backups')
+    const bundles: string[] = []
     try {
-      const entries = await readdir(root, { withFileTypes: true })
-      return entries.filter((entry) => entry.isDirectory() && entry.name.startsWith('moliu-backup-')).map((entry) => join(root, entry.name)).sort().reverse()
+      const topLevel = await readdir(this.dataPath, { withFileTypes: true })
+      for (const entry of topLevel) {
+        if (!entry.isDirectory()) continue
+        const layer = join(this.dataPath, entry.name)
+        if (entry.name.startsWith('moliu-backup-')) {
+          bundles.push(layer)
+          continue
+        }
+        try {
+          const nested = await readdir(layer, { withFileTypes: true })
+          for (const nestedEntry of nested) {
+            if (nestedEntry.isDirectory() && nestedEntry.name.startsWith('moliu-backup-')) {
+              bundles.push(join(layer, nestedEntry.name))
+            }
+          }
+        } catch {
+          // 单个子目录读不了不影响其余位置的扫描
+        }
+      }
     } catch {
       return []
     }
+    return bundles.sort().reverse()
   }
 }
 

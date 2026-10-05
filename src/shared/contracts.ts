@@ -982,6 +982,10 @@ export interface MoliuApi {
   }
 }
 
+/**
+ * 账号默认字段：与 PRD（八字段）及内置 account.generate 提示词的输出契约保持一致。
+ * 此前多出的「选题方向」不在提示词输出契约内，AI 永远不会填充，只能留空。
+ */
 export const DEFAULT_ACCOUNT_FIELD_NAMES = [
   '账号名称',
   '简介',
@@ -990,8 +994,7 @@ export const DEFAULT_ACCOUNT_FIELD_NAMES = [
   '写作风格',
   'IP人设',
   '差异化定位',
-  '价值主张',
-  '选题方向'
+  '价值主张'
 ] as const
 
 export const WIZARD_QUESTIONS = [

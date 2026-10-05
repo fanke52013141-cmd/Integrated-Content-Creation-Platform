@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../src/shared/contracts.js'
 import {
   createAccountFields,
   referenceNeedsDraftWarning,
@@ -9,6 +10,15 @@ import {
 } from '../src/shared/domain.js'
 
 describe('account domain', () => {
+  it('默认字段与 PRD 八字段及 account.generate 提示词输出契约一致', () => {
+    // 提示词只要求模型返回这 8 个字段；默认字段清单若与其不一致，
+    // 多出的字段将永远不会被 AI 填充（此前「选题方向」即属此类）。
+    expect([...DEFAULT_ACCOUNT_FIELD_NAMES]).toEqual([
+      '账号名称', '简介', '领域', '目标受众', '写作风格', 'IP人设', '差异化定位', '价值主张'
+    ])
+    expect(DEFAULT_ACCOUNT_FIELD_NAMES).not.toContain('选题方向')
+  })
+
   it('serializes fields and escapes XML metacharacters', () => {
     const fields = createAccountFields({
       账号名称: 'A&B',

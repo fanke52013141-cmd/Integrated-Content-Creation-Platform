@@ -405,8 +405,8 @@ describe('AppDatabase', () => {
       status: 'draft',
       source: 'manual'
     })
-    // 9 个默认字段只填 1 个 → 11%
-    expect(partial.completeness).toBe(11)
+    // 8 个默认字段只填 1 个 → 13%（四舍五入）
+    expect(partial.completeness).toBe(13)
     expect(partial.fields.every((field) => field.source === 'user')).toBe(true)
 
     const filled = partial.fields.map((field) => ({ ...field, value: `${field.name}内容`, source: 'ai' as const }))

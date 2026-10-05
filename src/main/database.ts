@@ -757,6 +757,15 @@ export class AppDatabase {
       .run(status, detail.slice(0, 500), new Date().toISOString(), id)
   }
 
+  /**
+   * 配置类失败（供应商未配置/未启用能力等）时模型从未运行，把刚登记的任务行移除，
+   * 避免「缺配置」以执行失败的名义污染任务台账与首页「需要处理」计数。
+   * 只允许删除仍在 running 的行，保证不会误删已有结果的任务。
+   */
+  discardGenerationTask(id: string): void {
+    this.db.prepare(`DELETE FROM generation_tasks WHERE id = ? AND status = 'running'`).run(id)
+  }
+
   listGenerationTasks(limit = 30): GenerationTask[] {
     const rows = this.db.prepare('SELECT * FROM generation_tasks ORDER BY started_at DESC, rowid DESC LIMIT ?').all(limit) as unknown as GenerationTaskRow[]
     return rows.map((row) => ({
@@ -2207,7 +2216,7 @@ function mapAccountSummary(row: AccountSummaryRow): AccountProfileSummary {
   }
 }
 
-/** 定位完整度：默认九问字段的非空占比（0-100） */
+/** 定位完整度：默认八字段的非空占比（0-100） */
 function accountCompleteness(fields: AccountField[]): number {
   const total = DEFAULT_ACCOUNT_FIELD_NAMES.length
   if (!total) return 0

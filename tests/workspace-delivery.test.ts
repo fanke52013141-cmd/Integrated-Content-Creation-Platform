@@ -64,6 +64,20 @@ describe('生成任务台账', () => {
     database.close()
   })
 
+  it('丢弃配置类失败只移除 running 任务，已完成任务不受影响', () => {
+    const database = new AppDatabase(':memory:')
+    // 配置类失败：任务还在 running，丢弃后台账不留痕迹
+    database.beginGenerationTask({ id: 'cfg-1', domain: 'visuals', label: '配图' })
+    database.discardGenerationTask('cfg-1')
+    expect(database.listGenerationTasks(5)).toHaveLength(0)
+    // 防御：已完成/已失败的任务不允许被丢弃
+    database.beginGenerationTask({ id: 'done-1', domain: 'articles', label: '文章' })
+    database.finishGenerationTask('done-1', 'failed', '生成失败')
+    database.discardGenerationTask('done-1')
+    expect(database.listGenerationTasks(5)).toHaveLength(1)
+    database.close()
+  })
+
   it('素材引用汇总取成稿标题，未被引用时返回空表', () => {
     const database = new AppDatabase(':memory:')
     const material = database.addManualMaterial({ title: '访谈摘录', summary: '观点' })
@@ -147,6 +161,24 @@ describe('整库备份与恢复', () => {
     expect(database.listArticles()[0].rawMarkdown).toContain('备份里的成稿')
     expect(existsSync(join(dataPath, 'images', 'a.png'))).toBe(true)
     expect(existsSync(join(dataPath, 'moliu.db.pre-restore'))).toBe(true)
+    database.close()
+  })
+
+  it('自定义位置创建的备份同样出现在备份列表中', async () => {
+    const dataPath = tempDataDir('backup-custom')
+    const database = new AppDatabase(join(dataPath, 'moliu.db'))
+    seedArticle(database, '自定义位置备份')
+    const workspace = new WorkspaceService(database, dataPath)
+
+    // createBackup 允许写入 userData 内任意子目录；列表必须能看到，否则无法从界面恢复
+    const custom = await workspace.createBackup({ targetDir: join(dataPath, 'custom-backups') })
+    const atRoot = await workspace.createBackup({ targetDir: dataPath })
+    const listed = await workspace.listBackupBundles()
+    expect(listed).toContain(custom.path)
+    expect(listed).toContain(atRoot.path)
+    // 恢复入口按列表路径走，自定义位置备份必须能通过完整性校验完成恢复
+    const restored = await workspace.restoreBackup({ bundleDir: custom.path })
+    expect(restored.restoredImages).toBe(0)
     database.close()
   })
 
