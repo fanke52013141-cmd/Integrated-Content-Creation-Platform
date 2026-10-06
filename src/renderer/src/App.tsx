@@ -109,20 +109,36 @@ function AppShell(): React.JSX.Element {
     localStorage.setItem('moliu:theme', theme)
   }, [theme])
 
-  const showToast = useCallback((toast: ToastState): void => {
-    const item: ToastItem = { ...toast, id: Date.now() + Math.random() }
-    // 最多同时保留 3 条，错误常驻直到手动关闭
-    setToasts((current) => [...current.slice(-2), item])
-    if (toast.type !== 'error') {
-      window.setTimeout(() => {
-        setToasts((current) => current.filter((entry) => entry.id !== item.id))
-      }, 4_500)
-    }
-  }, [])
-
-  const dismissToast = useCallback((id: number): void => {
+  // 缺模型的报错高频出现，统一给「去配置」出口，不再让用户自己去侧栏找
+  const MODEL_REQUIRED_PATTERN = /(请先配置|请选择)[^\n。]*(模型|AI 服务)|(没有|暂无|尚未)[^\n。]*可用模型|(请先在|请到)[^\n。]*「?AI\s*服务」?[^\n。]*配置|没有可用的文本模型/
+  const toastTimers = useRef(new Map<number, number>())
+  const removeToast = useCallback((id: number): void => {
+    const timer = toastTimers.current.get(id)
+    if (timer !== undefined) { window.clearTimeout(timer); toastTimers.current.delete(id) }
     setToasts((current) => current.filter((entry) => entry.id !== id))
   }, [])
+  const showToast = useCallback((toast: ToastState): void => {
+    const item: ToastItem = { ...toast, id: Date.now() + Math.random() }
+    if ((toast.type === 'error' || toast.type === 'warning') && !item.action && MODEL_REQUIRED_PATTERN.test(item.message)) {
+      item.action = { label: '去配置', onClick: () => navigate('providers') }
+    }
+    // 同文案去重：旧的先摘除（连同计时器），新的排到末尾，避免反复触发时无限叠挂
+    setToasts((current) => {
+      const duplicates = current.filter((entry) => entry.message === item.message)
+      duplicates.forEach((entry) => {
+        const timer = toastTimers.current.get(entry.id)
+        if (timer !== undefined) { window.clearTimeout(timer); toastTimers.current.delete(entry.id) }
+      })
+      return [...current.filter((entry) => entry.message !== item.message).slice(-2), item]
+    })
+    // 全部自动消失：错误停留久一点（8s），不再要求用户手动清理
+    const duration = toast.type === 'error' ? 8_000 : toast.type === 'warning' ? 6_000 : 4_500
+    toastTimers.current.set(item.id, window.setTimeout(() => removeToast(item.id), duration))
+  }, [navigate, removeToast])
+
+  const dismissToast = useCallback((id: number): void => {
+    removeToast(id)
+  }, [removeToast])
 
   // 全局生成任务指示：订阅主进程生命周期事件，顶栏展示运行中任务，跨页面提醒完成/失败
   const routeRef = useRef(route)

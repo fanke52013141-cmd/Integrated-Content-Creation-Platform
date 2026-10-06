@@ -76,7 +76,10 @@ export class WorkspaceService {
   }
 
   async createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }> {
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    // 文件夹名用本地时间：用户看到的备份时刻应与自己的时钟一致（manifest.createdAt 仍存 ISO 供程序读取）
+    const now = new Date()
+    const pad = (value: number): string => String(value).padStart(2, '0')
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`
     // 默认直接落到 userData/backups：一键备份不需要选路径，且与 listBackupBundles/恢复同处一地
     const parent = input?.targetDir ? this.insideData(input.targetDir) : join(this.dataPath, 'backups')
     if (!parent) throw new Error('未选择备份位置')

@@ -550,5 +550,16 @@ export function ensureMockBridge(): void {
   if (!w.moliu) {
     w.moliu = createMockBridge()
     console.info('[mock-bridge] window.moliu not detected — injected demo data for UI preview.')
+    // 演示桥的所有写入都不落盘。preload 正常时永远不会走到这里；
+    // 一旦走到，必须在界面上明示，否则用户会在假数据上操作而不自知。
+    const banner = document.createElement('div')
+    banner.setAttribute('role', 'alert')
+    banner.textContent = '演示模式：本地服务未连接，当前展示的是演示数据，任何修改都不会保存。请重启应用；若反复出现请重新安装。'
+    banner.style.cssText = [
+      'position:fixed', 'left:0', 'right:0', 'bottom:0', 'z-index:9999',
+      'padding:10px 16px', 'background:#b3261e', 'color:#fff',
+      'font:13px/1.5 system-ui, sans-serif', 'text-align:center'
+    ].join(';')
+    document.body.appendChild(banner)
   }
 }

@@ -3,6 +3,8 @@ import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
 export interface ToastState {
   type: 'success' | 'error' | 'info' | 'warning'
   message: string
+  /** 可选的就近出口：点了动作即视为处理完毕，通知随之关闭 */
+  action?: { label: string; onClick(): void }
 }
 
 export interface ToastItem extends ToastState {
@@ -17,7 +19,8 @@ const toastConfig = {
 } as const
 
 /**
- * 可堆叠通知：错误会保留直到手动关闭，其余 4.5s 自动消失（见 App）。
+ * 可堆叠通知：所有类型都会自动消失（错误 8s、警告 6s、其余 4.5s，见 App），
+ * 同文案重复触发时只刷新已有的一条，不再无限叠挂。
  */
 export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id: number): void }): React.JSX.Element | null {
   if (!toasts.length) return null
@@ -30,6 +33,14 @@ export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id
           <div key={toast.id} className={`toast ${toast.type}`} role="status" aria-label={config.label}>
             <Icon size={17} />
             <span className="toast-body">{toast.message}</span>
+            {toast.action && (
+              <button
+                className="text-button toast-action"
+                onClick={() => { toast.action?.onClick(); onDismiss(toast.id) }}
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button className="icon-button" onClick={() => onDismiss(toast.id)} aria-label="关闭通知">
               <X size={13} />
             </button>

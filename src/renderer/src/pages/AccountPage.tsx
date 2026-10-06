@@ -443,13 +443,10 @@ function AccountWizard({
   }
 
   function startManual(): void {
-    setFields(DEFAULT_ACCOUNT_FIELD_NAMES.map((name) => ({
-      id: crypto.randomUUID(),
-      name,
-      value: name === '账号名称' ? answers[0]?.answer ?? '' : '',
-      isDefault: true,
-      source: 'user'
-    })))
+    // 带上向导里已回答的 7 问（与草稿基线同一套映射），别让用户在手动表单里重打一遍
+    setFields(baselineFieldsFromAnswers(answers).map((field) => (
+      field.name === '账号名称' && !answers[0]?.answer.trim() ? { ...field, value: '' } : field
+    )))
   }
 
   return (

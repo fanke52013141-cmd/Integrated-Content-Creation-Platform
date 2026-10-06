@@ -637,6 +637,7 @@ input[type="checkbox"], input[type="radio"] {
 .toast.error { border-color: var(--red-100); }
 .toast .toast-body { flex: 1; min-width: 0; white-space: pre-line; }
 .toast .icon-button { width: 22px; height: 22px; flex-shrink: 0; }
+.toast .toast-action { flex-shrink: 0; align-self: center; padding: 4px 6px; white-space: nowrap; }
 
 /* ── 10. 模态 ── */
 .modal-overlay {

@@ -654,9 +654,10 @@ export function registerIpc(options: {
   handle('materials:remove', (_event, id: string) => database.removeMaterial(requireId(id)))
   handle('materials:add-file',(_e,raw:unknown)=>{const input=z.object({fileName:z.string().trim().min(1).max(300),data:z.instanceof(ArrayBuffer),relatedTopicId:z.string().uuid().optional()}).parse(raw);return fileMaterials.importFromUpload(input)})
 
+  // content 允许为空：手动新建框架先立骨架、后填内容（AI 生成路径永远带内容，不受影响）
   const frameworkSectionsSchema = z.array(z.object({
     name: z.string().trim().min(1).max(50),
-    content: z.string().trim().min(1).max(20_000)
+    content: z.string().trim().max(20_000)
   })).min(1).max(20).superRefine((sections, context) => {
     const names = sections.map((section) => section.name)
     if (new Set(names).size !== names.length) {

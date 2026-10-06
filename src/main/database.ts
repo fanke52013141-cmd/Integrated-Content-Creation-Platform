@@ -746,7 +746,8 @@ export class AppDatabase {
       ['review_tasks', 'failures_json', "TEXT NOT NULL DEFAULT '[]'"],
       ['review_problems', 'evidence_json', "TEXT NOT NULL DEFAULT '{}'"],
       ['publications', 'retro_json', 'TEXT'],
-      ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"]
+      ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"],
+      ['article_layouts', 'theme_id', 'TEXT']
     ]
     for (const [table, column, definition] of added) {
       const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as unknown as Array<{ name: string }>

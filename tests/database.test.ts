@@ -7,6 +7,69 @@ import { AppDatabase } from '../src/main/database.js'
 import { createAccountFields, serializeAccountXml } from '../src/shared/domain.js'
 
 describe('AppDatabase', () => {
+  it('migrates a pre-0.2 database whose article_layouts lacks theme_id instead of crashing', () => {
+    // 复刻 UX 走查发现的线上故障：0.1.x 建的库没有 theme_id 列，新版本直接写库会抛
+    // "table article_layouts has no column named theme_id"。启动迁移必须把列补上。
+    const dir = mkdtempSync(join(tmpdir(), 'moliu-old-db-'))
+    const dbPath = join(dir, 'moliu.db')
+    const legacy = new DatabaseSync(dbPath)
+    legacy.exec(`
+      CREATE TABLE articles (
+        id TEXT PRIMARY KEY,
+        framework_id TEXT,
+        account_id TEXT,
+        material_ids_json TEXT NOT NULL DEFAULT '[]',
+        manual_outline TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL CHECK(status IN ('draft','locked')),
+        current_version_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE article_layouts (
+        id TEXT PRIMARY KEY,
+        article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+        article_version_id TEXT NOT NULL,
+        article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),
+        platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),
+        title TEXT NOT NULL,
+        html TEXT NOT NULL,
+        plain_text TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO articles(id,framework_id,account_id,material_ids_json,manual_outline,status,current_version_id,created_at,updated_at)
+        VALUES('a1',NULL,NULL,'[]','','locked','v1','2026-01-01T00:00:00.000Z','2026-01-01T00:00:00.000Z');
+      INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,created_at)
+        VALUES('l1','a1','v1','locked','wechat','旧排版','<p>旧</p>','旧','2026-01-01T00:00:00.000Z');
+    `)
+    legacy.close()
+
+    const database = new AppDatabase(dbPath)
+    const columns = database['db'].prepare('PRAGMA table_info(article_layouts)').all() as unknown as Array<{ name: string }>
+    expect(columns.some((item) => item.name === 'theme_id')).toBe(true)
+
+    // 旧数据仍在
+    const legacyRows = database.listArticleLayouts('a1')
+    expect(legacyRows).toHaveLength(1)
+    expect(legacyRows[0].id).toBe('l1')
+    expect(legacyRows[0].themeId).toBeUndefined()
+
+    // 新写入（带主题）可用 —— 正是排版页「生成排版稿」的路径
+    const saved = database.saveArticleLayout({
+      articleId: 'a1',
+      articleVersionId: 'v1',
+      articleStatusSnapshot: 'locked',
+      platform: 'wechat',
+      title: '新排版',
+      html: '<p>新</p>',
+      plainText: '新',
+      themeId: 'wechat-classic'
+    })
+    expect(saved.themeId).toBe('wechat-classic')
+    expect(database.listArticleLayouts('a1')).toHaveLength(2)
+    database.close()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   it('persists account versions and restores without overwriting history', () => {
     const database = new AppDatabase(':memory:')
     const created = database.saveAccount({

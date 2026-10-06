@@ -50,6 +50,7 @@ export function FrameworksPage({
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
+  const [manualCreating, setManualCreating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
 
@@ -112,6 +113,22 @@ export function FrameworksPage({
     if (!(await confirm({ title: '确认操作', message: '确定删除这个内容框架吗？其本地版本记录会一并删除。', danger: true, confirmLabel: '确认' }))) return
     try { await window.moliu.frameworks.remove(framework.id); await refresh(); showToast({ type: 'success', message: '内容框架已删除' }) }
     catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+  }
+
+  // 手动新建：不依赖模型，按模板立一个空白骨架，内容在编辑器里慢慢填
+  async function createManual(topic: string, sectionNames: string[]): Promise<void> {
+    const template = selectedTemplate ?? templates.find((item) => item.isDefault) ?? templates[0]
+    try {
+      const framework = await window.moliu.frameworks.save({
+        materialIds: [], templateId: template?.id, manualTopic: topic.trim(),
+        status: 'draft', accountId: accountId || undefined,
+        sections: sectionNames.map((name) => ({ name, content: '' }))
+      })
+      await refresh()
+      setManualCreating(false)
+      showToast({ type: 'success', message: '空白框架已创建，点击卡片上的铅笔开始填写各章节' })
+      setEditing(framework)
+    } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
   }
 
   return <div className="page frameworks-page">
@@ -179,7 +196,7 @@ export function FrameworksPage({
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
-      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
+      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div><button className="button secondary compact" onClick={() => setManualCreating(true)} title="不依赖模型：按模板创建空白框架，稍后在编辑器中填写"><Plus size={14} />手动新建</button></header>
       {loading ? (
         /* 首载骨架屏：数据没到之前不显示「空态」，避免误导用户以为数据丢了 */
         <div className="wall-skeleton">
@@ -203,6 +220,7 @@ export function FrameworksPage({
               </p>
               <div className="article-empty-actions">
                 <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={15} />先去选题</button>
+                <button className="button secondary" onClick={() => setManualCreating(true)}><PenLine size={15} />手动新建框架</button>
               </div>
             </div>
           )
@@ -231,6 +249,7 @@ export function FrameworksPage({
     </section>
     </div>
     {templateEditor && <TemplateDialog template={templateEditor === 'new' ? undefined : templateEditor} templates={templates} onClose={() => setTemplateEditor(undefined)} onSaved={async () => { setTemplateEditor(undefined); await refresh() }} showToast={showToast} />}
+    {manualCreating && <ManualFrameworkDialog templates={templates} initialTemplateId={templateId} onClose={() => setManualCreating(false)} onCreate={createManual} />}
     {editing && <FrameworkEditor framework={editing} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await refresh() }} showToast={showToast} />}
     {ConfirmPortal}
   </div>
@@ -239,6 +258,27 @@ export function FrameworksPage({
 function FrameworkCard({ framework, onNavigate, onEdit, onToggleLock, onRemove }: { framework: Framework; onNavigate(route: RouteId, params?: Record<string, string>): void; onEdit(): void; onToggleLock(): void; onRemove(): void }): React.JSX.Element {
   const hasDraftReference = framework.references.some((reference) => reference.sourceStatusSnapshot === 'draft')
   return <article className="framework-card"><header><div className="framework-card-badges"><span className={`badge ${framework.status === 'locked' ? 'success' : 'neutral'}`}>{framework.status === 'locked' ? <Lock size={11} /> : <FilePenLine size={11} />}{framework.status === 'locked' ? '已锁定' : '草稿'}</span>{hasDraftReference && <span className="badge warning">引用草稿</span>}</div><div><button className="icon-button" title="编辑" aria-label="编辑" onClick={onEdit}><Pencil size={15} /></button><button className="icon-button" title={framework.status === 'locked' ? '解锁' : '锁定'} aria-label={framework.status === 'locked' ? '解锁' : '锁定'} onClick={onToggleLock}>{framework.status === 'locked' ? <LockOpen size={15} /> : <Lock size={15} />}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div></header><div className="framework-card-title"><span>框架 · V{framework.versionCount}</span><h3>{framework.sections[0]?.content || framework.manualTopic || '未命名框架'}</h3></div><div className="framework-section-preview">{framework.sections.slice(1, 4).map((section) => <p key={section.name}><strong>{section.name}</strong>{section.content}</p>)}</div>{framework.status === 'locked' && <button className="button primary framework-next-step" onClick={() => onNavigate('articles', { frameworkId: framework.id })}><FilePenLine size={15} />写文章→</button>}<footer><span>{framework.model || '手动'} </span><span>{framework.materialIds.length} 条素材</span><span>{formatDate(framework.updatedAt)}</span></footer></article>
+}
+
+function ManualFrameworkDialog({ templates, initialTemplateId, onClose, onCreate }: { templates: FrameworkTemplate[]; initialTemplateId: string; onClose(): void; onCreate(topic: string, sectionNames: string[]): Promise<void> }): React.JSX.Element {
+  const fallbackTemplate = templates.find((item) => item.id === initialTemplateId) ?? templates.find((item) => item.isDefault) ?? templates[0]
+  const [topic, setTopic] = useState('')
+  const [templateId, setTemplateId] = useState(fallbackTemplate?.id ?? '')
+  const [sections, setSections] = useState<string[]>(fallbackTemplate?.sections ?? ['标题', '开头', '论点一', '论点二', '论点三', '结尾'])
+  const [saving, setSaving] = useState(false)
+  function applyTemplate(nextId: string): void {
+    setTemplateId(nextId)
+    const next = templates.find((item) => item.id === nextId)
+    if (next) setSections(next.sections)
+  }
+  function move(index: number, direction: -1 | 1): void {
+    const target = index + direction; if (target < 0 || target >= sections.length) return
+    setSections((current) => { const next = [...current]; const [item] = next.splice(index, 1); next.splice(target, 0, item); return next })
+  }
+  const cleaned = sections.map((item) => item.trim()).filter(Boolean)
+  const valid = Boolean(topic.trim()) && cleaned.length > 0 && new Set(cleaned).size === cleaned.length
+  async function save(): Promise<void> { setSaving(true); try { await onCreate(topic, cleaned) } finally { setSaving(false) } }
+  return <ModalBase open onClose={onClose} titleId="framework-manual-title" bare className="framework-template-dialog"><header><div><h2 id="framework-manual-title">手动新建框架</h2><p>不依赖模型：先立章节骨架，内容稍后在编辑器里逐节填写。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header><label className="field"><span>框架主题（会作为标题显示）</span><input name="manualFrameworkTopic" autoComplete="off" value={topic} maxLength={120} onChange={(event) => setTopic(event.target.value)} placeholder="例如：职场人必看的5个效率习惯…" /></label><label className="field"><span>起始模板</span><Select value={templateId} onChange={applyTemplate} placeholder="选择模板" options={templates.map((template) => ({ value: template.id, label: template.name, hint: template.isDefault ? '默认' : undefined }))} ariaLabel="起始模板" /></label><div className="framework-template-sections">{sections.map((section, index) => <div key={`${index}:${section}`}><strong>{index + 1}</strong><input name="sectionName" autoComplete="off" value={section} maxLength={50} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button className="icon-button" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={14} /></button><button className="icon-button" disabled={index === sections.length - 1} onClick={() => move(index, 1)}><ChevronDown size={14} /></button><button className="icon-button danger" disabled={sections.length === 1} onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></button></div>)}</div><button className="button ghost compact" disabled={sections.length >= 20} onClick={() => setSections((current) => [...current, ''])}><Plus size={15} />添加章节</button><footer><span>章节名称必填且不能重复</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !valid} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <PenLine size={15} />}创建空白框架</button></footer></ModalBase>
 }
 
 function TemplateDialog({ template, templates, onClose, onSaved, showToast }: { template?: FrameworkTemplate; templates: FrameworkTemplate[]; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
