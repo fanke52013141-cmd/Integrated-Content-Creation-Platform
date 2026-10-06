@@ -62,8 +62,8 @@ export interface FlowStage {
  * 而是作为独立资源区放在侧边栏底部。
  */
 export const CREATION_FLOW: readonly FlowStage[] = [
-  { id: 'accounts',   label: '账号',   sidebarLabel: '账号定位', group: '准备', inPipeline: true,  inWorkBar: false, optional: true },
-  { id: 'hotspots',   label: '热点',   sidebarLabel: '热点洞察', group: '准备', inPipeline: true,  inWorkBar: false, optional: true },
+  { id: 'accounts',   label: '账号',   sidebarLabel: '账号定位', group: '创作', inPipeline: true,  inWorkBar: false, optional: true },
+  { id: 'hotspots',   label: '热点',   sidebarLabel: '热点洞察', group: '创作', inPipeline: true,  inWorkBar: false, optional: true },
   { id: 'topics',     label: '选题',   sidebarLabel: '选题生成', group: '创作', inPipeline: true,  inWorkBar: false },
   { id: 'frameworks', label: '框架',   sidebarLabel: '内容框架', group: '创作', inPipeline: true,  inWorkBar: false },
   { id: 'articles',   label: '文章',   sidebarLabel: '文章创作', workBarLabel: '正文', group: '创作', inPipeline: true, inWorkBar: true },
@@ -73,8 +73,17 @@ export const CREATION_FLOW: readonly FlowStage[] = [
   { id: 'publishing', label: '发布',   sidebarLabel: '发布管理', group: '发布', inPipeline: true,  inWorkBar: true }
 ] as const
 
-/** 侧边栏分组渲染顺序 */
-export const NAV_GROUP_ORDER: readonly NavGroupTitle[] = ['总览', '准备', '创作', '发布'] as const
+/**
+ * 侧边栏分组渲染顺序（2026-10-06 收敛为 3 组）
+ *
+ * 旧结构是「总览 / 准备 / 创作 / 发布」4 组共 14 项，其中创作组单组就有 6 项。
+ * 问题不在数量本身，而是**顶部流程条、侧边栏、首页入口卡三处同时指向同一批目的地**，
+ * 用户想「写文章」要在三个地方找不同叫法（文章创作 / 正文 / 从主题开始）。
+ *
+ * 现结构：创作台 → 创作（9 阶段，收起时折叠为一个入口）→ 资源 → 系统。
+ * 阶段顺序完全不变，只是分组标题不再作为视觉层级参与导航。
+ */
+export const NAV_GROUP_ORDER: readonly NavGroupTitle[] = ['总览', '创作', '发布'] as const
 
 /** 顶部流水线：只取创作主链路 */
 export const PIPELINE_STAGES = CREATION_FLOW.filter((stage) => stage.inPipeline)
@@ -132,7 +141,12 @@ for (const [id, meta] of Object.entries(EXTRA_ROUTES)) {
   ROUTE_GROUPS[id as RouteId] = meta.group
 }
 
-/** 生成侧边栏主链路分组（不含总览与资源区） */
+/**
+ * 生成侧边栏主链路分组（不含总览与资源区）
+ *
+ * 「发布」是创作链路的最后一步，语义上属于创作但视觉上需要收尾感，
+ * 因此仍单列一组；「准备」已并入「创作」（见 CREATION_FLOW）。
+ */
 export function buildSidebarGroups(): Array<{ title: NavGroupTitle; items: FlowStage[] }> {
   return NAV_GROUP_ORDER
     .filter((title) => title !== '总览')

@@ -1,4 +1,4 @@
-import { Layers, X } from 'lucide-react'
+import { ArrowRight, Layers, X } from 'lucide-react'
 import type { AccountProfileSummary, GenerationDomain, GenerationTask } from '../../../shared/contracts'
 import { GENERATION_DOMAIN_LABELS } from '../../../shared/contracts'
 import { WORKBAR_STAGES } from '../../../shared/creation-flow'
@@ -39,23 +39,37 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
   const local = useWorkDraft(work?.articleId ?? '', work?.savedMarkdown ?? '', work?.currentVersionId ?? '')
   if (!work) return null
   const account = accounts.find((item) => item.id === work.accountId)
+  // 当前阶段与下一步：完整阶段列表在侧边栏，这里只回答「走到哪了、接下来做什么」
+  const currentIndex = STAGES.findIndex((stage) => stage.id === work.stage)
+  const currentLabel = currentIndex >= 0
+    ? (STAGES[currentIndex].workBarLabel ?? STAGES[currentIndex].label)
+    : work.title
+  const nextStage = currentIndex >= 0 ? STAGES[currentIndex + 1] : undefined
   return (
     <div className="work-bar" aria-label="当前作品">
       <Layers size={15} className="work-bar-icon" aria-hidden />
       <button className="work-bar-title" title={work.title} onClick={() => onNavigate('articles', { articleId: work.articleId })}>{work.title}</button>
       <span className="work-bar-meta">{account?.name ?? '未绑定账号'} · 第 {work.versionCount} 版{work.status === 'locked' ? ' · 已锁定' : ''}</span>
       <span className={`badge ${local.dirty || local.status === 'error' ? 'warning' : 'success'}`} role="status">{local.status === 'loading' ? '读取草稿…' : local.status === 'saving' ? '正在暂存…' : local.status === 'error' ? '暂存失败' : local.dirty ? '已本地暂存 · 待保存版本' : `已保存第 ${work.versionCount} 版`}</span>
-      <div className="segmented work-bar-stages" role="group" aria-label="创作阶段">
-        {STAGES.map((stage) => (
+      {/* 2026-10-06：阶段按钮由「5 个并列」改为「当前阶段 + 下一步」。
+          原设计把 5 个阶段平铺成一条，形似导航，与侧边栏的创作组指向同一批目的地——
+          用户想「写文章」要在两处找不同叫法（文章创作 / 正文），是重复导航的根源。
+          保留本栏的独有价值：当前作品走到哪了、下一步做什么、点了直接跳。
+          完整阶段列表交给侧边栏，这里只回答「接下来做什么」。 */}
+      <div className="work-bar-stages" role="group" aria-label="当前阶段与下一步">
+        <span className="work-bar-stage-now">
+          第 {currentIndex + 1}/{STAGES.length} 步 · {currentLabel}
+        </span>
+        {nextStage && (
           <button
-            key={stage.id}
-            className={stage.id === work.stage ? 'active' : ''}
-            onClick={() => onNavigate(stage.id, { articleId: work.articleId })}
-            aria-current={stage.id === work.stage ? 'step' : undefined}
+            className="work-bar-stage-next"
+            onClick={() => onNavigate(nextStage.id, { articleId: work.articleId })}
+            title={`前往「${nextStage.workBarLabel ?? nextStage.label}」`}
           >
-            {stage.workBarLabel ?? stage.label}
+            下一步：{nextStage.workBarLabel ?? nextStage.label}
+            <ArrowRight size={13} aria-hidden />
           </button>
-        ))}
+        )}
       </div>
       <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={14} /></button>
     </div>

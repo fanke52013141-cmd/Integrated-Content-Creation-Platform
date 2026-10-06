@@ -1,0 +1,43 @@
+Design a desktop screen for 心流, a local-first Chinese content pipeline tool. ALL UI labels in Simplified Chinese. This is the 账号定位 (Account Positioning) page — defining the writing persona/persona voice used across all generated articles.
+
+PRODUCT CONTEXT
+A marketing team writes for several distinct WeChat accounts. Each account has a defined persona: its audience, tone of voice, content boundaries, and preferred article structure. This page manages those personas. The list of accounts is small (3-8), so this page should feel like a set of cards to compare, NOT a dense table. Each account card shows its key settings at a glance.
+
+SIDEBAR (fixed 232px) — same as every page:
+Exactly 3 collapsible groups. 创作 (expanded, all 9 stages with small step numbers: 账号定位 (ACTIVE) / 热点洞察 / 选题生成 / 内容框架 / 文章创作 / 内容评审 / 智能配图 / 文章排版 / 发布管理), 资源 (collapsed: 素材库, 提示词), 系统 (collapsed: 数据与备份, AI 服务). Active item = light blue tint + 2px left accent bar. No top progress stepper.
+
+TOP BAR (minimal): breadcrumb left; right side has theme toggle icon button, task center icon button, account chip.
+
+LAYOUT — SINGLE COLUMN, TWO BLOCKS
+BLOCK 1 (main, top) — 账号列表:
+- Section header 账号定位 with count "4 个" and a primary button 新建账号 (near-black) on the right
+- A 2x2 grid of account cards, gap 16px. Each card:
+  - Top row: avatar placeholder (a rounded square, 36px, neutral gray, containing the account's first character in 15px) + name (16px semibold) + a status badge: 已启用 (green text) or 草稿 (neutral)
+  - A muted one-line description of the persona, e.g. 面向 25-35 岁职场新人的考编经验分享，语气务实、不夸张
+  - A small definition list with 3 rows, label 13px tertiary / value 14px:
+    受众: 25-35 岁在职备考人
+    语气: 务实、有细节、不打鸡血
+    结构: 问题 → 经历 → 方法 → 提醒
+  - A footer row inside the card: 12px muted 使用中 · 关联 12 篇文章, and on the right two small text buttons 编辑 / 复制
+  - ONE card is the current account: light blue tinted background (#eef4ff-ish), 2px left accent bar, plus a tiny text 当前 at top-right in blue
+  - One card is 草稿 status with muted appearance
+
+BLOCK 2 (below) — 编辑区 for the current account:
+- Section header 账号语气 (editing 当前账号: 深圳南山教师招聘)
+- Two-column form inside one white card, gap 20px:
+  - Left column: 账号名称 (input, filled 深圳南山教师招聘), 受众描述 (textarea 3 rows, filled 面向 25-35 岁在职备考人，首次参加教师招聘笔试，预算有限、怕踩坑), 语气特点 (textarea 2 rows, filled 务实、有细节、不打鸡血、不用"姐妹们"这类称呼)
+  - Right column: 文章结构 with a small ordered list of 4 draggable-looking rows (问题 → 经历 → 方法 → 提醒) each with a small grip icon on the left and a tiny × on the right; a small outline button 添加章节 below
+  - Bottom of the card spans full width: 内容边界 with 3 small removable chips 避免焦虑营销 / 不承诺编考结果 / 不引用未标注来源, plus an outline chip 添加边界; and a muted line 已禁用 3 项表达方式
+  - Card footer: a hairline then two buttons right-aligned — ghost 取消 and primary 保存修改
+
+COLOR DISCIPLINE — STRICT
+ONE brand blue #0062c4 as the only decorative hue — links, active nav, focus rings, the 当前 card highlight, focus within inputs. Primary buttons near-black #1d1d1f. Cancel buttons ghost/outline only.
+Saturated color ONLY for semantics: green #047857 = 已启用, amber #b25000 = 草稿/未启用, red #c5221a = 删除/错误. Nothing else.
+NO purple, pink, orange, teal, rainbow. NO gradients, glassmorphism, emoji, illustrations, or colored avatar backgrounds. The avatar is neutral gray, not a color-coded blob.
+
+VISUAL SPEC
+Canvas #f5f5f7. Cards white #ffffff with hairline border #e8e8ed and very subtle shadow. Radius 8px buttons/inputs/chips, 12px cards, max 16px. Spacing 4/8/12/16/20/24/32. Chinese system font (PingFang SC / Microsoft YaHei). Body 14px, meta 13px, page title 20px semibold, section header 15px semibold. 1.5px stroke line icons 16px Lucide style. All text WCAG AA 4.5:1 minimum.
+
+Mood: organized and calm. Cards should feel comparable at a glance — the user is usually scanning to pick or confirm an account, not reading deeply.
+
+Desktop 1440x900.

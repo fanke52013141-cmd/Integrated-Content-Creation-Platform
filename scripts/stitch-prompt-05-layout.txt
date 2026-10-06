@@ -1,0 +1,46 @@
+Design a desktop screen for 心流, a local-first Chinese content pipeline tool. ALL UI labels in Simplified Chinese. This is the 文章排版 (Article Layout) page — turning a finished draft into a WeChat-ready formatted article and exporting it.
+
+PRODUCT CONTEXT
+The draft is done. This page applies a layout template (theme + reference article), lets the user tweak insert points and interaction lines, shows a live WeChat-accurate preview, and exports to the WeChat official account backend. Two distinct content types live here: the layout plan (editable) and the rendered preview (output). The preview must look like the final WeChat article — white background, NOT themed to the app.
+
+SIDEBAR (fixed 232px) — same as every page:
+Exactly 3 collapsible groups. 创作 (expanded, all 9 stages with small step numbers: 账号定位 / 热点洞察 / 选题生成 / 内容框架 / 文章创作 / 内容评审 / 智能配图 / 文章排版 (ACTIVE) / 发布管理), 资源 (collapsed: 素材库, 提示词), 系统 (collapsed: 数据与备份, AI 服务). Active item = light blue tint + 2px left accent bar. No top progress stepper.
+
+TOP BAR (minimal): breadcrumb left; right side has theme toggle icon button, task center icon button, account chip.
+
+LAYOUT — THREE COLUMNS
+LEFT RAIL 260px — inputs:
+- Header: 版式与资源
+- Section 排版模板: a small vertical list of 3 template options, each a row with a tiny thumbnail placeholder (gray rounded rect 48x32) + name + a check for the selected one: 简约留白 (selected) / 学术严谨 / 活泼卡片
+- Section 配图资产: a 2x3 grid of small square image placeholders (neutral gray, each with a tiny label文内图 1), plus one dashed-border dropzone tile with a plus icon and text 导入本地图
+- Section 交互设置: two small rows with compact controls — 插入位置 (a small select reading 正文第 3 段后) and 互动语 (a single-line input reading 觉得有用的话欢迎点个在看)
+
+CENTER — the rendered output (visual protagonist, ~48% width):
+- A compact toolbar on top: a muted label 渲染结果 with a hairline border around the preview frame
+- A PHONE-FRAME PREVIEW: a centered narrow column (~340px wide) with a small phone chrome header (a thin bar with a tiny title 深圳南山教师招聘考经验帖 and a muted 375px label) — this frames the article as it will appear on a phone
+- Inside the white article body: a large title, then 4-5 real paragraphs of plausible Chinese 考编 content (NOT lorem ipsum), a centered image placeholder (neutral gray block, 100% width, ~120px tall, with a tiny caption 图 1), a subtle left-border blockquote, and a small muted 点赞 · 在看 · 分享 action row at the very bottom
+- The preview body background is pure WHITE #ffffff even though the app canvas is gray — this is intentional "preview = published result"
+- Below the phone frame: a muted footnote 预览与实际发布使用同一套排版结果，微信客户端字体渲染可能有细微差异。
+
+RIGHT RAIL 300px — export actions:
+- Header: 导出到公众号
+- A short muted paragraph: 复制到公众号后台后样式与这里一致。图片需要先上传。
+- Two prominent actions stacked with full-width buttons:
+  - Primary (near-black): 复制图文（带格式） with a short hint line beneath: 图片会自动上传到「深圳南山教师招聘」 · 共 4 张
+  - Secondary outline: 复制正文，手动插图 with hint 图片将替换为 编号占位符，离线可用
+- Section 其他格式: three small ghost buttons in a row: Markdown / HTML / 导出文件
+- A small hairline divider
+- Section 合规检查 with 3 rows: 标题字数 26/64 ✓ (green), 图片格式 全部合规 ✓ (green), 公众号样式丢失 0 处 ✓ (green). One row shows a warning state instead: 二维码 已移除 (amber) with a tiny 查看原因 link.
+
+COLOR DISCIPLINE — STRICT
+ONE brand blue #0062c4 as the only decorative hue — links, active nav, focus rings, the selected template check. Primary buttons near-black #1d1d1f.
+Saturated color ONLY for semantics: green #047857 = 合规/成功, amber #b25000 = 提醒/未核实, red #c5221a = 错误. Nothing else.
+CRITICAL: the rendered article preview must be pure white and contain NO blue accents — WeChat articles are plain. The blue discipline applies to the app chrome around it, not to the article body.
+NO purple, pink, orange, teal, gradients, glassmorphism, emoji, illustrations.
+
+VISUAL SPEC
+App canvas #f5f5f7. Rails and cards white #ffffff with hairline border #e8e8ed. Radius 8px buttons/inputs, 12px cards, max 16px. Spacing 4/8/12/16/20/24/32. Chinese system font (PingFang SC / Microsoft YaHei). Body 14px, meta 12-13px, page title 20px semibold, section header 15px semibold. 1.5px stroke line icons 16px Lucide style. All text WCAG AA 4.5:1 minimum.
+
+Mood: precise and production-ready. This is the last stop before publishing; it should feel like a preflight check.
+
+Desktop 1600x1000.

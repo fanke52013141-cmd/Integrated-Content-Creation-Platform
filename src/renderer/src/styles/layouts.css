@@ -1,0 +1,157 @@
+/* ═══════════════════════════════════════════════════════════
+   布局范式（2026-10-06 新增）
+   四种页面骨架，与 DESIGN.md §6 一一对应。新页面直接套用，
+   不要每页另起一套栅格 —— 这正是"视觉一致性"能守住的前提。
+
+   范式 A · 单栏区块流   .layout-stack
+   范式 B · 列表+筛选双栏 .layout-split / .filter-rail
+   范式 C · 三栏工作台    .layout-desk / .ctx-rail / .desk-rail
+   范式 D · 卡片对比      .layout-cards
+
+   规范：分隔线共用 --border；栏间不另加粗线或阴影分隔，
+   读起来是一个整体工作台，而不是几块独立面板。
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 范式 A · 单栏区块流 ── */
+.layout-stack { display: flex; flex-direction: column; gap: var(--space-xl); }
+.layout-stack > section { display: flex; flex-direction: column; gap: var(--space-md); }
+.layout-stack > section > header { display: flex; align-items: baseline; gap: var(--space-md); }
+.layout-stack > section > header h3 { font-size: 15px; font-weight: 600; }
+.layout-stack > section > header .text-button { margin-left: auto; }
+
+/* ── 范式 B · 列表 + 筛选双栏 ── */
+.layout-split {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.filter-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  align-self: stretch;
+  padding: var(--space-lg);
+  border-right: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+.filter-rail h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+/* 结果区：行式列表而非卡片网格 —— 用户一次要扫 20-50 条 */
+.split-results { display: flex; flex-direction: column; min-width: 0; }
+.split-results > header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+.split-results > header h3 { font-size: 15px; font-weight: 600; }
+.split-results > header .text-button,
+.split-results > header .button { margin-left: auto; }
+/* 行：72px 高、发丝分隔线，当前项左侧色条 */
+.result-rows { list-style: none; margin: 0; padding: 0; }
+.result-rows > li { border-bottom: 1px solid var(--border-subtle); }
+.result-rows > li:last-child { border-bottom: 0; }
+@media (max-width: 1023px) {
+  .layout-split { grid-template-columns: minmax(0, 1fr); }
+  .filter-rail { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+
+/* ── 范式 C · 三栏工作台 ── */
+.layout-desk {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
+  align-items: start;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.ctx-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  align-self: stretch;
+  padding: var(--space-lg);
+  border-right: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+.ctx-rail h4 {
+  margin: 0 0 var(--space-sm);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.ctx-rail section { display: flex; flex-direction: column; gap: var(--space-sm); }
+.desk-rail {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  padding: var(--space-lg);
+  border-left: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+/* 窄窗口：右栏落回正文下方，避免把画布挤窄 */
+@media (max-width: 1279px) {
+  .layout-desk { grid-template-columns: 260px minmax(0, 1fr); }
+  .desk-rail { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); }
+}
+@media (max-width: 1023px) {
+  .layout-desk { grid-template-columns: minmax(0, 1fr); }
+  .ctx-rail { border-right: 0; border-bottom: 1px solid var(--border); }
+  .desk-rail { grid-column: auto; }
+}
+
+/* 范式 C- · 双栏工作台（无左上下文栏时用）
+   与 .layout-desk 同源，只是省掉 260px 左栏，画布直接占主位。
+   文章工作台属于这一类：文章列表已由外层 .article-workbench 提供，
+   内部只需「画布 + 右栏」。 */
+.layout-desk.two-col { grid-template-columns: minmax(0, 1fr) 320px; }
+@media (max-width: 1279px) {
+  .layout-desk.two-col { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── 范式 D · 卡片对比 ── */
+.layout-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-base);
+}
+.compare-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+}
+/* 当前项：浅蓝底 + 2px 左缘色条，与导航选中态同一种表达 */
+.compare-card.current {
+  background: var(--primary-weak);
+  box-shadow: inset 2px 0 var(--primary);
+}
+/* 卡片内定义列表：标签弱、数值实 */
+.compare-card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px var(--space-base); margin: 0; }
+.compare-card dt { color: var(--text-tertiary); font-size: 13px; }
+.compare-card dd { margin: 0; font-size: 14px; }
+.compare-card footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+.compare-card footer .text-button:last-child { margin-left: auto; }

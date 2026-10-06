@@ -208,7 +208,10 @@ function AccountList({
           <section className="account-card-grid">
             <VirtualList
               items={filtered}
-              estimateSize={() => 90}
+              /* 卡片实测高度约 200px（16px 内边距 ×2 + 头像 36 + 标题 16+16
+                 + 简介两行 42 + 领域标签 24 + footer 34）。
+                   原估 90px 严重偏小，滚动时会跳。 */
+              estimateSize={() => 208}
               renderItem={(account) => (
                 <button
                   key={account.id}

@@ -45,7 +45,7 @@ p { line-height: 1.65; }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-::selection { background: var(--purple-200); color: var(--text); }
+::selection { background: var(--primary-weak); color: var(--text); }
 
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-thumb {
@@ -360,7 +360,7 @@ input[type="checkbox"], input[type="radio"] {
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.badge.primary { background: var(--purple-50); color: var(--purple-600); }
+.badge.primary { background: var(--primary-wash); color: var(--primary); }
 .badge.success { background: var(--green-50); color: var(--green-600); }
 .badge.warning { background: var(--amber-50); color: var(--amber-600); }
 .badge.danger { background: var(--red-50); color: var(--red-600); }
@@ -394,8 +394,8 @@ input[type="checkbox"], input[type="radio"] {
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--purple-50);
-  color: var(--purple-600);
+  background: var(--primary-wash);
+  color: var(--primary);
   font-size: 11px;
   font-weight: 600;
 }
@@ -507,16 +507,18 @@ input[type="checkbox"], input[type="radio"] {
   transition: color var(--transition-fast), background var(--transition-fast);
 }
 .pipeline-step .step-icon { display: inline-flex; }
+/* 当前步骤：走品牌蓝语义档，不再借道 legacy purple 阶梯
+   （--purple-600 实为 #0062c4，与 --primary 同值，属于历史遗留别名）。 */
 .pipeline-step.current {
-  background: var(--purple-50);
-  color: var(--purple-600);
+  background: var(--primary-weak);
+  color: var(--primary);
   font-weight: 600;
 }
 .pipeline-step.done { color: var(--text-secondary); }
 .pipeline-step.done .step-icon { color: var(--success); }
 .pipeline-step:hover:not(.current):not(:disabled) { color: var(--text); background: var(--surface-muted); }
 .pipeline-step-arrow { color: var(--border-strong); flex-shrink: 0; }
-:root[data-theme="dark"] .pipeline-step.current { background: var(--purple-100); }
+:root[data-theme="dark"] .pipeline-step.current { background: var(--primary-weak); }
 
 /* 下一步引导条 */
 .next-step-bar {
@@ -525,19 +527,19 @@ input[type="checkbox"], input[type="radio"] {
   gap: var(--space-md);
   padding: 12px 16px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(120deg, var(--purple-50), var(--surface) 60%);
-  border: 1px solid var(--purple-100);
+  background: linear-gradient(120deg, var(--primary-wash), var(--surface) 60%);
+  border: 1px solid var(--primary-weak);
 }
 .next-step-bar .next-step-text { flex: 1; min-width: 0; font-size: 13px; color: var(--text-secondary); }
 .next-step-bar .next-step-text strong { color: var(--text); font-weight: 600; }
-:root[data-theme="dark"] .next-step-bar { border-color: var(--purple-100); }
+:root[data-theme="dark"] .next-step-bar { border-color: var(--primary-weak); }
 
 /* ── 8. 加载 / 骨架 / 空态 / 错误态 ── */
 .spinner {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid var(--purple-200);
+  border: 2px solid var(--primary-weak);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -742,8 +744,8 @@ input[type="checkbox"], input[type="radio"] {
   text-align: left;
 }
 .select-option:hover { background: var(--surface-muted); }
-.select-option.selected { background: var(--purple-50); color: var(--purple-600); font-weight: 500; }
-:root[data-theme="dark"] .select-option.selected { background: var(--purple-100); }
+.select-option.selected { background: var(--primary-wash); color: var(--primary); font-weight: 500; }
+:root[data-theme="dark"] .select-option.selected { background: var(--primary-weak); }
 .select-option-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .select-option-hint { font-size: 11.5px; color: var(--text-tertiary); flex-shrink: 0; }
 .select-option-check { color: var(--primary); flex-shrink: 0; }
@@ -753,23 +755,23 @@ input[type="checkbox"], input[type="radio"] {
 .streaming-preview {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--purple-100);
+  border: 1px solid var(--primary-weak);
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
   overflow: hidden;
   animation: fade-up var(--transition-base);
   min-height: 0;
 }
-:root[data-theme="dark"] .streaming-preview { border-color: var(--purple-100); }
+:root[data-theme="dark"] .streaming-preview { border-color: var(--primary-weak); }
 .streaming-preview-head {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--purple-50);
+  background: var(--primary-wash);
 }
-:root[data-theme="dark"] .streaming-preview-head { background: var(--purple-100); }
+:root[data-theme="dark"] .streaming-preview-head { background: var(--primary-weak); }
 .streaming-preview-head h3 { font-size: 13px; font-weight: 600; }
 .streaming-preview-head p { font-size: 12px; color: var(--text-tertiary); }
 .streaming-preview-body {

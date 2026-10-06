@@ -79,6 +79,55 @@
   padding: 6px 10px 4px;
 }
 
+/* ── 可折叠分组（2026-06 新增）──
+   创作链路有 9 步，展开后会把资源区与系统区顶出视口。
+   标题从纯文字改为可点击按钮，承载展开/收起；其余组仍用静态标题。 */
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 6px 10px 4px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.nav-group-toggle:hover { color: var(--text-secondary); background: var(--surface-subtle); }
+.nav-group-toggle small {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-tertiary);
+}
+/* 箭头：收起时朝右，展开时朝下 */
+.nav-group-caret { flex-shrink: 0; transition: transform var(--transition-fast); }
+.nav-group-flow.collapsed .nav-group-caret { transform: rotate(-90deg); }
+
+/* 收起且当前路由在该组内时，把当前阶段名显示为组标题的副标签，
+   否则用户会看到"创作"下面什么都没有，不知道自己在哪。 */
+.nav-group-current {
+  padding: 2px 10px 0 28px;
+  font-size: 12px;
+  color: var(--primary);
+}
+
+/* 可选阶段标记：与「当前」区分，用弱化文字而非彩色 */
+.nav-item-hint {
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .nav-item {
   position: relative;
   display: flex;
@@ -127,6 +176,13 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+/* 系统组标题与上方「资源」组标题视觉对齐：同padding、同字号。
+   .sidebar-system 自身有 10px 内边距，故标题额外收 10px 横向补偿，
+   否则会比上方分组标题左移一截。 */
+.sidebar-system > .nav-group-title {
+  padding: 4px 0 6px;
+  margin-top: -2px;
 }
 
 /* ── 主区 ── */
@@ -335,7 +391,40 @@
 }
 .work-bar-title:hover { color: var(--primary); }
 .work-bar-meta { color: var(--text-tertiary); font-size: 12px; }
-.work-bar-stages { margin-left: auto; }
+/* 阶段区（2026-10-06 改）
+   原为 5 个阶段按钮平铺（.segmented），形似第二条导航条。
+   现改为「当前进度 + 下一步」：本栏只回答「走到哪了、接下来做什么」，
+   完整阶段列表交给侧边栏。 */
+.work-bar-stages {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+/* 当前进度：纯文字，不做成可点元素——它是状态不是导航 */
+.work-bar-stage-now {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+/* 下一步：唯一可点项，用主色表达"这里还有动作" */
+.work-bar-stage-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px var(--space-md);
+  border: 1px solid var(--primary-line);
+  border-radius: var(--radius-full);
+  background: var(--primary-wash);
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.work-bar-stage-next:hover { background: var(--primary-weak); border-color: var(--primary); }
+.work-bar-stage-next:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ── 任务中心：生成台账的可见入口 ── */
 .task-center-dialog { width: min(620px, 100%); }

@@ -37,6 +37,20 @@
   --primary-bright: #0071e3;   /* 图形/图标用，不用于正文 */
   --accent: var(--primary);
   --accent-strong: var(--primary-hover);
+  /* ── 品牌蓝的浅深档位（语义别名，2026-10-06 新增）──
+   * `--primary` 只有一档，但实际需要「极浅底 / 浅底 / 浅边 / 深字」几种深度。
+   * 历史上有 --purple-* 这组别名，实为同一支蓝（--purple-600 === --primary），
+   * 但名字误导——读代码的人会以为这里有第二种色相。已逐步替换为下列语义名。
+   *
+   * 档位对应（实色，亮色下）：primary-wash #eef4ff 浅于 primary-weak #dce9ff
+   * 浅于 primary-line #8fbcff深于 primary-hover #0059b8。
+   * 注意：primary-weak 在暗色下是半透明 rgba，非实色，这是刻意的——
+   * 暗色底本就更暗，实色浅蓝会过亮。 */
+  --primary-wash: #eef4ff;/* 最浅底 */
+  --primary-weak: #dce9ff;       /* 浅底：选中态 / hover */
+  --primary-line: #8fbcff;      /* 浅边：dashed 占位框 */
+  --primary-hover: #0059b8;
+
   --focus: rgba(0, 98, 196, 0.22);
   --success: #047857;          /* 5.04:1 ✓（原 #34c759 仅 2.04:1，承载「已验证」等关键状态）*/
   --success-bright: #34c759;   /* 色块/图标用 */
@@ -63,16 +77,23 @@
     radial-gradient(900px 480px at 98% 2%, rgba(255, 149, 0, 0.055), transparent 62%),
     #f5f5f7;
 
-  /* ── 创作流水线阶段色（账号→发布） ── */
-  --stage-account: #0ea5e9;
-  --stage-hotspot: #f97316;
-  --stage-topic: #7c3aed;
-  --stage-framework: #6366f1;
-  --stage-article: #2563eb;
-  --stage-review: #d97706;
-  --stage-visual: #db2777;
-  --stage-layout: #059669;
-  --stage-publish: #16a34a;
+  /* ── 创作流水线阶段色：单色相渐进（2026-10-06 由 9 色相彩虹改为单色）──
+   * 原方案给 9 个阶段各配一个高饱和色相（橙/紫/靛/蓝/琥珀/粉/绿…），
+   * 结果是 3 个绿、2 个蓝语义重复，界面被"彩虹化"，9 个阶段无法互相区分。
+   * 现改为品牌蓝单一色相按进度由浅到深递进：
+   *   前段（浅、弱）= 尚未到达     后段（深、强）= 越接近发布
+   * 因为顺序即语义，深度本身就承载了"走到哪儿了"的信息。
+   * 语义色（success/warning/danger）是唯一的彩色预算，不再被阶段色稀释。
+   * 注意：色值仅用于色条/图形，不用于文字，故不要求 4.5:1。 */
+  --stage-1: #c7dcf2;   /* 账号定位 */
+  --stage-2: #b0d0ea;   /* 热点洞察 */
+  --stage-3: #94c2e2;   /* 选题生成 */
+  --stage-4: #74b1da;   /* 内容框架 */
+  --stage-5: #4f9dd0;   /* 文章创作 */
+  --stage-6: #3a86c0;   /* 内容评审 */
+  --stage-7: #2a6da9;   /* 智能配图 */
+  --stage-8: #1f5590;   /* 文章排版 */
+  --stage-9: #164274;   /* 发布管理 */
 
   /* ── 色阶 ──
    * xxx-600 用于文字，xxx-400/500 及 -bright 后缀用于图形。
@@ -176,6 +197,9 @@
   --accent: var(--primary);
   --accent-strong: var(--primary-hover);
   --focus: rgba(10, 132, 255, 0.38);
+  --primary-wash: rgba(10, 132, 255, 0.09);
+  --primary-weak: rgba(10, 132, 255, 0.18);
+  --primary-line: #4b9fff;
   --success: #30d158;
   --warning: #ffd60a;
   --danger: #ff453a;
@@ -194,16 +218,16 @@
     radial-gradient(900px 480px at 98% 2%, rgba(255, 159, 10, 0.045), transparent 62%),
     #0b0b0d;
 
-  /* ── 创作流水线阶段色（暗色提亮） ── */
-  --stage-account: #38bdf8;
-  --stage-hotspot: #fb923c;
-  --stage-topic: #a78bfa;
-  --stage-framework: #818cf8;
-  --stage-article: #60a5fa;
-  --stage-review: #fbbf24;
-  --stage-visual: #f472b6;
-  --stage-layout: #34d399;
-  --stage-publish: #4ade80;
+  /* ── 创作流水线阶段色（暗色：由浅到深反向，保持"越后越亮"的视觉重量）── */
+  --stage-1: #1c3550;
+  --stage-2: #1f4468;
+  --stage-3: #23557f;
+  --stage-4: #276699;
+  --stage-5: #2b7ab4;
+  --stage-6: #3590cf;
+  --stage-7: #4aa6e0;
+  --stage-8: #63bcec;
+  --stage-9: #82d0f5;
 
   --purple-50: rgba(10, 132, 255, 0.14);
   --purple-100: rgba(10, 132, 255, 0.22);

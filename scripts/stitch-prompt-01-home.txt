@@ -1,0 +1,50 @@
+Design a desktop dashboard screen for a Chinese local-first Windows desktop tool called 心流 — a content creation pipeline for a marketing content team. ALL UI labels must be in Simplified Chinese. This is the main 创作台 (Creation Desk) home screen.
+
+PRODUCT CONTEXT
+The app guides a writer through a 9-stage pipeline: 账号定位 → 热点洞察 → 选题生成 → 内容框架 → 文章创作 → 内容评审 → 智能配图 → 文章排版 → 发布管理. All data is stored locally on the user's own machine. It must feel trustworthy and private — not like a cloud SaaS dashboard.
+
+DESIGN DIRECTION: calm professional workbench
+- Do NOT make it a flashy consumer SaaS dashboard. No gradient hero banner, no glassmorphism, no oversized rounded cards, no emoji, no illustration.
+- Do NOT make it look like a code editor either.
+- Target feeling: a serious quiet workbench used 4 hours a day. Calm, organized, dense but breathable, trustworthy. A subtle hint of creativity from the accent color only.
+
+SIDEBAR — EXACTLY 3 COLLAPSIBLE GROUPS (this is the core fix)
+- 创作 (Creation) — expanded by default. Lists all 9 pipeline stages as one compact vertical sequence, each with a small step number badge: 账号定位 / 热点洞察 / 选题生成 / 内容框架 / 文章创作 / 内容评审 / 智能配图 / 文章排版 / 发布管理. The active stage 文章创作 is highlighted with a light tinted background plus a 2px left accent bar.
+- 资源 (Resources) — collapsed. Contains 素材库 and 提示词.
+- 系统 (System) — collapsed. Contains 数据与备份 and AI 服务.
+- Do NOT add any progress stepper across the top of the content area. The sidebar IS the only pipeline navigation. The top bar stays minimal: breadcrumb on the left; on the right a small circular theme-toggle icon button, a task-center icon button, and a compact account-switcher chip.
+
+STAGE COLORS — SINGLE-HUE PROGRESSION, NOT A RAINBOW (core fix)
+Use ONE brand blue (#0062c4) at varying lightness to express stage progression:
+- 已完成 (done): light blue tinted background, muted blue text
+- 进行中 (active): solid blue text, stronger blue tint, plus the left accent bar
+- 未开始 (todo): neutral gray text, no tint
+Saturated color ONLY for semantics: green = success/verified, amber = warning/blocked, red = error/destructive. No decorative colors anywhere else.
+
+CONTENT AREA — EXACTLY 2 BLOCKS, NOTHING ELSE
+BLOCK 1 (largest visual weight, top): section header 接着上次写
+One wide resume card:
+- Article title: 深圳南山教师招聘考经验帖
+- Meta line beneath: 未绑定账号 · 第 4 版 · 草稿 · 更新于 今天 15:42
+- Right side of card: a primary button 继续写作 with a pen icon, plus 3 small ghost icon-only buttons 评审 / 配图 / 排版
+- Directly below the card, one horizontal strip of 3 small outline buttons: 从热点开始 / 从资料开始 / 导入文章
+
+BLOCK 2 (secondary weight, below): section header 需要处理 · 3
+A simple 3-row list; each row = short status text on the left + one small text link on the right:
+- 2 个生成任务未全部成功 → 查看原因
+- 1 篇有本地暂存修改，尚未保存为版本 → 查看待保存
+- 3 个公众号草稿状态未确认 → 人工核对
+
+Do NOT add KPI stat tiles. Do NOT add charts. Do NOT add a 最近作品 list. Do NOT add an onboarding promo banner. Keep generous breathing room.
+
+VISUAL SPEC
+- Canvas #f5f5f7, cards #ffffff with hairline border (#e8e8ed) and very subtle shadow
+- Blue #0062c4 ONLY for links, active nav highlight, focus rings. Primary buttons are near-black #1d1d1f so blue stays reserved for links and selection.
+- Border radius: 8px buttons and inputs, 12px cards, nothing rounder than 16px
+- Spacing scale: 4 / 8 / 12 / 16 / 20 / 24 / 32, with generous vertical space between the two blocks
+- Chinese system font stack (PingFang SC / Microsoft YaHei). Body 14px, secondary 13px, section headers 15px semibold, page title 20px semibold
+- 1.5px stroke line icons, 16–18px, consistent Lucide-style set
+- All body text must meet WCAG AA contrast (4.5:1 minimum)
+- Sidebar width 232px, fixed, its own surface slightly distinct from the canvas
+
+Desktop 1440x900 only.

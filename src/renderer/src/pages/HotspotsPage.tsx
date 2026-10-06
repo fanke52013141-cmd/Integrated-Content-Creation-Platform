@@ -49,7 +49,6 @@ import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream
 import { useModelTarget } from '../lib/models'
 import { ModalBase } from '../components/ModalBase'
 import { NextStepBar } from '../components/PageHeader'
-import { PipelineSteps } from '../components/PipelineSteps'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 
@@ -556,8 +555,11 @@ export function HotspotsPage({
 
   return (
     <div className="hotspots-page">
-      {/* 流程步骤条：与其它创作页保持一致，顺序来自 shared/creation-flow */}
-      <PipelineSteps current="hotspots" onNavigate={onNavigate} />
+      {/* 2026-10-06：移除页面顶部的 PipelineSteps。
+          侧边栏已承载完整 9 阶段流水线导航（shared/creation-flow 派生），
+          顶部再放一条同源导航会让用户在两处找同一目的地，
+          且这是全站唯一一处重复的流程条——其余页面均无。
+          导航统一由侧边栏承担。 */}
       <section className="hotspot-hero">
         <div>
           <h2>

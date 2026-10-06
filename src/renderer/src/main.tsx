@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/shell.css'
+import './styles/layouts.css'
 import './styles/pages.css'
 
 // Inject demo bridge when not running inside Electron (browser preview only)

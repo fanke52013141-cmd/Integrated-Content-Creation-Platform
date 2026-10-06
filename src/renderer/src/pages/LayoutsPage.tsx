@@ -295,6 +295,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                     <button className="button primary compact" disabled={busy} onClick={() => void copyRich('wechat')}><Copy size={14} />复制图文（带格式）</button>
                     <button className="button secondary compact" disabled={busy} onClick={() => void copyRich('placeholders')}>复制正文，手动插图</button>
                   </>)}
+                  <span className="layout-actions-sep" aria-hidden="true" />
                   <button className="button secondary compact" onClick={() => void copy(selected.plainText, '已复制纯文本正文')} title="复制不含样式的纯文本，适合小红书等纯文本编辑器"><Copy size={14} />复制纯文本</button>
                   <button className="button ghost compact" onClick={() => void copy(selected.html, 'HTML 源码已复制')} title="复制 HTML 源码，供网页或支持源码的编辑器使用"><Code2 size={14} />复制 HTML 源码</button>
                   <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={14} />导出 HTML 文件</button>

@@ -1,0 +1,40 @@
+Design a desktop screen for 心流, a local-first Chinese content pipeline tool. ALL UI labels in Simplified Chinese. This is the 热点洞察 (Hotspot Insight) page — browsing and harvesting content opportunities from trending topics.
+
+PRODUCT CONTEXT
+The user browses hot topics collected from external sources (social platforms, news) and saves promising ones as 选题素材 (topic seeds). This page is a dense browsing surface — the most list-heavy page in the app. Users scan 20-50 items at a time looking for one worth writing about.
+
+SIDEBAR (fixed 232px) — same as every page:
+Exactly 3 collapsible groups. 创作 (expanded, lists all 9 stages with small step numbers: 账号定位 / 热点洞察 (ACTIVE) / 选题生成 / 内容框架 / 文章创作 / 内容评审 / 智能配图 / 文章排版 / 发布管理), 资源 (collapsed: 素材库, 提示词), 系统 (collapsed: 数据与备份, AI 服务). Active item = light blue tint + 2px left accent bar. No top progress stepper.
+
+TOP BAR (minimal): breadcrumb left; right side has theme toggle icon button, task center icon button, account chip.
+
+LAYOUT — TWO COLUMNS: filter rail + results list
+LEFT RAIL 240px (compact, filters only, sticky):
+- Header:筛选条件
+- Search field with icon, placeholder 搜索热点关键词…
+- 平台 multi-select as small chips: 微博 (active) / 抖音 / 小红书 / 知乎
+- 时间范围 segmented control: 今日 / 本周 / 本月
+- 热度区间: a small dual-range or a simple min input, label 最低热度, value 8000
+- A small 已选条件 row showing 3 active filters with tiny × chips and a 清空 text button
+- Below a divider: 收藏夹 section with 3 saved filter presets as small list items
+
+MAIN AREA (flex):
+- A compact header row: title 热点洞察 with a count badge "1,248 条", and on the right 3 small outline buttons: 批量收藏 / 刷新 / 去选题 (the last one is primary-ish, it's the next pipeline step)
+- Below it a single-row filter summary line (muted 13px): 微博 · 本周 · 热度 ≥ 8000 · 已排序 by 热度
+- The list itself: rows, NOT a card grid. Each row height ~72px, hairline divider between rows, generous horizontal padding. Row layout:
+  - Left: a small square rank number badge (01 to 20, muted, monospace) — only top 3 get a blue tint, rest are gray
+  - Then: hot topic title (15px medium, may wrap to 2 lines) + below it a meta line (12px tertiary): platform tag + 热度 12.4万 + 采集于 2 小时前 + author if present
+  - Right: 2 small ghost icon buttons (收藏 star, 加入选题 plus), and a tiny 7-day sparkline trend glyph
+- One row is marked as 已收藏 with a small green check and subtle green-tinted left edge
+- Bottom: pagination with page numbers
+
+COLOR DISCIPLINE — STRICT
+ONE brand blue #0062c4 as the only decorative hue — links, active nav, focus rings, rank badges for top 3. Primary buttons near-black #1d1d1f.
+Saturated color ONLY for semantics: green #047857 = 已收藏/成功, amber #b25000 = 未核实/警告, red #c5221a = 错误. Nothing else. NO purple, pink, orange, teal, gradients, glassmorphism, emoji, illustrations, or colored platform tags. Platform names are plain text, not colored chips.
+
+VISUAL SPEC
+Canvas #f5f5f7. Rows on white surface #ffffff with hairline border #e8e8ed. Radius 8px buttons/inputs, 12px for containers, max 16px. Spacing 4/8/12/16/20/24/32. Chinese system font (PingFang SC / Microsoft YaHei). Body 14px, meta 12-13px, page title 20px semibold, section header 15px semibold with slight letter-spacing. 1.5px stroke line icons 16px Lucide style. All text WCAG AA 4.5:1 minimum.
+
+Mood: calm and scannable. Dense but not cramped. The list should feel like a well-set table in a serious tool — not a social feed.
+
+Desktop 1440x900.

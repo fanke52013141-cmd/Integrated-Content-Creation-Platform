@@ -104,24 +104,24 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
         )}
       </section>
 
-      <section className="home-entries">
-        <header><h3><FileInput size={15} /> 新建内容</h3></header>
-        <div className="home-entry-grid">
-          {entryPoints.map((entry) => {
-            const Icon = entry.icon
-            return (
-              <button key={entry.label} className="home-entry" onClick={() => onNavigate(entry.route, entry.params)}>
-                <span className="home-entry-icon"><Icon size={17} /></span>
-                <strong>{entry.label}</strong>
-                <small>{entry.hint}</small>
-              </button>
-            )
-          })}
-        </div>
-      </section>
+      {/* 2026-10-06 收敛：原为 4 张卡片（图标 + 标题 + 说明，共三行），
+          与「接着上次写」的续写卡片争夺主视线。
+          改为一行紧凑按钮：入口信息降级，续写卡片成为唯一主视觉。
+          4 个入口全部保留，只是不再以卡片形态呈现。 */}
+      <div className="home-entry-bar" role="group" aria-label="新建内容">
+        {entryPoints.map((entry) => {
+          const Icon = entry.icon
+          return (
+            <button key={entry.label} className="home-entry-chip" onClick={() => onNavigate(entry.route, entry.params)} title={entry.hint}>
+              <Icon size={14} />
+              <span>{entry.label}</span>
+            </button>
+          )
+        })}
+      </div>
 
       <section className="home-pending">
-        <header><h3><Clock3 size={15} /> 需要处理</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>打开任务中心</button>}</header>
+        <header><h3><Clock3 size={15} /> 需要处理{stuckTasks.length + pendingDrafts + unlockedDrafts > 0 && ` · ${stuckTasks.length + pendingDrafts + unlockedDrafts}`}</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>打开任务中心</button>}</header>
         <ul className="home-pending-list">
           {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="micro-copy">没有卡住的任务，也没有未保存的本地草稿。</li>}
           {stuckTasks.length > 0 && <li><span>{stuckTasks.length} 个生成任务未全部成功</span><button className="text-button" onClick={onShowTasks}>查看原因</button></li>}
@@ -130,9 +130,17 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
         </ul>
       </section>
 
+      {/* 「最近作品」改为可折叠（2026-10-06）
+          它是回溯功能，而首页的职责是回答「下一步做什么」。
+          默认收起、保留入口与数量提示：功能一点没少，只是不再占据主视线。
+          用原生 <details>，展开状态由浏览器管理，不引入新状态。 */}
       {recent.length > 0 && (
-        <section className="home-recent">
-          <header><h3><Sparkles size={15} /> 最近作品</h3></header>
+        <details className="home-recent">
+          <summary>
+            <Sparkles size={15} />
+            最近作品
+            <span className="home-recent-count">{recent.length}</span>
+          </summary>
           <ul className="home-recent-list">
             {recent.map((article) => (
               <li key={article.id}>
@@ -143,7 +151,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
     </div>
   )
