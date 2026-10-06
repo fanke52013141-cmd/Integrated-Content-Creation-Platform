@@ -273,15 +273,19 @@ function createMockBridge(): MoliuApi {
       createBackup: (): Promise<{ path: string; checksum: string }> =>
         Promise.resolve({ path: '/demo/workspace/backups/moliu-backup-demo', checksum: 'demo' }),
       restoreBackup: (): Promise<{ restoredImages: number }> => Promise.resolve({ restoredImages: 0 }),
-      listBackups: (): Promise<string[]> => Promise.resolve([])
+      listBackups: (): Promise<string[]> => Promise.resolve([]),
+      exportPortableBackup: () => Promise.resolve({ path: null }),
+      selectPortableBackup: () => Promise.resolve(null)
     },
     clipboard: {
+      prepareLayout: () => Promise.reject(new Error('请在桌面应用中复制排版稿')),
       writeRichText: (html: string): Promise<boolean> => {
         navigator.clipboard?.writeText(html)
         return Promise.resolve(true)
       }
     },
     providers: {
+      testAndSave: (input: any) => { const { apiKey: _key, ...config } = input; const stamp = new Date().toISOString(); return Promise.resolve({ ...config, id: input.id ?? crypto.randomUUID(), hasApiKey: true, verification: { configured: true, verified: true, stale: false, testedModel: input.defaultModel }, createdAt: stamp, updatedAt: stamp }) },
       presets: (): Promise<ProviderPreset[]> => Promise.resolve(DEMO_PROVIDER_PRESETS),
       list: () => emptyArray(),
       save: (input: unknown) => Promise.resolve(input),
@@ -425,6 +429,8 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     materials: {
+      document: () => Promise.resolve(null),
+      previewContext: () => Promise.resolve({ fragments: [], totalChars: 0, usedChars: 0, omittedChars: 0, text: '' }),
       list: () => emptyArray(),
       search: () => Promise.resolve({ items: [], total: 0 }),
       addSearchResult: () => void_(),
@@ -444,6 +450,12 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     articles: {
+      getSummary: () => Promise.resolve(null),
+      listRequests: () => emptyArray(),
+      continueResult: () => Promise.resolve({ articles: [], failed: [] }),
+      recoverResult: () => Promise.reject(new Error('演示模式没有可恢复内容')),
+      adoptCandidate: () => Promise.reject(new Error('演示模式没有候选')),
+      retryRequest: () => Promise.resolve({ articles: [], failed: [] }),
       listSummaries: () => Promise.resolve({ items: [], total: 0 }),
       getDraft: () => Promise.resolve(null),
       saveDraft: (input: any) => Promise.resolve({ ...input, revision: (input.expectedRevision ?? 0) + 1, updatedAt: new Date().toISOString() }),
@@ -471,6 +483,7 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     visuals: {
+      createManualPack: () => Promise.reject(new Error('请在桌面应用中导入图片')),
       list: () => emptyArray(),
       generate: () => void_(),
       remove: () => void_(),
@@ -513,6 +526,7 @@ function createMockBridge(): MoliuApi {
       remove: () => void_()
     },
     publishing: {
+      resolveUnknown: () => Promise.reject(new Error('演示模式没有交付记录')),
       getForm: () => Promise.resolve(null),
       saveForm: (input: unknown) => Promise.resolve(input),
       preflight: () => Promise.resolve({ ready: false, issues: ['请配置公众号连接'], localImageCount: 0, title: '', articleVersionNumber: 0, appId: '' }),

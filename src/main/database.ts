@@ -62,6 +62,9 @@ import { createDefaultTopicSchema, escapeXml } from '../shared/domain.js'
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../shared/contracts.js'
 
 interface ProviderRow {
+  connection_revision: number
+  tested_revision: number | null
+  tested_model: string | null
   id: string
   display_name: string
   protocol: 'openai-compatible'
@@ -261,8 +264,8 @@ interface GenerationTaskRow { id: string; domain: GenerationDomain; label: strin
 interface ReviewRoleRow { id:string; name:string; system_prompt:string; provider_id:string|null; model:string|null; extraction_tag:string; extraction_occurrence:'first'|'last'; dimensions_json:string; sort_order:number; created_at:string; updated_at:string }
 interface ReviewTaskRow { id:string; article_id:string; article_version_id:string; article_version_number:number; role_ids_json:string; failures_json:string; status:'running'|'completed'|'partial'|'failed'|'applied'; created_at:string; updated_at:string }
 interface ReviewOpinionRow { id:string; task_id:string; role_id:string|null; role_name:string; provider_id:string|null; model:string|null; dimensions_json:string; overall_suggestion:string; raw_xml:string; extraction_matched:number; created_at:string }
-interface ReviewProblemRow { id:string; opinion_id:string; position:string; severity:ReviewSeverity; issue:string; suggestion:string; adopted:number; is_manual:number; created_at:string }
-interface VisualPackRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; provider_id:string; model:string; cover_json:string; inline_images_json:string; release_images_json:string; raw_xml:string; created_at:string }
+interface ReviewProblemRow { evidence_json:string; id:string; opinion_id:string; position:string; severity:ReviewSeverity; issue:string; suggestion:string; adopted:number; is_manual:number; created_at:string }
+interface VisualPackRow { id:string; kind:'manual'|'generated'; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; provider_id:string|null; model:string|null; cover_json:string; inline_images_json:string; release_images_json:string; raw_xml:string; created_at:string }
 interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; theme_id:string|null; created_at:string }
 interface VisualAssetRow { id:string; pack_id:string; kind:'cover'|'inline'|'release'; slot:number; prompt:string; file_name:string; source:'generated'|'imported'; provider_id:string|null; model:string|null; size:string|null; wechat_media_id:string|null; wechat_uploaded_at:string|null; created_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
@@ -272,6 +275,8 @@ interface PromptVersionRow { id: string; prompt_key: string; version: number; co
 
 export class AppDatabase {
   private db: DatabaseSync
+  private transactionDepth = 0
+  atomic<T>(operation: () => T): T { return this.transaction(operation) }
   workflow: WorkflowRepository
   private readonly location: string
 
@@ -280,8 +285,7 @@ export class AppDatabase {
     this.db = new DatabaseSync(path)
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
-    this.migrate()
-    this.workflow = new WorkflowRepository(this.db)
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db) } catch (error) { this.db.close(); throw error }
   }
 
   close(): void {
@@ -321,8 +325,7 @@ export class AppDatabase {
   private reopen(): void {
     this.db = new DatabaseSync(this.location)
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
-    this.migrate()
-    this.workflow = new WorkflowRepository(this.db)
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db) } catch (error) { this.db.close(); throw error }
   }
 
   /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */
@@ -334,6 +337,7 @@ export class AppDatabase {
       if (probe.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') return false
       const required = ['articles', 'article_versions', 'providers', 'visual_assets', 'publications', 'work_drafts', 'publication_snapshots']
       const tables = new Set(probe.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => String(row.name)))
+      if (tables.has('schema_migrations') && Number(probe.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > 2) return false
       return required.every(name => tables.has(name)) && probe.prepare('PRAGMA foreign_key_check').all().length === 0
     } catch {
       return false
@@ -343,6 +347,10 @@ export class AppDatabase {
   }
 
   private migrate(): void {
+    const hasMigrations = this.db.prepare("SELECT name FROM sqlite_master WHERE name='schema_migrations'").get()
+    if (hasMigrations && Number(this.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > 2) throw new Error('数据库由更高版本创建，请升级应用后打开')
+    const existingSchema = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='articles'").get()
+    if (existingSchema && this.location !== ':memory:' && !existsSync(`${this.location}.pre-optimization`)) this.backupTo(`${this.location}.pre-optimization`)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,
@@ -709,12 +717,14 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
     `)
     this.ensureAddedColumns()
+    this.upgradeVisualPacks()
     this.ensureTopicSchema()
     this.ensureSearchService()
     this.ensureWechatPublishChannel()
     this.ensureFrameworkTemplate()
     this.ensureReviewRoles()
     this.markInterruptedGenerationTasks()
+    this.db.prepare('INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(2, new Date().toISOString())
   }
 
   /**
@@ -727,10 +737,14 @@ export class AppDatabase {
       ['providers', 'last_test_status', 'TEXT'],
       ['providers', 'last_test_at', 'TEXT'],
       ['providers', 'last_test_error', 'TEXT'],
+      ['providers', 'connection_revision', 'INTEGER NOT NULL DEFAULT 0'],
+      ['providers', 'tested_revision', 'INTEGER'],
+      ['providers', 'tested_model', 'TEXT'],
       ['model_calls', 'error_message', 'TEXT'],
       ['review_tasks', 'article_version_id', "TEXT NOT NULL DEFAULT ''"],
       ['review_tasks', 'article_version_number', 'INTEGER NOT NULL DEFAULT 1'],
       ['review_tasks', 'failures_json', "TEXT NOT NULL DEFAULT '[]'"],
+      ['review_problems', 'evidence_json', "TEXT NOT NULL DEFAULT '{}'"],
       ['publications', 'retro_json', 'TEXT'],
       ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"]
     ]
@@ -739,6 +753,28 @@ export class AppDatabase {
       if (!columns.length || columns.some((item) => item.name === column)) continue
       this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
     }
+  }
+
+  private upgradeVisualPacks(): void {
+    const columns = this.db.prepare('PRAGMA table_info(visual_packs)').all()
+    if (columns.some(item => item.name === 'kind')) return
+    this.db.exec('PRAGMA foreign_keys=OFF')
+    try {
+      this.transaction(() => {
+        this.db.exec(`CREATE TABLE visual_packs_next (
+          id TEXT PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'generated' CHECK(kind IN ('manual','generated')),
+          article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE, article_version_id TEXT NOT NULL,
+          article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),
+          provider_id TEXT, model TEXT, cover_json TEXT NOT NULL, inline_images_json TEXT NOT NULL,
+          release_images_json TEXT NOT NULL, raw_xml TEXT NOT NULL, created_at TEXT NOT NULL);
+          INSERT INTO visual_packs_next(id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at)
+            SELECT id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at FROM visual_packs;
+          DROP TABLE visual_packs;
+          ALTER TABLE visual_packs_next RENAME TO visual_packs;
+          CREATE INDEX idx_visual_packs_article ON visual_packs(article_id,created_at DESC);`)
+        if (this.db.prepare('PRAGMA foreign_key_check').all().length) throw new Error('配图数据升级校验失败')
+      })
+    } finally { this.db.exec('PRAGMA foreign_keys=ON') }
   }
 
   /** 上次进程退出/崩溃时仍在 running 的任务，重启后如实标记为中断，不留"假进行中" */
@@ -795,12 +831,14 @@ export class AppDatabase {
   /** 文件上传素材：以 file_upload 来源入库 */
   addFileMaterial(input: { fileName: string; content: string; relatedTopicId?: string; formatNote: string }): Material {
     const title = input.fileName.replace(/.[^.]+$/, '').slice(0, 500) || '未命名文档'
-    return this.addManualMaterial({
+    const material = this.addManualMaterial({
       title,
-      summary: input.content,
-      sourceNote: `文件上传 · ${input.formatNote}`,
+      summary: input.content.slice(0, 2000),
+      sourceNote: `文件上传 · ${input.formatNote} · 全文 ${input.content.length} 字符（未保留原件）`,
       relatedTopicId: input.relatedTopicId
     }, 'file_upload')
+    this.workflow.saveDocument(material.id, createHash('sha256').update(input.content).digest('hex'), input.content)
+    return material
   }
 
   /**
@@ -835,7 +873,7 @@ export class AppDatabase {
   recordProviderTest(id: string, status: 'success' | 'failure', error?: string): void {
     this.db.prepare(`
       UPDATE providers
-      SET last_test_status = ?, last_test_at = ?, last_test_error = ?
+      SET last_test_status = ?, last_test_at = ?, last_test_error = ?, tested_revision=connection_revision, tested_model=default_model
       WHERE id = ?
     `).run(status, new Date().toISOString(), status === 'failure' ? (error?.slice(0, 500) ?? null) : null, id)
   }
@@ -864,14 +902,16 @@ export class AppDatabase {
     return row ? mapProvider(row, this.listProviderModels(row.id)) : null
   }
 
-  saveProvider(input: SaveProviderInput, encryptedKey?: Buffer): ProviderSummary {
+  saveProvider(input: SaveProviderInput, encryptedKey?: Buffer, verifiedModel?: string): ProviderSummary {
     const id = input.id ?? crypto.randomUUID()
-    const now = new Date().toISOString()
     const existing = this.getProvider(id)
+    const now = new Date(Math.max(Date.now(), (existing ? Date.parse(existing.updatedAt) : 0) + 1)).toISOString()
+    if (input.expectedUpdatedAt && existing?.updatedAt !== input.expectedUpdatedAt) throw new Error('连接配置已更新，请重新加载后保存')
     const capabilitiesJson = JSON.stringify(input.capabilities)
     const models = normalizeProviderModels(input.models, input.defaultModel)
     const defaultModel = models.find((model) => model.isDefault)?.modelId
     if (!defaultModel) throw new Error('至少需要一个默认模型')
+    const connectionChanged = !existing || Boolean(encryptedKey) || existing.baseUrl !== normalizeBaseUrl(input.baseUrl) || existing.defaultModel !== defaultModel || JSON.stringify(existing.capabilities) !== capabilitiesJson
 
     this.transaction(() => {
       this.db.prepare(`
@@ -933,6 +973,8 @@ export class AppDatabase {
           now
         )
       }
+      if (connectionChanged) this.db.prepare('UPDATE providers SET connection_revision=connection_revision+1 WHERE id=?').run(id)
+      if (verifiedModel) this.db.prepare("UPDATE providers SET last_test_status='success',last_test_at=?,last_test_error=NULL,tested_revision=connection_revision,tested_model=? WHERE id=?").run(now, verifiedModel, id)
     })
     const saved = this.getProvider(id)
     if (!saved) throw new Error('供应商保存失败')
@@ -1862,12 +1904,22 @@ export class AppDatabase {
 
   removeArticle(id: string): void { this.db.prepare('DELETE FROM articles WHERE id=?').run(id) }
 
+  createManualVisualPack(articleId: string): VisualPack {
+    const article = this.getArticle(articleId)
+    if (!article) throw new Error('文章不存在')
+    const existing = this.listVisualPacks(articleId).find(item => item.kind === 'manual')
+    if (existing) return existing
+    return this.saveVisualPack({ kind: 'manual', articleId, articleVersionId: article.currentVersionId, articleStatusSnapshot: article.status,
+      cover: { visual: '自己的封面', prompt: '', overlayText: '' },
+      inlineImages: Array.from({ length: 1 }, (_, index) => ({ location: `正文图 ${index + 1}`, purpose: '手动导入', ratio: '', prompt: '', alt: '' })), releaseImages: [], rawXml: '' })
+  }
+
   listVisualPacks(articleId?: string): VisualPack[] { const rows=this.db.prepare(`SELECT * FROM visual_packs ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as VisualPackRow[]; return rows.map(mapVisualPack) }
-  saveVisualPack(input:Omit<VisualPack,'id'|'createdAt'>):VisualPack { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_packs(id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.providerId,input.model,JSON.stringify(input.cover),JSON.stringify(input.inlineImages),JSON.stringify(input.releaseImages),input.rawXml,now); return mapVisualPack(this.db.prepare('SELECT * FROM visual_packs WHERE id=?').get(id) as unknown as VisualPackRow) }
+  saveVisualPack(input:Omit<VisualPack,'id'|'createdAt'>):VisualPack { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_packs(id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.providerId??null,input.model??null,JSON.stringify(input.cover),JSON.stringify(input.inlineImages),JSON.stringify(input.releaseImages),input.rawXml,now); this.db.prepare('UPDATE visual_packs SET kind=? WHERE id=?').run(input.kind??'generated',id); return mapVisualPack(this.db.prepare('SELECT * FROM visual_packs WHERE id=?').get(id) as unknown as VisualPackRow) }
   removeVisualPack(id:string):void { this.db.prepare('DELETE FROM visual_packs WHERE id=?').run(id) }
   listVisualAssets(packId?:string):VisualAsset[] { const rows=this.db.prepare(`SELECT * FROM visual_assets ${packId?'WHERE pack_id=?':''} ORDER BY created_at DESC`).all(...(packId?[packId]:[])) as unknown as VisualAssetRow[]; return rows.map(mapVisualAsset) }
   getVisualAsset(id:string):VisualAsset|null { const row=this.db.prepare('SELECT * FROM visual_assets WHERE id=?').get(id) as unknown as VisualAssetRow|undefined; return row?mapVisualAsset(row):null }
-  saveVisualAsset(input:Omit<VisualAsset,'id'|'createdAt'|'url'>):VisualAsset { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_assets(id,pack_id,kind,slot,prompt,file_name,source,provider_id,model,size,wechat_media_id,wechat_uploaded_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.packId,input.kind,input.slot??0,input.prompt,input.fileName,input.source,input.providerId??null,input.model??null,input.size??null,input.wechatMediaId??null,input.wechatUploadedAt??null,now); return this.getVisualAsset(id)! }
+  saveVisualAsset(input:Omit<VisualAsset,'id'|'createdAt'|'url'>):VisualAsset { const id=crypto.randomUUID(),now=new Date().toISOString(); const pack=this.listVisualPacks().find(item=>item.id===input.packId); if(pack?.kind==='manual' && input.kind==='inline' && input.slot>=pack.inlineImages.length){ const items=Array.from({length:input.slot+1},(_,slot)=>pack.inlineImages[slot]??{location:`正文图 ${slot+1}`,purpose:'手动导入',ratio:'',prompt:'',alt:''}); this.db.prepare('UPDATE visual_packs SET inline_images_json=? WHERE id=?').run(JSON.stringify(items),pack.id) } this.db.prepare('INSERT INTO visual_assets(id,pack_id,kind,slot,prompt,file_name,source,provider_id,model,size,wechat_media_id,wechat_uploaded_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.packId,input.kind,input.slot??0,input.prompt,input.fileName,input.source,input.providerId??null,input.model??null,input.size??null,input.wechatMediaId??null,input.wechatUploadedAt??null,now); return this.getVisualAsset(id)! }
   removeVisualAsset(id:string):void { this.db.prepare('DELETE FROM visual_assets WHERE id=?').run(id) }
   setVisualAssetWechatMedia(id:string,mediaId:string):VisualAsset { this.db.prepare('UPDATE visual_assets SET wechat_media_id=?,wechat_uploaded_at=? WHERE id=?').run(mediaId,new Date().toISOString(),id); const row=this.getVisualAsset(id); if(!row)throw new Error('配图资产不存在'); return row }
   listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(mapArticleLayout) }
@@ -1897,15 +1949,15 @@ export class AppDatabase {
     return publication
   }
 
-  listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(row=>({...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id)})) }
-  getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id)}:null }
+  listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(row=>({...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf})) }
+  getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf}:null }
   markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
   /** 发布复盘：三项全空视为清除复盘 */
-  savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string}):Publication {
+  savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string;metrics?:import('../shared/contracts.js').PublicationMetrics}):Publication {
     const trimmed = { goal: input.goal.trim(), result: input.result.trim(), lesson: input.lesson.trim() }
-    const empty = !trimmed.goal && !trimmed.result && !trimmed.lesson
+    const empty = !trimmed.goal && !trimmed.result && !trimmed.lesson && !Object.values(input.metrics ?? {}).some(value => value !== undefined && value !== '')
     this.db.prepare('UPDATE publications SET retro_json=?,updated_at=? WHERE id=?')
-      .run(empty ? null : JSON.stringify({ ...trimmed, updatedAt: new Date().toISOString() }), new Date().toISOString(), id)
+      .run(empty ? null : JSON.stringify({ ...trimmed, metrics: input.metrics, updatedAt: new Date().toISOString() }), new Date().toISOString(), id)
     const row = this.getPublication(id)
     if (!row) throw new Error('发布记录不存在')
     return row
@@ -1916,7 +1968,7 @@ export class AppDatabase {
   removeReviewRole(id:string):void { this.db.prepare('DELETE FROM review_roles WHERE id=?').run(id) }
   getReviewRole(id:string):ReviewRole|null { const row=this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow|undefined; return row?mapReviewRole(row):null }
   createReviewTask(input:{articleId:string, articleVersionId:string, articleVersionNumber:number, roleIds:string[]}):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,article_version_id,article_version_number,role_ids_json,failures_json,status,created_at,updated_at) VALUES(?,?,?,?,?,?,\'running\',?,?)').run(id,input.articleId,input.articleVersionId,input.articleVersionNumber,JSON.stringify(input.roleIds),'[]',now,now); return this.getReviewTask(id)! }
-  addReviewOpinion(input:{taskId:string;role?:ReviewRole;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at) VALUES(?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now)}); return this.getReviewOpinion(id)! }
+  addReviewOpinion(input:{taskId:string;role?:ReviewRole;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now,JSON.stringify({ reviewKind:p.reviewKind,anchor:p.anchor,evidence:p.evidence }))}); return this.getReviewOpinion(id)! }
   listReviewTasks(articleId?:string):ReviewTask[] { const rows=this.db.prepare(`SELECT * FROM review_tasks ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ReviewTaskRow[]; return rows.map(row=>this.mapReviewTask(row)) }
   getReviewTask(id:string):ReviewTask|null { const row=this.db.prepare('SELECT * FROM review_tasks WHERE id=?').get(id) as unknown as ReviewTaskRow|undefined; return row?this.mapReviewTask(row):null }
   /** 评审收尾：按角色成功/失败数量落真实状态与失败原因，全失败绝不能记成 completed */
@@ -2147,15 +2199,19 @@ export class AppDatabase {
   }
 
   private transaction<T>(operation: () => T): T {
-    this.db.exec('BEGIN IMMEDIATE;')
+    const depth = this.transactionDepth++
+    const savepoint = `atomic_${depth}`
     try {
-      const result = operation()
-      this.db.exec('COMMIT;')
-      return result
-    } catch (error) {
-      this.db.exec('ROLLBACK;')
-      throw error
-    }
+      this.db.exec(depth ? `SAVEPOINT ${savepoint}` : 'BEGIN IMMEDIATE')
+      try {
+        const result = operation()
+        this.db.exec(depth ? `RELEASE ${savepoint}` : 'COMMIT')
+        return result
+      } catch (error) {
+        this.db.exec(depth ? `ROLLBACK TO ${savepoint}; RELEASE ${savepoint}` : 'ROLLBACK')
+        throw error
+      }
+    } finally { this.transactionDepth-- }
   }
 }
 
@@ -2189,14 +2245,15 @@ function providerVerification(row: ProviderRow): ProviderVerification {
     ? row.last_test_status
     : undefined
   // 验证成功后又保存过配置（updated_at 被刷新）时，旧结果不再代表当前配置
-  const stale = Boolean(row.last_test_at) && row.updated_at > row.last_test_at!
+  const stale = Boolean(row.last_test_at) && (row.tested_revision === null ? row.updated_at > row.last_test_at! : row.tested_revision !== row.connection_revision)
   return {
     configured,
     lastTestStatus,
     lastTestAt: row.last_test_at ?? undefined,
     lastTestError: row.last_test_error ?? undefined,
     verified: configured && lastTestStatus === 'success' && !stale,
-    stale: Boolean(lastTestStatus) && stale
+    stale: Boolean(lastTestStatus) && stale,
+    testedModel: row.tested_model ?? undefined
   }
 }
 
@@ -2369,8 +2426,8 @@ function mapArticleVersion(row: ArticleVersionRow): ArticleVersion {
   }
 }
 function mapReviewRole(row:ReviewRoleRow):ReviewRole { return {id:row.id,name:row.name,systemPrompt:row.system_prompt,providerId:row.provider_id??undefined,model:row.model??undefined,extractionTag:row.extraction_tag,extractionOccurrence:row.extraction_occurrence,dimensions:parseJson<string[]>(row.dimensions_json,[]),sortOrder:row.sort_order,createdAt:row.created_at,updatedAt:row.updated_at} }
-function mapReviewProblem(row:ReviewProblemRow):ReviewProblem { return {id:row.id,position:row.position,severity:row.severity,issue:row.issue,suggestion:row.suggestion,adopted:Boolean(row.adopted),isManual:Boolean(row.is_manual)} }
-function mapVisualPack(row:VisualPackRow):VisualPack { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,providerId:row.provider_id,model:row.model,cover:parseJson(row.cover_json,{visual:'',prompt:'',overlayText:''}),inlineImages:parseJson(row.inline_images_json,[]),releaseImages:parseJson(row.release_images_json,[]),rawXml:row.raw_xml,createdAt:row.created_at} }
+function mapReviewProblem(row:ReviewProblemRow):ReviewProblem { return {id:row.id,position:row.position,severity:row.severity,issue:row.issue,suggestion:row.suggestion,adopted:Boolean(row.adopted),isManual:Boolean(row.is_manual),...parseJson<Pick<ReviewProblem,'reviewKind'|'anchor'|'evidence'>>(row.evidence_json,{})} }
+function mapVisualPack(row:VisualPackRow):VisualPack { return {id:row.id,kind:row.kind,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,providerId:row.provider_id??undefined,model:row.model??undefined,cover:parseJson(row.cover_json,{visual:'',prompt:'',overlayText:''}),inlineImages:parseJson(row.inline_images_json,[]),releaseImages:parseJson(row.release_images_json,[]),rawXml:row.raw_xml,createdAt:row.created_at} }
 function mapVisualAsset(row:VisualAssetRow):VisualAsset { return {id:row.id,packId:row.pack_id,kind:row.kind,slot:row.slot??0,prompt:row.prompt,fileName:row.file_name,source:row.source,providerId:row.provider_id??undefined,model:row.model??undefined,size:row.size??undefined,wechatMediaId:row.wechat_media_id??undefined,wechatUploadedAt:row.wechat_uploaded_at??undefined,createdAt:row.created_at,url:visualAssetUrl(row.file_name)} }
 function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/${fileName.split('/').map(encodeURIComponent).join('/')}` }
 function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,createdAt:row.created_at} }
@@ -2381,7 +2438,7 @@ function parseRetro(value: string | null): PublicationRetro | undefined {
   if (!value) return undefined
   try {
     const parsed = JSON.parse(value) as Partial<PublicationRetro>
-    return { goal: parsed.goal ?? '', result: parsed.result ?? '', lesson: parsed.lesson ?? '', updatedAt: parsed.updatedAt ?? '' }
+    return { metrics: parsed.metrics, goal: parsed.goal ?? '', result: parsed.result ?? '', lesson: parsed.lesson ?? '', updatedAt: parsed.updatedAt ?? '' }
   } catch {
     return undefined
   }

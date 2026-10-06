@@ -15,7 +15,7 @@ const server = createServer(async (request, response) => {
   for await (const chunk of request) body += chunk
   const content = body.includes('审稿并使用') ? REVIEW_XML : REVISED_MARKDOWN
   response.setHeader('Content-Type', 'application/json')
-  response.end(JSON.stringify({ model: 'review-smoke', choices: [{ message: { content } }] }))
+  response.end(JSON.stringify({ model: 'review-smoke', choices: [{ message: { content }, finish_reason: 'stop' }] }))
 })
 await new Promise((r) => server.listen(0, '127.0.0.1', r))
 const address = server.address()
@@ -71,7 +71,11 @@ try {
     const started = await window.moliu.reviews.start({
       articleId: article.id, roleIds: [role.id], fallbackProviderId: provider.id, fallbackModel: model
     })
-    const applied = await window.moliu.reviews.apply(started.task.id, provider.id, model)
+    for (const opinion of started.task.opinions) for (const problem of opinion.problems) await window.moliu.reviews.updateProblem({ ...problem, adopted: true })
+    const candidate = await window.moliu.reviews.apply(started.task.id, provider.id, model)
+    const originalBeforeAdopt = await window.moliu.articles.get(article.id)
+    if (originalBeforeAdopt.currentVersionId !== article.currentVersionId) throw new Error('Generating a review candidate changed the original')
+    const applied = await window.moliu.articles.adoptCandidate({ articleId: article.id, candidateId: candidate.id, expectedVersionId: originalBeforeAdopt.currentVersionId, expectedCandidateVersionId: candidate.currentVersionId })
     const appliedTask = (await window.moliu.reviews.listTasks(article.id)).find((task) => task.id === started.task.id)
 
     // 2. 评审基线绑定版本：文章改版后旧意见不得静默应用，显式确认才可以
@@ -86,6 +90,7 @@ try {
     } catch (error) {
       staleRejected = error instanceof Error ? error.message : String(error)
     }
+    for (const opinion of second.task.opinions) for (const problem of opinion.problems) await window.moliu.reviews.updateProblem({ ...problem, adopted: true })
     const forced = await window.moliu.reviews.apply(second.task.id, provider.id, model, true)
 
     // 3. 部分角色失败记 partial，全部失败记 failed；failed 的任务不能被应用

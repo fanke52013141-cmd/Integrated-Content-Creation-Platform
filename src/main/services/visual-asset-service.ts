@@ -1,5 +1,6 @@
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { ImportVisualAssetInput, GenerateVisualAssetInput, VisualAsset, VisualAssetKind } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
@@ -29,7 +30,7 @@ export class VisualAssetService {
 
   async generate(input: GenerateVisualAssetInput, signal?: AbortSignal): Promise<VisualAsset> {
     const pack = this.database.listVisualPacks().find((item) => item.id === input.packId)
-    if (!pack) throw new Error('配图方案不存在，请先生成配图三件套')
+    if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
     const prompt = input.prompt.trim()
     if (!prompt) throw new Error('提示词为空，无法生成图片')
 
@@ -42,9 +43,9 @@ export class VisualAssetService {
       signal
     })
     const bytes = Buffer.from(result.base64, 'base64')
-    const fileName = `${input.packId}-${input.kind}-${input.slot ?? 0}-${Date.now()}${sniffImageExt(bytes)}`
+    const fileName = `${randomUUID()}${sniffImageExt(bytes)}`
     await writeFile(join(this.imagesDir, fileName), bytes)
-    return this.database.saveVisualAsset({
+    try { return this.database.saveVisualAsset({
       packId: input.packId,
       kind: input.kind,
       slot: input.slot ?? 0,
@@ -54,7 +55,7 @@ export class VisualAssetService {
       providerId: result.providerId,
       model: result.model,
       size: input.size
-    })
+    }) } catch (error) { await unlink(join(this.imagesDir, fileName)).catch(() => undefined); throw error }
   }
 
   async importFromFile(input: ImportVisualAssetInput): Promise<VisualAsset> {
@@ -83,23 +84,24 @@ export class VisualAssetService {
 
   private async importFromBytes(input: { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; fileName: string }, bytes: Buffer): Promise<VisualAsset> {
     const pack = this.database.listVisualPacks().find((item) => item.id === input.packId)
-    if (!pack) throw new Error('配图方案不存在，请先生成配图三件套')
+    if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
     if (!bytes.length) throw new Error('图片内容为空')
+    if (bytes.length > 10 * 1024 * 1024) throw new Error('图片超过 10MB，请压缩后再导入')
     const ext = sniffImageExt(bytes)
     // 仅接受 png/jpg：公众号素材接口不接受 webp，避免下游上传失败
     if (!['.png', '.jpg'].includes(ext)) throw new Error('仅支持导入 PNG / JPG 图片')
 
     await this.ensureDir()
-    const fileName = `${input.packId}-${input.kind}-${input.slot ?? 0}-${Date.now()}${ext}`
+    const fileName = `${randomUUID()}${ext}`
     await writeFile(join(this.imagesDir, fileName), bytes)
-    return this.database.saveVisualAsset({
+    try { return this.database.saveVisualAsset({
       packId: input.packId,
       kind: input.kind,
       slot: input.slot ?? 0,
       prompt: input.prompt.trim(),
       fileName,
       source: 'imported'
-    })
+    }) } catch (error) { await unlink(join(this.imagesDir, fileName)).catch(() => undefined); throw error }
   }
 
   async removeAsset(id: string): Promise<void> {

@@ -1,8 +1,11 @@
+import { LocalImageImport } from '../components/LocalImageImport'
 import { useEffect, useState } from 'react'
 import { CheckCircle2, ClipboardList, CloudUpload, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud } from 'lucide-react'
 import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { useSelectedArticle } from '../hooks/useSelectedArticle'
+import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -36,7 +39,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const [checking, setChecking] = useState(false)
   const wechatLayouts = layouts.filter(item => item.platform === 'wechat')
   const selectedLayout = wechatLayouts.find(item => item.id === layoutId)
-  const article = articles.find(item => item.id === (selectedLayout?.articleId ?? focusArticleId))
+  const { article, error: selectionError } = useSelectedArticle(selectedLayout?.articleId ?? focusArticleId ?? '', articles)
   const coverAssets = assets.articleId === article?.id ? assets.items : []
   const authorDefault = articles.find(item => item.id === article?.id)?.accountId === currentAccount?.id ? currentAccount?.name ?? '' : ''
   const { form, loaded, error: formError, update } = usePublishForm(article, channel?.appId ?? '', layoutId, authorDefault)
@@ -45,11 +48,11 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const channelReady = Boolean(channel?.enabled && channel.hasAppSecret && channel.appId && channel.lastTestStatus === 'success')
   const input = { articleId: article?.id ?? '', layoutId, appId: channel?.appId, coverAssetId: selectedCover?.id, thumbMediaId: selectedCover ? undefined : form.thumbMediaId.trim() || undefined,
     author: form.author.trim() || undefined, digest: form.digest.trim() || undefined, contentSourceUrl: form.contentSourceUrl.trim() || undefined }
-  useReportWork(article ? { articleId: article.id, title: article.title, accountId: article.accountId, versionCount: article.versionCount, status: article.status, savedMarkdown: article.rawMarkdown, currentVersionId: article.currentVersionId } : {}, 'publishing')
+  useReportWork(article ? { articleId: article.id, title: markdownTitle(article.rawMarkdown), accountId: article.accountId, versionCount: article.versionCount, status: article.status, savedMarkdown: article.rawMarkdown, currentVersionId: article.currentVersionId } : {}, 'publishing')
 
   const refresh = async (): Promise<void> => {
     const [nextChannel, result, nextLayouts, nextPublications] = await Promise.all([
-      window.moliu.publishing.getWechatChannel(), window.moliu.articles.listSummaries({ limit: 500 }), window.moliu.layouts.list(), window.moliu.publishing.list()
+      window.moliu.publishing.getWechatChannel(), window.moliu.articles.listSummaries({ limit: 30 }), window.moliu.layouts.list(), window.moliu.publishing.list()
     ])
     setChannel(nextChannel); setArticles(result.items); setLayouts(nextLayouts); setPublications(nextPublications)
     setAppId(nextChannel.appId); setEnabled(nextChannel.enabled)
@@ -106,11 +109,11 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     const url = urls[publication.id]?.trim(); if (!url) return
     await perform(async () => { await window.moliu.publishing.update({ id: publication.id, status: 'published', publishedUrl: url }); await refresh(); showToast({ type: 'success', message: '发布链接已记录' }) })
   }
-  const saveRetro = async (publication: Publication, retro: { goal: string; result: string; lesson: string }): Promise<void> => {
+  const saveRetro = async (publication: Publication, retro: { goal: string; result: string; lesson: string; metrics?: import('../../../shared/contracts').PublicationMetrics }): Promise<void> => {
     await perform(async () => { await window.moliu.publishing.saveRetro({ id: publication.id, ...retro }); await refresh(); showToast({ type: 'success', message: '发布复盘已保存' }) })
   }
   const rememberLesson = async (publication: Publication, lesson: string): Promise<void> => {
-    const profileId = articles.find(item => item.id === publication.articleId)?.accountId
+    const profileId = (await window.moliu.articles.getSummary(publication.articleId))?.accountId
     if (!profileId) return showToast({ type: 'error', message: '这篇文章还没有绑定账号定位' })
     await perform(async () => { const result = await window.moliu.accounts.addMemory({ profileId, insight: lesson, source: '发布复盘' }); showToast({ type: 'info', message: result.created ? '经验已写入账号记忆' : '这条经验已经记录过' }) })
   }
@@ -124,6 +127,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
 
   return <div className="page publishing-page">
     <PageHeader route="publishing" onNavigate={onNavigate} title="排版交付" description="核对当前作品，推送公众号草稿箱，再记录正式发布链接" />
+    {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
     <section className="publish-channel">
       <header className="publish-section-head"><div><h3><KeyRound size={16} />公众号连接</h3><p>{channelReady ? `当前目标：${channel?.appId}` : '连接验证成功后才能推送；也可以在排版页导出文件。'}</p></div>
@@ -150,6 +154,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <label className="field"><span>摘要</span><input name="digest" disabled={!loaded || busy} value={form.digest} onChange={event => update({ digest: event.target.value })} maxLength={120} /></label>
         <label className="field"><span>原文链接（可选）</span><input type="url" name="sourceUrl" disabled={!loaded || busy} value={form.contentSourceUrl} onChange={event => update({ contentSourceUrl: event.target.value })} /></label>
       </div>
+      {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}
       <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
       {selectedLayout ? <div className="delivery-preview">
         <div><strong>{selectedLayout.title}</strong><p className="micro-copy">正文第 {article?.versionCount} 版 · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
@@ -165,15 +170,16 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       </footer>
     </section>
     <section className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>推送到草稿箱与正式发布分别记录；结果待确认时请先核对公众号后台。</p></div></header>
-      {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={Boolean(articles.find(article => article.id === item.articleId)?.accountId)}
+      {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={true}
         onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
+        onResolve={(decision, note, remoteId) => perform(async () => { await window.moliu.publishing.resolveUnknown({ id: item.id, decision, note, remoteId: remoteId || undefined, expectedUpdatedAt: item.updatedAt }); await refresh() })}
         onSaveRetro={retro => saveRetro(item, retro)} onRemember={lesson => rememberLesson(item, lesson)} busy={busy} />)
         : <EmptyState icon={Send} title="暂无交付记录" description="第一次推送后会保存完整交付快照。" />}
     </section>
   </div>
 }
 
-function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, onOpen, onSaveRetro, onRemember, busy }: {
+function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, onOpen, onSaveRetro, onRemember, onResolve, busy }: {
   item: Publication
   url: string
   canRemember: boolean
@@ -181,14 +187,18 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
   onPublished(): Promise<void>
   onRetry(): Promise<void>
   onOpen(url: string): void
-  onSaveRetro(retro: { goal: string; result: string; lesson: string }): Promise<void>
+  onSaveRetro(retro: { goal: string; result: string; lesson: string; metrics?: import('../../../shared/contracts').PublicationMetrics }): Promise<void>
+  onResolve(decision: 'received' | 'not-received' | 'unresolved', note: string, remoteId: string): Promise<void>
   onRemember(lesson: string): Promise<void>
   busy: boolean
 }): React.JSX.Element {
+  const [resolutionNote, setResolutionNote] = useState('')
+  const [remoteId, setRemoteId] = useState('')
+  const [decision, setDecision] = useState<'received' | 'not-received' | 'unresolved'>('unresolved')
   const status = statusNames[item.status]
-  const [retro, setRetro] = useState({ goal: item.retro?.goal ?? '', result: item.retro?.result ?? '', lesson: item.retro?.lesson ?? '' })
+  const [retro, setRetro] = useState({ goal: item.retro?.goal ?? '', result: item.retro?.result ?? '', lesson: item.retro?.lesson ?? '', metrics: item.retro?.metrics ?? {} })
   const [savingRetro, setSavingRetro] = useState(false)
-  const unchanged = retro.goal === (item.retro?.goal ?? '') && retro.result === (item.retro?.result ?? '') && retro.lesson === (item.retro?.lesson ?? '')
+  const unchanged = retro.goal === (item.retro?.goal ?? '') && retro.result === (item.retro?.result ?? '') && retro.lesson === (item.retro?.lesson ?? '') && JSON.stringify(retro.metrics) === JSON.stringify(item.retro?.metrics ?? {})
   const hasRetro = Boolean(item.retro)
   return (
     <div className="publication-row">
@@ -199,8 +209,16 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         </div>
         <small>{formatDate(item.updatedAt)} · 封面 {item.thumbMediaId ? '已设置' : '未设置'}</small>
         {item.errorMessage && <em>{item.errorMessage}</em>}
+        {item.resolution && <small>人工核对：{formatDate(item.resolution.checkedAt)} · {item.resolution.note}</small>}
+        {item.retryOf && <small>本次重推源自记录 {item.retryOf.slice(0, 8)}</small>}
       </div>
-      {item.status === 'draft' || item.status === 'unknown' ? (
+      {item.status === 'unknown' ? <div className="publication-actions">
+        <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>打开草稿箱核对</button>
+        <label className="field"><span>核对结果</span><select value={decision} onChange={event => setDecision(event.target.value as typeof decision)}><option value="unresolved">仍不确定，禁止重推</option><option value="received">确认已收到</option><option value="not-received">确认未收到，允许重推</option></select></label>
+        <input aria-label="核对说明" value={resolutionNote} onChange={event => setResolutionNote(event.target.value)} placeholder="核对时间、公众号及判断依据" maxLength={2000} />
+        <input aria-label="远端草稿标识" value={remoteId} onChange={event => setRemoteId(event.target.value)} placeholder="已收到的草稿标识（选填）" maxLength={200} />
+        <button className="button secondary compact" disabled={busy || !resolutionNote.trim()} onClick={() => void onResolve(decision, resolutionNote, remoteId)}>保存核对结果</button>
+      </div> : item.status === 'draft' ? (
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
           <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>公众号后台</button>
@@ -218,6 +236,7 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         <label className="field"><span>目标</span><input name="retroGoal" autoComplete="off" value={retro.goal} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, goal: event.target.value }))} placeholder="这篇发出去想达成什么？" /></label>
         <label className="field"><span>结果</span><input name="retroResult" autoComplete="off" value={retro.result} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, result: event.target.value }))} placeholder="阅读、涨粉或转化，写下真实数字" /></label>
         <label className="field"><span>经验</span><textarea name="retroLesson" rows={2} value={retro.lesson} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, lesson: event.target.value }))} placeholder="下次要保留或改掉什么？" /></label>
+        <div className="publish-draft-grid">{([['reads', '阅读次数'], ['shares', '分享次数'], ['followers', '新增关注'], ['conversions', '转化次数']] as const).map(([key, label]) => <label className="field" key={key}><span>{label}（选填）</span><input type="number" min="0" step="1" max="1000000000000" value={retro.metrics[key] ?? ''} onChange={event => setRetro(current => ({ ...current, metrics: { ...current.metrics, [key]: event.target.value === '' ? undefined : Number(event.target.value) } }))} /></label>)}<label className="field"><span>统计截止日期</span><input type="date" value={retro.metrics.cutoff ?? ''} onChange={event => setRetro(current => ({ ...current, metrics: { ...current.metrics, cutoff: event.target.value || undefined } }))} /></label></div>
         <footer>
           <button
             className="button secondary compact"

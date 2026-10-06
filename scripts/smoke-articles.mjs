@@ -58,7 +58,7 @@ try {
   await window.locator('.provider-editor').getByRole('button', { name: '测试并加密保存' }).click()
   await window.getByText('供应商配置已加密保存').waitFor()
   // F06：保存只等于"配置已保存但尚未验证"，跑过一次连接测试才算已连通
-  await window.getByText('配置已保存但尚未验证连接').waitFor()
+  await window.locator('.provider-card').getByText('已验证', { exact: true }).first().waitFor()
   await window.locator('.provider-card').getByRole('button', { name: '测试连接' }).first().click()
   await window.getByText('连接成功').waitFor({ timeout: 30_000 })
   await window.locator('.provider-card').getByText('已验证').first().waitFor()
@@ -149,7 +149,7 @@ try {
   await window.getByRole('button', { name: '源码编辑' }).click()
   const rolledBack = await window.locator(editorSelector).inputValue()
   if (!rolledBack.includes('很多创作者不是不会写') || rolledBack.includes('别急着写')) throw new Error('撤销 AI 修改后编辑器正文没有回到旧版本')
-  await window.getByRole('button', { name: '预览' }).click()
+  await window.getByRole('button', { name: '预览', exact: true }).click()
 
   // 验收任务 9：1180 宽窗口 + 125%/150% 放大下，只用键盘也要能摸到导出、走进正文并保存
   await window.setViewportSize({ width: 1180, height: 800 })
@@ -249,8 +249,9 @@ try {
   await capture(window, { path: resolve(artifactDir, 'article-list-at-scale.png'), animations: 'disabled', timeout: 90_000 })
   // 虚拟化生效的另一半：滚到底要能换出末尾那篇，而不是永远只有开头那几行
   await window.locator('.article-pagination').getByRole('button', { name: '下一页' }).click()
-  await window.locator('.article-pagination').getByRole('button', { name: '下一页' }).click()
   await window.locator('.article-list-item', { hasText: '批量作品 01' }).waitFor({ timeout: 5_000 })
+  await window.locator('.article-pagination').getByRole('button', { name: '下一页' }).click()
+  await window.waitForFunction(() => document.querySelector('.article-pagination span')?.textContent === '3 / 3' && document.querySelectorAll('.article-list-item').length === 3)
   const listSearch = window.locator('input[name="articleListQuery"]')
   await listSearch.fill('批量作品 57')
   await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
@@ -267,14 +268,12 @@ try {
   await window.getByRole('button', { name: '文章排版' }).first().click()
   await window.getByText('把成稿渲染为平台格式，直接推送公众号草稿箱').waitFor()
   const articleTrigger = window.locator('.layout-composer .select-trigger').first()
-  await articleTrigger.click()
-  const pickerSearch = window.locator('input[name="selectSearch"]')
-  await pickerSearch.waitFor({ timeout: 5_000 })
+  const pickerSearch = window.getByLabel('搜索可选文章')
   await pickerSearch.fill('批量作品 57')
-  const pickerOptions = await window.locator('.select-option').allInnerTexts()
-  if (pickerOptions.length !== 1 || !pickerOptions[0].includes('批量作品 57')) throw new Error(`排版页文章下拉筛出了 ${pickerOptions.length} 项：${JSON.stringify(pickerOptions)}`)
-  await window.keyboard.press('Enter')
-  if (!(await articleTrigger.innerText()).includes('批量作品 57')) throw new Error(`排版页文章下拉键盘选中后没有回到触发器：${await articleTrigger.innerText()}`)
+  await articleTrigger.click()
+  await window.getByRole('option').filter({ hasText: '批量作品 57' }).waitFor()
+  await window.getByRole('option').filter({ hasText: '批量作品 57' }).click()
+  if (!(await articleTrigger.innerText()).includes('批量作品 57')) throw new Error(`分页文章搜索后没有选中目标：${await articleTrigger.innerText()}`)
   // 选项本来就少的那个下拉不该出现搜索框
   await window.locator('.layout-composer .select-trigger').nth(1).click()
   if (await window.locator('input[name="selectSearch"]').count() !== 0) throw new Error('平台下拉只有几项，却出现了搜索框')

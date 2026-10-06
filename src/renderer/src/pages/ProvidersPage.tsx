@@ -122,6 +122,7 @@ export function ProvidersPage({
   const formBaseline = useRef(JSON.stringify(emptyForm()))
   const formDirty = JSON.stringify(form) !== formBaseline.current
   const guardUnsavedForm = async (action: string): Promise<boolean> => {
+    if (saving || draftTesting) return false
     if (!formDirty) return true
     return confirm({ title: '有未保存的修改', message: `当前连接的修改还没保存，${action}会丢弃这些修改。`, danger: true, confirmLabel: '丢弃并继续' })
   }
@@ -136,7 +137,12 @@ export function ProvidersPage({
   )
 
   async function chooseProvider(provider: ProviderSummary): Promise<void> {
+    if (saving || draftTesting) return
     if (provider.id !== selectedId && !(await guardUnsavedForm('切换到其他供应商'))) return
+    loadProviderIntoForm(provider)
+  }
+
+  function loadProviderIntoForm(provider: ProviderSummary): void {
     clearAll()
     setSelectedId(provider.id)
     setDraftStatus(undefined)
@@ -159,7 +165,8 @@ export function ProvidersPage({
         isDefault: model.isDefault,
         enabled: model.enabled
       })),
-      apiKey: ''
+      apiKey: '',
+      expectedUpdatedAt: provider.updatedAt
     }
     setForm(next)
     formBaseline.current = JSON.stringify(next)
@@ -251,23 +258,17 @@ export function ProvidersPage({
       return
     }
 
-    // 先测试，通过后才加密保存
-    const passed = await testDraft()
-    if (!passed) {
-      showToast({ type: 'error', message: '连接测试未通过，已取消保存。可在测试结果中查看原因，或打开调用日志排查。' })
-      return
-    }
-
+    if (saving || draftTesting) return
     setSaving(true)
     try {
-      const saved = await window.moliu.providers.save({
+      const saved = await window.moliu.providers.testAndSave({
         ...form,
         models,
         defaultModel: defaultModel.modelId,
         apiKey: form.apiKey?.trim() || undefined
       })
-      await onRefresh()
-      void chooseProvider(saved)
+      loadProviderIntoForm(saved)
+      await onRefresh().catch(error => showToast({ type: 'warning', message: `配置已保存，列表刷新失败：${errorMessage(error)}` }))
       showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
       if (returnTo && onNavigate && returnTo !== 'providers') {
         onNavigate(returnTo as ProvidersPageReturnRoute)
@@ -473,7 +474,7 @@ export function ProvidersPage({
           </div>
         </div>
 
-        <div className="panel provider-editor">
+        <fieldset disabled={saving || draftTesting} className="panel provider-editor">
           <div className="section-heading">
             <div>
               
@@ -733,7 +734,7 @@ export function ProvidersPage({
               </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       </section> : <SearchServicePanel
         service={searchService}
         onRefresh={onRefresh}

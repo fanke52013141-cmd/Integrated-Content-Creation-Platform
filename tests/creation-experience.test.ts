@@ -136,6 +136,7 @@ describe('F02 正文工作草稿与改稿基线', () => {
     })
     const generator = new ArticleGenerator(database, gateway, prompts)
     await generator.revise({
+      revisionMode: 'new-version',
       articleId, instruction: '加强开头', alignFramework: false, count: 1,
       providerId: PROVIDER_ID, model: MODEL_ID, baseMarkdown: '# 原标题\n\n未保存的关键编辑'
     })
@@ -232,6 +233,7 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
     const staleArticle = database.getArticle(articleId)!
     expect(isReviewBaselineStale(task, staleArticle)).toBe(true)
     await expect(service.apply(task.id, PROVIDER_ID, MODEL_ID)).rejects.toThrow(/第 1 版|第 2 版/)
+    for (const opinion of task.opinions) for (const problem of opinion.problems) database.updateReviewProblem({ ...problem, adopted: true })
     const applied = await service.apply(task.id, PROVIDER_ID, MODEL_ID, { force: true })
     expect(applied.currentVersionId).not.toBe(task.articleVersionId)
     database.close()

@@ -49,7 +49,6 @@ function readSeedHandoff(): string {
   try {
     const seed = localStorage.getItem('moliu:topic-seed-keyword')
     if (!seed) return ''
-    localStorage.removeItem('moliu:topic-seed-keyword')
     return seed
   } catch {
     return ''
@@ -99,15 +98,15 @@ export function TopicsPage({
   const [editing, setEditing] = useState<Topic>()
 
   // 「收藏」交接标记用完即清；初始化器只负责读
-  useEffect(() => { localStorage.removeItem('moliu:topic-favorite-ids') }, [])
+  useEffect(() => { localStorage.removeItem('moliu:topic-favorite-ids'); localStorage.removeItem('moliu:topic-seed-keyword') }, [])
 
   const lockedAccounts = accounts.filter((account) => account.status === 'locked')
   const models = useMemo(() => availableModels(providers), [providers])
   const [modelTarget, setModelTarget] = useModelTarget(models)
 
   useEffect(() => {
-    if (!accountId || !lockedAccounts.some((account) => account.id === accountId)) {
-      setAccountId(lockedAccounts.find((account) => account.id === currentAccountId)?.id ?? lockedAccounts[0]?.id ?? '')
+    if (accountId && !lockedAccounts.some((account) => account.id === accountId)) {
+      setAccountId('')
     }
   }, [accountId, currentAccountId, lockedAccounts])
 
@@ -153,12 +152,11 @@ export function TopicsPage({
 
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
-    if (!accountId) return showToast({ type: 'error', message: '请先锁定一个账号定位' })
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     if (!seedKeyword.trim()) return showToast({ type: 'error', message: '请填写热点关键词或主题' })
     try {
       const result = await stream.run(() => window.moliu.topics.generate({
-        accountId,
+        accountId: accountId || undefined,
         providerId: target.providerId,
         model: target.modelId,
         seedKeyword: seedKeyword.trim(),
@@ -226,7 +224,7 @@ export function TopicsPage({
         route="topics"
         onNavigate={onNavigate}
         title="选题生成"
-        description="基于锁定的账号定位与热点，独立并行生成多条选题草稿"
+        description="根据主题与热点生成选题，可选使用已锁定的账号定位"
         actions={<button className="button secondary" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>}
       />
 
@@ -237,19 +235,12 @@ export function TopicsPage({
           </div>
           <span className="topic-schema-note">当前模板 · {schema.length} 个字段</span>
         </div>
-        {!lockedAccounts.length ? (
-          <div className="topic-blocked">
-            <Lock size={18} />
-            <span>还没有已锁定的账号定位，无法发起有基线的选题生成。</span>
-            <button className="button primary compact" onClick={() => onNavigate('accounts')}>去锁定账号</button>
-          </div>
-        ) : (
           <>
             <div className="topic-generation-layout">
               <div className="topic-generation-main">
                 <label className="field">
                   <span>账号定位</span>
-                  <Select value={accountId} onChange={setAccountId} placeholder="选择账号" options={lockedAccounts.map((account) => ({ value: account.id, label: account.name, hint: `v${account.versionCount}` }))} ariaLabel="账号定位" />
+                  <Select value={accountId} onChange={setAccountId} placeholder="选择账号" options={[{ value: '', label: '通用创作（不使用账号定位）' }, ...lockedAccounts.map((account) => ({ value: account.id, label: account.name, hint: `v${account.versionCount}` }))]} ariaLabel="账号定位" />
                 </label>
                 <label className="field topic-keyword-field">
                   <span>主题</span>
@@ -317,6 +308,7 @@ export function TopicsPage({
             </div>
             <footer className="topic-compose-footer">
               <span><Link2 size={14} />{selectedFavorites.length} 条热点</span>
+              {selectedFavorites.length > 0 && <details><summary>核对热点来源（缓存快照）</summary>{selectedFavorites.map(favorite => <p key={favorite.id}>{favorite.hotItem.title} · {favorite.hotItem.sourceTitle} · {favorite.hotItem.updateTime || favorite.createdAt}<br />{favorite.hotItem.url}<br />{favorite.hotItem.desc || '无摘要，请核对来源后使用'}</p>)}</details>}
               {stream.active ? (
                 <button className="button danger" onClick={stream.cancel}><X size={16} />取消生成</button>
               ) : (
@@ -338,10 +330,9 @@ export function TopicsPage({
               )}
             </footer>
           </>
-        )}
       </section>
 
-      {stream.active && <StreamingPreview content={stream.content} label="正在生成选题…" />}
+      {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在生成选题…" />}
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 条未成功：{lastFailed.map((item) => `第 ${item.index} 条 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}

@@ -1,3 +1,4 @@
+import { buildMaterialContext, contextBudget, modelOutputTokens } from './material-context.js'
 import { escapeXml, serializeAccountXml } from '../../shared/domain.js'
 import type {
   Framework,
@@ -77,11 +78,13 @@ export class FrameworkGenerator {
     signal?: AbortSignal
   }): Promise<Framework> {
     context.onStream?.({ phase: 'start', index: context.index, total: context.total })
+    const baseText = this.prompts.render('framework.generate', { '章节标签': context.template.sections.map(name => `<${name}>`) }) + serializeFrameworkTopic(context.topic, context.manualTopic) + (context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '')
+    const evidence = buildMaterialContext(this.database, context.materials, serializeFrameworkTopic(context.topic, context.manualTopic), contextBudget(this.database, context.input.providerId, context.input.model, baseText, 3500))
     const request: UnifiedRequest = {
       providerId: context.input.providerId,
       model: context.input.model,
       temperature: 0.7,
-      maxTokens: 3_500,
+      maxTokens: modelOutputTokens(this.database, context.input.providerId, context.input.model, 3500),
       jsonMode: false,
       messages: [
         {
@@ -96,7 +99,7 @@ export class FrameworkGenerator {
             serializeFrameworkTask(context.template, context.index),
             serializeFrameworkTopic(context.topic, context.manualTopic),
             context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
-            serializeFrameworkMaterials(context.materials)
+            evidence.text
           ].join('\n\n')
         }
       ]
@@ -118,6 +121,7 @@ export class FrameworkGenerator {
       providerId: response.providerId,
       model: response.model
     })
+    this.database.workflow.saveEvidence(framework.currentVersionId, evidence)
     if (context.topic) this.database.createArtifactReference({
       sourceType: 'topic', sourceId: context.topic.id,
       sourceVersionId: context.topic.currentVersionId,
@@ -166,23 +170,6 @@ function serializeFrameworkTopic(topic: Topic | null, manualTopic: string): stri
   return `<选题>\n${body}${extra}\n</选题>`
 }
 
-const MAX_MATERIAL_PROMPT_CHARS = 8_000
-
-function serializeFrameworkMaterials(materials: Material[]): string {
-  if (!materials.length) return '<素材>未选择；无需为凑素材而虚构事实。</素材>'
-  const body = materials.map((material, index) => {
-    const summary = material.summary.length > MAX_MATERIAL_PROMPT_CHARS
-      ? material.summary.slice(0, MAX_MATERIAL_PROMPT_CHARS) + '……（过长已截断）'
-      : material.summary
-    return [
-      `${index + 1}. 标题：${escapeXml(material.title)}`,
-      `摘要：${escapeXml(summary)}`,
-      material.sourceName ? `来源：${escapeXml(material.sourceName)}` : '',
-      material.sourceUrl ? `链接：${escapeXml(material.sourceUrl)}` : ''
-    ].filter(Boolean).join('\n')
-  }).join('\n\n')
-  return `<素材>\n${body}\n</素材>`
-}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -6,6 +6,8 @@ import {
 import type { ArticleSummary, ProviderSummary, VisualAsset, VisualPack, VisualPrompt, VisualAssetKind } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { useSelectedArticle } from '../hooks/useSelectedArticle'
+import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -48,7 +50,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     [providers]
   )
   const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
-  const selected = articles.find((article) => article.id === articleId)
+  const { article: selected, error: selectionError } = useSelectedArticle(articleId, articles)
   const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
 
   const workDraft = useWorkDraft(selected?.id ?? '', selected?.rawMarkdown ?? '', selected?.currentVersionId ?? '')
@@ -62,11 +64,12 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   } : {}, 'visuals')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.visuals.list()])
+    const [nextArticles, nextPacks] = await Promise.all([window.moliu.articles.listSummaries({ limit: 30 }).then(result => result.items), window.moliu.visuals.list()])
     setArticles(nextArticles)
     setPacks(nextPacks)
     setArticleId((current) => {
-      if (nextArticles.some(item => item.id === current)) return current
+      if (focusArticleId) return focusArticleId
+      if (current) return current
       const locked = nextArticles.find((article) => article.status === 'locked')
       return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
@@ -267,10 +270,11 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       route="visuals"
       onNavigate={onNavigate}
       title="智能配图"
-      description="先生成封面 / 文内 / 发布三件套提示词，再逐张生成图片并上传公众号"
+      description="可直接导入自己的封面与正文图，也可选用 AI 生成配图方案"
       actions={articleId && <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />
     去排版</button>}
     />
+    {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={selected} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
@@ -284,8 +288,13 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     ) : (
       <>
         <section className="visual-composer">
+          <button className="button secondary" disabled={!articleId} onClick={() => void (async () => {
+            await window.moliu.visuals.createManualPack(articleId)
+            await refresh()
+            showToast({ type: 'success', message: '本地图片集合已就绪，可直接导入封面和正文图片' })
+          })().catch(error => showToast({ type: 'error', message: errorMessage(error) }))}><ImagePlus size={15} />直接导入自己的图片</button>
           <label className="field"><span>文章</span>
-            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={disambiguateOptions(articles.map((article) => ({ value: article.id, label: markdownTitle(article.rawMarkdown), hint: article.status === 'locked' ? '已锁定' : '草稿', distinct: formatTimedDate(article.updatedAt) })))} />
+            <ArticlePicker value={articleId} onChange={setArticleId} />
           </label>
           <label className="field"><span>方案模型</span>
             <Select value={modelTarget} onChange={setModelTarget} ariaLabel="方案模型" options={availableModels(providers).map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
@@ -321,7 +330,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
           <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
         )}
 
-        {stream.active && <StreamingPreview content={stream.content} label="正在设计配图方案…" />}
+        {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在设计配图方案…" />}
 
         {selected?.status === 'draft' && <p className="visual-warning">当前文章为草稿版本，锁定后配图会绑定固定版本。</p>}
 

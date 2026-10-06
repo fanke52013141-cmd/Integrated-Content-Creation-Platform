@@ -1,3 +1,4 @@
+import { buildMaterialContext, contextBudget } from './services/material-context.js'
 import { clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
@@ -101,6 +102,7 @@ const providerSchema = z.object({
     enabled: z.boolean()
   })).min(1),
   apiKey: z.string().trim().optional()
+  , expectedUpdatedAt: z.string().optional()
 }).superRefine((input, context) => {
   const enabledModels = input.models.filter((model) => model.enabled)
   if (!enabledModels.length) {
@@ -252,6 +254,8 @@ export function registerIpc(options: {
     return workspace.restoreBackup(input)
   })
   handle('app:backup-list', () => workspace.listBackupBundles())
+  handle('app:backup-export-portable', () => workspace.exportPortableBackup())
+  handle('app:backup-select-portable', () => workspace.selectPortableBackup())
 
   // ===== 生成任务：互斥、取消与历史台账 =====
   handle('generation:cancel', (_event, domain: string) => ({ cancelled: cancelGeneration(domain as GenerationDomain) }))
@@ -266,6 +270,14 @@ export function registerIpc(options: {
     const input = providerSchema.parse(raw)
     const encryptedKey = input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
     return database.saveProvider(input, encryptedKey)
+  })
+  handle('providers:test-and-save', async (_event, raw: SaveProviderInput) => {
+    const input = providerSchema.parse(raw)
+    const revision = input.id ? database.getProvider(input.id)?.updatedAt : undefined
+    if (input.expectedUpdatedAt && revision !== input.expectedUpdatedAt) throw new Error('连接配置已更新，请重新加载')
+    const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: input.defaultModel })
+    const encrypted = input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
+    return database.saveProvider({ ...input, expectedUpdatedAt: revision }, encrypted, result.model)
   })
   handle('providers:remove', (_event, id: string) => {
     database.removeProvider(requireId(id))
@@ -539,7 +551,7 @@ export function registerIpc(options: {
   handle('topics:list', (_event, libraryOnly?: boolean) => database.listTopics(Boolean(libraryOnly)))
   handle('topics:generate', (event, raw: GenerateTopicsInput) => {
     const input = z.object({
-      accountId: z.string().uuid(),
+      accountId: z.string().uuid().optional(),
       providerId: z.string().uuid(),
       model: z.string().trim().min(1).max(160),
       seedKeyword: z.string().trim().min(1).max(4_000),
@@ -623,6 +635,14 @@ export function registerIpc(options: {
       relevanceScore: result.relevanceScore
     })
   })
+  handle('materials:document', (_event, id: string) => database.workflow.getDocument(requireId(id)))
+  handle('materials:preview-context', (_event, raw: unknown) => {
+    const input = z.object({ ids: z.array(z.string().uuid()).max(30), query: z.string().max(30000), providerId: z.string().uuid().optional(), model: z.string().max(160).optional(), baseText: z.string().max(200000).optional() }).parse(raw)
+    const materials = database.listMaterials().filter(item => input.ids.includes(item.id) && item.kind !== 'image')
+    if (materials.length !== new Set(input.ids).size) throw new Error('部分素材已删除或不是文字素材')
+    const budget = input.providerId && input.model ? contextBudget(database, input.providerId, input.model, input.baseText ?? '') : 16000
+    return buildMaterialContext(database, materials, input.query, budget)
+  })
   handle('materials:add-manual', (_event, raw: SaveManualMaterialInput) => {
     const input = z.object({
       title: z.string().trim().min(1).max(500), summary: z.string().trim().min(1).max(3_000),
@@ -696,20 +716,55 @@ export function registerIpc(options: {
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.generate(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
   })
+  handle('clipboard:prepare-layout', async (_event, raw: unknown) => {
+    const input = z.object({ layoutId: z.string().uuid(), mode: z.enum(['wechat', 'placeholders']) }).parse(raw)
+    const result = await wechatPublishService.prepareClipboard(input.layoutId, input.mode)
+    clipboard.write({ html: result.html, text: result.text })
+    return { imageCount: result.imageCount }
+  })
   handle('clipboard:writeRichText', (_event, raw: { html: string; text: string }) => {
     const input = z.object({ html: z.string().min(1).max(3_000_000), text: z.string().max(1_000_000) }).parse(raw)
     // 公众号等富文本编辑器读取的是剪贴板中的 HTML 格式，只写纯文本会丢掉全部样式
+    if (/moliu-asset:/i.test(input.html)) throw new Error('本地图片需先准备，或选择手动插图复制')
     clipboard.write({ html: input.html, text: input.text })
     return true
   })
   handle('articles:revise', (event, raw: ReviseArticleInput) => {
     const input = z.object({
+      revisionMode: z.enum(['new-version', 'new-candidates']),
       articleId: articleIdSchema, instruction: z.string().trim().min(1).max(8_000), alignFramework: z.boolean(),
       providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
       baseMarkdown: z.string().max(200_000).optional(), expectedVersionId: articleIdSchema.optional(), draftRevision: z.number().int().nonnegative().optional()
     }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.revise(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
+  })
+  handle('articles:requests', () => articleGenerator.listRequests())
+  handle('articles:summary', (_event, id: string) => database.workflow.getSummary(requireId(id)))
+  handle('visuals:manual-pack', (_event, raw: string) => database.createManualVisualPack(requireId(raw)))
+  handle('articles:adopt-candidate', (_event, raw: unknown) => {
+    const input = z.object({ articleId: z.string().uuid(), candidateId: z.string().uuid(), expectedVersionId: z.string().uuid(), expectedCandidateVersionId: z.string().uuid() }).parse(raw)
+    database.workflow.assertSaved(input.articleId)
+    const original = database.getArticle(input.articleId), candidate = database.getArticle(input.candidateId)
+    if (!original || !candidate) throw new Error('原文章或候选已删除')
+    if (candidate.currentVersionId !== input.expectedCandidateVersionId) throw new Error('候选已有新版本，请重新比较后采纳')
+    if (!candidate.references.some(ref => ref.sourceType === 'article' && ref.sourceId === original.id)) throw new Error('该候选不属于原文章')
+    return database.atomic(() => {
+      const result = database.saveArticle({ ...original, rawMarkdown: candidate.rawMarkdown, providerId: candidate.providerId, model: candidate.model, source: 'revise', instruction: `采纳备选稿 ${candidate.id}`, expectedVersionId: input.expectedVersionId })
+      const evidence = database.workflow.getEvidence(candidate.currentVersionId)
+      if (evidence) database.workflow.saveEvidence(result.currentVersionId, evidence)
+      database.workflow.adoptReviewCandidate(candidate.id)
+      return result
+    })
+  })
+  handle('articles:retry-request', (event, raw: string) => runGeneration(event, 'articles', signal => articleGenerator.retry(requireId(raw), stream => sendToStream(event, 'articles:stream', stream), signal)))
+  handle('articles:continue-result', (event, raw: unknown) => {
+    const input = z.object({ id: z.string().uuid(), index: z.number().int().positive() }).parse(raw)
+    return runGeneration(event, 'articles', signal => articleGenerator.continueResult(input.id, input.index, stream => sendToStream(event, 'articles:stream', stream), signal))
+  })
+  handle('articles:recover-result', (_event, raw: unknown) => {
+    const input = z.object({ id: z.string().uuid(), index: z.number().int().positive(), markdown: z.string().trim().min(1).max(200000) }).parse(raw)
+    return articleGenerator.recover(input.id, input.index, input.markdown)
   })
   handle('articles:save', (_event, raw: SaveArticleInput) => {
     const input = z.object({
@@ -786,7 +841,7 @@ function handle(
   channel: string,
   listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown
 ): void {
-  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), channel === 'app:backup-create' || channel === 'app:backup-restore'))
+  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), ['app:backup-create', 'app:backup-restore', 'app:backup-export-portable', 'app:backup-select-portable'].includes(channel)))
 }
 
 function requireId(value: string): string {

@@ -43,10 +43,13 @@ const api: MoliuApi = {
     exportLayout: (input: { layoutId: string; targetDir?: string }) => ipcRenderer.invoke('app:export-layout', input),
     createBackup: (input?: { targetDir?: string }) => ipcRenderer.invoke('app:backup-create', input),
     restoreBackup: (input: { bundleDir: string }) => ipcRenderer.invoke('app:backup-restore', input),
-    listBackups: () => ipcRenderer.invoke('app:backup-list')
+    listBackups: () => ipcRenderer.invoke('app:backup-list'),
+    exportPortableBackup: () => ipcRenderer.invoke('app:backup-export-portable'),
+    selectPortableBackup: () => ipcRenderer.invoke('app:backup-select-portable')
   },
   clipboard: {
-    writeRichText: (html: string, text: string) => ipcRenderer.invoke('clipboard:writeRichText', { html, text })
+    writeRichText: (html: string, text: string) => ipcRenderer.invoke('clipboard:writeRichText', { html, text }),
+    prepareLayout: (layoutId, mode) => ipcRenderer.invoke('clipboard:prepare-layout', { layoutId, mode })
   },
   generation: {
     cancel: (domain: string) => ipcRenderer.invoke('generation:cancel', domain),
@@ -62,6 +65,7 @@ const api: MoliuApi = {
     presets: () => ipcRenderer.invoke('providers:presets'),
     list: () => ipcRenderer.invoke('providers:list'),
     save: (input: SaveProviderInput) => ipcRenderer.invoke('providers:save', input),
+    testAndSave: (input: SaveProviderInput) => ipcRenderer.invoke('providers:test-and-save', input),
     remove: (id: string) => ipcRenderer.invoke('providers:remove', id),
     test: (id: string) => ipcRenderer.invoke('providers:test', id),
     testDraft: (input: ProviderDraftTestInput) => ipcRenderer.invoke('providers:test-draft', input),
@@ -141,6 +145,8 @@ const api: MoliuApi = {
     }
   },
   materials: {
+    document: (id) => ipcRenderer.invoke('materials:document', id),
+    previewContext: (input) => ipcRenderer.invoke('materials:preview-context', input),
     list: () => ipcRenderer.invoke('materials:list'),
     search: (input: MaterialSearchInput) => ipcRenderer.invoke('materials:search', input),
     addSearchResult: (input: AddSearchMaterialInput) =>
@@ -165,6 +171,7 @@ const api: MoliuApi = {
     }
   },
   articles: {
+    getSummary: (id) => ipcRenderer.invoke('articles:summary', id),
     list: () => ipcRenderer.invoke('articles:list'),
     listSummaries: (query) => ipcRenderer.invoke('articles:summaries', query),
     get: (id: string) => ipcRenderer.invoke('articles:get', id),
@@ -174,6 +181,11 @@ const api: MoliuApi = {
     commitDraft: (id, revision) => ipcRenderer.invoke('articles:draft:commit', id, revision),
     generate: (input: GenerateArticlesInput) => ipcRenderer.invoke('articles:generate', input),
     revise: (input: ReviseArticleInput) => ipcRenderer.invoke('articles:revise', input),
+    listRequests: () => ipcRenderer.invoke('articles:requests'),
+    retryRequest: (id) => ipcRenderer.invoke('articles:retry-request', id),
+    continueResult: (id, index) => ipcRenderer.invoke('articles:continue-result', { id, index }),
+    recoverResult: (id, index, markdown) => ipcRenderer.invoke('articles:recover-result', { id, index, markdown }),
+    adoptCandidate: (input) => ipcRenderer.invoke('articles:adopt-candidate', input),
     save: (input: SaveArticleInput) => ipcRenderer.invoke('articles:save', input),
     restore: (input: RestoreArticleVersionInput) => ipcRenderer.invoke('articles:restore', input),
     renameVersion: (input: RenameArticleVersionInput) => ipcRenderer.invoke('articles:rename-version', input),
@@ -201,6 +213,7 @@ const api: MoliuApi = {
     }
   },
   visuals: {
+    createManualPack: (id) => ipcRenderer.invoke('visuals:manual-pack', id),
     list: (articleId?: string) => ipcRenderer.invoke('visuals:list', articleId),
     generate: (input) => ipcRenderer.invoke('visuals:generate', input),
     remove: (id: string) => ipcRenderer.invoke('visuals:remove', id),
@@ -232,6 +245,7 @@ const api: MoliuApi = {
     getForm: (id) => ipcRenderer.invoke('publishing:form:get', id),
     saveForm: (input) => ipcRenderer.invoke('publishing:form:save', input),
     preflight: (input) => ipcRenderer.invoke('publishing:preflight', input),
+    resolveUnknown: (input) => ipcRenderer.invoke('publishing:resolve-unknown', input),
     retry: (id) => ipcRenderer.invoke('publishing:retry', id),
     list: () => ipcRenderer.invoke('publishing:list'),
     pushWechatDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-draft', input),

@@ -22,9 +22,9 @@ export class TopicGenerator {
   ) {}
 
   async generate(input: GenerateTopicsInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateTopicsResult> {
-    const account = this.database.getAccount(input.accountId)
-    if (!account) throw new Error('账号定位不存在')
-    if (account.status !== 'locked') throw new Error('选题生成只能使用已锁定的账号定位')
+    const account = input.accountId ? this.database.getAccount(input.accountId) : null
+    if (input.accountId && !account) throw new Error('账号定位不存在')
+    if (account && account.status !== 'locked') throw new Error('选题生成只能使用已锁定的账号定位')
 
     const schema = this.database.getTopicSchema()
     if (!schema.length) throw new Error('请先配置至少一个选题字段')
@@ -39,10 +39,10 @@ export class TopicGenerator {
 
     const work = Array.from({ length: input.count }, (_, index) =>
       this.generateOne({
-        accountId: account.id,
-        accountVersionId: account.currentVersionId,
+        accountId: account?.id,
+        accountVersionId: account?.currentVersionId,
         accountStatus: 'locked',
-        accountXml: serializeAccountXml(account.fields, account.redlines),
+        accountXml: account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>通用创作，不使用账号定位</账号定位>',
         providerId: input.providerId,
         model: input.model,
         schema,
@@ -65,8 +65,8 @@ export class TopicGenerator {
   }
 
   private async generateOne(input: {
-    accountId: string
-    accountVersionId: string
+    accountId?: string
+    accountVersionId?: string
     accountStatus: 'locked'
     accountXml: string
     providerId: string
@@ -112,7 +112,7 @@ export class TopicGenerator {
     const fields = parseTopicJson(response.content, input.schema)
     const topic = this.database.saveTopic({
       seedKeyword: input.seedKeyword,
-      accountIds: [input.accountId],
+      accountIds: input.accountId ? [input.accountId] : [],
       relatedHotIds: input.favorites.map((favorite) => favorite.id),
       status: 'draft',
       source: 'ai',
@@ -120,7 +120,7 @@ export class TopicGenerator {
       providerId: response.providerId,
       model: response.model
     })
-    this.database.createArtifactReference({
+    if (input.accountId && input.accountVersionId) this.database.createArtifactReference({
       sourceType: 'account-profile',
       sourceId: input.accountId,
       sourceVersionId: input.accountVersionId,
@@ -186,7 +186,7 @@ export function parseTopicJson(content: string, schema: TopicSchemaField[]): Rec
 export function serializeFavoriteHotspotsXml(favorites: HotFavorite[]): string {
   const body = favorites.length
     ? favorites.map((favorite, index) => (
-      `${index + 1}. [${escapeXml(favorite.hotItem.sourceTitle)}] ${escapeXml(favorite.hotItem.title)}`
+      `${index + 1}. ID：${escapeXml(favorite.id)}\n来源：[${escapeXml(favorite.hotItem.sourceTitle)}] ${escapeXml(favorite.hotItem.title)}\n来源 URL：${escapeXml(favorite.hotItem.url)}\n获取时间：${escapeXml(favorite.hotItem.updateTime || favorite.createdAt)}\n摘要：${escapeXml(favorite.hotItem.desc)}\n核实状态：缓存快照，未实时核验`
     )).join('\n')
     : '无'
   return `<收藏热点>\n${body}\n</收藏热点>`

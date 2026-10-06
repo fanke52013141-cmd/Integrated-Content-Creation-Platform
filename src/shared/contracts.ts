@@ -72,6 +72,7 @@ export interface ProviderVerification {
   verified: boolean
   /** 验证成功之后又修改过配置，需要重新验证 */
   stale: boolean
+  testedModel?: string
 }
 
 export interface ProviderSummary {
@@ -101,6 +102,7 @@ export interface SaveProviderInput {
   capabilities: CapabilityFlags
   models: SaveProviderModelInput[]
   apiKey?: string
+  expectedUpdatedAt?: string
 }
 
 export interface ProviderPreset {
@@ -496,8 +498,11 @@ export interface SaveTopicInput {
   model?: string
 }
 
+export interface MaterialFragment { id: string; materialId: string; versionId: string; title: string; sourceUrl?: string; start: number; end: number; text: string }
+export interface MaterialContext { fragments: MaterialFragment[]; totalChars: number; usedChars: number; omittedChars: number; text: string }
+
 export interface GenerateTopicsInput {
-  accountId: string
+  accountId?: string
   providerId: string
   model: string
   seedKeyword: string
@@ -616,20 +621,23 @@ export interface ArticleVersion { id: string; articleId: string; versionNumber: 
 export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
 export type AccountSelection = { mode: 'inherit' } | { mode: 'none' } | { mode: 'specific'; accountId: string }
 export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; accountSelection?: AccountSelection; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
-export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
-export interface ReviseArticleInput { articleId: string; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string; expectedVersionId?: string; draftRevision?: number }
-export interface ReviseArticleResult { articles: Article[]; failed: Array<{ index: number; message: string }> }
+export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }>; requestId?: string }
+export interface ReviseArticleInput { articleId: string; revisionMode: 'new-version' | 'new-candidates'; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string; expectedVersionId?: string; draftRevision?: number }
+export interface ReviseArticleResult extends GenerateArticlesResult {}
+export type ContentCompletion = 'complete' | 'truncated' | 'interrupted' | 'blocked' | 'unverified' | 'invalid'
+export interface CreationResult { index: number; status: 'pending' | 'running' | 'succeeded' | 'failed'; content: string; completion?: ContentCompletion; message: string; articleId?: string }
+export interface CreationRequest { id: string; kind: 'generate' | 'revise'; articleId?: string; title: string; createdAt: string; results: CreationResult[] }
 export interface SaveArticleInput { id?: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; rawMarkdown: string; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; expectedVersionId?: string; draftRevision?: number }
 export interface WorkDraft { articleId: string; baseVersionId: string; content: string; revision: number; updatedAt: string }
 export interface SaveWorkDraftInput { articleId: string; baseVersionId: string; content: string; expectedRevision?: number }
-export type ArticleSummary = Omit<Article, 'versions' | 'references'> & { title: string; hasWorkDraft: boolean; layoutStale: boolean; publicationStatus?: PublicationStatus }
+export type ArticleSummary = Omit<Article, 'versions' | 'references' | 'rawMarkdown'> & { title: string; excerpt: string; hasWorkDraft: boolean; layoutStale: boolean; publicationStatus?: PublicationStatus }
 export interface ArticleListQuery { offset?: number; limit?: number; search?: string; status?: ArticleStatus; accountId?: string; dirtyOnly?: boolean }
 export interface ArticleListResult { items: ArticleSummary[]; total: number }
 export interface RestoreArticleVersionInput { articleId: string; versionId: string }
 export interface RenameArticleVersionInput { articleId: string; versionId: string; label: string }
 export type ReviewSeverity = 'high' | 'medium' | 'low'
 export interface ReviewRole { id: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number; createdAt: string; updatedAt: string }
-export interface ReviewProblem { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean; isManual: boolean }
+export interface ReviewProblem { id: string; position: string; severity: ReviewSeverity; issue: string; suggestion: string; adopted: boolean; isManual: boolean; reviewKind?: 'fact' | 'style'; anchor?: string; evidence?: { status: 'source-matched' | 'unverified'; fragmentId?: string; title?: string; sourceUrl?: string; excerpt?: string } }
 export interface ReviewOpinion { id: string; taskId: string; roleId?: string; roleName: string; providerId?: string; model?: string; dimensions: string[]; problems: ReviewProblem[]; overallSuggestion: string; rawXml: string; extractionMatched: boolean; createdAt: string }
 export type ReviewTaskStatus = 'running' | 'completed' | 'partial' | 'failed' | 'applied'
 export interface ReviewFailure { roleId: string; roleName: string; message: string }
@@ -642,7 +650,7 @@ export interface AddManualReviewProblemInput { taskId: string; position: string;
 
 export interface VisualCover { visual: string; prompt: string; overlayText: string }
 export interface VisualPrompt { location: string; purpose: string; ratio: string; prompt: string; alt: string }
-export interface VisualPack { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; providerId: string; model: string; cover: VisualCover; inlineImages: VisualPrompt[]; releaseImages: VisualPrompt[]; rawXml: string; createdAt: string }
+export interface VisualPack { id: string; kind?: 'manual' | 'generated'; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; providerId?: string; model?: string; cover: VisualCover; inlineImages: VisualPrompt[]; releaseImages: VisualPrompt[]; rawXml: string; createdAt: string }
 export interface GenerateVisualPackInput { articleId: string; providerId: string; model: string; inlineCount: number }
 
 /** 视觉包下的一张具体图片资产（AI 生成或本地导入） */
@@ -707,15 +715,17 @@ export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
 export type PublicationStatus = 'draft' | 'published' | 'failed' | 'unknown'
-export interface PublicationSnapshot { appId: string; html: string; input: PushWechatDraftInput }
-export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot }
+export interface PublicationResolution { decision: 'received' | 'not-received' | 'unresolved'; note: string; checkedAt: string; remoteId?: string }
+export interface PublicationSnapshot { retryOf?: string; appId: string; html: string; input: PushWechatDraftInput }
+export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot; resolution?: PublicationResolution; retryOf?: string }
 export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId?: string; coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string; appId?: string }
 export interface PublishFormDraft { articleId: string; layoutId: string; appId: string; coverAssetId: string; thumbMediaId: string; author: string; digest: string; contentSourceUrl: string }
 export interface DeliveryCheck { ready: boolean; issues: string[]; localImageCount: number; title: string; articleVersionNumber: number; appId: string }
 export interface UpdatePublicationInput { id: string; status: 'published'; publishedUrl: string }
 /** 发布复盘：人工记录「目标 / 结果 / 经验」，用来喂给账号记忆 */
-export interface PublicationRetro { goal: string; result: string; lesson: string; updatedAt: string }
-export interface SavePublicationRetroInput { id: string; goal: string; result: string; lesson: string }
+export interface PublicationMetrics { reads?: number; shares?: number; followers?: number; conversions?: number; cutoff?: string }
+export interface PublicationRetro { metrics?: PublicationMetrics; goal: string; result: string; lesson: string; updatedAt: string }
+export interface SavePublicationRetroInput { metrics?: PublicationMetrics; id: string; goal: string; result: string; lesson: string }
 
 export interface AppBootstrap {
   providers: ProviderSummary[]
@@ -800,10 +810,13 @@ export interface MoliuApi {
     createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }>
     restoreBackup(input: { bundleDir: string }): Promise<{ restoredImages: number }>
     listBackups(): Promise<string[]>
+    exportPortableBackup(): Promise<LocalFileResult>
+    selectPortableBackup(): Promise<{ bundleDir: string; summary: string } | null>
   }
   /** 主进程受控剪贴板：一次写入 HTML + 纯文本，粘贴到公众号编辑器时保留样式 */
   clipboard: {
     writeRichText(html: string, text: string): Promise<boolean>
+    prepareLayout(layoutId: string, mode: 'wechat' | 'placeholders'): Promise<{ imageCount: number }>
   }
   /** 生成任务：按模块互斥、可取消，并提供全局生命周期事件与历史台账 */
   generation: {
@@ -817,6 +830,7 @@ export interface MoliuApi {
     presets(): Promise<ProviderPreset[]>
     list(): Promise<ProviderSummary[]>
     save(input: SaveProviderInput): Promise<ProviderSummary>
+    testAndSave(input: SaveProviderInput): Promise<ProviderSummary>
     remove(id: string): Promise<void>
     test(id: string): Promise<ProviderTestResult>
     /** 保存前用表单配置测试连接 */
@@ -885,6 +899,8 @@ export interface MoliuApi {
     onStream(callback: (event: StreamEvent) => void): () => void
   }
   materials: {
+    document(id: string): Promise<{ versionId: string; content: string } | null>
+    previewContext(input: { ids: string[]; query: string; providerId?: string; model?: string; baseText?: string }): Promise<MaterialContext>
     list(): Promise<Material[]>
     search(input: MaterialSearchInput): Promise<MaterialSearchResult>
     addSearchResult(input: AddSearchMaterialInput): Promise<{ material: Material; created: boolean }>
@@ -908,6 +924,7 @@ export interface MoliuApi {
   articles: {
     list(): Promise<Article[]>
     listSummaries(query?: ArticleListQuery): Promise<ArticleListResult>
+    getSummary(id: string): Promise<ArticleSummary | null>
     get(id: string): Promise<Article | null>
     getDraft(articleId: string): Promise<WorkDraft | null>
     saveDraft(input: SaveWorkDraftInput): Promise<WorkDraft>
@@ -915,6 +932,11 @@ export interface MoliuApi {
     commitDraft(articleId: string, revision: number): Promise<Article>
     generate(input: GenerateArticlesInput): Promise<GenerateArticlesResult>
     revise(input: ReviseArticleInput): Promise<ReviseArticleResult>
+    listRequests(): Promise<CreationRequest[]>
+    retryRequest(requestId: string): Promise<GenerateArticlesResult>
+    continueResult(requestId: string, index: number): Promise<GenerateArticlesResult>
+    recoverResult(requestId: string, index: number, markdown: string): Promise<Article>
+    adoptCandidate(input: { articleId: string; candidateId: string; expectedVersionId: string; expectedCandidateVersionId: string }): Promise<Article>
     save(input: SaveArticleInput): Promise<Article>
     restore(input: RestoreArticleVersionInput): Promise<Article>
     /** §7.4：历史版本除了比较与恢复，还要能被命名，否则几十版之后只能靠版本号认 */
@@ -936,6 +958,7 @@ export interface MoliuApi {
     onStream(callback: (event: StreamEvent) => void): () => void
   }
   visuals: {
+    createManualPack(articleId: string): Promise<VisualPack>
     list(articleId?: string): Promise<VisualPack[]>
     generate(input: GenerateVisualPackInput): Promise<VisualPack>
     remove(id: string): Promise<void>
@@ -972,6 +995,7 @@ export interface MoliuApi {
     saveForm(input: PublishFormDraft): Promise<void>
     preflight(input: PushWechatDraftInput): Promise<DeliveryCheck>
     retry(publicationId: string): Promise<Publication>
+    resolveUnknown(input: { id: string; decision: 'received' | 'not-received' | 'unresolved'; note: string; expectedUpdatedAt: string; remoteId?: string }): Promise<Publication>
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
     update(input: UpdatePublicationInput): Promise<Publication>

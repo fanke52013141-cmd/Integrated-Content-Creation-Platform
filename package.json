@@ -26,6 +26,7 @@
     "test:live": "node scripts/live-provider-smoke.mjs",
     "package:win": "npm run build && node node_modules/electron-builder/out/cli/cli.js --win --x64",
     "postinstall": "node node_modules/electron/install.js",
+    "test:optimization": "npm run build && node scripts/smoke-optimization.mjs",
     "test:workflow": "npm run build && node scripts/smoke-workflow.mjs"
   },
   "dependencies": {

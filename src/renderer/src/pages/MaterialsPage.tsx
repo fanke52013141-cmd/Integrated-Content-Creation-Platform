@@ -1,3 +1,4 @@
+import { MaterialDocument } from '../components/MaterialDocument'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
@@ -323,7 +324,7 @@ export function MaterialsPage({
 function MaterialRow({ material, refs, onOpen, onRemove }: { material: Material; refs: Array<{ id: string; title: string }>; onOpen(url: string | undefined): void; onRemove(): void }): React.JSX.Element {
   return <article className="material-row">
     <span className={`material-kind-mark ${material.kind}`}>{material.kind === 'web' ? <FileText size={16} /> : material.kind === 'image' ? <Image size={16} /> : <BookOpenText size={16} />}</span>
-    <div className="material-row-main"><div><strong>{material.title}</strong><span className="material-origin">{material.origin === 'manual_text' ? '手动文字' : material.kind === 'image' ? '图片参考' : '网页 Summary'}</span></div><p>{material.kind === 'image' ? `${material.imageWidth ?? '?'} × ${material.imageHeight ?? '?'} · ${material.watermark === '1' ? '有水印' : '授权需确认'}` : material.summary}</p><small>{material.sourceName || material.sourceNote || '个人整理'} · {formatDate(material.createdAt)}</small>{refs.length ? <details className="micro-copy"><summary className="badge neutral">被 {refs.length} 篇文章引用</summary>{refs.map((ref) => <div key={ref.id}>{ref.title}</div>)}</details> : null}</div>
+    <div className="material-row-main"><div><strong>{material.title}</strong><span className="material-origin">{material.origin === 'file_upload' ? '文档全文' : material.origin === 'manual_text' ? '手动文字' : material.kind === 'image' ? '图片参考' : '网页 Summary'}</span></div><p>{material.kind === 'image' ? `${material.imageWidth ?? '?'} × ${material.imageHeight ?? '?'} · ${material.watermark === '1' ? '有水印' : '授权需确认'}` : material.summary}</p><small>{material.sourceName || material.sourceNote || '个人整理'} · {formatDate(material.createdAt)}</small>{material.origin === 'file_upload' && <MaterialDocument materialId={material.id} />}{refs.length ? <details className="micro-copy"><summary className="badge neutral">被 {refs.length} 篇文章引用</summary>{refs.map((ref) => <div key={ref.id}>{ref.title}</div>)}</details> : null}</div>
     <div className="material-row-actions">{material.sourceUrl && <button className="icon-button" title="打开来源" aria-label="打开来源" onClick={() => onOpen(material.sourceUrl)}><ExternalLink size={15} /></button>}<button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div>
   </article>
 }

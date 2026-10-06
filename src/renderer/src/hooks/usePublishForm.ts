@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ArticleSummary, PublishFormDraft } from '../../../shared/contracts'
+import type { Article, PublishFormDraft } from '../../../shared/contracts'
 import { errorMessage } from '../lib'
 
-function initialForm(article: ArticleSummary | undefined, appId: string, layoutId: string, author: string): PublishFormDraft {
+function initialForm(article: Article | undefined, appId: string, layoutId: string, author: string): PublishFormDraft {
   const paragraph = article?.rawMarkdown.split('\n').map(line => line.replace(/^#+\s*/, '').trim()).find(line => line.length > 10 && !line.startsWith('![')) ?? ''
   return { articleId: article?.id ?? '', appId, layoutId, author, digest: paragraph.slice(0, 120), coverAssetId: '', thumbMediaId: '', contentSourceUrl: '' }
 }
 
-export function usePublishForm(article: ArticleSummary | undefined, appId: string, layoutId: string, defaultAuthor: string) {
+export function usePublishForm(article: Article | undefined, appId: string, layoutId: string, defaultAuthor: string) {
   const [stored, setStored] = useState<PublishFormDraft | null>(null)
   const [loadedId, setLoadedId] = useState('')
   const [error, setError] = useState('')

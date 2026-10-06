@@ -197,6 +197,7 @@ describe('INT-02 批量失败隔离 - 单个失败不阻塞其余', () => {
     const generator = new ArticleGenerator(database, gateway, prompts)
 
     const result = await generator.revise({
+      revisionMode: 'new-candidates',
       articleId: article.id,
       instruction: '把开头改得更犀利',
       alignFramework: false,

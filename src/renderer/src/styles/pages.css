@@ -4154,3 +4154,18 @@
 }
 /* 插入配图的下拉在并排布局下不参与横向挤压 */
 .article-editor-toolbar .select { flex: 1 1 180px; min-width: 140px; }
+
+/* Writing workspace: content first, with an explicit reversible focus toggle. */
+.article-split.source-only { grid-template-columns: minmax(0, 1fr); }
+.article-editor-toolbar { position: sticky; top: 0; z-index: 3; background: var(--surface); }
+html[data-writing-focus="true"] .sidebar,
+html[data-writing-focus="true"] .work-bar,
+html[data-writing-focus="true"] .pipeline-steps,
+html[data-writing-focus="true"] .article-composer,
+html[data-writing-focus="true"] .article-list { display: none; }
+html[data-writing-focus="true"] .app-shell { grid-template-columns: minmax(0, 1fr); }
+html[data-writing-focus="true"] .article-workbench { grid-template-columns: minmax(0, 1fr); }
+.focus-toggle { align-self: flex-start; }
+
+.article-editor-toolbar > div:first-child > button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; border-radius: 6px; color: var(--text-secondary); background: transparent; cursor: pointer; }
+.article-editor-toolbar > div:first-child > button.active { color: var(--text); background: var(--surface); box-shadow: 0 1px 4px #00000012; }

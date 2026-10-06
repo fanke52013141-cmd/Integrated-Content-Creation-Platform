@@ -1,6 +1,7 @@
 import { dialog } from 'electron'
 import { copyFile, mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename, extname, join, resolve, sep } from 'node:path'
 import type { LocalFileResult } from '../../shared/contracts.js'
@@ -99,6 +100,57 @@ export class WorkspaceService {
       }
     }, null, 2), 'utf8')
     return { path: bundle, checksum }
+  }
+
+  /** 外部路径只来自系统选择框；跨机器默认不携带本机加密凭证。 */
+  async exportPortableBackup(): Promise<LocalFileResult> {
+    const directory = await this.pickDirectory()
+    if (!directory) return { path: null }
+    const backup = await this.createBackup()
+    const bundle = join(directory, `${basename(backup.path)}-portable`)
+    const sanitized = this.insideData(join(backup.path, 'portable.db'))
+    await copyFile(join(backup.path, 'moliu.db'), sanitized, constants.COPYFILE_EXCL)
+    const portable = new DatabaseSync(sanitized)
+    try {
+      portable.exec('PRAGMA secure_delete=ON; BEGIN; DELETE FROM provider_secrets; DELETE FROM search_service_secrets; DELETE FROM publish_channel_secrets; DELETE FROM weibo_sessions; DELETE FROM wechat_asset_uploads; DELETE FROM channel_verification; UPDATE providers SET last_test_status=NULL,last_test_at=NULL; COMMIT;')
+      portable.exec('PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE)')
+    } finally { portable.close() }
+    const pending = `${bundle}.partial`
+    await mkdir(pending)
+    await copyFile(sanitized, join(pending, 'moliu.db'), constants.COPYFILE_EXCL)
+    await this.copyImages(join(pending, 'images'))
+    const manifest = JSON.parse(await readFile(join(backup.path, 'manifest.json'), 'utf8'))
+    manifest.checksum = await sha256(join(pending, 'moliu.db'))
+    manifest.credentialsIncluded = false
+    manifest.schemaVersion = 2
+    manifest.imageChecksums = await this.imageChecksums(join(pending, 'images'))
+    await writeFile(join(pending, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8')
+    await rename(pending, bundle)
+    await rm(sanitized, { force: true })
+    return { path: bundle }
+  }
+
+  /** 外部备份先复制、校验到本机；界面展示摘要并确认后才覆盖当前数据。 */
+  async selectPortableBackup(): Promise<{ bundleDir: string; summary: string } | null> {
+    const result = await dialog.showOpenDialog({ title: '选择包含 manifest.json 的备份目录', properties: ['openDirectory'] })
+    if (result.canceled || !result.filePaths[0]) return null
+    const source = resolve(result.filePaths[0])
+    const manifest = JSON.parse(await readFile(join(source, 'manifest.json'), 'utf8'))
+    if (manifest.app !== 'moliu' || manifest.formatVersion !== 2 || !manifest.imageChecksums || typeof manifest.checksum !== 'string') throw new Error('不支持的备份格式')
+    if (await sha256(join(source, 'moliu.db')) !== manifest.checksum || !this.database.isDatabaseFile(join(source, 'moliu.db'))) throw new Error('数据库校验失败或版本高于当前应用，已停止导入')
+    const stage = this.insideData(join(this.dataPath, 'backups', `moliu-backup-import-${randomUUID()}`))
+    await mkdir(join(stage, 'images'), { recursive: true })
+    try {
+      await copyFile(join(source, 'moliu.db'), join(stage, 'moliu.db'))
+      for (const [name, expected] of Object.entries(manifest.imageChecksums)) {
+        if (name !== basename(name) || !/\.(png|jpe?g|webp|gif)$/i.test(name) || typeof expected !== 'string') throw new Error('备份图片清单无效')
+        const file = join(source, 'images', name)
+        if (await sha256(file) !== expected) throw new Error(`图片“${name}”校验失败`)
+        await copyFile(file, join(stage, 'images', name))
+      }
+      await writeFile(join(stage, 'manifest.json'), JSON.stringify(manifest), 'utf8')
+      return { bundleDir: stage, summary: `${manifest.createdAt ?? '未知时间'} · ${manifest.counts?.articles ?? '?'} 篇文章 · ${manifest.counts?.materials ?? '?'} 条素材 · ${Object.keys(manifest.imageChecksums).length} 张图片。${manifest.credentialsIncluded === false ? '不含密钥，恢复后需重新配置连接。' : '含本机加密凭证，换电脑后需重新配置连接。'}` }
+    } catch (error) { await rm(this.insideData(stage), { recursive: true, force: true }); throw error }
   }
 
   /** 从备份目录恢复整库与图片；恢复前数据库层会自动留存 pre-restore 副本 */

@@ -161,7 +161,8 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(reviewResult.task.opinions[0].problems.length).toBeGreaterThanOrEqual(1)
 
     // === 阶段 6：采纳评审意见改稿 ===
-    // 先标记所有问题为采纳（默认 adopted=true，但确认一下）
+    // 作者明确选择采用意见，生成结果仍需比较采纳。
+    for (const opinion of reviewResult.task.opinions) for (const problem of opinion.problems) database.updateReviewProblem({ ...problem, adopted: true })
     const adoptedArticle = await reviewService.apply(
       reviewResult.task.id,
       PROVIDER_ID,
@@ -170,9 +171,10 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(adoptedArticle.id).toBeDefined()
     expect(adoptedArticle.rawMarkdown.startsWith('# ')).toBe(true)
     // 改稿后版本号递增
-    expect(adoptedArticle.versionCount).toBeGreaterThan(article.versionCount)
-    // 评审任务标记为 applied
-    expect(database.getReviewTask(reviewResult.task.id)?.status).toBe('applied')
+    expect(adoptedArticle.id).not.toBe(article.id)
+    expect(database.getArticle(article.id)?.currentVersionId).toBe(article.currentVersionId)
+    // 生成候选还未正式采纳，不提前标记已应用。
+    expect(database.getReviewTask(reviewResult.task.id)?.status).toBe('completed')
 
     // === 阶段 7：配图方案 ===
     const visualGenerator = new VisualPackGenerator(database, gateway, prompts)
@@ -258,7 +260,7 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(database.listTopics().length).toBeGreaterThanOrEqual(1)
     expect(database.listFrameworks().length).toBeGreaterThanOrEqual(1)
     expect(database.listArticles().length).toBeGreaterThanOrEqual(1)
-    expect(database.listReviewTasks(adoptedArticle.id).length).toBeGreaterThanOrEqual(1)
+    expect(database.listReviewTasks(article.id).length).toBeGreaterThanOrEqual(1)
     expect(database.listVisualPacks(adoptedArticle.id).length).toBeGreaterThanOrEqual(1)
     expect(database.listArticleLayouts(adoptedArticle.id).length).toBeGreaterThanOrEqual(1)
     expect(database.listPublications().length).toBeGreaterThanOrEqual(1)

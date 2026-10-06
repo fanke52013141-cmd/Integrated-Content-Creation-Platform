@@ -50,7 +50,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   // 上下文里的作品可能已被删除，这里以真实列表为准
   useEffect(() => {
-    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.get(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: articleTitleOf(article.rawMarkdown), hasWorkDraft: false, layoutStale: false }]) }); return () => { alive = false } }
+    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.getSummary(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: article.title }]) }); return () => { alive = false } }
   }, [work, articles, loading, setWork])
 
   const resume = useMemo(() => articles.find((article) => article.id === work?.articleId), [articles, work])
@@ -137,7 +137,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
             {recent.map((article) => (
               <li key={article.id}>
                 <button className="home-recent-item" onClick={() => onNavigate('articles', { articleId: article.id })}>
-                  <strong>{articleTitleOf(article.rawMarkdown)}</strong>
+                  <strong>{article.title}</strong>
                   <small>{article.status === 'locked' ? '已锁定' : '草稿'} · 第 {article.versionCount} 版{article.hasWorkDraft ? ' · 有本地修改' : ''}{article.layoutStale ? ' · 排版需检查' : ''}{article.publicationStatus ? ` · ${article.publicationStatus === 'published' ? '已发布' : article.publicationStatus === 'draft' ? '已推送草稿箱' : '交付待处理'}` : ''} · {formatDate(article.updatedAt)}</small>
                 </button>
               </li>

@@ -98,10 +98,49 @@ export class WechatPublishService {
     if (publication.status !== 'failed') throw new Error('只能重试明确失败的交付')
     const check = await this.preflight(publication.snapshot.input)
     if (!check.ready) throw new Error(check.issues.join('；'))
-    if (this.pushing) throw new Error('已有草稿推送进行中，请等待完成')
+    if (this.pushing || this.configurationBusy) throw new Error('已有公众号操作进行中，请等待完成')
     this.pushing = true
-    try { return await this.deliver(publication.snapshot, publication.title, publication.articleVersionId) }
+    try { return await this.deliver({ ...publication.snapshot, retryOf: publication.id }, publication.title, publication.articleVersionId) }
     finally { this.pushing = false }
+  }
+
+  resolveUnknown(input: { id: string; decision: 'received' | 'not-received' | 'unresolved'; note: string; expectedUpdatedAt: string; remoteId?: string }): Publication {
+    if (this.pushing || this.configurationBusy) throw new Error('公众号操作进行中，请完成后再核对结果')
+    const record = this.database.getPublication(input.id)
+    if (!record || record.status !== 'unknown' || record.updatedAt !== input.expectedUpdatedAt) throw new Error('交付记录已变化，请刷新后核对')
+    return this.database.atomic(() => {
+      this.database.workflow.saveResolution(input.id, { ...input, checkedAt: new Date().toISOString() })
+      return this.database.updatePublicationOutcome(input.id, input.decision === 'received' ? 'draft' : input.decision === 'not-received' ? 'failed' : 'unknown', record.thumbMediaId,
+        input.decision === 'not-received' ? `人工核对未收到：${input.note}` : input.decision === 'unresolved' ? `仍待确认：${input.note}` : undefined, input.remoteId)
+    })
+  }
+
+  async prepareClipboard(layoutId: string, mode: 'wechat' | 'placeholders'): Promise<{ html: string; text: string; imageCount: number }> {
+    if (this.configurationBusy || this.pushing) throw new Error('公众号操作进行中，请稍后复制')
+    const layout = this.database.getArticleLayout(layoutId)
+    const article = layout && this.database.getArticle(layout.articleId)
+    if (!layout || !article) throw new Error('排版稿或文章不存在')
+    this.database.workflow.assertSaved(article.id)
+    if (layout.articleVersionId !== article.currentVersionId) throw new Error('正文已有新版本，请重新排版后复制')
+    const names = localAssetNames(layout.html)
+    if (mode === 'placeholders') {
+      let count = 0
+      const html = layout.html.replace(/<img\b[^>]*>/gi, () => `<p>【图片 ${++count}：请在公众号编辑器手动插入】</p>`)
+      return { html, text: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), imageCount: count }
+    }
+    if (layout.platform !== 'wechat') throw new Error('请选择微信公众号排版稿')
+    const violations = validateWechatLayout({ html: layout.html, title: layout.title }).filter(item => item.level === 'error')
+    if (violations.length) throw new Error(formatViolations(violations))
+    this.uploading++
+    try {
+      const appId = this.database.getWechatPublishChannel().appId
+      const html = await this.prepareInlineImages(layout.html, appId)
+      if (html.includes('moliu-asset:')) throw new Error('仍有本地图片地址，已停止复制')
+      if ([...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].some(match => !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\//i.test(match[1]))) throw new Error('含外部图片，请先导入或选择手动插图复制')
+      if (this.database.getArticle(article.id)?.currentVersionId !== layout.articleVersionId) throw new Error('上传期间正文已变化，请重新排版')
+      this.database.workflow.assertSaved(article.id)
+      return { html, text: layout.plainText, imageCount: names.length }
+    } finally { this.uploading-- }
   }
 
   private async deliver(snapshot: PublicationSnapshot, title: string, versionId: string): Promise<Publication> {
@@ -111,20 +150,7 @@ export class WechatPublishService {
     const record = this.database.createPublication({ ...base, thumbMediaId, status: 'failed', errorMessage: '交付准备未完成，可以重试' })
     try {
       if (snapshot.input.coverAssetId) thumbMediaId = (await this.uploadAsset(snapshot.input.coverAssetId)).wechatMediaId!
-      const replacements = new Map<string, string>()
-      const assetsByFile = new Map(this.database.listVisualAssets().map(asset => [asset.fileName, asset]))
-      for (const name of localAssetNames(snapshot.html)) {
-        const asset = assetsByFile.get(name)!
-        let url = this.database.workflow.getUpload(asset.id, snapshot.appId, 'inline')
-        if (!url) {
-          const payload = await this.uploadImageFile(name, 'inline')
-          if (!payload.url || !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\/[^\s"'<>]*$/i.test(payload.url)) throw new Error('正文图片上传未返回有效地址')
-          url = payload.url
-          this.database.workflow.saveUpload(asset.id, snapshot.appId, 'inline', url)
-        }
-        replacements.set(name, url)
-      }
-      const html = replaceLocalAssets(snapshot.html, replacements)
+      const html = await this.prepareInlineImages(snapshot.html, snapshot.appId)
       if (html.includes('moliu-asset:')) throw new Error('正文仍有未处理的本地图片')
       const check = await this.preflight(snapshot.input)
       if (!check.ready) throw new Error(check.issues.join('；'))
@@ -151,6 +177,25 @@ export class WechatPublishService {
       const unknown = draftRequestSent && !(error instanceof WechatRejectedError)
       return this.database.updatePublicationOutcome(record.id, unknown ? 'unknown' : 'failed', thumbMediaId, unknown ? `推送结果待确认，请到公众号草稿箱核对：${errorMessage(error)}` : errorMessage(error))
     }
+  }
+
+  private async prepareInlineImages(html: string, appId: string): Promise<string> {
+    const replacements = new Map<string, string>()
+    const assets = new Map(this.database.listVisualAssets().map(asset => [asset.fileName, asset]))
+    for (const name of localAssetNames(html)) {
+      const asset = assets.get(name)
+      if (!asset) throw new Error(`正文图片“${name}”未登记，请重新导入`)
+      await this.visualAssets.readAssetFile(name)
+      let url = this.database.workflow.getUpload(asset.id, appId, 'inline')
+      if (!url) {
+        const payload = await this.uploadImageFile(name, 'inline')
+        if (!payload.url || !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\/[^\s"'<>]*$/i.test(payload.url)) throw new Error('正文图片上传未返回有效地址')
+        url = payload.url
+        this.database.workflow.saveUpload(asset.id, appId, 'inline', url)
+      }
+      replacements.set(name, url)
+    }
+    return replaceLocalAssets(html, replacements)
   }
 
   async uploadAsset(assetId: string): Promise<VisualAsset> {

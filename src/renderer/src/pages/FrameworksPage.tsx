@@ -1,3 +1,4 @@
+import { MaterialContextPreview } from '../components/MaterialContextPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check, ChevronDown, ChevronUp, FilePenLine, FolderHeart, Layers3, LoaderCircle,
@@ -78,6 +79,8 @@ export function FrameworksPage({
     if (next.accountId !== accountId) setAccountId(next.accountId)
   }, [accounts, accountId, currentAccountId])
 
+  useEffect(() => { if (focusTopicId) setTopicId(focusTopicId) }, [focusTopicId])
+
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
     if (!templateId) return showToast({ type: 'error', message: '请选择框架模板' })
@@ -130,6 +133,7 @@ export function FrameworksPage({
         <label className="field"><span>连接与模型</span><Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} ariaLabel="连接与模型" /></label>
       </div>
       <label className="field framework-topic-field"><span>补充主题（未选选题时必填）</span><textarea name="manualTopic" autoComplete="off" rows={2} maxLength={2000} value={manualTopic} onChange={(event) => setManualTopic(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void generate() } }} placeholder="例如：为什么创作者应该先写框架，再写正文？（Ctrl+Enter 直接生成）" /></label>
+      {topicId && <details className="editorial-input-summary"><summary>核对选题输入</summary>{Object.entries(topics.find(topic => topic.id === topicId)?.fields ?? {}).map(([name, value]) => <p key={name}><strong>{name}</strong>：{value}</p>)}</details>}
       <MaterialPicker
         materials={usableMaterials}
         selected={materialIds}
@@ -140,6 +144,7 @@ export function FrameworksPage({
         })}
         onNavigate={onNavigate}
       />
+      <MaterialContextPreview ids={materialIds} query={topics.find(topic => topic.id === topicId)?.seedKeyword ?? manualTopic} baseText={manualTopic} providerId={decodeModelTarget(modelTarget)?.providerId} model={decodeModelTarget(modelTarget)?.modelId} />
       <footer>
         <label className="field framework-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} ariaLabel="生成数量" /></label>
         <button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={14} />新建模板</button>
@@ -170,7 +175,7 @@ export function FrameworksPage({
     </section>
 
     <section className="framework-wall">
-      {stream.active && <StreamingPreview content={stream.content} label="正在生成框架…" />}
+      {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在生成框架…" />}
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}

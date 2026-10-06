@@ -3,6 +3,8 @@ import { Code2, Copy, FileDown, FileText, Send, Smartphone, Trash2 } from 'lucid
 import type { ArticleGenre, ArticleLayout, ArticleSummary, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { useSelectedArticle } from '../hooks/useSelectedArticle'
+import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -49,7 +51,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const effectiveSelectedId = useMemo(() => resolveLayoutSelection(layouts, articleId, selectedId), [layouts, articleId, selectedId])
   const selected = layouts.find((item) => item.id === effectiveSelectedId)
   const articleLayouts = useMemo(() => layouts.filter((item) => item.articleId === articleId), [layouts, articleId])
-  const article = articles.find((item) => item.id === articleId)
+  const { article, error: selectionError } = useSelectedArticle(articleId, articles)
 
   const workDraft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
   const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
@@ -62,11 +64,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   } : {}, 'layouts')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextLayouts] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.layouts.list()])
+    const [nextArticles, nextLayouts] = await Promise.all([window.moliu.articles.listSummaries({ limit: 30 }).then(result => result.items), window.moliu.layouts.list()])
     setArticles(nextArticles)
     setLayouts(nextLayouts)
     setArticleId((current) => {
-      if (nextArticles.some(item => item.id === current)) return current
+      if (focusArticleId) return focusArticleId
+      if (current) return current
       const locked = nextArticles.find((item) => item.status === 'locked')
       return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
@@ -138,15 +141,15 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   }
 
   /** 带格式复制：由主进程同时写入 HTML 与纯文本，粘贴到公众号编辑器才保留样式 */
-  const copyRich = async (html: string, text: string): Promise<void> => {
+  const copyRich = async (mode: 'wechat' | 'placeholders'): Promise<void> => {
+    if (!selected || busy) return
+    setBusy(true)
     try {
-      const ok = await window.moliu.clipboard.writeRichText(html, text)
-      showToast(ok
-        ? { type: 'success', message: '已复制带格式正文，可直接粘贴到公众号编辑器' }
-        : { type: 'error', message: '复制失败：主进程未写入剪贴板，请重试' })
+      const result = await window.moliu.clipboard.prepareLayout(selected.id, mode)
+      showToast({ type: 'success', message: mode === 'wechat' ? `已复制图文，已准备 ${result.imageCount} 张本地图片，请粘贴后核对` : `已复制正文与 ${result.imageCount} 个图片占位，请在公众号后台插入图片` })
     } catch (error) {
       showToast({ type: 'error', message: `复制失败：${errorMessage(error)}` })
-    }
+    } finally { setBusy(false) }
   }
 
   /** 导出单文件 HTML（图片内嵌，离线可读）；path 为 null 表示用户在保存框取消 */
@@ -179,6 +182,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       title="文章排版"
       description="把成稿渲染为平台格式，直接推送公众号草稿箱"
     />
+    {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
@@ -193,7 +197,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       <>
         <section className="layout-composer">
           <label className="field"><span>文章</span>
-            <Select value={articleId} onChange={selectArticle} ariaLabel="文章" options={disambiguateOptions(articles.map((item) => ({ value: item.id, label: markdownTitle(item.rawMarkdown), hint: item.status === 'locked' ? '已锁定' : '草稿', distinct: formatTimedDate(item.updatedAt) })))} />
+            <ArticlePicker value={articleId} onChange={selectArticle} />
           </label>
           <label className="field"><span>平台</span>
             <Select value={platform} onChange={(value) => setPlatform(value as LayoutPlatform)} ariaLabel="平台" options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], hint: platformHints[key] }))} />
@@ -276,7 +280,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <div>
                     <span className={`badge ${selected.platform === 'wechat' ? 'success' : 'neutral'}`}>{platformNames[selected.platform]}</span>
                     <h3>{selected.title}</h3>
-                    <p>来自《{markdownTitle(articles.find((item) => item.id === selected.articleId)?.rawMarkdown ?? '')}》 · {selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
+                    <p>来自《{articles.find((item) => item.id === selected.articleId)?.title ?? '文章'}》 · {selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
                     <div className="layout-counters">
                       <span className={`badge ${titleLimits[selected.platform] && selected.title.length > titleLimits[selected.platform] ? 'danger' : 'neutral'}`}>
                         标题 {selected.title.length}{titleLimits[selected.platform] ? `/${titleLimits[selected.platform]}` : ''} 字
@@ -287,9 +291,10 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <button className="icon-button danger" title="删除排版稿" aria-label="删除排版稿" onClick={() => void remove()}><Trash2 size={16} /></button>
                 </header>
                 <div className="layout-actions">
-                  {selected.platform !== 'xiaohongshu' && (
-                    <button className="button primary compact" onClick={() => void copyRich(selected.html, selected.plainText)}><Copy size={14} />复制图文（带格式）</button>
-                  )}
+                  {selected.platform !== 'xiaohongshu' && (<>
+                    <button className="button primary compact" disabled={busy} onClick={() => void copyRich('wechat')}><Copy size={14} />复制图文（带格式）</button>
+                    <button className="button secondary compact" disabled={busy} onClick={() => void copyRich('placeholders')}>复制正文，手动插图</button>
+                  </>)}
                   <button className="button secondary compact" onClick={() => void copy(selected.plainText, '已复制纯文本正文')} title="复制不含样式的纯文本，适合小红书等纯文本编辑器"><Copy size={14} />复制纯文本</button>
                   <button className="button ghost compact" onClick={() => void copy(selected.html, 'HTML 源码已复制')} title="复制 HTML 源码，供网页或支持源码的编辑器使用"><Code2 size={14} />复制 HTML 源码</button>
                   <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={14} />导出 HTML 文件</button>

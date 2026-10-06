@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GenerationDomain, StreamEvent } from '../../../shared/contracts'
 
 export type StreamDomain = 'topics' | 'frameworks' | 'articles' | 'reviews' | 'visuals' | 'hotspots'
@@ -31,6 +31,7 @@ const STREAM_SUBSCRIBERS: Record<StreamDomain, (callback: (event: StreamEvent) =
 export function useGenerationStream(domain: StreamDomain): {
   active: boolean
   content: string
+  progress: string
   run<T>(task: () => Promise<T>): Promise<T>
   cancel(): void
   isCancelled(): boolean
@@ -39,6 +40,11 @@ export function useGenerationStream(domain: StreamDomain): {
   const running = useRef(false)
   const [active, setActive] = useState(false)
   const [content, setContent] = useState('')
+  const [counts, setCounts] = useState({ total: 0, completed: 0, failed: 0 })
+  const [seconds, setSeconds] = useState(0)
+  const started = useRef(0)
+  const finished = useRef(new Set<number>())
+  useEffect(() => { if (!active) return; const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started.current) / 1000)), 1000); return () => clearInterval(timer) }, [active])
 
   const run = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
     // 防重入：按钮 disabled 挡得住鼠标，挡不住 Ctrl+Enter 等快捷键的连发；
@@ -48,8 +54,14 @@ export function useGenerationStream(domain: StreamDomain): {
     cancelled.current = false
     setActive(true)
     setContent('')
+    setCounts({ total: 0, completed: 0, failed: 0 }); setSeconds(0); started.current = Date.now(); finished.current.clear()
     const unsubscribeStatus = window.moliu.generation.events(event => { if (event.domain === CANCEL_DOMAIN[domain] && event.outcome === 'cancelled') cancelled.current = true })
     const unsubscribe = STREAM_SUBSCRIBERS[domain]((event) => {
+      setCounts(current => ({ ...current, total: event.total }))
+      if ((event.phase === 'complete' || event.phase === 'error') && !finished.current.has(event.index)) {
+        finished.current.add(event.index)
+        setCounts(current => ({ ...current, completed: current.completed + (event.phase === 'complete' ? 1 : 0), failed: current.failed + (event.phase === 'error' ? 1 : 0) }))
+      }
       if (event.phase === 'start' && event.index === 0) setContent('')
       else if (event.phase === 'delta' && event.index === 0) setContent((prev) => prev + (event.delta ?? ''))
     })
@@ -68,7 +80,7 @@ export function useGenerationStream(domain: StreamDomain): {
     void window.moliu.generation.cancel(CANCEL_DOMAIN[domain])
   }, [domain])
 
-  return { active, content, run, cancel, isCancelled: () => cancelled.current }
+  return { active, content, progress: `已用 ${seconds} 秒 · 完成 ${counts.completed}/${counts.total || '?'} · 失败 ${counts.failed} · 正在接收模型输出（无可靠完成时间）`, run, cancel, isCancelled: () => cancelled.current }
 }
 
 /** 判断错误是否由用户取消引起（用于把报错降级为提示） */

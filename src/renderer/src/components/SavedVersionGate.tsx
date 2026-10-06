@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import type { ArticleSummary } from '../../../shared/contracts'
+import type { Article } from '../../../shared/contracts'
 import type { RouteId } from './Layout'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { useConfirm } from './useConfirm'
 import { errorMessage } from '../lib'
 
 /** 所有下游页使用相同的保存提示，主进程也独立校验。 */
-export function SavedVersionGate({ article, onSaved, onNavigate }: { article?: ArticleSummary; onSaved(): Promise<void>; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
+export function SavedVersionGate({ article, onSaved, onNavigate }: { article?: Article; onSaved(): Promise<void>; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
   const draft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
   const { confirm, ConfirmPortal } = useConfirm()
   const [busy, setBusy] = useState(false)

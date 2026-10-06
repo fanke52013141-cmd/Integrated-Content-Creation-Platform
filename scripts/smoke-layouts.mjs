@@ -45,10 +45,10 @@ try {
   // F03：切换文章后，排版预览必须跟着换成那篇文章自己的稿子，不能继续显示上一篇
   await page.getByRole('button', { name: '文章排版' }).first().click()
   await page.getByText('排版测试').first().waitFor()
-  await page.getByLabel('文章').click()
+  await page.getByLabel('文章', { exact: true }).click()
   await page.getByRole('option', { name: '排版测试' }).click()
   await page.getByText('来自《排版测试》').waitFor()
-  await page.getByLabel('文章').click()
+  await page.getByLabel('文章', { exact: true }).click()
   await page.getByRole('option', { name: '另一篇文章' }).click()
   await page.getByText('来自《另一篇文章》').waitFor()
   if (await page.getByText('来自《排版测试》').count()) throw new Error('排版预览串到了另一篇文章')
@@ -66,7 +66,7 @@ try {
 
   // F12：一键复制带格式正文，供直接粘贴进公众号编辑器
   await page.getByRole('button', { name: '复制图文（带格式）' }).click()
-  await page.getByText('已复制带格式正文').waitFor()
+  await page.getByText('已复制图文，已准备 0 张本地图片，请粘贴后核对').waitFor()
 
   // 验收任务 7：两篇同名文章要能分辨，切过去后预览不能还是另一篇
   await page.waitForTimeout(1_200)
@@ -79,7 +79,7 @@ try {
   await page.reload()
   await page.waitForLoadState('domcontentloaded')
   await page.getByRole('button', { name: '文章排版' }).first().click()
-  await page.getByLabel('文章').click()
+  await page.getByLabel('文章', { exact: true }).click()
   const twins = page.getByRole('option').filter({ hasText: '排版测试' })
   if (await twins.count() !== 2) throw new Error(`同名文章应出现两个选项，实际 ${await twins.count()} 个`)
   const labels = (await twins.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim())

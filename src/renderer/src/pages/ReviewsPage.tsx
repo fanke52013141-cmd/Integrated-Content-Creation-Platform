@@ -6,6 +6,8 @@ import type { ArticleSummary, ProviderSummary, ReviewFailure, ReviewRole, Review
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { ModalBase } from '../components/ModalBase'
+import { useSelectedArticle } from '../hooks/useSelectedArticle'
+import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -69,7 +71,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   const [reviewRunning, setReviewRunning] = useState(false)
 
   const models = useMemo(() => availableModels(providers), [providers])
-  const selectedArticle = articles.find((article) => article.id === articleId)
+  const { article: selectedArticle, error: selectionError } = useSelectedArticle(articleId, articles)
   const articleTasks = useMemo(
     () => tasks.filter((task) => task.articleId === articleId),
     [tasks, articleId]
@@ -85,11 +87,12 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   } : {}, 'reviews')
 
   const refresh = async (): Promise<void> => {
-    const [nextArticles, nextRoles] = await Promise.all([window.moliu.articles.listSummaries({ limit: 500 }).then(result => result.items), window.moliu.reviews.listRoles()])
+    const [nextArticles, nextRoles] = await Promise.all([window.moliu.articles.listSummaries({ limit: 30 }).then(result => result.items), window.moliu.reviews.listRoles()])
     setArticles(nextArticles)
     setRoles(nextRoles)
     setArticleId((current) => {
-      if (nextArticles.some(item => item.id === current)) return current
+      if (focusArticleId) return focusArticleId
+      if (current) return current
       const locked = nextArticles.find((article) => article.status === 'locked')
       return locked?.id ?? (focusArticleId && nextArticles.some(item => item.id === focusArticleId) ? focusArticleId : nextArticles[0]?.id) ?? ''
     })
@@ -176,17 +179,17 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     }
     const stale = isReviewBaselineStale(task, selectedArticle)
     if (!(await confirm({
-      title: stale ? '评审基线已过期' : '应用改稿？',
+      title: stale ? '评审基线已过期' : '生成评审备选稿？',
       message: stale
         ? `这次评审针对的是第 ${task.articleVersionNumber} 版，当前正文已改到第 ${selectedArticle?.versionCount ?? '?'} 版。旧意见的位置可能已不适用，确认后将按当前正文生成新候选，原有版本仍保留在历史里。`
-        : '将按采纳的问题生成一版新草稿，原文版本保留在历史记录中。',
+        : '将按采纳的问题生成独立备选稿。请到文章页比较并采纳，原文章暂不改变。',
       danger: stale,
       confirmLabel: stale ? '仍要应用' : '生成改稿'
     }))) return
     try {
       const article = await stream.run(() => window.moliu.reviews.apply(task.id, target.providerId, target.modelId, stale))
       await Promise.all([refreshTasks(), refreshRunning()])
-      showToast({ type: 'success', message: '改稿新版本已生成' })
+      showToast({ type: 'success', message: '改稿备选稿已生成，请到文章页比较并采纳' })
       if (article) onNavigate('articles', { articleId: article.id })
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消改稿' } : { type: 'error', message: errorMessage(error) })
@@ -214,6 +217,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       actions={<button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />
     评审角色</button>}
     />
+    {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={selectedArticle} onSaved={refresh} onNavigate={onNavigate} />
 
     {!articles.length ? (
@@ -228,7 +232,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       <>
         <section className="review-composer">
           <label className="field"><span>文章</span>
-            <Select value={articleId} onChange={setArticleId} ariaLabel="文章" options={articles.map((article) => ({ value: article.id, label: markdownTitle(article.rawMarkdown), hint: article.status === 'locked' ? '已锁定' : '草稿' }))} />
+            <ArticlePicker value={articleId} onChange={setArticleId} />
           </label>
           <label className="field"><span>模型（角色未单独指定时使用）</span>
             <Select value={modelTarget} onChange={setModelTarget} ariaLabel="模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
@@ -262,7 +266,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
           )}
         </section>
 
-        {stream.active && <StreamingPreview content={stream.content} label="正在评审…" />}
+        {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在评审…" />}
 
         {lastFailed.length > 0 && !stream.active && (
           <p className="inline-alert">评审失败角色：{lastFailed.map((item) => `${item.roleName || '未知角色'}（${item.message.slice(0, 60)}）`).join('；')}<button className="text-button" disabled={retrying} onClick={() => void retryFailed(lastFailed)}>{retrying ? '重跑中…' : `只重跑失败的 ${lastFailed.length} 个角色`}</button></p>
@@ -301,7 +305,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                 )}
                 {task.status !== 'applied' && (
                   <button className="button secondary compact" onClick={() => void apply(task)} disabled={stream.active || !task.opinions.length}>
-                    <Check size={14} />应用改稿
+                    <Check size={14} />生成备选稿
                   </button>
                 )}
               </header>
@@ -330,6 +334,10 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                         </div>
                         <strong>{problem.issue}</strong>
                         <small>建议：{problem.suggestion}</small>
+                        <small>{problem.reviewKind === 'fact' ? '事实意见' : '表达意见'} · {problem.evidence?.status === 'source-matched' ? '依据摘录与本地素材匹配，仍需人工判断' : '缺少可核对的出处，待核查'}</small>
+                        {problem.anchor && <small>原文：{problem.anchor}</small>}
+                        {problem.evidence?.excerpt && <small>依据「{problem.evidence.title}」：{problem.evidence.excerpt}</small>}
+                        {problem.evidence?.sourceUrl && <small>来源：{problem.evidence.sourceUrl}</small>}
                       </div>
                     </label>
                   )) : <p className="micro-copy">该角色未提出具体问题。</p>}

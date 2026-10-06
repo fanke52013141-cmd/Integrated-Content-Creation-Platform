@@ -81,7 +81,7 @@ try {
   await window.getByRole('button', { name: '解锁编辑' }).waitFor()
 
   await window.getByRole('button', { name: '选题生成' }).first().click()
-  await window.getByText('独立并行生成多条选题草稿').waitFor()
+  await window.getByText('根据主题与热点生成选题，可选使用已锁定的账号定位').waitFor()
   await window.locator('textarea[name="seedKeyword"]').fill('AI Agent 工作流落地')
   await window.getByLabel('数量').click()
   await window.getByRole('option', { name: '2 条' }).click()

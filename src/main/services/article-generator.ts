@@ -1,3 +1,4 @@
+import { buildMaterialContext, contextBudget, modelOutputTokens } from './material-context.js'
 import { escapeXml, serializeAccountXml } from '../../shared/domain.js'
 import type {
   Article,
@@ -6,6 +7,9 @@ import type {
   Material,
   ReviseArticleInput,
   ReviseArticleResult,
+  CreationRequest,
+  CreationResult,
+  SaveArticleInput,
   StreamEvent
 } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
@@ -13,6 +17,17 @@ import type { ModelGateway } from '../gateway/model-gateway.js'
 import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
+import { contentCompletion, completionMessage } from './content-completion.js'
+
+interface PreparedArticleRequest {
+  maxTokens?: number
+  input: GenerateArticlesInput | ReviseArticleInput
+  article?: Article
+  save: SaveArticleInput
+  evidence?: import('../../shared/contracts.js').MaterialContext
+  references?: Array<Omit<import('../../shared/contracts.js').CreateArtifactReferenceInput, 'targetId'>>
+  messages: UnifiedRequest['messages']
+}
 
 export class ArticleGenerator {
   constructor(
@@ -32,10 +47,15 @@ export class ArticleGenerator {
     const materials = this.resolveMaterials(input.materialIds)
     const outline = framework?.rawXml ?? `<手动框架>\n${escapeXml(manualOutline)}\n</手动框架>`
     const total = input.count
-    const work = Array.from({ length: total }, (_, index) => this.generateOne({
-      input, framework, account, materials, outline, index, total, onStream, signal
-    }))
-    return collect(work)
+    const baseText = this.prompts.render('article.generate') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + outline
+    const evidence = buildMaterialContext(this.database, materials, outline, contextBudget(this.database, input.providerId, input.model, baseText))
+    const requestId = this.database.workflow.createRequest('generate', {
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 8000), evidence, references: this.referenceSnapshot(framework, account, materials),
+      input, save: { frameworkId: framework?.id, accountId: account?.id, materialIds: materials.map(item => item.id), manualOutline: framework ? '' : outline, status: 'draft', source: 'generate', rawMarkdown: '' },
+      messages: [{ role: 'system', content: this.prompts.render('article.generate') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', outline, evidence.text].join('\n\n') }]
+    } satisfies PreparedArticleRequest, '按框架写作', total)
+    const work = Array.from({ length: total }, (_, index) => this.executePrepared(requestId, index + 1, total, onStream, signal))
+    return { ...await collect(work), requestId }
   }
 
   async revise(input: ReviseArticleInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<ReviseArticleResult> {
@@ -49,110 +69,106 @@ export class ArticleGenerator {
       ? this.database.getFramework(article.frameworkId) : null
     if (input.alignFramework && article.frameworkId && !framework) throw new Error('关联框架已被删除，无法按框架对齐')
     const total = input.count
-    const work = Array.from({ length: total }, (_, index) => this.reviseOne({
-      input, article, account, framework, instruction, index, total, onStream, signal
-    }))
-    return collect(work)
+    if (input.revisionMode === 'new-version' && total !== 1) throw new Error('在当前文章生成版本时，只能生成一个结果')
+    const evidence = this.database.workflow.getEvidence<import('../../shared/contracts.js').MaterialContext>(article.currentVersionId) ?? buildMaterialContext(this.database, this.resolveMaterials(article.materialIds), instruction)
+    contextBudget(this.database, input.providerId, input.model, this.prompts.render('article.revise') + (input.baseMarkdown?.trim() || article.rawMarkdown) + instruction + (framework?.rawXml ?? '') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + evidence.text)
+    const requestId = this.database.workflow.createRequest('revise', {
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 8000), evidence, references: this.referenceSnapshot(framework, account, this.resolveMaterials(article.materialIds)),
+      input, article, save: { frameworkId: article.frameworkId, accountId: article.accountId, materialIds: article.materialIds, manualOutline: article.manualOutline, status: 'draft', source: 'revise', instruction, rawMarkdown: '' },
+      messages: [{ role: 'system', content: this.prompts.render('article.revise') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', `<原稿>\n${escapeXml(input.baseMarkdown?.trim() || article.rawMarkdown)}\n</原稿>`, `<修改指令>\n${escapeXml(instruction)}\n</修改指令>`, framework?.rawXml ?? '<框架>未要求对齐</框架>', evidence.text].join('\n\n') }]
+    } satisfies PreparedArticleRequest, article.rawMarkdown.match(/^#\s+(.+)$/m)?.[1] ?? '改稿', total, article.id)
+    const work = Array.from({ length: total }, (_, index) => this.executePrepared(requestId, index + 1, total, onStream, signal))
+    return { ...await collect(work), requestId }
   }
 
-  private async generateOne(context: {
-    input: GenerateArticlesInput
-    framework: ReturnType<AppDatabase['getFramework']>
-    account: ReturnType<AppDatabase['getAccount']>
-    materials: Material[]
-    outline: string
-    index: number
-    total: number
-    onStream?: (event: StreamEvent) => void
-    signal?: AbortSignal
-  }): Promise<Article> {
-    context.onStream?.({ phase: 'start', index: context.index, total: context.total })
-    const request: UnifiedRequest = {
-      providerId: context.input.providerId, model: context.input.model, temperature: 0.7,
-      maxTokens: 8_000, jsonMode: false, signal: context.signal,
-      messages: [
-        { role: 'system', content: this.prompts.render('article.generate') },
-        { role: 'user', content: [
-          `<写作任务>第 ${context.index + 1} 个独立成稿候选，采用不同但不偏离框架的表达角度。</写作任务>`,
-          context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
-          context.outline,
-          serializeMaterials(context.materials)
-        ].join('\n\n') }
-      ]
-    }
-    const response = await callModelWithFallback(this.gateway, request, {
-      signal: context.signal,
-      onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
-      onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
-    })
-    const article = this.database.saveArticle({
-      frameworkId: context.framework?.id, accountId: context.account?.id,
-      materialIds: context.materials.map((material) => material.id), manualOutline: context.framework ? '' : context.outline,
-      status: 'draft', rawMarkdown: normalizeMarkdown(response.content), source: 'generate',
-      providerId: response.providerId, model: response.model
-    })
-    this.createReferences(article.id, context.framework, context.account, context.materials)
-    context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
-    return article
+  listRequests(): CreationRequest[] { return this.database.workflow.listCreationRequests() }
+
+  async retry(requestId: string, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateArticlesResult> {
+    const request = this.database.workflow.getCreationRequest(requestId)
+    if (!request) throw new Error('生成请求不存在')
+    if (request.articleId && !this.database.getArticle(request.articleId)) throw new Error('原文章已删除，无法重试')
+    const pending = request.results.filter(item => item.status === 'failed' || item.status === 'pending')
+    if (!pending.length) throw new Error('没有需要补生成的候选')
+    const work = pending.map(item => this.executePrepared(requestId, item.index, request.results.length, onStream, signal))
+    return { ...await collect(work, pending.map(item => item.index)), requestId }
   }
 
-  private async reviseOne(context: {
-    input: ReviseArticleInput
-    article: Article
-    account: ReturnType<AppDatabase['getAccount']>
-    framework: ReturnType<AppDatabase['getFramework']>
-    instruction: string
-    index: number
-    total: number
-    onStream?: (event: StreamEvent) => void
-    signal?: AbortSignal
-  }): Promise<Article> {
-    context.onStream?.({ phase: 'start', index: context.index, total: context.total })
-    const request: UnifiedRequest = {
-      providerId: context.input.providerId, model: context.input.model, temperature: 0.45,
-      maxTokens: 8_000, jsonMode: false, signal: context.signal,
-      messages: [
-        { role: 'system', content: this.prompts.render('article.revise') },
-        { role: 'user', content: [
-          `<改稿任务>第 ${context.index + 1} 个独立改稿候选。</改稿任务>`,
-          context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
-          `<原稿>\n${escapeXml(context.input.baseMarkdown?.trim() || context.article.rawMarkdown)}\n</原稿>`,
-          `<修改指令>\n${escapeXml(context.instruction)}\n</修改指令>`,
-          context.framework ? context.framework.rawXml : '<框架>未要求对齐</框架>'
-        ].join('\n\n') }
-      ]
+  recover(requestId: string, index: number, markdown: string): Article {
+    const result = this.database.workflow.getCreationRequest(requestId)?.results.find(item => item.index === index)
+    if (!result || result.status === 'running') throw new Error('没有可恢复的内容')
+    if (!markdown.trim()) throw new Error('请输入正文后再保存')
+    const snapshot = this.database.workflow.getRequestInput<PreparedArticleRequest>(requestId)
+    // 人工确认只另存，绝不将部分生成结果写回原稿。
+    return this.database.atomic(() => {
+      const article = this.database.saveArticle({ ...snapshot.save, rawMarkdown: markdown, source: 'manual' })
+      if (snapshot.evidence) this.database.workflow.saveEvidence(article.currentVersionId, snapshot.evidence)
+      for (const reference of snapshot.references ?? []) this.database.createArtifactReference({ ...reference, targetId: article.id })
+      const original = snapshot.article
+      if (original && this.database.getArticle(original.id)) this.database.createArtifactReference({ sourceType: 'article', sourceId: original.id, sourceVersionId: original.currentVersionId, sourceStatusSnapshot: original.status, targetType: 'article', targetId: article.id })
+      return this.database.getArticle(article.id)!
+    })
+  }
+
+  async continueResult(requestId: string, index: number, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateArticlesResult> {
+    const result = this.database.workflow.getCreationRequest(requestId)?.results.find(item => item.index === index)
+    if (!result?.content || result.completion === 'blocked') throw new Error('该结果无法续写，请调整要求后重新生成')
+    const snapshot = this.database.workflow.getRequestInput<PreparedArticleRequest>(requestId)
+    const continued: PreparedArticleRequest = { ...snapshot, input: { ...snapshot.input, ...('articleId' in snapshot.input ? { revisionMode: 'new-candidates' as const } : {}), count: 1 }, messages: [...snapshot.messages, { role: 'assistant', content: result.content }, { role: 'user', content: '请补完上述未完成内容，输出一份完整的 Markdown 文章（包括原标题和已有正文），不要重复段落。不要仅输出新增部分。' }] }
+    contextBudget(this.database, continued.input.providerId, continued.input.model, continued.messages.map(message => message.content).join(''))
+    const nextId = this.database.workflow.createRequest('articleId' in snapshot.input ? 'revise' : 'generate', continued, '续写 · ' + (this.database.workflow.getCreationRequest(requestId)?.title ?? ''), 1, snapshot.article?.id)
+    return { ...await collect([this.executePrepared(nextId, 1, 1, onStream, signal)]), requestId: nextId }
+  }
+
+  private async executePrepared(requestId: string, index: number, total: number, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<Article> {
+    const prepared = this.database.workflow.getRequestInput<PreparedArticleRequest>(requestId)
+    const previous = this.database.workflow.getCreationRequest(requestId)?.results.find(item => item.index === index)
+    if (previous?.status === 'succeeded' && previous.articleId) {
+      const article = this.database.getArticle(previous.articleId)
+      if (!article) throw new Error('已生成结果被删除')
+      return article
     }
-    const response = await callModelWithFallback(this.gateway, request, {
-      signal: context.signal,
-      onDelta: (delta) => context.onStream?.({ phase: 'delta', index: context.index, total: context.total, delta }),
-      onRetry: () => context.onStream?.({ phase: 'start', index: context.index, total: context.total })
-    })
-    const current = this.database.getArticle(context.article.id)
-    const draft = this.database.workflow.getDraft(context.article.id)
-    const unchanged = current?.currentVersionId === context.article.currentVersionId &&
-      (draft?.revision ?? 0) === (context.input.draftRevision ?? 0)
-    const targetId = context.input.count === 1 && unchanged ? context.article.id : undefined
-    const article = this.database.saveArticle({
-      id: targetId, frameworkId: context.article.frameworkId, accountId: context.article.accountId,
-      materialIds: context.article.materialIds, manualOutline: context.article.manualOutline,
-      status: 'draft', rawMarkdown: normalizeMarkdown(response.content), source: 'revise', instruction: context.instruction,
-      providerId: response.providerId, model: response.model,
-      expectedVersionId: targetId ? context.article.currentVersionId : undefined,
-      draftRevision: targetId ? context.input.draftRevision : undefined
-    })
-    context.onStream?.({ phase: 'complete', index: context.index, total: context.total })
-    if (targetId) return article
-    this.database.createArtifactReference({
-      sourceType: 'article', sourceId: context.article.id, sourceVersionId: context.article.currentVersionId,
-      sourceStatusSnapshot: context.article.status, targetType: 'article', targetId: article.id
-    })
-    this.createReferences(
-      article.id,
-      context.framework,
-      context.account,
-      this.resolveMaterials(context.article.materialIds)
-    )
-    return article
+    if (previous?.status === 'running') throw new Error('该候选正在生成，请等待完成')
+    let state: CreationResult = { index, status: 'running', content: '', message: '' }
+    this.database.workflow.saveCreationResult(requestId, state)
+    onStream?.({ phase: 'start', index: index - 1, total })
+    let lastPersisted = 0
+    try {
+      const response = await callModelWithFallback(this.gateway, {
+        providerId: prepared.input.providerId, model: prepared.input.model, maxTokens: prepared.maxTokens ?? 8000,
+        temperature: prepared.article ? 0.45 : 0.7, jsonMode: false, signal,
+        messages: [...prepared.messages, { role: 'user', content: `<${prepared.article ? '改稿' : '写作'}任务>第 ${index} 个独立${prepared.article ? '改稿' : '成稿'}候选。</${prepared.article ? '改稿' : '写作'}任务>` }]
+      }, { signal, onDelta: delta => {
+        state.content += delta
+        onStream?.({ phase: 'delta', index: index - 1, total, delta })
+        if (Date.now() - lastPersisted > 700) { this.database.workflow.saveCreationResult(requestId, state); lastPersisted = Date.now() }
+      }, onRetry: () => { state.content = ''; this.database.workflow.saveCreationResult(requestId, state); onStream?.({ phase: 'start', index: index - 1, total }) } })
+      state.content = response.content
+      state.completion = contentCompletion(response.content, response.finishReason)
+      if (state.completion !== 'complete') throw new Error(completionMessage[state.completion])
+      const markdown = normalizeMarkdown(response.content)
+      const original = prepared.article
+      const revise = 'revisionMode' in prepared.input ? prepared.input : undefined
+      const current = original ? this.database.getArticle(original.id) : null
+      if (original && !current) throw new Error('原文章已删除，生成内容已保留')
+      const unchanged = current?.currentVersionId === original?.currentVersionId && (original ? this.database.workflow.getDraft(original.id)?.revision ?? 0 : 0) === (revise?.draftRevision ?? 0)
+      const targetId = revise?.revisionMode === 'new-version' && unchanged ? original?.id : undefined
+      const article = this.database.atomic(() => {
+        const article = this.database.saveArticle({ ...prepared.save, id: targetId, rawMarkdown: markdown, providerId: response.providerId, model: response.model,
+          expectedVersionId: targetId ? original?.currentVersionId : undefined, draftRevision: targetId ? revise?.draftRevision : undefined })
+        if (prepared.evidence) this.database.workflow.saveEvidence(article.currentVersionId, prepared.evidence)
+        for (const reference of prepared.references ?? []) this.database.createArtifactReference({ ...reference, targetId: article.id })
+        if (original && !targetId) this.database.createArtifactReference({ sourceType: 'article', sourceId: original.id, sourceVersionId: original.currentVersionId, sourceStatusSnapshot: original.status, targetType: 'article', targetId: article.id })
+        state = { ...state, status: 'succeeded', articleId: article.id, message: revise?.revisionMode === 'new-version' && !targetId ? '原文章或工作草稿已变化，已安全另存为备选稿，请比较后采纳' : '' }
+        this.database.workflow.saveCreationResult(requestId, state)
+        return this.database.getArticle(article.id)!
+      })
+      onStream?.({ phase: 'complete', index: index - 1, total })
+      return article
+    } catch (error) {
+      onStream?.({ phase: 'error', index: index - 1, total, message: error instanceof Error ? error.message : '生成失败' })
+      this.database.workflow.saveCreationResult(requestId, { ...state, status: 'failed', completion: state.completion ?? (state.content ? 'interrupted' : 'invalid'), message: error instanceof Error ? error.message : '生成失败' })
+      throw error
+    }
   }
 
   private resolveAccount(id: string | undefined) {
@@ -168,52 +184,31 @@ export class ArticleGenerator {
     return materials
   }
 
-  private createReferences(
-    articleId: string,
-    framework: ReturnType<AppDatabase['getFramework']>,
-    account: ReturnType<AppDatabase['getAccount']>,
-    materials: Material[]
-  ): void {
-    if (framework) this.database.createArtifactReference({
-      sourceType: 'framework', sourceId: framework.id, sourceVersionId: framework.currentVersionId,
-      sourceStatusSnapshot: framework.status, targetType: 'article', targetId: articleId
-    })
-    if (account) this.database.createArtifactReference({
-      sourceType: 'account-profile', sourceId: account.id, sourceVersionId: account.currentVersionId,
-      sourceStatusSnapshot: account.status, targetType: 'article', targetId: articleId
-    })
-    for (const material of materials) this.database.createArtifactReference({
-      sourceType: 'material', sourceId: material.id, sourceVersionId: material.id,
-      sourceStatusSnapshot: 'locked', targetType: 'article', targetId: articleId
-    })
+  private referenceSnapshot(framework: ReturnType<AppDatabase['getFramework']>, account: ReturnType<AppDatabase['getAccount']>, materials: Material[]): NonNullable<PreparedArticleRequest['references']> {
+    const references: NonNullable<PreparedArticleRequest['references']> = []
+    if (framework) references.push({ sourceType: 'framework', sourceId: framework.id, sourceVersionId: framework.currentVersionId, sourceStatusSnapshot: framework.status, targetType: 'article' })
+    if (account) references.push({ sourceType: 'account-profile', sourceId: account.id, sourceVersionId: account.currentVersionId, sourceStatusSnapshot: account.status, targetType: 'article' })
+    for (const material of materials) references.push({ sourceType: 'material', sourceId: material.id, sourceVersionId: material.id, sourceStatusSnapshot: 'locked', targetType: 'article' })
+    return references
   }
-}
 
-function serializeMaterials(materials: Material[]): string {
-  if (!materials.length) return '<素材>未选择；不要为补充细节而虚构事实。</素材>'
-  return `<素材>\n${materials.map((material, index) => [
-    `${index + 1}. 标题：${escapeXml(material.title)}`,
-    `摘要：${escapeXml(material.summary)}`,
-    material.sourceName ? `来源：${escapeXml(material.sourceName)}` : '',
-    material.sourceUrl ? `链接：${escapeXml(material.sourceUrl)}` : ''
-  ].filter(Boolean).join('\n')).join('\n\n')}\n</素材>`
 }
 
 function normalizeMarkdown(content: string): string {
   const fenced = content.trim().match(/^```(?:markdown|md)?\s*([\s\S]*?)```$/i)?.[1]
   const markdown = (fenced ?? content).trim()
   if (!markdown) throw new Error('模型未返回可用成稿')
-  if (!/^#\s+\S/m.test(markdown)) throw new Error('模型结果不是以一级标题开始的 Markdown 成稿，请重试或更换模型')
+  if (!/^#\s+\S/.test(markdown)) throw new Error('模型结果不是以一级标题开始的 Markdown 成稿，请重试或更换模型')
   return markdown
 }
 
-async function collect<T>(work: Array<Promise<T>>): Promise<{ articles: T[]; failed: Array<{ index: number; message: string }> }> {
+async function collect<T>(work: Array<Promise<T>>, indices?: number[]): Promise<{ articles: T[]; failed: Array<{ index: number; message: string }> }> {
   const settled = await Promise.allSettled(work)
   const articles: T[] = []
   const failed: Array<{ index: number; message: string }> = []
   settled.forEach((result, index) => {
     if (result.status === 'fulfilled') articles.push(result.value)
-    else failed.push({ index: index + 1, message: result.reason instanceof Error ? result.reason.message.slice(0, 300) : '生成失败，请重试' })
+    else failed.push({ index: indices?.[index] ?? index + 1, message: result.reason instanceof Error ? result.reason.message.slice(0, 300) : '生成失败，请重试' })
   })
   return { articles, failed }
 }
