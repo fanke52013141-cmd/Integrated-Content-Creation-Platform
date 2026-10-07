@@ -118,22 +118,24 @@ function AppShell(): React.JSX.Element {
     setToasts((current) => current.filter((entry) => entry.id !== id))
   }, [])
   const showToast = useCallback((toast: ToastState): void => {
+    const duration = toast.type === 'error' ? 8_000 : toast.type === 'warning' ? 6_000 : 4_500
     const item: ToastItem = { ...toast, id: Date.now() + Math.random() }
     if ((toast.type === 'error' || toast.type === 'warning') && !item.action && MODEL_REQUIRED_PATTERN.test(item.message)) {
       item.action = { label: '去配置', onClick: () => navigate('providers') }
     }
-    // 同文案去重：旧的先摘除（连同计时器），新的排到末尾，避免反复触发时无限叠挂
+    // 同文案去重：保留原节点原地不动（避免 React 重建节点导致闪烁），
+    // 只重置它的自动消失计时；没有重复才追加，最多同时 3 条
     setToasts((current) => {
-      const duplicates = current.filter((entry) => entry.message === item.message)
-      duplicates.forEach((entry) => {
-        const timer = toastTimers.current.get(entry.id)
-        if (timer !== undefined) { window.clearTimeout(timer); toastTimers.current.delete(entry.id) }
-      })
-      return [...current.filter((entry) => entry.message !== item.message).slice(-2), item]
+      const existing = current.find((entry) => entry.message === item.message)
+      if (existing) {
+        const timer = toastTimers.current.get(existing.id)
+        if (timer !== undefined) window.clearTimeout(timer)
+        toastTimers.current.set(existing.id, window.setTimeout(() => removeToast(existing.id), duration))
+        return current
+      }
+      toastTimers.current.set(item.id, window.setTimeout(() => removeToast(item.id), duration))
+      return [...current.slice(-2), item]
     })
-    // 全部自动消失：错误停留久一点（8s），不再要求用户手动清理
-    const duration = toast.type === 'error' ? 8_000 : toast.type === 'warning' ? 6_000 : 4_500
-    toastTimers.current.set(item.id, window.setTimeout(() => removeToast(item.id), duration))
   }, [navigate, removeToast])
 
   const dismissToast = useCallback((id: number): void => {
