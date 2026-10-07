@@ -9,7 +9,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-已打包时，双击仓库根目录的 `启动优化版.cmd` 可运行优化版。它使用独立的 `%LOCALAPPDATA%\心流-optimized-0.2` 数据目录。
+开发期直接跑源码，不维护安装包：双击仓库根目录的 `启动心流.bat`（数据写在默认 `%APPDATA%\moliu-desktop`），或用 `npm.cmd run dev` 进入热更新开发模式。改动代码后用 `npm.cmd run build` 重新构建 `out/` 再启动。`npm.cmd run package:win` 仅供正式分发时手动执行，不属于日常流程。
 
 ## 验证
 
