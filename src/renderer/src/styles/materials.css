@@ -1,7 +1,7 @@
-.materials-intro h2 { font-size: 26px; margin: 0 0 8px; }
+.materials-intro h2 { font-size: 20px; margin: 0; }
 .materials-intro { align-items: center; }
 .materials-page .material-tabs { display: flex; padding: 0; gap: 24px; background: transparent; border-radius: 0; border-bottom: 1px solid var(--border); width: 100%; }
-.materials-page .material-tabs button { padding: 12px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
+.materials-page .material-tabs button { padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
 .materials-page .material-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; box-shadow: none; }
 .materials-page .material-search-workspace { grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; }
 .material-search-main, .material-saved-rail { border-radius: 8px; box-shadow: none; padding: 24px; }

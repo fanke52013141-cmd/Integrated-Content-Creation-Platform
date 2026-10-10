@@ -190,7 +190,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
-  padding: 14px var(--space-2xl);
+  padding: 7px var(--space-2xl);
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-solid);
 }
@@ -220,8 +220,8 @@
 .account-chip {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 5px 12px 5px 6px;
+  gap: 7px;
+  padding: 3px 10px 3px 5px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
   background: var(--surface-solid);
@@ -233,12 +233,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: var(--radius-full);
   background: var(--purple-100);
   color: var(--purple-700);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 /* html 根字号为 14px，故用绝对值而非 rem，避免与浏览器 <small> 默认样式互相抵消 */
@@ -306,7 +306,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-2xl);
+  padding: 14px var(--space-2xl) 24px;
   display: flex;
   flex-direction: column;
   outline: none;
@@ -333,8 +333,8 @@
   align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
-  margin: var(--space-md) var(--space-xl) var(--space-sm);
-  padding: 9px var(--space-lg);
+  margin: 8px var(--space-2xl) 0;
+  padding: 5px var(--space-lg);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-solid);

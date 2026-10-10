@@ -1,15 +1,16 @@
-.hotspots-page { gap: 24px; }
-.hotspots-page .hotspot-hero { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 20px; }
-.hotspots-page .hotspot-hero h2 { font-size: 26px; font-weight: 650; line-height: 1.3; }
-.hotspots-page .hotspot-hero-meta { margin-top: 12px; gap: 16px; font-size: 12px; }
+.hotspots-page { gap: 14px; }
+.hotspots-page .hotspot-hero { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.hotspots-page .hotspot-hero > div:first-child { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; flex: 1; }
+.hotspots-page .hotspot-hero h2 { font-size: 20px; font-weight: 650; line-height: 1.3; margin: 0; }
+.hotspots-page .hotspot-hero-meta { margin: 0; gap: 12px; font-size: 12px; }
 .hotspot-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.hotspot-view-tabs { display: flex; flex-wrap: wrap; gap: 24px; border-bottom: 1px solid var(--border-subtle); }
-.hotspot-view-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px 14px; min-height: 36px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 14px; }
+.hotspot-view-tabs { display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--border-subtle); }
+.hotspot-view-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px 8px; min-height: 32px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 13.5px; }
 .hotspot-view-tabs button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 .hotspot-view-tabs button span { padding: 2px 6px; border-radius: 5px; background: var(--surface-strong); color: var(--text-secondary); font-size: 12px; }
 .hotspots-page .hotspot-radar-layout { grid-template-columns: 192px minmax(0, 1fr) 228px; min-height: 580px; }
 .hotspots-page .hotspot-source-rail, .hotspots-page .hotspot-insight-rail { padding: 20px 16px; background: #fafbfc; gap: 16px; }
-.hotspots-page .hotspot-source-rail > div { max-height: min(620px, calc(100dvh - 340px)); gap: 4px; }
+.hotspots-page .hotspot-source-rail > div { max-height: min(620px, calc(100dvh - 250px)); gap: 4px; }
 .hotspots-page .hotspot-source-rail > div > button { padding: 10px 8px; font-size: 13px; }
 .hotspots-page .hotspot-source-rail > div > button.active { box-shadow: none; background: var(--primary-wash); }
 .hotspot-source-search { padding: 8px; }

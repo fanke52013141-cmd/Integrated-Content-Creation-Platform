@@ -417,18 +417,20 @@ input[type="checkbox"], input[type="radio"] {
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
 .section-heading-actions { display: inline-flex; align-items: center; gap: var(--space-sm); }
 
-.page { display: flex; flex-direction: column; gap: var(--space-xl); min-width: 0; animation: fade-up var(--transition-base); }
+.page { display: flex; flex-direction: column; gap: 14px; min-width: 0; animation: fade-up var(--transition-base); }
 
 .page-intro {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-lg);
   /* 窄窗口（125%/150% 缩放）下操作按钮换行，而不是把标题压成碎行 */
   flex-wrap: wrap;
 }
-.page-intro h2 { font-size: 26px; font-family: var(--font-display); font-weight: 650; letter-spacing: -0.035em; line-height: 1.3; }
-.page-intro .micro-copy { margin-top: var(--space-sm); }
+/* 标题与说明同排：说明不再独立占一行，页面头部只占一行高度 */
+.page-intro > div:first-child { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; flex: 1; }
+.page-intro h2 { font-size: 20px; font-family: var(--font-display); font-weight: 650; letter-spacing: -0.035em; line-height: 1.3; margin: 0; }
+.page-intro .micro-copy { margin: 0; }
 .page-intro-actions { display: inline-flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }
 
 /* 分区标题：尾随弹性横线（编辑排版手法） */

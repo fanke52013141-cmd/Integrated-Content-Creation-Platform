@@ -1,6 +1,6 @@
-.providers-page .page-intro h2 { font-size: 26px; margin: 0 0 8px; }
+.providers-page .page-intro h2 { font-size: 20px; margin: 0; }
 .providers-page .provider-tabs { display: flex; gap: 24px; padding: 0; border-radius: 0; background: transparent; border-bottom: 1px solid var(--border); }
-.providers-page .provider-tabs button { padding: 12px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
+.providers-page .provider-tabs button { padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
 .providers-page .provider-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; box-shadow: none; }
 .providers-page .provider-layout { grid-template-columns: 260px minmax(0, 1fr); border-radius: 8px; }
 .providers-page .provider-list-column > .section-heading { flex-wrap: nowrap; gap: 8px; padding: 20px 16px; }

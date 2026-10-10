@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流 · 热点洞察</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container-lowest": "#ffffff",
+            "error": "#ba1a1a",
+            "surface-container-highest": "#e2e1ee",
+            "secondary-container": "#d1e1f6",
+            "on-tertiary-fixed": "#121c2a",
+            "on-primary-fixed-variant": "#003ea8",
+            "primary-container": "#2563eb",
+            "on-tertiary-container": "#ebf1ff",
+            "on-secondary-fixed": "#0d1d2c",
+            "tertiary-fixed": "#d9e3f6",
+            "secondary-fixed-dim": "#b8c8dd",
+            "on-secondary": "#ffffff",
+            "inverse-surface": "#2e3039",
+            "on-surface": "#191b24",
+            "on-surface-variant": "#434655",
+            "tertiary-fixed-dim": "#bdc7da",
+            "surface-container": "#ededf9",
+            "on-error": "#ffffff",
+            "error-container": "#ffdad6",
+            "surface-variant": "#e2e1ee",
+            "surface-tint": "#0053db",
+            "on-primary-container": "#eeefff",
+            "outline-variant": "#c3c6d7",
+            "surface-container-low": "#f3f2ff",
+            "on-error-container": "#93000a",
+            "primary-fixed-dim": "#b4c5ff",
+            "outline": "#737686",
+            "on-tertiary": "#ffffff",
+            "on-secondary-fixed-variant": "#394859",
+            "surface-container-high": "#e7e7f4",
+            "secondary-fixed": "#d4e4f9",
+            "surface": "#faf8ff",
+            "inverse-on-surface": "#f0f0fc",
+            "tertiary": "#4c5666",
+            "inverse-primary": "#b4c5ff",
+            "surface-dim": "#d9d9e5",
+            "secondary": "#516072",
+            "primary": "#004ac6",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "primary-fixed": "#dbe1ff",
+            "on-background": "#191b24",
+            "tertiary-container": "#646e7f",
+            "on-primary-fixed": "#00174b",
+            "surface-bright": "#faf8ff",
+            "on-secondary-container": "#556476",
+            "background": "#faf8ff",
+            "on-primary": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.75rem",
+            "space-lg": "1.5rem",
+            "margin": "1.5rem",
+            "space-xs": "0.5rem",
+            "space-md": "1rem",
+            "gutter": "1rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "label-sm": ["Public Sans"],
+            "label-md": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "headline-lg": ["Inter"],
+            "headline-sm": ["Inter"]
+          },
+          "fontSize": {
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-surface text-on-surface h-full font-body-md antialiased overflow-hidden flex flex-col">
+<!-- SideNavBar -->
+<aside class="flex flex-col justify-between w-[208px] p-space-md h-full fixed left-0 top-0 bg-surface-container-low dark:bg-surface-container border-r border-outline-variant dark:border-outline z-30">
+<div class="flex flex-col gap-space-lg">
+<div class="flex items-center gap-space-sm px-space-xs">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold">心</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-inverse-on-surface">心流洞察</h1>
+<p class="font-body-sm text-on-surface-variant text-[11px]">专业热点内容创作平台</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg font-body-md text-primary bg-secondary-container dark:bg-secondary font-medium transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span>全部热点</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg font-body-md text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">globe</span>
+<span>全网资讯</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg font-body-md text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">share</span>
+<span>社交媒体</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg font-body-md text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">business</span>
+<span>行业垂直</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg font-body-md text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">star</span>
+<span>收藏夹</span>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-3 pt-space-md border-t border-outline-variant">
+<button class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container-high text-body-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>添加数据源</span>
+</button>
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-2">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="A professional portrait photograph of a content creator with clean lighting, neutral background, editorial aesthetic, high resolution, soft warm tone." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHadSOm8NARjxEnPR_OeS81uFj5RdTKU16bnC0qQvbT8YgGI37w7m07MnNamk5slrLcReocRTiMu0ftjbAr4S7xJQ0f3RUkVRSndanmrzGF_ztHOco5OFSKb_2dZSJcsz_fgjNObII4UIB-bU_WwKRteNvcSXQJgO4LdUGWvMECFEaRKzsnCKtbjQFoqigs2bmfc_nA7ZkGRLGfV88OcjxseUG7cbUSWZWsIMd8Z5WKl_jA0in1y8TB8PMr4uPUsvr4R8nv7LduvQ"/>
+<span class="font-body-sm font-medium text-on-surface">创作者</span>
+</div>
+<div class="flex items-center gap-1">
+<a class="p-1.5 text-on-surface-variant hover:text-primary rounded" href="#" title="设置"><span class="material-symbols-outlined text-[18px]">settings</span></a>
+<a class="p-1.5 text-on-surface-variant hover:text-primary rounded" href="#" title="登录微博"><span class="material-symbols-outlined text-[18px]">account_circle</span></a>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Shell Layout Wrapper -->
+<div class="pl-[208px] flex flex-col h-full w-full">
+<!-- TopNavBar -->
+<div class="w-full px-4 pt-3 pb-2 bg-surface border-b border-outline-variant shrink-0 flex flex-col gap-2">
+<!-- Toolbar Row: 52px height -->
+<div class="h-[52px] flex items-center justify-between">
+<div class="flex items-baseline gap-2.5">
+<h1 class="text-[20px] font-semibold text-on-surface tracking-tight">热点雷达</h1>
+<span class="text-[12px] text-on-surface-variant font-normal">(显示 45/45 个平台 · 45 个已加载 · 0 条已收藏)</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="h-8 px-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-[13px] font-medium text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">tune</span>
+<span>快速筛选</span>
+</button>
+<button class="h-8 px-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-[13px] font-medium text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">hub</span>
+<span>平台源管理</span>
+</button>
+<button class="h-8 px-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-[13px] font-medium text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">psychology</span>
+<span>AI过滤规则</span>
+</button>
+<button class="h-8 px-3 rounded-lg bg-inverse-surface text-on-primary text-[13px] font-medium hover:bg-on-surface transition-colors flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[15px]">refresh</span>
+<span>刷新全网</span>
+</button>
+</div>
+</div>
+<!-- Compact Segmented View Row: 34px height -->
+<div class="h-[34px] flex items-center justify-between gap-3">
+<div class="flex items-center gap-1 bg-surface-container-low p-0.5 rounded-lg border border-outline-variant">
+<button class="px-3 py-1 rounded bg-surface-container-lowest text-primary text-[13px] font-semibold shadow-sm transition-all">实时热榜</button>
+<button class="px-3 py-1 rounded text-on-surface-variant hover:text-on-surface text-[13px] font-medium transition-all">收藏夹 (0)</button>
+<button class="px-3 py-1 rounded text-on-surface-variant hover:text-on-surface text-[13px] font-medium transition-all">筛选结果</button>
+</div>
+<div class="flex items-center gap-2">
+<div class="relative w-56">
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-outline text-[16px]">search</span>
+<input class="w-full h-8 bg-surface-container-lowest border border-outline-variant rounded-lg pl-8 pr-2 text-body-sm text-on-surface focus:outline-none focus:border-primary" placeholder="搜索热点关键词..." type="text"/>
+</div>
+<select class="h-8 bg-surface-container-lowest border border-outline-variant rounded-lg text-body-sm px-2 text-on-surface focus:outline-none">
+<option>综合热度降序</option>
+<option>飙升速度最快</option>
+<option>互动声量最高</option>
+<option>最新发布优先</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Content Canvas Area -->
+<main class="flex flex-1 overflow-hidden">
+<!-- Source Rail (Left of content area) -->
+<aside class="w-60 border-r border-outline-variant bg-surface p-3 flex flex-col gap-2.5 shrink-0 overflow-y-auto">
+<div class="flex items-center justify-between pb-1 border-b border-outline-variant">
+<div class="flex items-center gap-1.5">
+<h2 class="text-[14px] text-on-surface font-semibold">数据源过滤</h2>
+<span class="text-[11px] bg-secondary-container text-on-secondary-container px-1.5 py-0.2 rounded-full font-medium">45 活跃</span>
+</div>
+<button class="text-[12px] text-primary hover:underline font-medium">全选</button>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-outline text-[15px]">filter_list</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-7 pr-2 py-1 text-[12px] text-on-surface focus:outline-none focus:border-primary" placeholder="快速过滤来源..." type="text"/>
+</div>
+<div class="flex flex-col gap-0.5 text-body-sm">
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">全网综合热搜</span>
+</div>
+<span class="text-outline text-[11px]">2.4w</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">小红书潮流趋势</span>
+</div>
+<span class="text-outline text-[11px]">1.8w</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">微博实时热点</span>
+</div>
+<span class="text-outline text-[11px]">5.1w</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">微信公众号/读书</span>
+</div>
+<span class="text-outline text-[11px]">920</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">稀土掘金技术榜</span>
+</div>
+<span class="text-outline text-[11px]">450</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">知乎高赞问答</span>
+</div>
+<span class="text-outline text-[11px]">1.2w</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">B站热门视频</span>
+</div>
+<span class="text-outline text-[11px]">3.6w</span>
+</label>
+<label class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-surface-container-low cursor-pointer">
+<div class="flex items-center gap-2">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary w-3.5 h-3.5" type="checkbox"/>
+<span class="text-[13px] text-on-surface font-medium">抖音爆款话题</span>
+</div>
+<span class="text-outline text-[11px]">8.9w</span>
+</label>
+</div>
+<div class="mt-auto pt-2 border-t border-outline-variant">
+<div class="bg-surface-container-lowest p-2.5 rounded-lg border border-outline-variant flex flex-col gap-1.5">
+<div class="flex items-center gap-1 text-primary font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[15px]">bolt</span>
+<span>AI 智能筛选生效中</span>
+</div>
+<p class="text-[11px] text-on-surface-variant leading-relaxed">已自动过滤 1,280 条低质营销信息，只保留高质量创作线索。</p>
+<button class="mt-0.5 w-full bg-surface-container-low border border-outline-variant text-on-surface py-1 rounded text-[12px] font-medium hover:bg-secondary-container transition-colors">修改过滤规则</button>
+</div>
+</div>
+</aside>
+<!-- Main Workspace Area -->
+<section class="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5 bg-surface">
+<!-- Hot Source Cards Grid: High Density -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-2.5">
+<!-- Card 1 -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-lg p-3 flex flex-col justify-between hover:border-primary transition-all shadow-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-error text-on-error flex items-center justify-center font-bold text-[12px]">01</span>
+<span class="bg-secondary-container text-on-secondary-container text-[11px] px-1.5 py-0.5 rounded font-medium">小红书</span>
+<span class="text-outline text-[11px]">10分钟前更新</span>
+<span class="text-[11px] font-semibold text-error bg-error-container/60 px-1.5 py-0.2 rounded">+320% 爆发</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[13px] font-semibold text-primary">热度 98,420</span>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">bookmark</span></button>
+</div>
+</div>
+<div class="my-2">
+<h3 class="text-[15px] font-semibold text-on-surface hover:text-primary cursor-pointer mb-1 leading-snug">当代年轻人新型“低碳社交”：不发朋友圈的周末去哪了？</h3>
+<p class="text-[12px] text-on-surface-variant line-clamp-2 leading-relaxed">围绕当代都市人群回归线下、减少数字噪声的社交新形态展开，相关话题讨论量在过去3小时内激增300%。适合作为长文深度剖析或视频脚本切入点。</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-[12px]">
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#生活方式</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#心理疗愈</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#反内卷</span>
+</div>
+<button class="text-primary font-medium hover:underline flex items-center gap-0.5 text-[12px]">
+<span>生成大纲</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-lg p-3 flex flex-col justify-between hover:border-primary transition-all shadow-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-error text-on-error flex items-center justify-center font-bold text-[12px]">02</span>
+<span class="bg-primary-fixed text-on-primary-fixed text-[11px] px-1.5 py-0.5 rounded font-medium">微博</span>
+<span class="text-outline text-11px text-[11px]">25分钟前更新</span>
+<span class="text-[11px] font-semibold text-error bg-error-container/60 px-1.5 py-0.2 rounded">+215% 激增</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[13px] font-semibold text-primary">热度 87,150</span>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px] text-primary" style="font-variation-settings: 'FILL' 1;">bookmark</span></button>
+</div>
+</div>
+<div class="my-2">
+<h3 class="text-[15px] font-semibold text-on-surface hover:text-primary cursor-pointer mb-1 leading-snug">大模型落地进入深水区：中小企业如何低成本构建垂直领域Agent？</h3>
+<p class="text-[12px] text-on-surface-variant line-clamp-2 leading-relaxed">行业专家在最新圆桌会议上指出，通用大模型的红利正在向垂直场景精细化运营转移，低代码Agent开发框架成为开发者核心关注点。</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-[12px]">
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#人工智能</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#行业观察</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#Agent</span>
+</div>
+<button class="text-primary font-medium hover:underline flex items-center gap-0.5 text-[12px]">
+<span>生成大纲</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-lg p-3 flex flex-col justify-between hover:border-primary transition-all shadow-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-surface-container-highest text-on-surface flex items-center justify-center font-bold text-[12px]">03</span>
+<span class="bg-tertiary-fixed text-on-tertiary-fixed text-[11px] px-1.5 py-0.5 rounded font-medium">微信公众号</span>
+<span class="text-outline text-[11px]">1小时前更新</span>
+<span class="text-[11px] font-semibold text-primary bg-secondary-container px-1.5 py-0.2 rounded">+140% 上升</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[13px] font-semibold text-primary">热度 64,900</span>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">bookmark</span></button>
+</div>
+</div>
+<div class="my-2">
+<h3 class="text-[15px] font-semibold text-on-surface hover:text-primary cursor-pointer mb-1 leading-snug">城市微度假与非标住宿的下一个爆发点在哪里？</h3>
+<p class="text-[12px] text-on-surface-variant line-clamp-2 leading-relaxed">假期出行偏好由长途旅游向城郊周末游转变，具备在地文化特色的独立民宿与在地体验项目受到市场资本与消费者双重追捧。</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-[12px]">
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#文旅消费</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#商业趋势</span>
+</div>
+<button class="text-primary font-medium hover:underline flex items-center gap-0.5 text-[12px]">
+<span>生成大纲</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+</article>
+<!-- Card 4 -->
+<article class="bg-surface-container-lowest border border-outline-variant rounded-lg p-3 flex flex-col justify-between hover:border-primary transition-all shadow-sm">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded bg-surface-container-highest text-on-surface flex items-center justify-center font-bold text-[12px]">04</span>
+<span class="bg-secondary-container text-on-secondary-container text-[11px] px-1.5 py-0.5 rounded font-medium">掘金技术</span>
+<span class="text-outline text-[11px]">2小时前更新</span>
+<span class="text-[11px] font-semibold text-primary bg-secondary-container px-1.5 py-0.2 rounded">+95% 稳定</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[13px] font-semibold text-primary">热度 52,100</span>
+<button class="text-outline hover:text-error transition-colors"><span class="material-symbols-outlined text-[18px]">bookmark</span></button>
+</div>
+</div>
+<div class="my-2">
+<h3 class="text-[15px] font-semibold text-on-surface hover:text-primary cursor-pointer mb-1 leading-snug">前端工程化新范式：Rspack与现代构建工具的性能极限压榨</h3>
+<p class="text-[12px] text-on-surface-variant line-clamp-2 leading-relaxed">随着大型Web应用复杂度不断提升，基于Rust的高性能构建工具正在全面重塑前端开发工作流，大幅缩短热更新编译等待时间。</p>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant text-[12px]">
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#前端开发</span>
+<span class="text-[11px] bg-surface-container-low px-1.5 py-0.5 rounded text-on-surface">#工程效能</span>
+</div>
+<button class="text-primary font-medium hover:underline flex items-center gap-0.5 text-[12px]">
+<span>生成大纲</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+</article>
+</div>
+</section>
+</main>
+</div>
+</body></html>

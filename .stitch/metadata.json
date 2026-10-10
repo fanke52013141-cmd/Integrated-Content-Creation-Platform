@@ -176,6 +176,12 @@
       "title": "心流 · 微博登录弹窗",
       "html": "designs/hotspot-dialogs-final-2.html",
       "screenshot": "designs/hotspot-dialogs-final-2.png"
+    },
+    {
+      "name": "projects/9009469379776060375/screens/da73cfa2fd4e47c69bbcab7c43f84e60",
+      "title": "心流 · 热点雷达 (超高密度紧凑版)",
+      "screenshot": "designs/hotspot-compact.png",
+      "html": "designs/hotspot-compact.html"
     }
   ]
 }

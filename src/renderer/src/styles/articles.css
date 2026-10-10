@@ -1,6 +1,6 @@
 /* Stitch: 文章库 / 主画布 / 辅助栏；创建流程独立为弹窗。 */
-.articles-page { gap: 20px; }
-.articles-page .article-workbench { margin-top: 0; grid-template-columns: 228px minmax(0, 1fr); min-height: max(580px, calc(100vh - 220px)); box-shadow: none; }
+.articles-page { gap: 14px; }
+.articles-page .article-workbench { margin-top: 0; grid-template-columns: 228px minmax(0, 1fr); min-height: max(580px, calc(100vh - 175px)); box-shadow: none; }
 .articles-page .article-list { padding: 20px 16px; background: #fafbfc; }
 .articles-page .article-list-filters { gap: 12px; }
 .articles-page .article-list-item { padding: 16px 12px; border-radius: 8px; }
