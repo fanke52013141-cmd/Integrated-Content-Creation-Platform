@@ -1,0 +1,880 @@
+{
+  "outputComponents": [
+    {
+      "design": {
+        "screens": [
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "心流 · 简约工作室",
+                "styleGuidelines": "## Brand & Style\n\n心流 (FlowState) · 简约工作室是一个专为内容创作者打造的高效、专注、克制的编辑工作台。\n\n视觉定位：明亮、安静、清楚。\n- 去除多余装饰、无意义层叠面板与重复导航，将最大可用空间留给核心文章内容与直接操作。\n- 采用极简理性主义风格：无渐变、无玻璃拟态、无装饰性配图。\n- 页面标题统一使用清晰的系统级无衬线字体，品牌呈现仅保留极简笔形图标与「心流」字标。\n\n## Layout & Spacing\n\n布局采用清晰的侧边导航加宽幅内容区结构：\n\n- **侧边应用导航**: 固定宽度 208px（较窄桌面窗口自适应收缩至 188px），紧凑纯净。\n- **画布边距**: 内容主区域使用标准的 32px (`2rem`) 外边距。\n- **创作台双栏布局**:\n  - 主创作区上限为 1240px，居中呼吸感强；\n  - 侧边紧凑待办区固定 280px。\n  - 响应式断点：视口宽度 < 1120px 时，辅助待办区折落至主区下方；视口宽度 < 760px 时，快捷入口与待办区自适应降为单列。\n- **间距节奏**: 严格基于 4 / 8 / 12 / 16 / 20 / 24 / 32px 系统，杜绝随意设定的负边距或非标间距。\n\n## Elevation & Depth\n\n- **平整实色表面**: 采用平面与低对比描边设计策略，完全避免多重阴影、拟态渐变与玻璃模糊背景（No glass, no gradients）。\n- **边界定义**: 面板与工作卡片均依托 `#e7ebf0` 细微单像素描边与 `#ffffff` 实色表面在 `#f7f8fa` 底色上形成利落分区。\n- **悬浮与浮层**: 仅对话框、气泡与下拉菜单允许使用柔和弥散阴影 (`0 4px 16px rgba(23, 33, 47, 0.06)`)，维持克制严谨的工作软件气质。\n\n## Components\n\n- **按钮 (Buttons)**:\n  - 最小点击高度不低于 36px，内边距规范对齐。\n  - 主按钮：墨色实底 (`#17212f`)，文字纯白 (`#ffffff`)，悬浮微透明，稳健有力。\n  - 续写与核心操作：采用墨色主按钮，并将快捷动作（评审、配图、排版、发布）采用描边或幽灵按钮样式清晰分层。\n- **快捷入口 (Action Entries)**:\n  - 采用 2×2 紧凑网格布局，内置微型图标与简要说明文字，主次明晰。\n- **输入框与表单 (Inputs & Forms)**:\n  - 白色实底，`#e7ebf0` 边框，高度 36px/40px。\n  - 聚焦时高亮交互蓝 (`#2563eb`) 描边，无沉重外光晕。\n- **侧栏导航 (Navigation Rail)**:\n  - 紧凑布局，选中项使用柔和浅蓝背景与高饱和交互蓝文字指示。\n- **面板卡片 (Panels & Cards)**:\n  - 消除冗余的深层嵌套，工具栏紧凑规整，各视图保留完整功能骨架并保持统一视觉层级。",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: 心流 · 简约工作室\ncolors:\n  surface: '#f9f9ff'\n  surface-dim: '#cedbf2'\n  surface-bright: '#f9f9ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#eff3ff'\n  surface-container: '#e6eeff'\n  surface-container-high: '#dde9ff'\n  surface-container-highest: '#d7e3fa'\n  on-surface: '#101c2d'\n  on-surface-variant: '#434655'\n  inverse-surface: '#253143'\n  inverse-on-surface: '#ebf1ff'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#f9f9ff'\n  on-background: '#101c2d'\n  surface-variant: '#d7e3fa'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 2rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 0.75rem\n  space-lg: 1rem\n  space-xl: 1.5rem\n---\n\n# 心流 · 简约工作室设计系统\n\n唯一视觉令牌来源是 `src/renderer/src/styles/tokens.css`。应用只提供浅色模式，不跟随系统外观，也不读取旧版深色偏好。\n\n## 设计方向\n\n明亮、安静、清楚。减少装饰、层叠面板和重复导航，把宽度留给文章与操作。页面标题统一使用系统无衬线字体；品牌采用简单笔形图标与「心流」文字。\n\n## 色彩与组件\n\n| 用途 | 令牌 | 色值 |\n|---|---|---|\n| 画布 | --background | #f7f8fa |\n| 表面 | --surface | #ffffff |\n| 主文字 | --text | #17212f |\n| 次文字 | --text-secondary | #526173 |\n| 辅助文字 | --text-tertiary | #647084 |\n| 交互蓝 | --primary | #2563eb |\n| 分隔线 | --border-subtle | #e7ebf0 |\n\n主操作用墨色实底，选中导航用浅蓝底，次级操作用描边或文字。面板采用实色表面，不使用玻璃模糊、渐变背景或装饰图片。圆角为 6 / 8 / 12px，主要按钮至少 36px 高。页面标题 26px，正文 14px，辅助信息至少 12px；间距使用既有 4 / 8 / 12 / 16 / 20 / 24 / 32px 令牌。\n\n## 布局\n\n- 应用导航固定 208px，较窄桌面窗口缩到 188px。顶部只承载位置、任务和账号。\n- 内容区采用 32px 边距。保留现有创作、资源与系统路由，避免视觉调整影响创作数据。\n- 创作台采用宽主区 + 280px 待办区，主区上限 1240px。续写主按钮与评审、配图、排版、发布快捷操作分层。\n- 新建入口采用 2×2 紧凑按钮，并展示简短说明。最近作品默认折叠。\n- 小于 1120px 时创作台辅助区落到主区下方；小于 760px 时入口和辅助区改为单列。\n- 工作台、列表和表单沿用已有功能骨架，统一表面、标题、按钮、边框和间距。排版输出文档的主题独立于应用外观。\n\n## 浅色初始化\n\n`public/theme-init.js` 在 React 加载前固定 `data-theme=light` 与原生控件的 `color-scheme=light`，清除旧的 `moliu:theme` 偏好。App 无外观状态，Layout 无主题切换入口。启动错误兜底页也仅使用浅色。\n\n## Stitch 对接\n\n项目：`9009469379776060375`（心流 · 简约工作室 UI 重设计）。\n设计系统：`assets/3131040012205325882`。\n本地元数据位于 `.stitch/metadata.json`。MCP 用户配置与密钥放在用户 Codex 目录，禁止复制进项目或提交到 Git。\n\n## 验证\n\n浅色初始化测试覆盖旧深色偏好与存储不可用场景；构建与类型检查验证代码；浏览器巡检覆盖各路由、桌面与窄窗口。浏览器演示数据不代表真实本地创作数据。",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#f9f9ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#ebf1ff",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#253143",
+                    "on_background": "#101c2d",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#101c2d",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#f9f9ff",
+                    "surface_bright": "#f9f9ff",
+                    "surface_container": "#e6eeff",
+                    "surface_container_high": "#dde9ff",
+                    "surface_container_highest": "#d7e3fa",
+                    "surface_container_low": "#eff3ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#cedbf2",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#d7e3fa",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#647084",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "2rem",
+                    "space-lg": "1rem",
+                    "space-md": "0.75rem",
+                    "space-sm": "0.5rem",
+                    "space-xl": "1.5rem",
+                    "space-xs": "0.25rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "3"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "figaro_agent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzQwNGNiMDI4YzdlZTRiMTI5MGU0ZDg5MTQzNjA4MmM5EgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/432506a1d45346629cc34050b214e571"
+            },
+            "id": "e021434984564dbda5a7c24281d9bc49",
+            "name": "projects/9009469379776060375/screens/e021434984564dbda5a7c24281d9bc49",
+            "prompt": "心流 · 热点平台管理弹窗，800px宽桌面端模态弹窗。白底 #ffffff，外层 #f7f8fa 背景遮罩。顶部标题「热点平台管理」与关闭按钮。搜索框「搜索平台名称...」。下方为可滚动的双列平台列表（共包含约45个或展示多行丰富的平台项，如全网综合热搜、微博实时热点、小红书潮流趋势、知乎高赞问答、B站热门视频等），每行包含：拖拽手柄/图标、平台名称、分类标签（如 综合、资讯、社交、科技等）、启用/关闭复选框。底部左侧显示「已选择 10 / 45 个平台源」，右侧「取消」与「保存修改」按钮。严格遵循浅色简约、#17212f 正文、#2563eb 强调色、8px 圆角与细边框。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1UBCOV89pOwLB8bptacVohiK76_0LHjLRbvjYsursEtT96RCxixh5rXdq2sH5Z38cGZZdjHW7T1r_itFU_S5DZoJ1sEVoq4ov3Rb1n0toyaX65_VJjO23QhBVOt9eViPERNyul10wcBdGhI6nJLYOZdbkth9b4KJwNVL79Ki8P6CuA-lL8oVRRhjdNZ6qesntlOfkaqRwInZps52brB4soBzpmQf0iji_xXjcIj5z5cpIOXDf-ERL_-nl0",
+              "name": "projects/9009469379776060375/files/9e543099d2a34b5ab8fde2e25a55f99b"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#f9f9ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#ebf1ff",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#253143",
+                "on_background": "#101c2d",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#101c2d",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#f9f9ff",
+                "surface_bright": "#f9f9ff",
+                "surface_container": "#e6eeff",
+                "surface_container_high": "#dde9ff",
+                "surface_container_highest": "#d7e3fa",
+                "surface_container_low": "#eff3ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#cedbf2",
+                "surface_tint": "#0053db",
+                "surface_variant": "#d7e3fa",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#647084",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "2rem",
+                "space-lg": "1rem",
+                "space-md": "0.75rem",
+                "space-sm": "0.5rem",
+                "space-xl": "1.5rem",
+                "space-xs": "0.25rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 热点平台管理弹窗",
+            "width": "2560"
+          },
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "心流 · 简约工作室",
+                "styleGuidelines": "## Brand & Style\n\n心流 (FlowState) · 简约工作室是一个专为内容创作者打造的高效、专注、克制的编辑工作台。\n\n视觉定位：明亮、安静、清楚。\n- 去除多余装饰、无意义层叠面板与重复导航，将最大可用空间留给核心文章内容与直接操作。\n- 采用极简理性主义风格：无渐变、无玻璃拟态、无装饰性配图。\n- 页面标题统一使用清晰的系统级无衬线字体，品牌呈现仅保留极简笔形图标与「心流」字标。\n\n## Layout & Spacing\n\n布局采用清晰的侧边导航加宽幅内容区结构：\n\n- **侧边应用导航**: 固定宽度 208px（较窄桌面窗口自适应收缩至 188px），紧凑纯净。\n- **画布边距**: 内容主区域使用标准的 32px (`2rem`) 外边距。\n- **创作台双栏布局**:\n  - 主创作区上限为 1240px，居中呼吸感强；\n  - 侧边紧凑待办区固定 280px。\n  - 响应式断点：视口宽度 < 1120px 时，辅助待办区折落至主区下方；视口宽度 < 760px 时，快捷入口与待办区自适应降为单列。\n- **间距节奏**: 严格基于 4 / 8 / 12 / 16 / 20 / 24 / 32px 系统，杜绝随意设定的负边距或非标间距。\n\n## Elevation & Depth\n\n- **平整实色表面**: 采用平面与低对比描边设计策略，完全避免多重阴影、拟态渐变与玻璃模糊背景（No glass, no gradients）。\n- **边界定义**: 面板与工作卡片均依托 `#e7ebf0` 细微单像素描边与 `#ffffff` 实色表面在 `#f7f8fa` 底色上形成利落分区。\n- **悬浮与浮层**: 仅对话框、气泡与下拉菜单允许使用柔和弥散阴影 (`0 4px 16px rgba(23, 33, 47, 0.06)`)，维持克制严谨的工作软件气质。\n\n## Components\n\n- **按钮 (Buttons)**:\n  - 最小点击高度不低于 36px，内边距规范对齐。\n  - 主按钮：墨色实底 (`#17212f`)，文字纯白 (`#ffffff`)，悬浮微透明，稳健有力。\n  - 续写与核心操作：采用墨色主按钮，并将快捷动作（评审、配图、排版、发布）采用描边或幽灵按钮样式清晰分层。\n- **快捷入口 (Action Entries)**:\n  - 采用 2×2 紧凑网格布局，内置微型图标与简要说明文字，主次明晰。\n- **输入框与表单 (Inputs & Forms)**:\n  - 白色实底，`#e7ebf0` 边框，高度 36px/40px。\n  - 聚焦时高亮交互蓝 (`#2563eb`) 描边，无沉重外光晕。\n- **侧栏导航 (Navigation Rail)**:\n  - 紧凑布局，选中项使用柔和浅蓝背景与高饱和交互蓝文字指示。\n- **面板卡片 (Panels & Cards)**:\n  - 消除冗余的深层嵌套，工具栏紧凑规整，各视图保留完整功能骨架并保持统一视觉层级。",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: 心流 · 简约工作室\ncolors:\n  surface: '#f9f9ff'\n  surface-dim: '#cedbf2'\n  surface-bright: '#f9f9ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#eff3ff'\n  surface-container: '#e6eeff'\n  surface-container-high: '#dde9ff'\n  surface-container-highest: '#d7e3fa'\n  on-surface: '#101c2d'\n  on-surface-variant: '#434655'\n  inverse-surface: '#253143'\n  inverse-on-surface: '#ebf1ff'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#f9f9ff'\n  on-background: '#101c2d'\n  surface-variant: '#d7e3fa'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 2rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 0.75rem\n  space-lg: 1rem\n  space-xl: 1.5rem\n---\n\n# 心流 · 简约工作室设计系统\n\n唯一视觉令牌来源是 `src/renderer/src/styles/tokens.css`。应用只提供浅色模式，不跟随系统外观，也不读取旧版深色偏好。\n\n## 设计方向\n\n明亮、安静、清楚。减少装饰、层叠面板和重复导航，把宽度留给文章与操作。页面标题统一使用系统无衬线字体；品牌采用简单笔形图标与「心流」文字。\n\n## 色彩与组件\n\n| 用途 | 令牌 | 色值 |\n|---|---|---|\n| 画布 | --background | #f7f8fa |\n| 表面 | --surface | #ffffff |\n| 主文字 | --text | #17212f |\n| 次文字 | --text-secondary | #526173 |\n| 辅助文字 | --text-tertiary | #647084 |\n| 交互蓝 | --primary | #2563eb |\n| 分隔线 | --border-subtle | #e7ebf0 |\n\n主操作用墨色实底，选中导航用浅蓝底，次级操作用描边或文字。面板采用实色表面，不使用玻璃模糊、渐变背景或装饰图片。圆角为 6 / 8 / 12px，主要按钮至少 36px 高。页面标题 26px，正文 14px，辅助信息至少 12px；间距使用既有 4 / 8 / 12 / 16 / 20 / 24 / 32px 令牌。\n\n## 布局\n\n- 应用导航固定 208px，较窄桌面窗口缩到 188px。顶部只承载位置、任务和账号。\n- 内容区采用 32px 边距。保留现有创作、资源与系统路由，避免视觉调整影响创作数据。\n- 创作台采用宽主区 + 280px 待办区，主区上限 1240px。续写主按钮与评审、配图、排版、发布快捷操作分层。\n- 新建入口采用 2×2 紧凑按钮，并展示简短说明。最近作品默认折叠。\n- 小于 1120px 时创作台辅助区落到主区下方；小于 760px 时入口和辅助区改为单列。\n- 工作台、列表和表单沿用已有功能骨架，统一表面、标题、按钮、边框和间距。排版输出文档的主题独立于应用外观。\n\n## 浅色初始化\n\n`public/theme-init.js` 在 React 加载前固定 `data-theme=light` 与原生控件的 `color-scheme=light`，清除旧的 `moliu:theme` 偏好。App 无外观状态，Layout 无主题切换入口。启动错误兜底页也仅使用浅色。\n\n## Stitch 对接\n\n项目：`9009469379776060375`（心流 · 简约工作室 UI 重设计）。\n设计系统：`assets/3131040012205325882`。\n本地元数据位于 `.stitch/metadata.json`。MCP 用户配置与密钥放在用户 Codex 目录，禁止复制进项目或提交到 Git。\n\n## 验证\n\n浅色初始化测试覆盖旧深色偏好与存储不可用场景；构建与类型检查验证代码；浏览器巡检覆盖各路由、桌面与窄窗口。浏览器演示数据不代表真实本地创作数据。",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#f9f9ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#ebf1ff",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#253143",
+                    "on_background": "#101c2d",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#101c2d",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#f9f9ff",
+                    "surface_bright": "#f9f9ff",
+                    "surface_container": "#e6eeff",
+                    "surface_container_high": "#dde9ff",
+                    "surface_container_highest": "#d7e3fa",
+                    "surface_container_low": "#eff3ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#cedbf2",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#d7e3fa",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#647084",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "2rem",
+                    "space-lg": "1rem",
+                    "space-md": "0.75rem",
+                    "space-sm": "0.5rem",
+                    "space-xl": "1.5rem",
+                    "space-xs": "0.25rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "3"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "figaro_agent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2E0ZmVjNTQ2ZDhmZDQ5ZDBhZDVjY2I3NzgzODAyZmE1EgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/87428509cf224cd588b6ae612d1cb990"
+            },
+            "id": "72798b8dccd84af7b81258b179c31c5d",
+            "name": "projects/9009469379776060375/screens/72798b8dccd84af7b81258b179c31c5d",
+            "prompt": "心流 · 智能筛选弹窗（配置热点筛选弹窗），800px宽桌面端模态弹窗。白底 #ffffff，外层 #f7f8fa 背景。顶部标题「配置热点筛选」与关闭按钮，提示当前规则将应用于目标账号底层 Prompt 中。表单内容包含：目标账号（Target Account）下拉选择，AI 模型引擎（Engine）下拉选择，单源采集 Top N 输入框，并发抓取线程数输入框。活动过滤源选择（Source Feeds）多选复选框网格（全网实时热搜、科技垂直社群流、财经商业快讯、长文深度专栏、开源社区动态、独立开发者日记）。过滤规则摘要与黑名单预览。底部「取消」与「立即保存并生效」按钮。浅色简约、#17212f 正文、#2563eb 强调色、8px 圆角。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1Wo0etA_NWdwpEdJwACV5H5U9iwGRJ7UI0nAxFdG3aFY9VUkuHVklY4m8BZqTaxmFD9VrZrv_KPgru5x6SZ65ho1sC_nVU0jGYsrRW-ATk8Feq45Cp6X7W6HddmDxnQC9yahqi5jWzYGsKEImw2vZm9Invs2T_j-bhnnkxvjkFjePZi8aZSWprxaXRyyXPBH6q1yOhd8XMXrdgXe3q27cDWNUU_e-RgyWd-Cxb8usSMd5fJZxtjz77A1pg",
+              "name": "projects/9009469379776060375/files/9ea880a55d164a6d8064df598aca0b7c"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#f9f9ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#ebf1ff",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#253143",
+                "on_background": "#101c2d",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#101c2d",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#f9f9ff",
+                "surface_bright": "#f9f9ff",
+                "surface_container": "#e6eeff",
+                "surface_container_high": "#dde9ff",
+                "surface_container_highest": "#d7e3fa",
+                "surface_container_low": "#eff3ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#cedbf2",
+                "surface_tint": "#0053db",
+                "surface_variant": "#d7e3fa",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#647084",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "2rem",
+                "space-lg": "1rem",
+                "space-md": "0.75rem",
+                "space-sm": "0.5rem",
+                "space-xl": "1.5rem",
+                "space-xs": "0.25rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 配置热点筛选弹窗",
+            "width": "2560"
+          },
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "心流 · 简约工作室",
+                "styleGuidelines": "## Brand & Style\n\n心流 (FlowState) · 简约工作室是一个专为内容创作者打造的高效、专注、克制的编辑工作台。\n\n视觉定位：明亮、安静、清楚。\n- 去除多余装饰、无意义层叠面板与重复导航，将最大可用空间留给核心文章内容与直接操作。\n- 采用极简理性主义风格：无渐变、无玻璃拟态、无装饰性配图。\n- 页面标题统一使用清晰的系统级无衬线字体，品牌呈现仅保留极简笔形图标与「心流」字标。\n\n## Layout & Spacing\n\n布局采用清晰的侧边导航加宽幅内容区结构：\n\n- **侧边应用导航**: 固定宽度 208px（较窄桌面窗口自适应收缩至 188px），紧凑纯净。\n- **画布边距**: 内容主区域使用标准的 32px (`2rem`) 外边距。\n- **创作台双栏布局**:\n  - 主创作区上限为 1240px，居中呼吸感强；\n  - 侧边紧凑待办区固定 280px。\n  - 响应式断点：视口宽度 < 1120px 时，辅助待办区折落至主区下方；视口宽度 < 760px 时，快捷入口与待办区自适应降为单列。\n- **间距节奏**: 严格基于 4 / 8 / 12 / 16 / 20 / 24 / 32px 系统，杜绝随意设定的负边距或非标间距。\n\n## Elevation & Depth\n\n- **平整实色表面**: 采用平面与低对比描边设计策略，完全避免多重阴影、拟态渐变与玻璃模糊背景（No glass, no gradients）。\n- **边界定义**: 面板与工作卡片均依托 `#e7ebf0` 细微单像素描边与 `#ffffff` 实色表面在 `#f7f8fa` 底色上形成利落分区。\n- **悬浮与浮层**: 仅对话框、气泡与下拉菜单允许使用柔和弥散阴影 (`0 4px 16px rgba(23, 33, 47, 0.06)`)，维持克制严谨的工作软件气质。\n\n## Components\n\n- **按钮 (Buttons)**:\n  - 最小点击高度不低于 36px，内边距规范对齐。\n  - 主按钮：墨色实底 (`#17212f`)，文字纯白 (`#ffffff`)，悬浮微透明，稳健有力。\n  - 续写与核心操作：采用墨色主按钮，并将快捷动作（评审、配图、排版、发布）采用描边或幽灵按钮样式清晰分层。\n- **快捷入口 (Action Entries)**:\n  - 采用 2×2 紧凑网格布局，内置微型图标与简要说明文字，主次明晰。\n- **输入框与表单 (Inputs & Forms)**:\n  - 白色实底，`#e7ebf0` 边框，高度 36px/40px。\n  - 聚焦时高亮交互蓝 (`#2563eb`) 描边，无沉重外光晕。\n- **侧栏导航 (Navigation Rail)**:\n  - 紧凑布局，选中项使用柔和浅蓝背景与高饱和交互蓝文字指示。\n- **面板卡片 (Panels & Cards)**:\n  - 消除冗余的深层嵌套，工具栏紧凑规整，各视图保留完整功能骨架并保持统一视觉层级。",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: 心流 · 简约工作室\ncolors:\n  surface: '#f9f9ff'\n  surface-dim: '#cedbf2'\n  surface-bright: '#f9f9ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#eff3ff'\n  surface-container: '#e6eeff'\n  surface-container-high: '#dde9ff'\n  surface-container-highest: '#d7e3fa'\n  on-surface: '#101c2d'\n  on-surface-variant: '#434655'\n  inverse-surface: '#253143'\n  inverse-on-surface: '#ebf1ff'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#f9f9ff'\n  on-background: '#101c2d'\n  surface-variant: '#d7e3fa'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 2rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 0.75rem\n  space-lg: 1rem\n  space-xl: 1.5rem\n---\n\n# 心流 · 简约工作室设计系统\n\n唯一视觉令牌来源是 `src/renderer/src/styles/tokens.css`。应用只提供浅色模式，不跟随系统外观，也不读取旧版深色偏好。\n\n## 设计方向\n\n明亮、安静、清楚。减少装饰、层叠面板和重复导航，把宽度留给文章与操作。页面标题统一使用系统无衬线字体；品牌采用简单笔形图标与「心流」文字。\n\n## 色彩与组件\n\n| 用途 | 令牌 | 色值 |\n|---|---|---|\n| 画布 | --background | #f7f8fa |\n| 表面 | --surface | #ffffff |\n| 主文字 | --text | #17212f |\n| 次文字 | --text-secondary | #526173 |\n| 辅助文字 | --text-tertiary | #647084 |\n| 交互蓝 | --primary | #2563eb |\n| 分隔线 | --border-subtle | #e7ebf0 |\n\n主操作用墨色实底，选中导航用浅蓝底，次级操作用描边或文字。面板采用实色表面，不使用玻璃模糊、渐变背景或装饰图片。圆角为 6 / 8 / 12px，主要按钮至少 36px 高。页面标题 26px，正文 14px，辅助信息至少 12px；间距使用既有 4 / 8 / 12 / 16 / 20 / 24 / 32px 令牌。\n\n## 布局\n\n- 应用导航固定 208px，较窄桌面窗口缩到 188px。顶部只承载位置、任务和账号。\n- 内容区采用 32px 边距。保留现有创作、资源与系统路由，避免视觉调整影响创作数据。\n- 创作台采用宽主区 + 280px 待办区，主区上限 1240px。续写主按钮与评审、配图、排版、发布快捷操作分层。\n- 新建入口采用 2×2 紧凑按钮，并展示简短说明。最近作品默认折叠。\n- 小于 1120px 时创作台辅助区落到主区下方；小于 760px 时入口和辅助区改为单列。\n- 工作台、列表和表单沿用已有功能骨架，统一表面、标题、按钮、边框和间距。排版输出文档的主题独立于应用外观。\n\n## 浅色初始化\n\n`public/theme-init.js` 在 React 加载前固定 `data-theme=light` 与原生控件的 `color-scheme=light`，清除旧的 `moliu:theme` 偏好。App 无外观状态，Layout 无主题切换入口。启动错误兜底页也仅使用浅色。\n\n## Stitch 对接\n\n项目：`9009469379776060375`（心流 · 简约工作室 UI 重设计）。\n设计系统：`assets/3131040012205325882`。\n本地元数据位于 `.stitch/metadata.json`。MCP 用户配置与密钥放在用户 Codex 目录，禁止复制进项目或提交到 Git。\n\n## 验证\n\n浅色初始化测试覆盖旧深色偏好与存储不可用场景；构建与类型检查验证代码；浏览器巡检覆盖各路由、桌面与窄窗口。浏览器演示数据不代表真实本地创作数据。",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#f9f9ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#ebf1ff",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#253143",
+                    "on_background": "#101c2d",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#101c2d",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#f9f9ff",
+                    "surface_bright": "#f9f9ff",
+                    "surface_container": "#e6eeff",
+                    "surface_container_high": "#dde9ff",
+                    "surface_container_highest": "#d7e3fa",
+                    "surface_container_low": "#eff3ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#cedbf2",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#d7e3fa",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#647084",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "2rem",
+                    "space-lg": "1rem",
+                    "space-md": "0.75rem",
+                    "space-sm": "0.5rem",
+                    "space-xl": "1.5rem",
+                    "space-xs": "0.25rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "3"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "figaro_agent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzdiYjFlYTI3MWQ4ZTRmODc4NDE3OThiNWFkY2EyYjA3EgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/0a93f17f644f4f8eae3e4773514fc766"
+            },
+            "id": "6877941cd781491ca3891d54c0cab5b2",
+            "name": "projects/9009469379776060375/screens/6877941cd781491ca3891d54c0cab5b2",
+            "prompt": "心流 · 微博登录提示弹窗，桌面端模态弹窗。白底 #ffffff，外层背景。顶部标题「微博账号授权与登录」与关闭按钮。中间说明：系统将通过独立弹出的官方微博登录窗口进行授权。成功获取会话后将自动加密存储在您的本地设备（Local-First），确保 100% 隐私与离线可用。包含一个居中的等待授权状态图标、提示文字「等待授权中...」。下方按钮区：主按钮「打开官方微博扫码登录窗口」，次按钮「使用手机号 / 验证码授权」。底部工具栏有「取消」和「已完成登录，校验会话」按钮。浅色简约、#17212f 正文、#2563eb 强调色、8px 圆角。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1VaBby_tVa82hyZCZykF2yTTmkcDFKeNjCWHjlYO8uDqj6WPqYPfgwMIZvQdBi5e9fLOC4JRDIHLZ-YHB3QQAmK9HIHZsp50cMknV_bwVrtX3DIgM5u1-ckABBFaJDSkPzQvfFhQ-Wll14TQo6dUnc23dBCpIasOUTFfRHUgDK0UyJNwblj-nJTvaG0MhYxjxDUrA3u1RFtq2uX6dVH7Buul2s490sqJ6J4Wyfgpsl6YzJRD79fc4sCiKU",
+              "name": "projects/9009469379776060375/files/21252fc3adcf47dfb1eb86b6fe9b9075"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#f9f9ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#ebf1ff",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#253143",
+                "on_background": "#101c2d",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#101c2d",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#f9f9ff",
+                "surface_bright": "#f9f9ff",
+                "surface_container": "#e6eeff",
+                "surface_container_high": "#dde9ff",
+                "surface_container_highest": "#d7e3fa",
+                "surface_container_low": "#eff3ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#cedbf2",
+                "surface_tint": "#0053db",
+                "surface_variant": "#d7e3fa",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#647084",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "2rem",
+                "space-lg": "1rem",
+                "space-md": "0.75rem",
+                "space-sm": "0.5rem",
+                "space-xl": "1.5rem",
+                "space-xs": "0.25rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 微博登录弹窗",
+            "width": "2560"
+          }
+        ],
+        "theme": {}
+      }
+    },
+    {
+      "text": "已成功为您生成「热点平台管理」弹窗、 「智能筛选」弹窗以及「微博登录提示」弹窗。所有弹窗均严格遵循浅色简约工作室设计规范（#f7f8fa 背景、#17212f 正文、#2563eb 强调色、8px 圆角与精致的细边框），并具备完整真实的交互功能布局。"
+    },
+    {
+      "suggestion": "查看热点平台管理弹窗"
+    },
+    {
+      "suggestion": "查看智能筛选弹窗"
+    },
+    {
+      "suggestion": "查看微博登录弹窗"
+    }
+  ],
+  "projectId": "9009469379776060375",
+  "sessionId": "16377972811460417374"
+}

@@ -41,15 +41,7 @@ for (const [label, id] of routes) {
   console.log(`shot: ${id}`)
 }
 
-// 暗色主题抽检三个页面
-const darkRoutes = [['账号定位', 'accounts-dark'], ['文章创作', 'articles-dark'], ['发布管理', 'publishing-dark']]
-await window.locator('.theme-toggle').click()
-for (const [label, id] of darkRoutes) {
-  const nav = window.locator('.nav-item', { hasText: label }).first()
-  await nav.click()
-  await window.waitForTimeout(700)
-  await window.screenshot({ path: resolve(artifactDir, `${id}.png`) })
-  console.log(`shot: ${id}`)
-}
+if (await window.locator('.theme-toggle').count()) throw new Error('浅色应用不应出现主题切换入口')
+if (await window.evaluate(() => document.documentElement.dataset.theme) !== 'light') throw new Error('应用应固定为浅色')
 
 await application.close()

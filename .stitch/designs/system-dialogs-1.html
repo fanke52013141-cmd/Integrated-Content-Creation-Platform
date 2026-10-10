@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<title>心流工作室 - 键盘快捷键指南</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Public+Sans:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+              "primary-fixed-dim": "#b4c5ff",
+              "error-container": "#ffdad6",
+              "surface-container-highest": "#d7e3fa",
+              "surface-container-high": "#dde9ff",
+              "on-secondary": "#ffffff",
+              "on-secondary-fixed": "#0d1d2c",
+              "tertiary": "#4c5666",
+              "surface-container": "#e6eeff",
+              "surface-bright": "#f9f9ff",
+              "on-error": "#ffffff",
+              "on-background": "#101c2d",
+              "tertiary-fixed-dim": "#bdc7da",
+              "tertiary-fixed": "#d9e3f6",
+              "surface-variant": "#d7e3fa",
+              "primary-fixed": "#dbe1ff",
+              "surface-dim": "#cedbf2",
+              "on-tertiary-fixed-variant": "#3d4757",
+              "error": "#ba1a1a",
+              "on-surface-variant": "#434655",
+              "secondary-fixed": "#d4e4f9",
+              "secondary-container": "#d1e1f6",
+              "background": "#f9f9ff",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-container": "#556476",
+              "inverse-surface": "#253143",
+              "primary": "#004ac6",
+              "outline": "#737686",
+              "on-primary-fixed-variant": "#003ea8",
+              "outline-variant": "#c3c6d7",
+              "on-primary-container": "#eeefff",
+              "secondary-fixed-dim": "#b8c8dd",
+              "on-tertiary": "#ffffff",
+              "inverse-primary": "#b4c5ff",
+              "on-primary-fixed": "#00174b",
+              "inverse-on-surface": "#ebf1ff",
+              "on-tertiary-fixed": "#121c2a",
+              "surface-tint": "#0053db",
+              "on-primary": "#ffffff",
+              "surface": "#f9f9ff",
+              "on-secondary-fixed-variant": "#394859",
+              "tertiary-container": "#646e7f",
+              "surface-container-low": "#eff3ff",
+              "primary-container": "#2563eb",
+              "on-tertiary-container": "#ebf1ff",
+              "on-error-container": "#93000a",
+              "secondary": "#516072",
+              "on-surface": "#101c2d"
+            },
+            "borderRadius": {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+            "spacing": {
+              "space-xl": "1.5rem",
+              "margin": "2rem",
+              "space-sm": "0.5rem",
+              "space-xs": "0.25rem",
+              "space-lg": "1rem",
+              "space-md": "0.75rem",
+              "gutter": "1rem"
+            },
+            "fontFamily": {
+              "body-md": ["Inter"],
+              "label-sm": ["Public Sans"],
+              "body-lg": ["Inter"],
+              "headline-md": ["Inter"],
+              "label-md": ["Public Sans"],
+              "headline-sm": ["Inter"],
+              "headline-lg": ["Inter"],
+              "body-sm": ["Inter"]
+            },
+            "fontSize": {
+              "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+              "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+              "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+              "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+              "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+              "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+              "headline-lg": ["22px", { "lineHeight": "30px", "fontWeight": "600" }],
+              "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-[#f7f8fa] text-[#17212f] font-body-md min-h-screen flex items-center justify-center p-gutter">
+<!-- Backdrop -->
+<div class="fixed inset-0 bg-[#101c2d]/20 backdrop-blur-none z-50 flex items-center justify-center p-gutter">
+<!-- Modal Card (w-[760px] max-w-full) -->
+<div class="bg-surface-container-lowest border border-[#e7ebf0] rounded-lg shadow-sm w-[760px] max-w-full max-h-[921px] flex flex-col overflow-hidden">
+<!-- Header -->
+<div class="flex items-center justify-between px-space-xl py-space-lg border-b border-[#e7ebf0]">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">键盘快捷键指南</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">熟练运用快捷键，让文字创作如行云流水般高效。</p>
+</div>
+<button aria-label="关闭" class="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-all duration-200" onclick="closeModal()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Content Area: Two Columns -->
+<div class="p-space-xl overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-space-xl">
+<!-- Category 1: Navigation & Views -->
+<div class="space-y-space-md">
+<h3 class="font-headline-sm text-headline-sm text-primary flex items-center gap-space-sm pb-space-xs border-b border-[#e7ebf0]">
+<span class="material-symbols-outlined text-primary">navigation</span>
+                        导航与视图
+                    </h3>
+<div class="space-y-space-sm">
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">全局搜索 / 快速跳转</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌘</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">K</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">打开仪表盘</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌥</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">1</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">切换文章工作台</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌥</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">2</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">灵感库视图</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌥</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">3</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">打开设置面板</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌘</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">,</kbd>
+</div>
+</div>
+</div>
+</div>
+<!-- Category 2: Editing & Writing -->
+<div class="space-y-space-md">
+<h3 class="font-headline-sm text-headline-sm text-primary flex items-center gap-space-sm pb-space-xs border-b border-[#e7ebf0]">
+<span class="material-symbols-outlined text-primary">edit_note</span>
+                        编辑与写作
+                    </h3>
+<div class="space-y-space-sm">
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">新建文章内容</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">Ctrl</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">N</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">心流专注模式</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌥</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">F</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">保存草稿</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌘</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">S</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">呼出智能写作助手</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">⌘</kbd>
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">J</kbd>
+</div>
+</div>
+<!-- Item -->
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface">打开快捷键指南</span>
+<div class="flex items-center gap-1">
+<kbd class="px-2 py-1 bg-surface-container-low border border-[#e7ebf0] rounded font-label-sm text-label-sm text-on-surface shadow-none">?</kbd>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<div class="flex items-center justify-end px-space-xl py-space-lg border-t border-[#e7ebf0] bg-surface-bright">
+<button class="h-9 px-space-xl bg-[#17212f] text-white rounded font-label-md text-label-md hover:opacity-90 active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary" id="confirm-btn" onclick="closeModal()">
+                    知道了
+                </button>
+</div>
+</div>
+</div>
+<script>
+        function closeModal() {
+            const backdrop = document.querySelector('.fixed.inset-0');
+            if (backdrop) {
+                backdrop.style.opacity = '0';
+                backdrop.style.transition = 'opacity 0.2s ease';
+                setTimeout(() => backdrop.remove(), 200);
+            }
+        }
+
+        // Support Esc key closing
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Focus confirm button by default
+        window.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('confirm-btn');
+            if (btn) btn.focus();
+        });
+    </script>
+</body></html>

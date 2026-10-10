@@ -1,154 +1,112 @@
-/* ═══════════════════════════════════════════════════════════
-   心流 · 设计令牌（唯一来源）
-   亮 / 暗两套；所有组件与页面样式只允许从这里取变量。
-   ═══════════════════════════════════════════════════════════ */
-
+/* 心流 · 简约工作室。仅浅色；组件与页面共用的唯一令牌来源。 */
 :root {
   color-scheme: light;
 
-  /* ── 画布与表面 ── */
-  --background: #f5f5f7;
-  --surface: rgba(255, 255, 255, 0.86);
+  --background: #f7f8fa;
+  --surface: #ffffff;
   --surface-solid: #ffffff;
-  --surface-subtle: #f5f5f7;
-  --surface-muted: #f2f2f7;
-  --surface-strong: #e5e5ea;
+  --surface-subtle: #f7f8fa;
+  --surface-muted: #f0f2f5;
+  --surface-strong: #e5e9ef;
 
-  /* ── 文字 ──
-   * 浅色下所有承载信息的文字令牌均满足 WCAG 2.1 AA 正文阈值 4.5:1。
-   * 改这 6 个值即可让全站 255 处对比度告警降到 0，无需逐页改 CSS。
-   * 验证脚本：ux-audit-tokens.mjs / ux-audit-metrics.mjs */
-  --text: #1d1d1f;
-  --text-primary: #1d1d1f;
-  --text-secondary: #56565c;   /* 6.69:1 ✓ */
-  --text-tertiary: #6e6e73;    /* 4.66:1 ✓（原 #86868b 仅 3.33:1，且被引用 141 处）*/
-  --text-soft: #aeaeb2;        /* 2.03:1 —— 装饰性灰，不得承载信息，见 P1-5 */
+  --text: #17212f;
+  --text-primary: #17212f;
+  --text-secondary: #526173;
+  --text-tertiary: #647084;
+  --text-soft: #647084;
 
-  /* ── 描边 ── */
-  --border: #d9d9de;
-  --border-subtle: #e8e8ed;
-  --border-strong: #c7c7cc;
+  --border: #dce2ea;
+  --border-subtle: #e7ebf0;
+  --border-strong: #b9c3d0;
 
-  /* ── 品牌与语义 ──
-   * 语义色同时用于「文字 + 图标 + 描边」，因此取满足 AA 的深色值。
-   * 需要更亮的高饱和版本时用 *-bright（色块/图标用）。 */
-  --primary: #0062c4;          /* 5.44:1 ✓（原 #0071e3 4.31:1 ✗）*/
-  --primary-hover: #0059b8;
-  --primary-bright: #0071e3;   /* 图形/图标用，不用于正文 */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-bright: #2563eb;
   --accent: var(--primary);
   --accent-strong: var(--primary-hover);
-  /* ── 品牌蓝的浅深档位（语义别名，2026-10-06 新增）──
-   * `--primary` 只有一档，但实际需要「极浅底 / 浅底 / 浅边 / 深字」几种深度。
-   * 历史上有 --purple-* 这组别名，实为同一支蓝（--purple-600 === --primary），
-   * 但名字误导——读代码的人会以为这里有第二种色相。已逐步替换为下列语义名。
-   *
-   * 档位对应（实色，亮色下）：primary-wash #eef4ff 浅于 primary-weak #dce9ff
-   * 浅于 primary-line #8fbcff深于 primary-hover #0059b8。
-   * 注意：primary-weak 在暗色下是半透明 rgba，非实色，这是刻意的——
-   * 暗色底本就更暗，实色浅蓝会过亮。 */
-  --primary-wash: #eef4ff;/* 最浅底 */
-  --primary-weak: #dce9ff;       /* 浅底：选中态 / hover */
-  --primary-line: #8fbcff;      /* 浅边：dashed 占位框 */
-  --primary-hover: #0059b8;
+
+  --primary-wash: #eef4ff;
+  --primary-weak: #dbe8ff;
+  --primary-line: #93b4f6;
 
   --focus: rgba(0, 98, 196, 0.22);
-  --success: #047857;          /* 5.04:1 ✓（原 #34c759 仅 2.04:1，承载「已验证」等关键状态）*/
-  --success-bright: #34c759;   /* 色块/图标用 */
-  --warning: #b25000;          /* 4.77:1 ✓（原 #ff9500 仅 2.02:1，承载阻塞提示）*/
+  --success: #047857;
+  --success-bright: #34c759;
+  --warning: #b25000;
   --warning-bright: #ff9500;
-  --danger: #c5221a;           /* 5.33:1 ✓（原 #ff3b30 仅 3.26:1）*/
+  --danger: #c5221a;
   --danger-bright: #ff3b30;
   --warm-glow: var(--warning-bright);
 
-  /* ── 墨色主按钮（区别于链接/选中态的蓝） ── */
-  --btn-primary-bg: #1d1d1f;
-  --btn-primary-bg-hover: #000000;
+  --btn-primary-bg: #17212f;
+  --btn-primary-bg-hover: #263448;
   --btn-primary-text: #ffffff;
 
-  /* ── 品牌渐变（导航激活条 / 强调点缀） ── */
-  --accent-gradient: linear-gradient(135deg, #0071e3 0%, #14a37f 100%);
+  --accent-gradient: var(--primary);
 
-  /* ── 低饱和趋势色（数据涨跌用，避免刺眼） ── */
   --trend-up: #70a98a;
   --trend-down: #c98585;
 
-  /* ── 暖纸背景（主内容区光斑） ── */
-  --bg-wash: radial-gradient(1100px 520px at 6% -8%, rgba(0, 113, 227, 0.05), transparent 60%),
-    radial-gradient(900px 480px at 98% 2%, rgba(255, 149, 0, 0.055), transparent 62%),
-    #f5f5f7;
+  --bg-wash: var(--background);
 
-  /* ── 创作流水线阶段色：单色相渐进（2026-10-06 由 9 色相彩虹改为单色）──
-   * 原方案给 9 个阶段各配一个高饱和色相（橙/紫/靛/蓝/琥珀/粉/绿…），
-   * 结果是 3 个绿、2 个蓝语义重复，界面被"彩虹化"，9 个阶段无法互相区分。
-   * 现改为品牌蓝单一色相按进度由浅到深递进：
-   *   前段（浅、弱）= 尚未到达     后段（深、强）= 越接近发布
-   * 因为顺序即语义，深度本身就承载了"走到哪儿了"的信息。
-   * 语义色（success/warning/danger）是唯一的彩色预算，不再被阶段色稀释。
-   * 注意：色值仅用于色条/图形，不用于文字，故不要求 4.5:1。 */
-  --stage-1: #c7dcf2;   /* 账号定位 */
-  --stage-2: #b0d0ea;   /* 热点洞察 */
-  --stage-3: #94c2e2;   /* 选题生成 */
-  --stage-4: #74b1da;   /* 内容框架 */
-  --stage-5: #4f9dd0;   /* 文章创作 */
-  --stage-6: #3a86c0;   /* 内容评审 */
-  --stage-7: #2a6da9;   /* 智能配图 */
-  --stage-8: #1f5590;   /* 文章排版 */
-  --stage-9: #164274;   /* 发布管理 */
+  --stage-1: #c7dcf2;
+  --stage-2: #b0d0ea;
+  --stage-3: #94c2e2;
+  --stage-4: #74b1da;
+  --stage-5: #4f9dd0;
+  --stage-6: #3a86c0;
+  --stage-7: #2a6da9;
+  --stage-8: #1f5590;
+  --stage-9: #164274;
 
-  /* ── 色阶 ──
-   * xxx-600 用于文字，xxx-400/500 及 -bright 后缀用于图形。
-   * 600 档已全部调到 AA 合规值（见 ux-audit-tokens.mjs 实测）。 */
   --purple-50: #eef4ff;
   --purple-100: #dce9ff;
   --purple-200: #bcd6ff;
   --purple-300: #8fbcff;
   --purple-400: #4f9dff;
   --purple-500: #0a7cff;
-  --purple-600: #0062c4;   /* 5.44:1 ✓ */
+  --purple-600: var(--primary);
   --purple-700: #0059b8;
   --blue-50: #eef4ff;
-  --blue-600: #0062c4;
-  --apple-blue: #0062c4;
+  --blue-600: var(--primary);
+  --apple-blue: var(--primary);
   --apple-blue-hover: #0059b8;
   --apple-blue-light: #eef4ff;
   --apple-blue-lighter: #f5f9ff;
   --teal-50: #e9f9f4;
-  --teal-600: #0b7a5e;   /* 深青，AA 合规 */
+  --teal-600: #0b7a5e;
   --green-50: #ecfcef;
   --green-100: #d6f7e0;
-  --green-600: #047857;   /* 5.04:1 ✓ */
+  --green-600: #047857;
   --amber-50: #fff8e8;
-  --amber-600: #b25000;   /* 4.77:1 ✓ */
+  --amber-600: #b25000;
   --red-50: #ffeaea;
   --red-100: #ffd3cc;
-  --red-600: #c5221a;     /* 5.33:1 ✓ */
+  --red-600: #c5221a;
   --slate-50: #f5f5f7;
   --slate-100: #e8e8ed;
   --slate-200: #d9d9de;
   --slate-300: #c7c7cc;
   --slate-400: #aeaeb2;
-  --slate-500: #6e6e73;   /* 4.66:1 ✓（原 #86868b 3.33:1）*/
+  --slate-500: #6e6e73;
   --slate-600: #6e6e73;
   --slate-700: #48484a;
   --slate-800: #3a3a3c;
   --slate-900: #1d1d1f;
 
-  /* ── 阴影（发丝级，贴合苹果风格） ── */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-1: 0 1px 2px rgba(23, 33, 47, 0.04);
   --shadow-2: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
   --shadow-3: 0 12px 32px -8px rgba(0, 0, 0, 0.14);
   --shadow-sm: var(--shadow-1);
   --shadow-md: 0 4px 14px -3px rgba(0, 0, 0, 0.09);
   --shadow-lg: var(--shadow-3);
 
-  /* ── 圆角 ── */
-  --radius-sm: 8px;
-  --radius-md: 10px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: 12px;
   --radius-full: 999px;
 
-  /* ── 字体 ── */
   --font-display: -apple-system, "SF Pro Display", "PingFang SC", "Segoe UI",
     "Microsoft YaHei", sans-serif;
   --font-sans: -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI",
@@ -157,7 +115,6 @@
     SimSun, serif;
   --font-mono: "SF Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 
-  /* ── 间距节奏 ── */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -166,110 +123,9 @@
   --space-xl: 24px;
   --space-2xl: 32px;
 
-  /* ── 动效 ── */
   --transition-fast: 120ms ease;
   --transition-base: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow: 320ms cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --background: #0b0b0d;
-  --surface: rgba(28, 28, 30, 0.82);
-  --surface-solid: #1c1c1e;
-  --surface-subtle: #161618;
-  --surface-muted: #232326;
-  --surface-strong: #3a3a3c;
-
-  --text: #f5f5f7;
-  --text-primary: #f5f5f7;
-  --text-secondary: #aeaeb2;
-  --text-tertiary: #8e8e93;
-  --text-soft: #636366;
-
-  --border: #38383c;
-  --border-subtle: #2a2a2e;
-  --border-strong: #48484a;
-
-  --primary: #0a84ff;
-  --primary-hover: #409cff;
-  --accent: var(--primary);
-  --accent-strong: var(--primary-hover);
-  --focus: rgba(10, 132, 255, 0.38);
-  --primary-wash: rgba(10, 132, 255, 0.09);
-  --primary-weak: rgba(10, 132, 255, 0.18);
-  --primary-line: #4b9fff;
-  --success: #30d158;
-  --warning: #ffd60a;
-  --danger: #ff453a;
-
-  /* ── 暗色下主按钮反白 ── */
-  --btn-primary-bg: #f5f5f7;
-  --btn-primary-bg-hover: #ffffff;
-  --btn-primary-text: #1d1d1f;
-
-  --accent-gradient: linear-gradient(135deg, #0a84ff 0%, #63d3bb 100%);
-
-  --trend-up: #8fbfa4;
-  --trend-down: #d39b9b;
-
-  --bg-wash: radial-gradient(1100px 520px at 6% -8%, rgba(10, 132, 255, 0.07), transparent 60%),
-    radial-gradient(900px 480px at 98% 2%, rgba(255, 159, 10, 0.045), transparent 62%),
-    #0b0b0d;
-
-  /* ── 创作流水线阶段色（暗色：由浅到深反向，保持"越后越亮"的视觉重量）── */
-  --stage-1: #1c3550;
-  --stage-2: #1f4468;
-  --stage-3: #23557f;
-  --stage-4: #276699;
-  --stage-5: #2b7ab4;
-  --stage-6: #3590cf;
-  --stage-7: #4aa6e0;
-  --stage-8: #63bcec;
-  --stage-9: #82d0f5;
-
-  --purple-50: rgba(10, 132, 255, 0.14);
-  --purple-100: rgba(10, 132, 255, 0.22);
-  --purple-200: rgba(10, 132, 255, 0.32);
-  --purple-300: #4b9fff;
-  --purple-400: #64a8ff;
-  --purple-500: #0a84ff;
-  --purple-600: #0a84ff;
-  --purple-700: #64a8ff;
-  --blue-50: rgba(10, 132, 255, 0.14);
-  --blue-600: #0a84ff;
-  --apple-blue: #0a84ff;
-  --apple-blue-hover: #409cff;
-  --apple-blue-light: rgba(10, 132, 255, 0.16);
-  --apple-blue-lighter: rgba(10, 132, 255, 0.1);
-  --teal-50: rgba(100, 210, 180, 0.14);
-  --teal-600: #63d3bb;
-  --green-50: rgba(48, 209, 88, 0.14);
-  --green-100: rgba(48, 209, 88, 0.22);
-  --green-600: #30d158;
-  --amber-50: rgba(255, 214, 10, 0.14);
-  --amber-600: #ffd60a;
-  --red-50: rgba(255, 69, 58, 0.16);
-  --red-100: rgba(255, 69, 58, 0.26);
-  --red-600: #ff453a;
-  --slate-50: #161618;
-  --slate-100: #232326;
-  --slate-200: #3a3a3c;
-  --slate-300: #48484a;
-  --slate-400: #636366;
-  --slate-500: #8e8e93;
-  --slate-600: #aeaeb2;
-  --slate-700: #c7c7cc;
-  --slate-800: #e5e5ea;
-  --slate-900: #f5f5f7;
-
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-2: 0 2px 10px -2px rgba(0, 0, 0, 0.55);
-  --shadow-3: 0 16px 40px -10px rgba(0, 0, 0, 0.7);
-  --shadow-sm: var(--shadow-1);
-  --shadow-md: 0 6px 18px -4px rgba(0, 0, 0, 0.55);
-  --shadow-lg: var(--shadow-3);
 }
 
 @keyframes spin {

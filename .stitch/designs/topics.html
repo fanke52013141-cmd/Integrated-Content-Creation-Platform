@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<title>心流 · 选题生成</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary-fixed-dim": "#b8c8dd",
+            "error-container": "#ffdad6",
+            "secondary-fixed": "#d4e4f9",
+            "on-tertiary": "#ffffff",
+            "surface-container": "#e6eeff",
+            "surface-bright": "#f9f9ff",
+            "primary": "#004ac6",
+            "on-tertiary-fixed": "#121c2a",
+            "primary-fixed-dim": "#b4c5ff",
+            "on-primary-fixed": "#00174b",
+            "inverse-on-surface": "#ebf1ff",
+            "on-primary-fixed-variant": "#003ea8",
+            "surface-dim": "#cedbf2",
+            "on-surface": "#101c2d",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "on-error-container": "#93000a",
+            "on-surface-variant": "#434655",
+            "outline-variant": "#c3c6d7",
+            "background": "#f9f9ff",
+            "surface-container-highest": "#d7e3fa",
+            "outline": "#737686",
+            "primary-fixed": "#dbe1ff",
+            "on-secondary-fixed-variant": "#394859",
+            "tertiary-fixed": "#d9e3f6",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary-container": "#ebf1ff",
+            "surface-variant": "#d7e3fa",
+            "surface": "#f9f9ff",
+            "on-secondary-container": "#556476",
+            "on-background": "#101c2d",
+            "surface-tint": "#0053db",
+            "on-secondary": "#ffffff",
+            "on-primary-container": "#eeefff",
+            "error": "#ba1a1a",
+            "tertiary-container": "#646e7f",
+            "inverse-primary": "#b4c5ff",
+            "secondary-container": "#d1e1f6",
+            "primary-container": "#2563eb",
+            "surface-container-low": "#eff3ff",
+            "tertiary-fixed-dim": "#bdc7da",
+            "on-error": "#ffffff",
+            "on-secondary-fixed": "#0d1d2c",
+            "on-primary": "#ffffff",
+            "surface-container-high": "#dde9ff",
+            "inverse-surface": "#253143",
+            "secondary": "#516072",
+            "tertiary": "#4c5666"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter": "1rem",
+            "space-sm": "0.5rem",
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "space-xl": "1.5rem",
+            "space-md": "0.75rem",
+            "space-lg": "1rem"
+          },
+          "fontFamily": {
+            "label-md": ["Public Sans"],
+            "headline-lg": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"]
+          },
+          "fontSize": {
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased selection:bg-primary-fixed selection:text-on-primary-fixed flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="w-52 h-screen flex-shrink-0 flex flex-col justify-between bg-surface dark:bg-surface border-r border-outline-variant dark:border-outline-variant select-none p-3">
+<div class="flex flex-col gap-6">
+<!-- Brand Logo / Header -->
+<div class="flex items-center gap-3 px-2 py-1">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-headline font-semibold text-base shadow-sm">
+          心
+        </div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-base tracking-tight text-on-surface dark:text-on-surface">心流</span>
+<span class="font-label text-xs text-on-surface-variant">内容创作工作室</span>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>
+          工作台
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-surface-variant dark:bg-surface-variant text-primary dark:text-primary font-medium rounded-lg transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+          选题策划
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">schema</span>
+          框架大纲
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+          正文写作
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">verified</span>
+          内容评审
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">image</span>
+          智能配图
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">send</span>
+          一键发布
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant transition-colors duration-150 ease-in-out font-label-md" href="#">
+<span class="material-symbols-outlined text-xl">folder_open</span>
+          素材资产
+        </a>
+</nav>
+</div>
+<!-- Footer Area -->
+<div class="flex flex-col gap-3 pt-4 border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary rounded-lg py-2 px-3 font-label-md hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+        新建文章
+      </button>
+<div class="flex items-center justify-between px-2 text-on-surface-variant">
+<a class="hover:text-on-surface" href="#"><span class="material-symbols-outlined text-lg">smart_toy</span></a>
+<a class="hover:text-on-surface" href="#"><span class="material-symbols-outlined text-lg">terminal</span></a>
+<a class="hover:text-on-surface" href="#"><span class="material-symbols-outlined text-lg">cloud_sync</span></a>
+</div>
+</div>
+</aside>
+<!-- Main Content Layout -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background">
+<!-- Top Bar -->
+<header class="h-12 px-6 flex justify-between items-center w-full border-b border-outline-variant bg-surface flex-shrink-0">
+<div class="flex items-center gap-4">
+<h1 class="font-headline font-semibold text-base text-on-surface">选题生成</h1>
+<span class="text-xs text-on-surface-variant border-l border-outline-variant pl-4">基于多维人设与热点洞察的智能矩阵选题引擎</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-on-surface bg-surface-container hover:bg-surface-container-high rounded border border-outline-variant transition-colors" onclick="openSchemaModal()">
+<span class="material-symbols-outlined text-sm">tune</span>
+          配置选题字段
+        </button>
+<div class="flex items-center gap-2 pl-2 border-l border-outline-variant">
+<img class="w-7 h-7 rounded-full object-cover border border-outline-variant" data-alt="A detailed professional studio portrait of a content creator with neutral lighting, wearing simple modern attire, set against a soft cool grey studio background, high resolution, clean minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3VbkRwl1oITklRvPiM1TA5tWh7rn7Zb1a6LmsdR3nswxloYzgkX80XJmhEGAIpuopi8U6kJSapN75ta9E1YjZVHVHUOw-lqum5rMPpG9lLN63-Ae9ngYmgfrWuem6wthDuwRV6FGP92w6YMSCTkXcDHI6c3msOLleGKgY73T11O9N5wFMpLaIfOm-UaWUDD2a8TMQ1Zw-TRAQr5jbNgnvFDWfriM3CBweqBm2ruKlJUzVSvWJMLA_aUhOYJfiTru7xP_62xOa5AU"/>
+<span class="text-xs font-medium text-on-surface">墨白</span>
+</div>
+</div>
+</header>
+<!-- Workspace Body: Left Panel + Right Content -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Creation Panel (Fixed ~320px) -->
+<aside class="w-80 flex-shrink-0 border-r border-outline-variant bg-surface flex flex-col justify-between overflow-y-auto p-4">
+<div class="flex flex-col gap-5">
+<!-- Target Account -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">目标账号选择</label>
+<div class="relative">
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-2 px-3 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary">
+<option>爆款人设生成器 #ACC-9021</option>
+<option>科技前沿观察 #ACC-8812</option>
+<option>生活方式研究所 #ACC-3329</option>
+</select>
+</div>
+</div>
+<!-- Core Topic / Key Points -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">主题/核心观点输入</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs p-2.5 text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary resize-none" placeholder="请输入核心观点、行业现象或想要切入的痛点方向..." rows="4">大模型能力下沉后，普通内容创作者如何利用工作流工具构建个人护城河，摆脱传统资讯搬运的内卷？</textarea>
+</div>
+<!-- Collapsible Hotspot Filter -->
+<div class="border border-outline-variant rounded-lg bg-surface-container-lowest overflow-hidden">
+<div class="flex items-center justify-between p-2.5 bg-surface-container-low cursor-pointer select-none">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-primary">local_fire_department</span>
+<span class="text-xs font-medium text-on-surface">收藏热点筛选器</span>
+</div>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+</div>
+<div class="p-2.5 border-t border-outline-variant flex flex-col gap-2">
+<div class="flex items-center justify-between text-xs bg-surface p-2 rounded border border-outline-variant">
+<span class="text-on-surface truncate max-w-[180px]"># AI应用商业化落地元年</span>
+<button class="text-primary hover:underline font-medium text-[11px]">引入洞察</button>
+</div>
+<div class="flex items-center justify-between text-xs bg-surface p-2 rounded border border-outline-variant">
+<span class="text-on-surface truncate max-w-[180px]"># 极简主义办公流走红</span>
+<button class="text-primary hover:underline font-medium text-[11px]">引入洞察</button>
+</div>
+</div>
+</div>
+<!-- AI Engine Selection -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">AI 模型引擎选择</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-2 px-3 text-on-surface focus:border-primary">
+<option>深度逻辑引擎 v2.3 (推荐)</option>
+<option>极速创意引擎 v1.8</option>
+<option>多模态深度推理大模型</option>
+</select>
+</div>
+<!-- Quantity Setting -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between items-center">
+<label class="font-label text-xs font-semibold text-on-surface-variant">生成选题数量</label>
+<span class="text-xs font-bold text-primary">5 个</span>
+</div>
+<input class="w-full accent-primary" max="10" min="1" type="range" value="5"/>
+</div>
+</div>
+<!-- Bottom Action & Warning -->
+<div class="flex flex-col gap-3 pt-4 border-t border-outline-variant">
+<div class="flex items-start gap-2 p-2 bg-error-container text-on-error-container rounded text-[11px] leading-relaxed">
+<span class="material-symbols-outlined text-sm flex-shrink-0 mt-0.5">warning</span>
+<span>部分模型需先在矩阵账号完成授权才能调用深度推理，请注意账号配置状态。</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex-1 bg-primary text-on-primary py-2 px-3 rounded-lg text-xs font-medium hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-sm">auto_awesome</span>
+              开始生成选题
+            </button>
+<button class="px-3 py-2 border border-outline-variant rounded-lg text-xs font-medium text-on-surface-variant hover:bg-surface-container">
+              取消
+            </button>
+</div>
+</div>
+</aside>
+<!-- Right Spacious Result Workspace -->
+<section class="flex-1 flex flex-col overflow-hidden bg-background">
+<!-- Sub-header & Tabs -->
+<div class="px-6 py-3 border-b border-outline-variant flex items-center justify-between bg-surface flex-shrink-0">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 border-b-2 border-primary pb-1">
+<span class="font-headline text-sm font-semibold text-on-surface">选题草稿</span>
+<span class="bg-primary-container text-on-primary-container text-[10px] px-1.5 py-0.2 rounded-full font-bold">5</span>
+</div>
+<div class="flex items-center gap-2 pb-1 cursor-pointer text-on-surface-variant hover:text-on-surface">
+<span class="font-headline text-sm font-medium">我的选题库</span>
+<span class="bg-surface-variant text-on-surface-variant text-[10px] px-1.5 py-0.2 rounded-full font-medium">128</span>
+</div>
+</div>
+<!-- Account Filter & Search -->
+<div class="flex items-center gap-3">
+<div class="relative">
+<input class="w-60 bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-1.5 pl-8 pr-3 text-on-surface placeholder:text-outline focus:border-primary" placeholder="搜索选题关键词..." type="text"/>
+<span class="material-symbols-outlined text-sm text-outline absolute left-2.5 top-2">search</span>
+</div>
+<select class="bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-1.5 px-2 text-on-surface">
+<option>全部账号维度</option>
+<option>爆款人设生成器 #ACC-9021</option>
+</select>
+</div>
+</div>
+<!-- Streaming / Partial Failure Notification Banner -->
+<div class="px-6 py-2 bg-surface-container-low border-b border-outline-variant flex items-center justify-between text-xs text-on-surface-variant flex-shrink-0">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-primary animate-spin">progress_activity</span>
+<span>正在流式生成第 4/5 个选题结构，部分外部热点图谱抓取延迟，已自动降级为离线知识库补全。</span>
+</div>
+<button class="hover:text-on-surface font-medium">忽略提示</button>
+</div>
+<!-- Scrollable Cards Container -->
+<div class="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+<!-- Card Item 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface font-medium text-[11px] rounded">待审</span>
+<h3 class="font-headline font-semibold text-sm text-on-surface">别再盲目搬运资讯：普通人如何用本地工作流构建独立内容护城河</h3>
+</div>
+<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" title="锁定选题"><span class="material-symbols-outlined text-base">lock_open</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" title="保存至库"><span class="material-symbols-outlined text-base">bookmark_border</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" onclick="openDetailModal()" title="编辑详情"><span class="material-symbols-outlined text-base">edit</span></button>
+</div>
+</div>
+<!-- Schema Custom Fields Preview -->
+<div class="grid grid-cols-4 gap-3 bg-surface-container-low p-3 rounded-lg text-xs">
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">核心痛点</span>
+<span class="text-on-surface font-medium mt-0.5">信息过载与重复劳动内卷</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">情绪钩子</span>
+<span class="text-on-surface font-medium mt-0.5">反思与觉醒 (焦虑转化为行动)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">预期互动率</span>
+<span class="text-primary font-bold mt-0.5">高 (预测 8.4%)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">目标匹配度</span>
+<span class="text-on-surface font-medium mt-0.5">96% (爆款人设契合)</span>
+</div>
+</div>
+<!-- Bottom Actions -->
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant">
+<span class="text-[11px] text-outline">生成时间: 刚刚 · 引擎: 深度逻辑 v2.3</span>
+<button class="flex items-center gap-1 bg-primary text-on-primary px-3 py-1.5 rounded text-xs font-medium hover:bg-primary-container transition-colors">
+<span>下一步生成大纲</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card Item 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface font-medium text-[11px] rounded">草稿</span>
+<h3 class="font-headline font-semibold text-sm text-on-surface">拆解 3 个独立开发者的高效看板：把复杂的创作流程压成一条直线</h3>
+</div>
+<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded"><span class="material-symbols-outlined text-base">lock</span></button>
+<button class="p-1 text-primary rounded"><span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">bookmark</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded"><span class="material-symbols-outlined text-base">edit</span></button>
+</div>
+</div>
+<!-- Schema Custom Fields Preview -->
+<div class="grid grid-cols-4 gap-3 bg-surface-container-low p-3 rounded-lg text-xs">
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">核心痛点</span>
+<span class="text-on-surface font-medium mt-0.5">工具繁杂导致效率折损</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">情绪钩子</span>
+<span class="text-on-surface font-medium mt-0.5">实用干货与极简崇拜</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">预期互动率</span>
+<span class="text-primary font-bold mt-0.5">中高 (预测 6.9%)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">目标匹配度</span>
+<span class="text-on-surface font-medium mt-0.5">91% (极简工作室吻合)</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant">
+<span class="text-[11px] text-outline">生成时间: 3分钟前 · 引擎: 深度逻辑 v2.3</span>
+<button class="flex items-center gap-1 bg-primary text-on-primary px-3 py-1.5 rounded text-xs font-medium hover:bg-primary-container transition-colors">
+<span>下一步生成大纲</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card Item 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm hover:border-primary transition-colors group">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface font-medium text-[11px] rounded">已发布</span>
+<h3 class="font-headline font-semibold text-sm text-on-surface">为什么「克制与安静」是未来十年最稀缺的内容审美？</h3>
+</div>
+<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded"><span class="material-symbols-outlined text-base">lock</span></button>
+<button class="p-1 text-primary rounded"><span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">bookmark</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded"><span class="material-symbols-outlined text-base">edit</span></button>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-3 bg-surface-container-low p-3 rounded-lg text-xs">
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">核心痛点</span>
+<span class="text-on-surface font-medium mt-0.5">视觉与信息过载疲劳</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">情绪钩子</span>
+<span class="text-on-surface font-medium mt-0.5">审美品味共鸣</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">预期互动率</span>
+<span class="text-primary font-bold mt-0.5">极高 (实际 11.2%)</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant font-medium">目标匹配度</span>
+<span class="text-on-surface font-medium mt-0.5">99% (品牌内核完美匹配)</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-1 border-t border-outline-variant">
+<span class="text-[11px] text-outline">生成时间: 昨天 · 引擎: 深度逻辑 v2.3</span>
+<button class="flex items-center gap-1 bg-surface-container text-on-surface px-3 py-1.5 rounded text-xs font-medium hover:bg-surface-container-high transition-colors">
+<span>查看生成大纲</span>
+<span class="material-symbols-outlined text-sm">visibility</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Modal 1: Schema Custom Fields Configuration Modal -->
+<div class="fixed inset-0 bg-inverse-surface/30 backdrop-blur-xs flex items-center justify-center hidden z-50" id="schemaModal">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl w-[560px] shadow-lg flex flex-col overflow-hidden">
+<div class="flex items-center justify-between px-5 py-4 border-b border-outline-variant bg-surface">
+<h3 class="font-headline font-semibold text-base text-on-surface">配置选题 Schema 自定义字段</h3>
+<button class="text-on-surface-variant hover:text-on-surface" onclick="closeSchemaModal()"><span class="material-symbols-outlined text-xl">close</span></button>
+</div>
+<div class="p-5 flex flex-col gap-4 max-h-[614px] overflow-y-auto">
+<p class="text-xs text-on-surface-variant">您可以自由编辑、添加或排序 AI 每次生成选题时结构化输出的字段维度。</p>
+<!-- Field List Item -->
+<div class="flex items-center gap-3 bg-surface p-2.5 rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-outline cursor-grab">drag_indicator</span>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface" type="text" value="核心痛点"/>
+<select class="bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface w-28">
+<option>单行文本</option>
+<option>标签徽章</option>
+<option>数值指标</option>
+</select>
+<button class="text-error hover:opacity-80 p-1"><span class="material-symbols-outlined text-base">delete</span></button>
+</div>
+<div class="flex items-center gap-3 bg-surface p-2.5 rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-outline cursor-grab">drag_indicator</span>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface" type="text" value="情绪钩子"/>
+<select class="bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface w-28">
+<option>单行文本</option>
+<option>标签徽章</option>
+<option>数值指标</option>
+</select>
+<button class="text-error hover:opacity-80 p-1"><span class="material-symbols-outlined text-base">delete</span></button>
+</div>
+<div class="flex items-center gap-3 bg-surface p-2.5 rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-outline cursor-grab">drag_indicator</span>
+<input class="flex-1 bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface" type="text" value="预期互动率"/>
+<select class="bg-surface-container-lowest border border-outline-variant rounded text-xs py-1 px-2 text-on-surface w-28">
+<option>数值指标</option>
+<option>单行文本</option>
+</select>
+<button class="text-error hover:opacity-80 p-1"><span class="material-symbols-outlined text-base">delete</span></button>
+</div>
+<button class="flex items-center justify-center gap-1.5 py-2 border border-dashed border-outline rounded-lg text-xs font-medium text-primary hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-base">add</span>
+          添加自定义字段
+        </button>
+</div>
+<div class="flex items-center justify-end gap-3 px-5 py-3 border-t border-outline-variant bg-surface">
+<button class="px-4 py-1.5 border border-outline-variant rounded-lg text-xs font-medium text-on-surface-variant hover:bg-surface-container" onclick="closeSchemaModal()">取消</button>
+<button class="px-4 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-medium hover:bg-primary-container" onclick="closeSchemaModal()">保存配置</button>
+</div>
+</div>
+</div>
+<!-- Modal 2: Detail Editor Modal -->
+<div class="fixed inset-0 bg-inverse-surface/30 backdrop-blur-xs flex items-center justify-center hidden z-50" id="detailModal">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl w-[700px] shadow-lg flex flex-col overflow-hidden">
+<div class="flex items-center justify-between px-5 py-4 border-b border-outline-variant bg-surface">
+<h3 class="font-headline font-semibold text-base text-on-surface">编辑选题详情与多维字段</h3>
+<button class="text-on-surface-variant hover:text-on-surface" onclick="closeDetailModal()"><span class="material-symbols-outlined text-xl">close</span></button>
+</div>
+<div class="p-6 flex flex-col gap-4 max-h-[665px] overflow-y-auto">
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">选题主标题</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-2 px-3 text-on-surface font-medium" type="text" value="别再盲目搬运资讯：普通人如何用本地工作流构建独立内容护城河"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">核心痛点</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-2 px-3 text-on-surface" type="text" value="信息过载与重复劳动内卷"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">情绪钩子</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs py-2 px-3 text-on-surface" type="text" value="反思与觉醒 (焦虑转化为行动)"/>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-xs font-semibold text-on-surface-variant">深度背景与大纲引导摘要</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg text-xs p-3 text-on-surface resize-none" rows="4">本选题切中当前自媒体创作者对AI工具的迷茫期。通过剖析传统搬运模式的边际效应递减，引导读者转向构筑个人专属知识库与工作流，强调 Local-First 的隐私性与克制美学。</textarea>
+</div>
+</div>
+<div class="flex items-center justify-end gap-3 px-5 py-3 border-t border-outline-variant bg-surface">
+<button class="px-4 py-1.5 border border-outline-variant rounded-lg text-xs font-medium text-on-surface-variant hover:bg-surface-container" onclick="closeDetailModal()">取消</button>
+<button class="px-4 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-medium hover:bg-primary-container" onclick="closeDetailModal()">保存修改</button>
+</div>
+</div>
+</div>
+<script>
+    function openSchemaModal() {
+      document.getElementById('schemaModal').classList.remove('hidden');
+    }
+    function closeSchemaModal() {
+      document.getElementById('schemaModal').classList.add('hidden');
+    }
+    function openDetailModal() {
+      document.getElementById('detailModal').classList.remove('hidden');
+    }
+    function closeDetailModal() {
+      document.getElementById('detailModal').classList.add('hidden');
+    }
+  </script>
+</body></html>

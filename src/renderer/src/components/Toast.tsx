@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
 export interface ToastState {
   type: 'success' | 'error' | 'info' | 'warning'
@@ -24,7 +25,7 @@ const toastConfig = {
  */
 export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id: number): void }): React.JSX.Element | null {
   if (!toasts.length) return null
-  return (
+  return createPortal(
     <div className="toast-stack" aria-live="polite">
       {toasts.map((toast) => {
         const config = toastConfig[toast.type]
@@ -47,6 +48,7 @@ export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id
           </div>
         )
       })}
-    </div>
+    </div>,
+    document.body
   )
 }

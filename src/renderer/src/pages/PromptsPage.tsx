@@ -160,6 +160,8 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 </div>
               </div>
 
+              <div className="prompt-edit-workspace">
+              <div className="prompt-main">
               <label className="field prompt-textarea">
                 <span>指令内容（整段编辑，自动追加到各环节的系统提示词）</span>
                 <textarea
@@ -172,17 +174,18 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 />
               </label>
 
+              <label className="field prompt-note">
+                <span>版本说明（可选）</span>
+                <input name="promptNote" autoComplete="off" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录本次修改的原因或要点" />
+              </label>
+              </div>
+              <aside className="prompt-inspector">
               <div className="prompt-vars">
                 <h4>可用变量</h4>
                 {variables.length
                   ? variables.map((v) => <code key={v} className="preset-chip var-chip">{'{'}{'{'} {v} {'}'}{'}'}</code>)
                   : <span className="prompt-vars-empty">当前内容未使用变量</span>}
               </div>
-
-              <label className="field prompt-note">
-                <span>版本说明（可选）</span>
-                <input name="promptNote" autoComplete="off" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录本次修改的原因或要点" />
-              </label>
 
               <div className="panel version-panel">
                 <div className="version-panel-head">
@@ -204,6 +207,8 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                     </div>
                   ))}
                 </div>
+              </div>
+              </aside>
               </div>
             </>
           ) : (

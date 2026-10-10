@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流 · 数据与备份</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Public+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "tertiary-fixed-dim": "#bdc7da",
+            "secondary-fixed-dim": "#b8c8dd",
+            "primary-fixed-dim": "#b4c5ff",
+            "error": "#ba1a1a",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "on-primary": "#ffffff",
+            "surface-container-high": "#e7e7f4",
+            "on-tertiary": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "surface-container-low": "#f3f2ff",
+            "on-secondary": "#ffffff",
+            "surface-variant": "#e2e1ee",
+            "on-primary-fixed": "#00174b",
+            "surface-tint": "#0053db",
+            "surface": "#faf8ff",
+            "on-secondary-fixed": "#0d1d2c",
+            "on-tertiary-container": "#ebf1ff",
+            "on-primary-container": "#eeefff",
+            "background": "#faf8ff",
+            "on-error": "#ffffff",
+            "on-secondary-fixed-variant": "#394859",
+            "on-background": "#191b24",
+            "primary-fixed": "#dbe1ff",
+            "tertiary-fixed": "#d9e3f6",
+            "secondary-fixed": "#d4e4f9",
+            "inverse-surface": "#2e3039",
+            "surface-bright": "#faf8ff",
+            "on-surface-variant": "#434655",
+            "surface-container-lowest": "#ffffff",
+            "on-error-container": "#93000a",
+            "error-container": "#ffdad6",
+            "tertiary-container": "#646e7f",
+            "outline-variant": "#c3c6d7",
+            "surface-container": "#ededf9",
+            "on-surface": "#191b24",
+            "on-primary-fixed-variant": "#003ea8",
+            "surface-dim": "#d9d9e5",
+            "secondary": "#516072",
+            "primary-container": "#2563eb",
+            "surface-container-highest": "#e2e1ee",
+            "on-tertiary-fixed": "#121c2a",
+            "tertiary": "#4c5666",
+            "primary": "#004ac6",
+            "outline": "#737686",
+            "inverse-on-surface": "#f0f0fc",
+            "secondary-container": "#d1e1f6",
+            "on-secondary-container": "#556476"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "space-xs": "0.5rem",
+            "space-xl": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1.5rem",
+            "gutter": "1rem",
+            "space-sm": "0.75rem"
+          },
+          "fontFamily": {
+            "headline-sm": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-sm": ["Inter"],
+            "label-md": ["Public Sans"]
+          },
+          "fontSize": {
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased h-screen flex overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar -->
+<aside class="w-52 h-screen flex-shrink-0 flex flex-col justify-between bg-surface dark:bg-surface border-r border-outline-variant dark:border-outline-variant select-none p-3 hidden md:flex">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center gap-space-xs px-2 py-1.5">
+<div class="w-7 h-7 rounded-lg bg-primary text-on-primary flex items-center justify-center font-headline font-semibold text-sm">心</div>
+<div class="flex flex-col">
+<span class="font-headline font-semibold text-base tracking-tight text-on-surface dark:text-on-surface">心流</span>
+<span class="font-label text-xs text-on-surface-variant">内容创作工作室</span>
+</div>
+</div>
+<div class="mt-2 flex flex-col gap-0.5 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">dashboard</span>
+          工作台
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">trending_up</span>
+          热点发现
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">lightbulb</span>
+          选题策划
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">schema</span>
+          架构大纲
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">edit_note</span>
+          正文写作
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">verified</span>
+          内容审校
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">image</span>
+          智能配图
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">format_paint</span>
+          多端排版
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">send</span>
+          一键发布
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">folder_open</span>
+          素材资产
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">switch_account</span>
+          矩阵账号
+        </a>
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface rounded-lg hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined text-lg">auto_awesome</span>
+          AI 创作助手
+        </a>
+<!-- Active item map to 系统设置 or data section -->
+<a class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-150 ease-in-out bg-surface-variant dark:bg-surface-variant text-primary dark:text-primary font-medium rounded-lg" href="#">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">settings</span>
+          系统设置
+        </a>
+</div>
+</div>
+<!-- Footer nav items -->
+<div class="border-t border-outline-variant pt-2 flex flex-col gap-1">
+<div class="grid grid-cols-3 gap-1 text-center">
+<a class="p-1.5 rounded text-on-surface-variant hover:bg-surface-variant text-xs flex flex-col items-center justify-center" href="#" title="AI 服务">
+<span class="material-symbols-outlined text-base">smart_toy</span>
+</a>
+<a class="p-1.5 rounded text-on-surface-variant hover:bg-surface-variant text-xs flex flex-col items-center justify-center" href="#" title="提示词库">
+<span class="material-symbols-outlined text-base">terminal</span>
+</a>
+<a class="p-1.5 rounded bg-surface-variant text-primary text-xs flex flex-col items-center justify-center" href="#" title="数据与备份">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">cloud_sync</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar -->
+<header class="h-12 px-4 flex justify-between items-center w-full bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant flex-shrink-0">
+<div class="flex items-center gap-3">
+<span class="font-headline text-sm font-semibold text-on-surface dark:text-on-surface">心流 · 简约工作室</span>
+<span class="text-xs px-2 py-0.5 bg-surface-container-high rounded text-on-surface-variant">数据与备份中心</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-3 py-1 bg-surface-variant hover:bg-surface-container-high text-on-surface text-xs rounded-lg font-medium transition-colors">新建文章</button>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<button class="p-1.5 hover:bg-surface-variant rounded-full transition-colors"><span class="material-symbols-outlined text-base">task_alt</span></button>
+<button class="p-1.5 hover:bg-surface-variant rounded-full transition-colors"><span class="material-symbols-outlined text-base">dark_mode</span></button>
+<div class="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center text-xs font-semibold text-primary overflow-hidden border border-outline-variant">
+<span class="material-symbols-outlined text-base">account_circle</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas Workspace -->
+<main class="flex-1 overflow-y-auto bg-background p-6 md:p-8">
+<div class="max-w-6xl mx-auto flex flex-col gap-8">
+<!-- Header section -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant">
+<div class="flex flex-col gap-1 max-w-2xl">
+<h1 class="font-headline-lg text-on-surface">数据与备份</h1>
+<p class="font-body-md text-on-surface-variant">管理您的本地创作资产备份、存储目录及离线迁移。所有数据均存储在您的本地设备，确保绝对隐私与自主控制。</p>
+</div>
+<button class="self-start md:self-center flex items-center gap-2 bg-[#17212f] hover:bg-black text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg">backup</span>
+            立即备份
+          </button>
+</div>
+<!-- Main two-column grid layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Left wide panel: Local Backup History -->
+<div class="lg:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant p-6 flex flex-col gap-6">
+<div class="flex items-center justify-between border-b border-outline-variant pb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+<h2 class="font-headline-md text-on-surface">本地备份历史</h2>
+</div>
+<span class="text-xs font-medium px-2.5 py-1 bg-surface-container rounded-full text-on-surface-variant">共 4 个可用备份</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-outline-variant hover:border-primary/50 transition-colors bg-surface/50">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-primary-container/10 text-primary mt-0.5">
+<span class="material-symbols-outlined">archive</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-on-surface font-mono text-sm">flow_backup_2025_03_02_v2.3.tar</span>
+<span class="font-body-sm text-on-surface-variant">大小: 48.2 MB · 包含完整草稿、知识图谱与本地配置</span>
+<span class="text-xs text-outline mt-1">2025-03-02 23:30:15 (自动定时备份)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant hover:border-primary text-on-surface hover:text-primary rounded-lg text-xs font-medium transition-colors" onclick="openModal()">恢复</button>
+<button class="p-1.5 hover:bg-surface-variant rounded text-on-surface-variant"><span class="material-symbols-outlined text-base">download</span></button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-outline-variant hover:border-primary/50 transition-colors bg-surface/50">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-surface-variant text-on-surface-variant mt-0.5">
+<span class="material-symbols-outlined">archive</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-on-surface font-mono text-sm">flow_backup_2025_02_25_v2.2.tar</span>
+<span class="font-body-sm text-on-surface-variant">大小: 45.8 MB · 标准全量备份</span>
+<span class="text-xs text-outline mt-1">2025-02-25 10:15:00 (手动创建)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant hover:border-primary text-on-surface hover:text-primary rounded-lg text-xs font-medium transition-colors" onclick="openModal()">恢复</button>
+<button class="p-1.5 hover:bg-surface-variant rounded text-on-surface-variant"><span class="material-symbols-outlined text-base">download</span></button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-outline-variant hover:border-primary/50 transition-colors bg-surface/50">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-surface-variant text-on-surface-variant mt-0.5">
+<span class="material-symbols-outlined">archive</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-on-surface font-mono text-sm">flow_backup_2025_02_18_v2.1.tar</span>
+<span class="font-body-sm text-on-surface-variant">大小: 41.0 MB · 标准全量备份</span>
+<span class="text-xs text-outline mt-1">2025-02-18 09:00:22 (系统更新前自动备份)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant hover:border-primary text-on-surface hover:text-primary rounded-lg text-xs font-medium transition-colors" onclick="openModal()">恢复</button>
+<button class="p-1.5 hover:bg-surface-variant rounded text-on-surface-variant"><span class="material-symbols-outlined text-base">download</span></button>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center justify-between p-4 rounded-xl border border-outline-variant hover:border-primary/50 transition-colors bg-surface/50">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-lg bg-surface-variant text-on-surface-variant mt-0.5">
+<span class="material-symbols-outlined">archive</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-on-surface font-mono text-sm">flow_backup_2025_02_10_v2.0.tar</span>
+<span class="font-body-sm text-on-surface-variant">大小: 39.5 MB · 初始基准备份</span>
+<span class="text-xs text-outline mt-1">2025-02-10 14:20:10 (用户创建)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant hover:border-primary text-on-surface hover:text-primary rounded-lg text-xs font-medium transition-colors" onclick="openModal()">恢复</button>
+<button class="p-1.5 hover:bg-surface-variant rounded text-on-surface-variant"><span class="material-symbols-outlined text-base">download</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right narrower sidebar containing two cards -->
+<div class="flex flex-col gap-6">
+<!-- Card 1: Local Data Directory -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 flex flex-col gap-4">
+<div class="flex items-center justify-between border-b border-outline-variant pb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">folder</span>
+<h2 class="font-headline-md text-on-surface">本地存储目录</h2>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-500" title="存储健康正常"></span>
+</div>
+<div class="flex flex-col gap-2">
+<span class="text-xs text-on-surface-variant">当前数据库与文件资产物理存储绝对路径：</span>
+<div class="p-3 bg-surface rounded-lg border border-outline-variant font-mono text-xs text-on-surface break-all select-all">
+                  /Users/siyuan/Library/Application Support/FlowStudio/storage/db/
+                </div>
+<div class="flex gap-2 mt-1">
+<button class="flex-1 py-1.5 px-3 border border-outline-variant hover:bg-surface-variant text-on-surface rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-sm">folder_open</span>
+                    在访达中显示
+                  </button>
+<button class="py-1.5 px-3 border border-outline-variant hover:bg-surface-variant text-on-surface rounded-lg text-xs font-medium transition-colors">
+                    更改路径
+                  </button>
+</div>
+</div>
+<div class="pt-2 border-t border-outline-variant flex justify-between text-xs text-on-surface-variant">
+<span>占用空间: 1.2 GB</span>
+<span>可用空间: 412 GB</span>
+</div>
+</div>
+<!-- Card 2: Data Transfer -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 flex flex-col gap-4">
+<div class="flex items-center gap-2 border-b border-outline-variant pb-3">
+<span class="material-symbols-outlined text-primary">swap_horiz</span>
+<h2 class="font-headline-md text-on-surface">数据迁移与传输</h2>
+</div>
+<p class="text-xs text-on-surface-variant">
+                所有数据采用本地直接读写，无云端中转服务器，保障100%隐私与离线可用。
+              </p>
+<div class="flex flex-col gap-2.5 mt-1">
+<button class="w-full py-2.5 px-4 bg-surface hover:bg-surface-variant border border-outline-variant text-on-surface rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">upload</span>
+                  导出到外部目录（不含密钥）
+                </button>
+<button class="w-full py-2.5 px-4 bg-surface hover:bg-surface-variant border border-outline-variant text-on-surface rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">archive</span>
+                  选择外部备份并核对
+                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Restore Confirmation Dialog (Modal Preview) -->
+<div class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 hidden" id="restoreModal">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 max-w-md w-full mx-4 shadow-xl flex flex-col gap-4">
+<div class="flex items-start gap-3">
+<div class="p-2 rounded-full bg-error-container text-on-error-container flex-shrink-0">
+<span class="material-symbols-outlined text-xl">warning</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="font-headline-md text-on-surface">确认恢复备份</h3>
+<p class="text-xs text-on-surface-variant">
+            恢复备份将覆盖当前的本地数据库与草稿缓存，建议在恢复前先执行一次当前状态的立即备份。
+          </p>
+</div>
+</div>
+<div class="p-3 bg-surface rounded-lg border border-outline-variant text-xs font-mono text-on-surface-variant">
+        目标文件: flow_backup_2025_03_02_v2.3.tar
+      </div>
+<div class="flex items-center justify-end gap-2 pt-2">
+<button class="px-4 py-2 border border-outline-variant hover:bg-surface-variant text-on-surface rounded-lg text-xs font-medium transition-colors" onclick="closeModal()">
+          取消
+        </button>
+<button class="px-4 py-2 bg-error hover:bg-error/90 text-on-error rounded-lg text-xs font-medium transition-colors" onclick="closeModal()">
+          确认恢复备份
+        </button>
+</div>
+</div>
+</div>
+<script>
+    function openModal() {
+      document.getElementById('restoreModal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('restoreModal').classList.add('hidden');
+    }
+  </script>
+</body></html>

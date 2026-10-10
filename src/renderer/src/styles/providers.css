@@ -1,0 +1,38 @@
+.providers-page .page-intro h2 { font-size: 26px; margin: 0 0 8px; }
+.providers-page .provider-tabs { display: flex; gap: 24px; padding: 0; border-radius: 0; background: transparent; border-bottom: 1px solid var(--border); }
+.providers-page .provider-tabs button { padding: 12px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
+.providers-page .provider-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; box-shadow: none; }
+.providers-page .provider-layout { grid-template-columns: 260px minmax(0, 1fr); border-radius: 8px; }
+.providers-page .provider-list-column > .section-heading { flex-wrap: nowrap; gap: 8px; padding: 20px 16px; }
+.providers-page .provider-list-column > .section-heading h3 { white-space: nowrap; font-size: 14.5px; }
+.providers-page .provider-card { padding: 18px 20px; gap: 12px; flex-wrap: wrap; border-radius: 0; border-bottom: 1px solid var(--border); }
+.providers-page .provider-card-copy { flex: 1; min-width: 0; }
+.providers-page .provider-card-copy strong { font-size: 14px; }
+.providers-page .provider-card-copy p { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.providers-page .provider-actions { width: 100%; display: flex; justify-content: flex-end; gap: 8px; }
+.providers-page .provider-editor { min-width: 0; margin: 0; padding: 28px; border: 0; border-radius: 0; box-shadow: none; }
+.providers-page .provider-editor > .section-heading { margin-bottom: 24px; }
+.provider-presets { padding: 16px; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
+.provider-presets > summary { cursor: pointer; font-size: 14px; color: var(--text-secondary); }
+.provider-presets .preset-grid { gap: 10px; margin-top: 16px; }
+.provider-presets .preset-chip { height: 34px; font-size: 13px; border-radius: 6px; }
+.providers-page .form-grid { gap: 20px; }
+.providers-page .model-catalog { margin-top: 28px; padding-top: 24px; }
+.providers-page .model-editor-list { gap: 20px; max-height: none; overflow: visible; padding: 0; margin-top: 20px; }
+.providers-page .model-editor-card { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
+.providers-page .model-primary-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.providers-page .model-limit-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.providers-page .model-editor-card .field input { height: 40px; }
+.providers-page .model-enabled { font-size: 13px; }
+.providers-page .editor-footer { position: sticky; bottom: -28px; flex-wrap: wrap; gap: 16px; padding: 20px 28px; margin: 28px -28px -28px; background: var(--surface); z-index: 1; }
+.providers-page .editor-footer-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.providers-page .search-service-panel { max-width: 800px; padding: 28px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+.search-service-panel .search-service-fields { gap: 24px; margin: 24px 0; }
+.search-service-panel footer { flex-wrap: wrap; gap: 12px; padding-top: 24px; }
+.provider-logs-dialog { width: min(900px, calc(100vw - 48px)); max-height: calc(100vh - 64px); border-radius: 12px; }
+.provider-logs-dialog > header { padding: 24px 28px; }
+.provider-logs-list { padding: 0 28px 28px; }
+.provider-log-row { padding: 20px 0; gap: 16px; }
+.provider-log-row p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+@media (max-width: 1023px) { .providers-page .provider-layout { grid-template-columns: minmax(0, 1fr); } .providers-page .provider-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); } }
+@media (max-width: 760px) { .providers-page .model-primary-fields, .providers-page .model-limit-fields, .providers-page .capability-row { grid-template-columns: minmax(0, 1fr); } .providers-page .provider-editor { padding: 20px; } .providers-page .editor-footer { bottom: -20px; margin: 20px -20px -20px; padding: 16px 20px; } }

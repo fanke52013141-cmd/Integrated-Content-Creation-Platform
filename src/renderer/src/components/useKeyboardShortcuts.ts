@@ -25,6 +25,7 @@ const NAV_SHORTCUTS: Record<string, RouteId> = Object.fromEntries(
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers): void {
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (document.querySelector('[aria-modal="true"]')) return
     const target = event.target as HTMLElement
     const isTyping =
       target.tagName === 'INPUT' ||

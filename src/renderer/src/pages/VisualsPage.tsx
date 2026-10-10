@@ -286,7 +286,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
         onAction={() => onNavigate('articles')}
       />
     ) : (
-      <>
+      <div className="visual-studio">
         <section className="visual-composer">
           <button className="button secondary" disabled={!articleId} onClick={() => void (async () => {
             await window.moliu.visuals.createManualPack(articleId)
@@ -326,6 +326,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
           )}
         </section>
 
+        <div className="visual-output">
         {!imageModels.length && (
           <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
         )}
@@ -367,7 +368,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
             />
           )}
         </section>
-      </>
+        </div>
+      </div>
     )}
     {ConfirmPortal}
   </div>

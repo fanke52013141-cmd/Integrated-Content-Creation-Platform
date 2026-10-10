@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Component, Fragment, type ErrorInfo, type ReactNode } from 'react'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     const { error, errorInfo, retryKey } = this.state
 
     if (!error) {
-      return <div key={retryKey}>{this.props.children}</div>
+      return <Fragment key={retryKey}>{this.props.children}</Fragment>
     }
 
     const stack = errorInfo?.componentStack ?? error.stack ?? ''

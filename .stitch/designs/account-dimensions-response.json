@@ -1,0 +1,880 @@
+{
+  "outputComponents": [
+    {
+      "design": {
+        "screens": [
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "Editorial Workspace",
+                "styleGuidelines": "## Brand & Style\nMinimal editorial workspace tailored for Chinese content creators. Emphasizes absolute clarity, calm focus, and deliberate restraint.\n- Core aesthetic: Restrained modern minimalism with quiet utilitarian precision. No decorative gradients, glassmorphism, or ornamental serif page titles.\n- Surface rhythm: Soft warm neutral canvas paired with crisp solid white panels and restrained borders to preserve reading flow and writing stamina.\n- Tone: Professional, structured, unobtrusive, and purpose-built for sustained long-form content generation and editing.\n\n## Layout & Spacing\n- Structural scale: Spacing strictly follows the 8/12/16/24/32 progression (`0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`).\n- Left navigation sidebar is fixed at 208px with quiet labels and simple icons.\n- Major layout structures: Broad central content canvas dedicating maximal horizontal space to real content and editor workflows.\n- Home dashboard features a large resume workspace with an uncluttered action hierarchy, paired with a separate compact pending-work column.\n- Responsive behavior: On narrow desktop screens, secondary rails stack naturally beneath primary content and toolbars wrap gracefully.\n\n## Elevation & Depth\nDepth is articulated through structural layout rather than heavy simulated shadows:\n- Low-contrast outlines: Surfaces rely on subtle 1px border separation (`#e5e7eb` in light mode) over high-elevation drop shadows.\n- Minimal cards: Avoid unnecessary nested card wrappers; rely on flat white panels set directly on the warm neutral canvas.\n- No frosted glass, blurs, or colored drop shadows. Overlays and popovers use subtle 1-tier soft ambient shadows with crisp border contours.\n\n## Components\n- **Buttons**: Primary buttons are dark slate (`#17212f`) with white text; secondary buttons use clean 1px borders with white fill and `#17212f` text. All interactive controls have a minimum height of 36px and 8px border radius.\n- **Navigation & Rail**: Sidebar items are quiet and compact (height 36px), using `#526173` text by default. Selected items feature `#2563eb` text and subtle background tint without aggressive badges.\n- **Input Fields & Editor Toolbars**: Inputs have crisp borders, 36px minimum touch height, and focus rings using `#2563eb`. Toolbars remain compact and single-tiered where possible, wrapping neatly when space is constrained.\n- **Cards & Containers**: Clean 12px rounded surfaces with minimal nesting. Lists and tables prioritize high density, muted separator borders, and clear whitespace rather than heavy encapsulation.",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: Editorial Workspace\ncolors:\n  surface: '#faf8ff'\n  surface-dim: '#d9d9e5'\n  surface-bright: '#faf8ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f3f2ff'\n  surface-container: '#ededf9'\n  surface-container-high: '#e7e7f4'\n  surface-container-highest: '#e2e1ee'\n  on-surface: '#191b24'\n  on-surface-variant: '#434655'\n  inverse-surface: '#2e3039'\n  inverse-on-surface: '#f0f0fc'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#faf8ff'\n  on-background: '#191b24'\n  surface-variant: '#e2e1ee'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 1.5rem\n  space-xs: 0.5rem\n  space-sm: 0.75rem\n  space-md: 1rem\n  space-lg: 1.5rem\n  space-xl: 2rem\n---\n\nMinimal editorial workspace for Chinese content creators. Warm neutral canvas #f7f8fa, solid white panels, dark slate #17212f text, secondary #526173 text. Blue #2563eb is reserved for selected navigation and interactive focus. Dark primary buttons. Sidebar 208px with quiet labels and simple icons; broad content canvas, restrained section borders, no gradients, no glass, no decorative imagery, no serif page titles. Headings 26px semibold, body 14px, controls at least 36px; spacing 8/12/16/24/32.  Fewer nested cards, consistent compact toolbars, 8px controls and 12px major containers. Home has large resume area with an uncluttered action hierarchy, and a separate compact pending-work column. Forms and editor layouts dedicate most width to real content. At narrow desktop widths stack secondary rails and wrap toolbars.",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#f0f0fc",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#2e3039",
+                    "on_background": "#191b24",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#191b24",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#faf8ff",
+                    "surface_bright": "#faf8ff",
+                    "surface_container": "#ededf9",
+                    "surface_container_high": "#e7e7f4",
+                    "surface_container_highest": "#e2e1ee",
+                    "surface_container_low": "#f3f2ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#d9d9e5",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#e2e1ee",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#757681",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "1.5rem",
+                    "space-lg": "1.5rem",
+                    "space-md": "1rem",
+                    "space-sm": "0.75rem",
+                    "space-xl": "2rem",
+                    "space-xs": "0.5rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "2"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "HatterAgent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzUxYTBlNDY5ZjYxYTQzZWJhNGVhNzU2M2RjZTg0NTgzEgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/a9d86dba3a6d4f4db23ac61f576015e0"
+            },
+            "id": "3a31765ab589468b921ea0b7245cac95",
+            "name": "projects/9009469379776060375/screens/3a31765ab589468b921ea0b7245cac95",
+            "prompt": "基于现有的“账号定位编辑器”页面 ({{DATA:SCREEN:SCREEN_2}})，创建一个完整的“内容红线”标签状态页面。\n保持左侧边栏（使用 {{DATA:COMPONENTS:COMPONENTS_3}} 的 SideNavBar 样式）、顶部导航与当前排版不变。\n右侧主内容区切换到“内容红线”标签状态（Tab 选中“内容红线”）：\n1. 顶部保留爆款人设生成器标题卡片与 4 个标签页（定位字段、内容红线、平台账号、账号记忆），当前激活“内容红线”。\n2. 上半部分为添加规则表单：支持“规则类型”下拉选择（如：合规避雷、遣词造句、政治安全、版权声明等）、“规避关键词与禁忌动作”输入框（如：绝对化用语、蹭热点、无数据支撑的鸡汤）、“合规说明/替代建议”多行文本输入框，以及“添加至红线库”的主按钮。附带简短说明：该红线规则在每次调用AI写作或大纲生成时，将自动强制追加至底层的 System Prompt 中进行拦截过滤。\n3. 下半部分为清晰有序的“已生效内容红线列表”：每条规则采用精美的卡片/行展示，包含类型Badge、规则内容摘要、操作人/更新时间，以及“删除”按钮。\n4. 页面右侧面板保持“实时结构化 Prompt 预览”与“版本历史记录”，体现专业严谨的本地工作流。\n5. 设计风格完全继承 Editorial Workspace 设计系统 ({{DATA:DESIGN_SYSTEM:DESIGN_SYSTEM_1}})，使用宽敞的表单间距，单列排版，确保极高的可读性。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1W73mAB0yFSqLXdmfrGxY5Ze3Xqzg6o9hAoY678A81NxyX2lAYpUsQ4boMpNm3Vji-DNv-IO7dLcAM2I_JV9KuStK9zJtysw6PG4xBOM5uH4lqUkdYLeY2DFcriFqJ_-Grz54kqgrEVcBqcISElBrTcUZjL6UFGXebYZZ37i8kgvwwt4lJBEBkh6rl-ob1NA-gtd4XidoRN4wFW-DQA7N7X_CeGGev3CNqyqWTjMQNbt-yhth4fcdP8aEg",
+              "name": "projects/9009469379776060375/files/aa406e6bae224f5ba9530bc6af44dce6"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#faf8ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#f0f0fc",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#2e3039",
+                "on_background": "#191b24",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#191b24",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#faf8ff",
+                "surface_bright": "#faf8ff",
+                "surface_container": "#ededf9",
+                "surface_container_high": "#e7e7f4",
+                "surface_container_highest": "#e2e1ee",
+                "surface_container_low": "#f3f2ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#d9d9e5",
+                "surface_tint": "#0053db",
+                "surface_variant": "#e2e1ee",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#757681",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "1.5rem",
+                "space-lg": "1.5rem",
+                "space-md": "1rem",
+                "space-sm": "0.75rem",
+                "space-xl": "2rem",
+                "space-xs": "0.5rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 账号定位编辑器 (内容红线)",
+            "width": "2560"
+          },
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "Editorial Workspace",
+                "styleGuidelines": "## Brand & Style\nMinimal editorial workspace tailored for Chinese content creators. Emphasizes absolute clarity, calm focus, and deliberate restraint.\n- Core aesthetic: Restrained modern minimalism with quiet utilitarian precision. No decorative gradients, glassmorphism, or ornamental serif page titles.\n- Surface rhythm: Soft warm neutral canvas paired with crisp solid white panels and restrained borders to preserve reading flow and writing stamina.\n- Tone: Professional, structured, unobtrusive, and purpose-built for sustained long-form content generation and editing.\n\n## Layout & Spacing\n- Structural scale: Spacing strictly follows the 8/12/16/24/32 progression (`0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`).\n- Left navigation sidebar is fixed at 208px with quiet labels and simple icons.\n- Major layout structures: Broad central content canvas dedicating maximal horizontal space to real content and editor workflows.\n- Home dashboard features a large resume workspace with an uncluttered action hierarchy, paired with a separate compact pending-work column.\n- Responsive behavior: On narrow desktop screens, secondary rails stack naturally beneath primary content and toolbars wrap gracefully.\n\n## Elevation & Depth\nDepth is articulated through structural layout rather than heavy simulated shadows:\n- Low-contrast outlines: Surfaces rely on subtle 1px border separation (`#e5e7eb` in light mode) over high-elevation drop shadows.\n- Minimal cards: Avoid unnecessary nested card wrappers; rely on flat white panels set directly on the warm neutral canvas.\n- No frosted glass, blurs, or colored drop shadows. Overlays and popovers use subtle 1-tier soft ambient shadows with crisp border contours.\n\n## Components\n- **Buttons**: Primary buttons are dark slate (`#17212f`) with white text; secondary buttons use clean 1px borders with white fill and `#17212f` text. All interactive controls have a minimum height of 36px and 8px border radius.\n- **Navigation & Rail**: Sidebar items are quiet and compact (height 36px), using `#526173` text by default. Selected items feature `#2563eb` text and subtle background tint without aggressive badges.\n- **Input Fields & Editor Toolbars**: Inputs have crisp borders, 36px minimum touch height, and focus rings using `#2563eb`. Toolbars remain compact and single-tiered where possible, wrapping neatly when space is constrained.\n- **Cards & Containers**: Clean 12px rounded surfaces with minimal nesting. Lists and tables prioritize high density, muted separator borders, and clear whitespace rather than heavy encapsulation.",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: Editorial Workspace\ncolors:\n  surface: '#faf8ff'\n  surface-dim: '#d9d9e5'\n  surface-bright: '#faf8ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f3f2ff'\n  surface-container: '#ededf9'\n  surface-container-high: '#e7e7f4'\n  surface-container-highest: '#e2e1ee'\n  on-surface: '#191b24'\n  on-surface-variant: '#434655'\n  inverse-surface: '#2e3039'\n  inverse-on-surface: '#f0f0fc'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#faf8ff'\n  on-background: '#191b24'\n  surface-variant: '#e2e1ee'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 1.5rem\n  space-xs: 0.5rem\n  space-sm: 0.75rem\n  space-md: 1rem\n  space-lg: 1.5rem\n  space-xl: 2rem\n---\n\nMinimal editorial workspace for Chinese content creators. Warm neutral canvas #f7f8fa, solid white panels, dark slate #17212f text, secondary #526173 text. Blue #2563eb is reserved for selected navigation and interactive focus. Dark primary buttons. Sidebar 208px with quiet labels and simple icons; broad content canvas, restrained section borders, no gradients, no glass, no decorative imagery, no serif page titles. Headings 26px semibold, body 14px, controls at least 36px; spacing 8/12/16/24/32.  Fewer nested cards, consistent compact toolbars, 8px controls and 12px major containers. Home has large resume area with an uncluttered action hierarchy, and a separate compact pending-work column. Forms and editor layouts dedicate most width to real content. At narrow desktop widths stack secondary rails and wrap toolbars.",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#f0f0fc",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#2e3039",
+                    "on_background": "#191b24",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#191b24",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#faf8ff",
+                    "surface_bright": "#faf8ff",
+                    "surface_container": "#ededf9",
+                    "surface_container_high": "#e7e7f4",
+                    "surface_container_highest": "#e2e1ee",
+                    "surface_container_low": "#f3f2ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#d9d9e5",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#e2e1ee",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#757681",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "1.5rem",
+                    "space-lg": "1.5rem",
+                    "space-md": "1rem",
+                    "space-sm": "0.75rem",
+                    "space-xl": "2rem",
+                    "space-xs": "0.5rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "2"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "HatterAgent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2Y1MDJlMjllMzUxMzRhNzc4MzEzZjhkODUxYTgyOTQ0EgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/724b672218d64f4b945cc8a6ba59a86b"
+            },
+            "id": "f11c92b5a17f497393db87d328ffdce1",
+            "name": "projects/9009469379776060375/screens/f11c92b5a17f497393db87d328ffdce1",
+            "prompt": "基于现有的“账号定位编辑器”页面 ({{DATA:SCREEN:SCREEN_2}})，创建一个完整的“平台账号”标签状态页面。\n保持左侧边栏（使用 {{DATA:COMPONENTS:COMPONENTS_3}} 的 SideNavBar 样式）、顶部导航与当前排版不变。\n右侧主内容区切换到“平台账号”标签状态（Tab 选中“平台账号”）：\n1. 顶部保留爆款人设生成器标题卡片与 4 个标签页（定位字段、内容红线、平台账号、账号记忆），当前激活“平台账号”。\n2. 上半部分为添加平台账号绑定表单：支持“分发平台”下拉选择（如：微信公众号 / 知乎专栏、小红书、今日头条、即刻等）、“账号名称与ID”输入框、“账号分发备注”文本框，以及“绑定分发账号”按钮。说明：纯本地绑定管理，不涉及OAuth授权对接、粉丝数、阅读量或自动发布。\n3. 下半部分为清晰有序的“已绑定平台账号列表”：展示各平台、账号ID、备注及“删除”或“解除绑定”操作。\n4. 页面右侧面板保持实时结构化 Prompt 预览（输出对应平台的 platform 变量约束）与版本历史记录。\n5. 继承 Editorial Workspace 设计系统 ({{DATA:DESIGN_SYSTEM:DESIGN_SYSTEM_1}})。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1VZFVEAKNnCa0B9oIbUnJhIJ1_KtW9L73cDw2E--sEqfJgW9zqVSB3GLA-pm6atCXFFDVYTLsMC4e3YNVfx5pPWp8MuDD9gBAWE5PuFe7lBaVUdFZ8CF1kiKUmr5uFOaCHDUFWRFhGwSgnTkwHuh_Oos-uNTLTiXNLD7GpIPfct6sLLt3Zetretjiu2vEs19VEyCNXXfCp1CVG-Zw24Yep-fNdw1Qku8hANOyZJB9qmPn00mInnIpoP-GI",
+              "name": "projects/9009469379776060375/files/50ca2843ad244e61ae2f7cb7f02637a5"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#faf8ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#f0f0fc",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#2e3039",
+                "on_background": "#191b24",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#191b24",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#faf8ff",
+                "surface_bright": "#faf8ff",
+                "surface_container": "#ededf9",
+                "surface_container_high": "#e7e7f4",
+                "surface_container_highest": "#e2e1ee",
+                "surface_container_low": "#f3f2ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#d9d9e5",
+                "surface_tint": "#0053db",
+                "surface_variant": "#e2e1ee",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#757681",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "1.5rem",
+                "space-lg": "1.5rem",
+                "space-md": "1rem",
+                "space-sm": "0.75rem",
+                "space-xl": "2rem",
+                "space-xs": "0.5rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 账号定位编辑器 (平台账号)",
+            "width": "2560"
+          },
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "Editorial Workspace",
+                "styleGuidelines": "## Brand & Style\nMinimal editorial workspace tailored for Chinese content creators. Emphasizes absolute clarity, calm focus, and deliberate restraint.\n- Core aesthetic: Restrained modern minimalism with quiet utilitarian precision. No decorative gradients, glassmorphism, or ornamental serif page titles.\n- Surface rhythm: Soft warm neutral canvas paired with crisp solid white panels and restrained borders to preserve reading flow and writing stamina.\n- Tone: Professional, structured, unobtrusive, and purpose-built for sustained long-form content generation and editing.\n\n## Layout & Spacing\n- Structural scale: Spacing strictly follows the 8/12/16/24/32 progression (`0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`).\n- Left navigation sidebar is fixed at 208px with quiet labels and simple icons.\n- Major layout structures: Broad central content canvas dedicating maximal horizontal space to real content and editor workflows.\n- Home dashboard features a large resume workspace with an uncluttered action hierarchy, paired with a separate compact pending-work column.\n- Responsive behavior: On narrow desktop screens, secondary rails stack naturally beneath primary content and toolbars wrap gracefully.\n\n## Elevation & Depth\nDepth is articulated through structural layout rather than heavy simulated shadows:\n- Low-contrast outlines: Surfaces rely on subtle 1px border separation (`#e5e7eb` in light mode) over high-elevation drop shadows.\n- Minimal cards: Avoid unnecessary nested card wrappers; rely on flat white panels set directly on the warm neutral canvas.\n- No frosted glass, blurs, or colored drop shadows. Overlays and popovers use subtle 1-tier soft ambient shadows with crisp border contours.\n\n## Components\n- **Buttons**: Primary buttons are dark slate (`#17212f`) with white text; secondary buttons use clean 1px borders with white fill and `#17212f` text. All interactive controls have a minimum height of 36px and 8px border radius.\n- **Navigation & Rail**: Sidebar items are quiet and compact (height 36px), using `#526173` text by default. Selected items feature `#2563eb` text and subtle background tint without aggressive badges.\n- **Input Fields & Editor Toolbars**: Inputs have crisp borders, 36px minimum touch height, and focus rings using `#2563eb`. Toolbars remain compact and single-tiered where possible, wrapping neatly when space is constrained.\n- **Cards & Containers**: Clean 12px rounded surfaces with minimal nesting. Lists and tables prioritize high density, muted separator borders, and clear whitespace rather than heavy encapsulation.",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: Editorial Workspace\ncolors:\n  surface: '#faf8ff'\n  surface-dim: '#d9d9e5'\n  surface-bright: '#faf8ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f3f2ff'\n  surface-container: '#ededf9'\n  surface-container-high: '#e7e7f4'\n  surface-container-highest: '#e2e1ee'\n  on-surface: '#191b24'\n  on-surface-variant: '#434655'\n  inverse-surface: '#2e3039'\n  inverse-on-surface: '#f0f0fc'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#faf8ff'\n  on-background: '#191b24'\n  surface-variant: '#e2e1ee'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 1.5rem\n  space-xs: 0.5rem\n  space-sm: 0.75rem\n  space-md: 1rem\n  space-lg: 1.5rem\n  space-xl: 2rem\n---\n\nMinimal editorial workspace for Chinese content creators. Warm neutral canvas #f7f8fa, solid white panels, dark slate #17212f text, secondary #526173 text. Blue #2563eb is reserved for selected navigation and interactive focus. Dark primary buttons. Sidebar 208px with quiet labels and simple icons; broad content canvas, restrained section borders, no gradients, no glass, no decorative imagery, no serif page titles. Headings 26px semibold, body 14px, controls at least 36px; spacing 8/12/16/24/32.  Fewer nested cards, consistent compact toolbars, 8px controls and 12px major containers. Home has large resume area with an uncluttered action hierarchy, and a separate compact pending-work column. Forms and editor layouts dedicate most width to real content. At narrow desktop widths stack secondary rails and wrap toolbars.",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#f0f0fc",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#2e3039",
+                    "on_background": "#191b24",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#191b24",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#faf8ff",
+                    "surface_bright": "#faf8ff",
+                    "surface_container": "#ededf9",
+                    "surface_container_high": "#e7e7f4",
+                    "surface_container_highest": "#e2e1ee",
+                    "surface_container_low": "#f3f2ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#d9d9e5",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#e2e1ee",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#757681",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "1.5rem",
+                    "space-lg": "1.5rem",
+                    "space-md": "1rem",
+                    "space-sm": "0.75rem",
+                    "space-xl": "2rem",
+                    "space-xs": "0.5rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "2"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "HatterAgent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2FiYmMxYzM0MDMxMjRiYTM4N2EyNDdjMmFmY2M5ZWRkEgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/73ecdba0d9874f5ab4c42a566f0ced0c"
+            },
+            "id": "5bb390e974ee4057ae9555f784c17f60",
+            "name": "projects/9009469379776060375/screens/5bb390e974ee4057ae9555f784c17f60",
+            "prompt": "基于现有的“账号定位编辑器”页面 ({{DATA:SCREEN:SCREEN_2}})，创建一个完整的“账号记忆”标签状态页面。\n保持左侧边栏（使用 {{DATA:COMPONENTS:COMPONENTS_3}} 的 SideNavBar 样式）、顶部导航与当前排版不变。\n右侧主内容区切换到“账号记忆”标签状态（Tab 选中“账号记忆”）：\n1. 顶部保留爆款人设生成器标题卡片与 4 个标签页（定位字段、内容红线、平台账号、账号记忆），当前激活“账号记忆”。\n2. 上半部分为添加账号记忆/经验洞察表单：支持“记忆来源”输入（如：爆款复盘 #04 / 读者核心反馈）、“经验洞察（Core Insight）”多行文本框、可选的“行动建议（Action Advice）”文本框，以及“保存记忆”按钮。说明：纯本地沉淀与复用，不包含虚假数据或AI自动运行。\n3. 下半部分为可复用的“账号记忆卡片列表”：展示每条记忆的来源、时间戳、详细内容及“删除”操作。\n4. 页面右侧面板保持实时结构化 Prompt 预览（输出 <account_memory> 标签）与版本历史记录。\n5. 继承 Editorial Workspace 设计系统 ({{DATA:DESIGN_SYSTEM:DESIGN_SYSTEM_1}})。",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1UhIqdJVx6EiQWhhW1jcdMnGi5pFwS1gUFSqBaOClnWKvbb4ouzpvykBAu5UKb39Y5WxXX9ocCNYgeqUPVXelQVnwE1uz97ghpTvRFliOpxMKtr6TLGgfOHLb8xA-grYiFwWeZFZ6LmpNJ8Oseus7PUWCSKTns05WO1DIapWkdumsabez4ZeGDadMELtPClhcrfm1zxBJVPX8GHURsK-hILBs2eru-v-34EeS0Q54vSBeYPiyzHtmNlFDE",
+              "name": "projects/9009469379776060375/files/dd3364431df548578df4ff3b1f51c1a4"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#faf8ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#f0f0fc",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#2e3039",
+                "on_background": "#191b24",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#191b24",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#faf8ff",
+                "surface_bright": "#faf8ff",
+                "surface_container": "#ededf9",
+                "surface_container_high": "#e7e7f4",
+                "surface_container_highest": "#e2e1ee",
+                "surface_container_low": "#f3f2ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#d9d9e5",
+                "surface_tint": "#0053db",
+                "surface_variant": "#e2e1ee",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#757681",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "1.5rem",
+                "space-lg": "1.5rem",
+                "space-md": "1rem",
+                "space-sm": "0.75rem",
+                "space-xl": "2rem",
+                "space-xs": "0.5rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 账号定位编辑器 (账号记忆)",
+            "width": "2560"
+          }
+        ],
+        "theme": {}
+      }
+    },
+    {
+      "text": "为您完成了“心流”本地内容工作室的三个核心账号编辑器标签状态页面设计（桌面端）：\n\n1. **内容红线标签页 (心流 · 账号定位编辑器 (内容红线))**：\n   - 提供直观的规则类型选择、规避关键词/禁忌动作输入以及合规说明/替代建议。\n   - 带有简短说明：所有规则将在每次调用 AI 写作或大纲生成时自动追加至底层 System Prompt 中进行拦截。\n   - 下方为已生效红线列表，配有合规类型 Badge、操作人和删除操作。\n\n2. **平台账号标签页 (心流 · 账号定位编辑器 (平台账号))**：\n   - 提供分发平台下拉、账号名称与 ID、纯本地管理分发备注的绑定表单。\n   - 展现清晰的已绑定平台账号列表，强调纯本地管理，无复杂 OAuth 登录或粉丝数据指标。\n\n3. **账号记忆标签页 (心流 · 账号定位编辑器 (账号记忆))**：\n   - 提供沉淀复盘反馈、核心经验洞察及行动建议的录入表单。\n   - 下方展示已沉淀的账号记忆库卡片列表，右侧实时同步 `<account_memory>` 结构化 Prompt 预览。\n\n所有页面均完全契合 **Editorial Workspace** 设计系统 ([Design_System])，并保持了宽敞舒适的单列表单排版。"
+    },
+    {
+      "suggestion": "查看内容红线详情"
+    },
+    {
+      "suggestion": "查看平台账号绑定管理"
+    },
+    {
+      "suggestion": "返回账号定位中心"
+    }
+  ],
+  "projectId": "9009469379776060375",
+  "sessionId": "112853906660832307"
+}

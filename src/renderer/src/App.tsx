@@ -77,11 +77,6 @@ function AppShell(): React.JSX.Element {
   const [shortcutPanelOpen, setShortcutPanelOpen] = useState(false)
   const [taskCenterOpen, setTaskCenterOpen] = useState(false)
   const openWork = useOpenWork()
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // P1-8: 从 DOM 读取由 theme-init.js 预设的 data-theme，避免与初始 HTML 不一致
-    const preset = document.documentElement.dataset.theme
-    return preset === 'dark' ? 'dark' : 'light'
-  })
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -103,11 +98,6 @@ function AppShell(): React.JSX.Element {
   useEffect(() => {
     if (focusArticleId) void openWork(focusArticleId, route).catch(() => undefined)
   }, [focusArticleId, openWork])
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem('moliu:theme', theme)
-  }, [theme])
 
   // 缺模型的报错高频出现，统一给「去配置」出口，不再让用户自己去侧栏找
   const MODEL_REQUIRED_PATTERN = /(请先配置|请选择)[^\n。]*(模型|AI 服务)|(没有|暂无|尚未)[^\n。]*可用模型|(请先在|请到)[^\n。]*「?AI\s*服务」?[^\n。]*配置|没有可用的文本模型/
@@ -225,13 +215,11 @@ function AppShell(): React.JSX.Element {
     <>
       <Layout
         route={route}
-        theme={theme}
         providers={data.providers}
         accounts={data.accounts}
         currentAccount={currentAccount}
         generationLabel={generationLabel}
         onNavigate={navigate}
-        onToggleTheme={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
         onSwitchAccount={(id) => void handleSwitchAccount(id)}
         onShowTasks={() => setTaskCenterOpen(true)}
       >

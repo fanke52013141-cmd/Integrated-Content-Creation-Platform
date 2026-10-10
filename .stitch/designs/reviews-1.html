@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<title>心流工作室 - 创建自定义评审角色</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+              "secondary": "#516072",
+              "on-surface": "#101c2d",
+              "on-primary-fixed-variant": "#003ea8",
+              "on-primary-container": "#eeefff",
+              "inverse-on-surface": "#ebf1ff",
+              "secondary-container": "#d1e1f6",
+              "primary": "#004ac6",
+              "on-secondary": "#ffffff",
+              "tertiary-fixed-dim": "#bdc7da",
+              "surface-tint": "#0053db",
+              "on-tertiary": "#ffffff",
+              "on-error": "#ffffff",
+              "background": "#f9f9ff",
+              "surface": "#f9f9ff",
+              "on-tertiary-fixed-variant": "#3d4757",
+              "inverse-primary": "#b4c5ff",
+              "on-error-container": "#93000a",
+              "surface-dim": "#cedbf2",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-high": "#dde9ff",
+              "on-tertiary-fixed": "#121c2a",
+              "on-secondary-container": "#556476",
+              "on-tertiary-container": "#ebf1ff",
+              "surface-container": "#e6eeff",
+              "primary-container": "#2563eb",
+              "primary-fixed-dim": "#b4c5ff",
+              "on-primary": "#ffffff",
+              "on-secondary-fixed-variant": "#394859",
+              "secondary-fixed-dim": "#b8c8dd",
+              "on-background": "#101c2d",
+              "tertiary-container": "#646e7f",
+              "outline-variant": "#c3c6d7",
+              "primary-fixed": "#dbe1ff",
+              "error-container": "#ffdad6",
+              "error": "#ba1a1a",
+              "secondary-fixed": "#d4e4f9",
+              "on-primary-fixed": "#00174b",
+              "surface-variant": "#d7e3fa",
+              "on-surface-variant": "#434655",
+              "inverse-surface": "#253143",
+              "tertiary": "#4c5666",
+              "surface-container-low": "#eff3ff",
+              "surface-bright": "#f9f9ff",
+              "tertiary-fixed": "#d9e3f6",
+              "outline": "#737686",
+              "on-secondary-fixed": "#0d1d2c",
+              "surface-container-highest": "#d7e3fa"
+            },
+            "borderRadius": {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+            "spacing": {
+              "space-xs": "0.25rem",
+              "space-md": "0.75rem",
+              "gutter": "1rem",
+              "space-sm": "0.5rem",
+              "space-lg": "1rem",
+              "space-xl": "1.5rem",
+              "margin": "2rem"
+            },
+            "fontFamily": {
+              "body-sm": ["Inter"],
+              "headline-md": ["Inter"],
+              "body-lg": ["Inter"],
+              "label-sm": ["Public Sans"],
+              "headline-lg": ["Inter"],
+              "label-md": ["Public Sans"],
+              "body-md": ["Inter"],
+              "headline-sm": ["Inter"]
+            },
+            "fontSize": {
+              "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+              "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+              "body-lg": ["15px", {"lineHeight": "24px", "fontWeight": "400"}],
+              "label-sm": ["11px", {"lineHeight": "16px", "fontWeight": "500"}],
+              "headline-lg": ["26px", {"lineHeight": "34px", "fontWeight": "600"}],
+              "label-md": ["13px", {"lineHeight": "18px", "fontWeight": "500"}],
+              "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+              "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex items-center justify-center p-gutter">
+<!-- 背景模拟工作台 -->
+<div class="fixed inset-0 bg-[#f7f8fa] flex flex-col pointer-events-none select-none opacity-40">
+<header class="h-12 border-b border-[#e7ebf0] flex items-center px-6 justify-between">
+<div class="font-headline-md text-on-surface">心流工作室</div>
+<div class="flex items-center gap-4 text-sm text-secondary">
+<span>工作台</span>
+<span>评审任务</span>
+</div>
+</header>
+<main class="flex-1 p-8 max-w-[1240px] mx-auto w-full grid grid-cols-3 gap-6">
+<div class="bg-white border border-[#e7ebf0] rounded-lg p-6 h-64"></div>
+<div class="bg-white border border-[#e7ebf0] rounded-lg p-6 h-64"></div>
+<div class="bg-white border border-[#e7ebf0] rounded-lg p-6 h-64"></div>
+</main>
+</div>
+<!-- 半透明遮罩层 -->
+<div class="fixed inset-0 bg-[#17212f]/30 z-50 backdrop-blur-[2px] flex items-center justify-center p-4">
+<!-- 弹窗主体容器 (w-[680px], 8px 圆角, 细边框, 白色背景) -->
+<div class="bg-white border border-[#e7ebf0] rounded-lg w-[680px] max-w-full shadow-[0_4px_16px_rgba(23,33,47,0.06)] flex flex-col overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+<!-- 顶部标题栏 -->
+<div class="flex items-center justify-between px-space-xl py-space-lg border-b border-[#e7ebf0]">
+<h2 class="font-headline-md text-headline-md text-[#17212f]">创建自定义评审角色</h2>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- 表单内容区域 -->
+<div class="p-space-xl space-y-space-lg overflow-y-auto max-h-[calc(100vh-200px)]">
+<!-- 1. 角色名称输入框 -->
+<div class="space-y-space-xs">
+<label class="block font-label-md text-on-surface">角色名称</label>
+<input class="w-full h-10 px-space-md bg-white border border-[#e7ebf0] rounded-lg text-body-md text-[#17212f] focus:outline-none focus:border-[#2563eb] transition-colors" placeholder="请输入角色名称，如：独立视角批判官" type="text" value="独立视角批判官"/>
+</div>
+<!-- 2. 适用赛道/分类选择下拉 -->
+<div class="space-y-space-xs">
+<label class="block font-label-md text-on-surface">适用赛道/分类</label>
+<div class="relative">
+<select class="w-full h-10 px-space-md pr-10 bg-white border border-[#e7ebf0] rounded-lg text-body-md text-[#17212f] appearance-none focus:outline-none focus:border-[#2563eb] transition-colors cursor-pointer">
+<option selected="">深度长文/科技商业</option>
+<option>短平快资讯/热点快评</option>
+<option>人文深度/人物访谈</option>
+<option>产品说明/技术白皮书</option>
+</select>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-secondary">
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+</div>
+</div>
+<!-- 3. 长期角色指令多行文本框 -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<label class="block font-label-md text-on-surface">长期角色指令 (Long Role Prompt / System Prompt Override)</label>
+<span class="text-secondary font-body-sm">支持 Markdown 语法</span>
+</div>
+<textarea class="w-full p-space-md bg-white border border-[#e7ebf0] rounded-lg text-body-md text-[#17212f] focus:outline-none focus:border-[#2563eb] transition-colors resize-none" rows="5">你是一位拥有10年互联网大厂经验的资深内容总监，擅长用第一性原理剖析文章逻辑断层。行文严禁假大空，重点审查论点是否具有真实数据支撑或严密推导。输出格式必须包含严重度、精准定位与可落地修改建议。</textarea>
+</div>
+<!-- 4. 默认权重与联动开关 -->
+<div class="pt-space-xs">
+<label class="flex items-center gap-3 cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-[#2563eb] border-[#e7ebf0] focus:ring-0 focus:ring-offset-0 cursor-pointer" type="checkbox"/>
+<span class="font-body-md text-on-surface">自动追加至每次评审底层 Prompt</span>
+</label>
+</div>
+</div>
+<!-- 底部操作栏 -->
+<div class="flex items-center justify-end gap-space-md px-space-xl py-space-lg border-t border-[#e7ebf0] bg-[#f9f9ff]">
+<button class="h-9 px-4 rounded-lg border border-[#e7ebf0] text-body-md font-medium text-secondary hover:bg-surface-variant hover:text-on-surface transition-colors" type="button">
+                    取消
+                </button>
+<button class="h-9 px-5 rounded-lg bg-[#2563eb] text-body-md font-medium text-white hover:bg-[#1d4ed8] active:scale-[0.98] transition-all duration-200" type="button">
+                    保存并启用
+                </button>
+</div>
+</div>
+</div>
+</body></html>

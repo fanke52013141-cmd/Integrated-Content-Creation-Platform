@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流工作室 · 热点平台管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Public+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary": "#516072",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "on-error": "#ffffff",
+            "background": "#f9f9ff",
+            "on-secondary-fixed": "#0d1d2c",
+            "on-surface-variant": "#434655",
+            "tertiary": "#4c5666",
+            "surface-container-high": "#dde9ff",
+            "tertiary-fixed-dim": "#bdc7da",
+            "secondary-container": "#d1e1f6",
+            "on-primary-fixed": "#00174b",
+            "surface-tint": "#0053db",
+            "surface-container-low": "#eff3ff",
+            "outline": "#737686",
+            "surface-container-highest": "#d7e3fa",
+            "on-tertiary-container": "#ebf1ff",
+            "primary": "#004ac6",
+            "on-secondary-fixed-variant": "#394859",
+            "surface-dim": "#cedbf2",
+            "on-primary-fixed-variant": "#003ea8",
+            "secondary-fixed-dim": "#b8c8dd",
+            "surface": "#f9f9ff",
+            "surface-container-lowest": "#ffffff",
+            "inverse-surface": "#253143",
+            "tertiary-fixed": "#d9e3f6",
+            "secondary-fixed": "#d4e4f9",
+            "primary-container": "#2563eb",
+            "on-tertiary": "#ffffff",
+            "on-primary-container": "#eeefff",
+            "tertiary-container": "#646e7f",
+            "on-secondary": "#ffffff",
+            "error-container": "#ffdad6",
+            "inverse-on-surface": "#ebf1ff",
+            "inverse-primary": "#b4c5ff",
+            "primary-fixed": "#dbe1ff",
+            "on-background": "#101c2d",
+            "on-primary": "#ffffff",
+            "surface-container": "#e6eeff",
+            "on-tertiary-fixed": "#121c2a",
+            "outline-variant": "#c3c6d7",
+            "on-error-container": "#93000a",
+            "surface-bright": "#f9f9ff",
+            "surface-variant": "#d7e3fa",
+            "on-surface": "#101c2d",
+            "on-secondary-container": "#556476",
+            "primary-fixed-dim": "#b4c5ff",
+            "error": "#ba1a1a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "space-md": "0.75rem",
+            "margin": "2rem",
+            "space-xl": "1.5rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1rem",
+            "gutter": "1rem"
+          },
+          "fontFamily": {
+            "body-sm": ["Inter"],
+            "headline-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "body-lg": ["Inter"],
+            "label-md": ["Public Sans"]
+          },
+          "fontSize": {
+            "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+            "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+            "headline-lg": ["26px", {"lineHeight": "34px", "fontWeight": "600"}],
+            "body-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+            "label-sm": ["11px", {"lineHeight": "16px", "fontWeight": "500"}],
+            "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+            "body-lg": ["15px", {"lineHeight": "24px", "fontWeight": "400"}],
+            "label-md": ["13px", {"lineHeight": "18px", "fontWeight": "500"}]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full bg-[#f7f8fa] text-[#17212f] font-body-md antialiased flex items-center justify-center p-space-xl">
+<!-- Background Dimmer / Modal Backdrop -->
+<div class="fixed inset-0 bg-[#17212f]/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-space-lg">
+<!-- Modal Container: 800px wide, white surface, 8px radius -->
+<div class="bg-surface-container-lowest w-full max-w-[800px] h-[640px] rounded-lg border border-[#e7ebf0] shadow-[0_4px_24px_rgba(23,33,47,0.08)] flex flex-col overflow-hidden">
+<!-- Modal Header -->
+<div class="flex items-center justify-between px-6 py-4 border-b border-[#e7ebf0] bg-surface">
+<h2 class="font-headline-sm text-on-surface">热点平台管理</h2>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-lg hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Search & Filter Bar -->
+<div class="px-6 py-4 bg-surface-container-lowest border-b border-[#e7ebf0] flex items-center gap-3">
+<div class="relative flex-1">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</span>
+<input class="w-full pl-9 pr-4 py-2 bg-surface border border-[#e7ebf0] rounded-lg text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors" placeholder="搜索平台名称..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-body-sm text-on-surface-variant">快速筛选:</span>
+<button class="px-3 py-1 bg-primary-container text-on-primary-container text-label-md rounded-lg font-medium">全部</button>
+<button class="px-3 py-1 bg-surface hover:bg-surface-variant text-on-surface-variant text-label-md rounded-lg transition-colors">综合</button>
+<button class="px-3 py-1 bg-surface hover:bg-surface-variant text-on-surface-variant text-label-md rounded-lg transition-colors">科技</button>
+<button class="px-3 py-1 bg-surface hover:bg-surface-variant text-on-surface-variant text-label-md rounded-lg transition-colors">社交</button>
+</div>
+</div>
+<!-- Scrollable Dual-Column Platform List -->
+<div class="flex-1 overflow-y-auto p-6 bg-surface-bright">
+<div class="grid grid-cols-2 gap-3">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">全网综合热搜</span>
+<span class="text-label-sm text-outline">综合资讯聚合</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">综合</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">微博实时热点</span>
+<span class="text-label-sm text-outline">社会文娱实时趋势</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">社交</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">小红书潮流趋势</span>
+<span class="text-label-sm text-outline">生活美学与消费洞察</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">生活</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">知乎高赞问答</span>
+<span class="text-label-sm text-outline">深度讨论与专业观点</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">问答</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">B站热门视频</span>
+<span class="text-label-sm text-outline">年轻文化与创作风向</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">视频</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 6 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">今日头条要闻</span>
+<span class="text-label-sm text-outline">大众资讯与时事追踪</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">资讯</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 7 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">IT之家科技资讯</span>
+<span class="text-label-sm text-outline">数码科技与前沿数码</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">科技</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 8 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">少数派效率专栏</span>
+<span class="text-label-sm text-outline">数字生活与高效工作流</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">效率</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 9 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">GitHub Trending</span>
+<span class="text-label-sm text-outline">全球开源项目与技术风向</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">开发</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Item 10 -->
+<div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-on-surface">Hacker News</span>
+<span class="text-label-sm text-outline">国际计算机与科技极客</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">科技</span>
+<input checked="" class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Additional 35 items represented compactly to total 45 -->
+<!-- Loop simulation for remaining sources -->
+<script>
+            // Render additional mock items to complete the 45 items request
+            const categories = ['综合', '科技', '财经', '娱乐', '游戏', '体育', '文化'];
+            const names = ['虎嗅深度', '36Kr创投', '财新网财讯', '懂车帝汽车', '网易新闻热榜', '搜狐全网资讯', '澎湃新闻澎湃号', '豆瓣电影周榜', '虎扑步行街', '贴吧热议话题', 'NGA玩家社区', '游民星空游戏', 'V2EX技术分享', '掘金优质文章', 'CSDN开发者', '雪球财经', '同花顺财经', '东方财富热股', '虎扑电竞', '直播吧体育', '懂球帝', '网易云音乐热歌', 'QQ音乐巅峰榜', '豆瓣读书', '果壳网科普', '丁香医生', '澎湃思想市场', '新浪科技', '极客公园', '钛媒体', '凤凰网资讯', '参考消息', '环球网', '界面新闻', '第一财经'];
+            
+            document.write(names.map((name, i) => `
+              <div class="flex items-center justify-between p-3 bg-surface-container-lowest border border-[#e7ebf0] rounded-lg hover:border-outline-variant transition-all">
+                <div class="flex items-center gap-3">
+                  <span class="material-symbols-outlined text-outline cursor-grab text-[18px]">drag_indicator</span>
+                  <div class="flex flex-col">
+                    <span class="font-body-md font-medium text-on-surface">${name}</span>
+                    <span class="text-label-sm text-outline">精选聚合内容源 ${11 + i}</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-surface-container text-on-surface-variant text-label-sm rounded">${categories[i % categories.length]}</span>
+                  <input type="checkbox" ${i < 25 ? 'checked' : ''} class="rounded border-[#e7ebf0] text-primary focus:ring-primary w-4 h-4 cursor-pointer">
+                </div>
+              </div>
+            `).join(''));
+          </script>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="flex items-center justify-between px-6 py-4 border-t border-[#e7ebf0] bg-surface">
+<span class="text-body-md text-on-surface-variant">已选择 <strong class="text-on-surface font-semibold">10</strong> / 45 个平台源</span>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 border border-[#e7ebf0] hover:bg-surface-variant text-on-surface rounded-lg text-body-md font-medium transition-colors">取消</button>
+<button class="px-4 py-2 bg-[#17212f] hover:bg-[#17212f]/90 text-on-primary rounded-lg text-body-md font-medium transition-colors">保存修改</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

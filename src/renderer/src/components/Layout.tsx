@@ -12,13 +12,11 @@ import {
   Image,
   LoaderCircle,
   LockKeyhole,
-  Moon,
   Newspaper,
   PenLine,
   Send,
   Settings2,
   Sparkles,
-  Sun,
   WandSparkles,
   FileText,
   Palette,
@@ -32,7 +30,6 @@ import {
   ROUTE_LABELS,
   WORKBAR_STAGES,
   buildSidebarGroups,
-  type NavGroupTitle,
   type RouteId
 } from '../../../shared/creation-flow'
 import { WorkBar } from './WorkContext'
@@ -71,20 +68,10 @@ const resourceItems = RESOURCE_ROUTES.map((id) => ({
 /** 系统组在侧边栏底部独立渲染，与创作链路分隔 */
 const SYSTEM_ITEMS: RouteId[] = ['data', 'providers', 'prompts']
 
-/**
- * 创作链路较长（9 步），默认展开会把它顶到视口之外，
- * 资源与系统区必须保证随时可达，因此只有创作组可折叠，且**会自动展开**。
- *
- * 折叠状态由组件自己维护（不落盘、不进 URL）：
- * 用户的选择属于临时的界面偏好，不该污染导航数据本身。
- */
-const COLLAPSIBLE_GROUPS = new Set<NavGroupTitle>(['创作'])
-
 export type { RouteId }
 
 interface LayoutProps {
   route: RouteId
-  theme: 'light' | 'dark'
   providers: ProviderSummary[]
   accounts: AccountProfileSummary[]
   currentAccount?: AccountProfileSummary
@@ -92,7 +79,6 @@ interface LayoutProps {
   generationLabel?: string
   children: React.ReactNode
   onNavigate(route: RouteId, params?: Record<string, string>): void
-  onToggleTheme(): void
   onSwitchAccount(id: string): void
   onShowTasks(): void
 }
@@ -110,14 +96,12 @@ const routeBreadcrumbs = (route: RouteId): { group: string; label: string } => (
 
 export function Layout({
   route,
-  theme,
   providers,
   accounts,
   currentAccount,
   generationLabel,
   children,
   onNavigate: navigate,
-  onToggleTheme,
   onSwitchAccount,
   onShowTasks
 }: LayoutProps): React.JSX.Element {
@@ -141,31 +125,6 @@ export function Layout({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
-
-  /** 创作组默认展开（9 步是主链路，收起会让主导航失去意义） */
-  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(() => new Set())
-
-  // 路由落在被折叠的组内时自动展开——否则用户点了别处的入口后，
-  // 侧边栏会看不到自己当前所在的位置。
-  useEffect(() => {
-    const owning = sidebarGroups.find((group) => group.items.some((stage) => stage.id === route))
-    if (!owning || !COLLAPSIBLE_GROUPS.has(owning.title)) return
-    setCollapsedGroups((current) => {
-      if (!current.has(owning.title)) return current
-      const next = new Set(current)
-      next.delete(owning.title)
-      return next
-    })
-  }, [route])
-
-  const toggleGroup = (title: NavGroupTitle): void => {
-    setCollapsedGroups((current) => {
-      const next = new Set(current)
-      if (next.has(title)) next.delete(title)
-      else next.add(title)
-      return next
-    })
-  }
 
   useEffect(() => {
     if (!accountMenuOpen) return
@@ -193,9 +152,10 @@ export function Layout({
       <a href="#main" className="skip-link">跳到主内容</a>
       <aside className="sidebar">
         <button className="brand" onClick={() => onNavigate('home')} aria-label="返回创作台">
-          <span className="brand-mark"><img src="assets/ui/heartflow-brand.png" alt="" /></span>
+          <span className="brand-mark" aria-hidden="true"><PenLine size={18} /></span>
           <span>
             <strong>心流</strong>
+            <small>内容创作工作室</small>
           </span>
         </button>
 
@@ -212,29 +172,12 @@ export function Layout({
             </button>
           </div>
 
-          {/* 创作主链路：顺序与顶部流水线一致。
-              2026-10-06：分组标题改为可折叠按钮，长链路默认收起其余始终可达。 */}
+          {/* 创作入口始终可见，较矮窗口通过导航区自身滚动访问。 */}
           {sidebarGroups.map((group) => {
-            const collapsible = COLLAPSIBLE_GROUPS.has(group.title)
-            const collapsed = collapsedGroups.has(group.title)
-            const groupActive = group.items.some((stage) => stage.id === route)
             return (
-              <div className={`nav-group nav-group-flow ${collapsed ? 'collapsed' : ''}`} key={group.title}>
-                {collapsible ? (
-                  <button
-                    type="button"
-                    className="nav-group-toggle"
-                    aria-expanded={!collapsed}
-                    onClick={() => toggleGroup(group.title)}
-                  >
-                    <ChevronDown size={13} className="nav-group-caret" />
-                    <span>{group.title}</span>
-                    <small>{group.items.length}</small>
-                  </button>
-                ) : (
-                  <span className="nav-group-title">{group.title}</span>
-                )}
-                {!collapsed && group.items.map((stage) => {
+              <div className="nav-group nav-group-flow" key={group.title}>
+                <span className="nav-group-title">{group.title}</span>
+                {group.items.map((stage) => {
                 const Icon = NAV_ICONS[stage.id] ?? CircleUserRound
                 return (
                   <button
@@ -249,12 +192,6 @@ export function Layout({
                   </button>
                 )
                 })}
-                {/* 收起时用当前阶段名作为入口标签，避免"创作"二字下面什么都没有 */}
-                {collapsed && groupActive && (
-                  <span className="nav-group-current">
-                    {group.items.find((stage) => stage.id === route)?.sidebarLabel}
-                  </span>
-                )}
               </div>
             )
           })}
@@ -333,10 +270,6 @@ export function Layout({
               </button>
             )}
             <button className="icon-button task-center-button" onClick={onShowTasks} aria-label="任务中心" title="任务中心"><ListChecks size={15} /></button>
-            <button className="theme-toggle" onClick={onToggleTheme} aria-label="切换主题">
-              <span className={theme === 'light' ? 'active' : ''}><Sun size={14} /></span>
-              <span className={theme === 'dark' ? 'active' : ''}><Moon size={14} /></span>
-            </button>
             <div className="account-menu" ref={accountMenuRef}>
               <button
                 ref={accountTriggerRef}

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流 · 发布交付工作台</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-background": "#17212f",
+            "on-error-container": "#93000a",
+            "surface-container": "#e6eeff",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "secondary-fixed": "#d4e4f9",
+            "on-primary": "#ffffff",
+            "on-secondary-fixed-variant": "#394859",
+            "on-secondary-container": "#556476",
+            "error-container": "#ffdad6",
+            "surface-bright": "#ffffff",
+            "tertiary": "#4c5666",
+            "on-primary-fixed-variant": "#003ea8",
+            "on-error": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "surface": "#f7f8fa",
+            "on-primary-container": "#eeefff",
+            "primary-fixed": "#dbe1ff",
+            "surface-container-highest": "#d7e3fa",
+            "outline-variant": "#c3c6d7",
+            "outline": "#737686",
+            "surface-container-low": "#eff3ff",
+            "secondary-fixed-dim": "#b8c8dd",
+            "error": "#ba1a1a",
+            "on-tertiary-fixed": "#121c2a",
+            "on-tertiary-container": "#ebf1ff",
+            "secondary": "#516072",
+            "on-primary-fixed": "#00174b",
+            "background": "#f7f8fa",
+            "secondary-container": "#d1e1f6",
+            "inverse-surface": "#253143",
+            "tertiary-fixed": "#d9e3f6",
+            "primary-fixed-dim": "#b4c5ff",
+            "surface-container-high": "#dde9ff",
+            "primary": "#2563eb",
+            "on-surface-variant": "#434655",
+            "surface-variant": "#d7e3fa",
+            "surface-tint": "#2563eb",
+            "tertiary-container": "#646e7f",
+            "primary-container": "#2563eb",
+            "surface-dim": "#cedbf2",
+            "on-tertiary": "#ffffff",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed": "#0d1d2c",
+            "inverse-on-surface": "#ebf1ff",
+            "on-surface": "#17212f",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#bdc7da"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "space-md": "0.75rem",
+            "space-xl": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "gutter": "1rem",
+            "space-lg": "1rem"
+          },
+          "fontFamily": {
+            "label-sm": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"],
+            "headline-lg": ["Inter"],
+            "label-md": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"]
+          },
+          "fontSize": {
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background text-on-surface font-body-md h-full selection:bg-primary-container selection:text-on-primary">
+<div class="min-h-screen flex bg-background">
+<!-- SideNavBar -->
+<aside class="flex flex-col justify-between w-[220px] p-space-md h-full fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant z-20">
+<div>
+<div class="flex items-center gap-space-sm px-space-xs py-space-sm mb-space-lg">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold">心</div>
+<div>
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface">心流工作室</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">专业排版工作台</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span><span>仪表盘</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">edit_note</span><span>创作台</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">local_fire_department</span><span>热点发现</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">lightbulb</span><span>选题策划</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span><span>框架大纲</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span><span>正文写作</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">fact_check</span><span>内容评审</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">image</span><span>智能配图</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">view_carousel</span><span>多端排版</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-primary bg-secondary-container font-medium transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">cloud_upload</span><span>发布管理</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">folder_special</span><span>素材资产</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span><span>矩阵账号</span>
+</a>
+</nav>
+</div>
+<div class="border-t border-outline-variant pt-space-md">
+<div class="flex items-center justify-between px-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-semibold text-xs">编</div>
+<div class="font-label-md">主编账号</div>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors" title="系统设置">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 ml-[220px] p-6 max-w-[1440px] mx-auto flex flex-col gap-6">
+<!-- Breadcrumb / Header -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
+<span>心流工作室</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span>创作中心</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-medium">发布交付工作台</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">发布交付工作台</h1>
+</div>
+<!-- Main Grid Layout: Left Main Column + Right 320px Config Card -->
+<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+<!-- Left Wide Column -->
+<div class="flex flex-col gap-6">
+<!-- Delivery Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm flex flex-col gap-5">
+<div class="flex items-center justify-between border-b border-outline-variant/60 pb-4">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">排版交付</h2>
+<p class="font-body-sm text-on-surface-variant mt-0.5">选择已定稿排版版本，完善摘要与封面信息，一键推送到多平台草稿箱。</p>
+</div>
+<span class="px-2.5 py-1 bg-surface-container-high text-primary rounded-lg text-xs font-semibold">就绪待发布</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- 排版稿选择 -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-on-surface-variant">排版稿选择</label>
+<select class="h-10 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>深度洞察：2026 年大模型交互趋势 (版本 v3.2)</option>
+<option>数字游民的极简工作流与时间管理 (版本 v1.0)</option>
+<option>克制美学：如何打造高品质数字产品 (版本 v2.1)</option>
+</select>
+</div>
+<!-- 封面选择 -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-on-surface-variant">封面选择 / 预览</label>
+<select class="h-10 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>默认首图 (智能提取 9:16)</option>
+<option>极简科技流封面.png</option>
+<option>温润纸面高级灰封面.png</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- 作者 -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-on-surface-variant">作者</label>
+<input class="h-10 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" type="text" value="心流工作室编辑部"/>
+</div>
+<!-- 原文链接 -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-on-surface-variant">原文链接 (可选)</label>
+<input class="h-10 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="https://..." type="text"/>
+</div>
+</div>
+<!-- 摘要 -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-on-surface-variant">摘要 / 导语</label>
+<textarea class="p-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none" rows="2">在人机交互快速演进的今天，大模型正逐渐从单一的对话框形态剥离，融入各类沉浸式工作流，『心流』体验已成为现代生产力的核心标尺。</textarea>
+</div>
+<!-- Cover Preview & Collapsible Article Body -->
+<div class="border border-outline-variant/60 rounded-lg p-4 bg-surface-container-low flex flex-col gap-3">
+<div class="flex items-center justify-between cursor-pointer" onclick="toggleArticlePreview()">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">visibility</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">封面与正文内容预览</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant" id="previewArrow">expand_more</span>
+</div>
+<div class="hidden flex flex-col gap-3 pt-2 border-t border-outline-variant/60 text-body-sm text-on-surface-variant" id="previewContent">
+<div class="flex gap-4 items-center bg-surface p-3 rounded-lg border border-outline-variant/60">
+<div class="w-24 h-16 bg-surface-container-high rounded border border-outline-variant flex items-center justify-center text-xs text-outline">封面缩略图</div>
+<div>
+<div class="font-medium text-on-surface">深度洞察：2026 年大模型交互趋势与体验革命</div>
+<div class="text-xs text-outline mt-1">字数：3,420 字 | 预计阅读：12 分钟</div>
+</div>
+</div>
+<p class="line-clamp-3">在人机交互快速演进的今天，大模型正逐渐从单一的对话框形态剥离，融入各类沉浸式工作流。无论是写作、设计还是代码编写，『心流』体验已成为衡量现代生产力工具的核心标尺……</p>
+</div>
+</div>
+<!-- 交付检查事项 -->
+<div class="flex flex-col gap-2 pt-2 border-t border-outline-variant/60">
+<label class="font-label-md text-on-surface-variant">交付检查事项</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<label class="flex items-center gap-2 p-2.5 bg-surface rounded-lg border border-outline-variant/60 cursor-pointer hover:border-primary transition-colors">
+<input checked="" class="rounded text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+<span class="text-body-sm text-on-surface">多端对齐校验</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 bg-surface rounded-lg border border-outline-variant/60 cursor-pointer hover:border-primary transition-colors">
+<input checked="" class="rounded text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+<span class="text-body-sm text-on-surface">图文排版契合度</span>
+</label>
+<label class="flex items-center gap-2 p-2.5 bg-surface rounded-lg border border-outline-variant/60 cursor-pointer hover:border-primary transition-colors">
+<input checked="" class="rounded text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+<span class="text-body-sm text-on-surface">合规检查通过</span>
+</label>
+</div>
+</div>
+<!-- 底部操作栏 -->
+<div class="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/60">
+<button class="h-10 px-4 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">upload</span>
+<span>上传封面</span>
+</button>
+<button class="h-10 px-5 bg-primary hover:bg-primary/90 text-on-primary rounded-lg font-label-md flex items-center gap-1.5 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]">send</span>
+<span>推送草稿箱</span>
+</button>
+</div>
+</div>
+<!-- 交付记录与复盘区域 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 shadow-sm flex flex-col gap-4">
+<div class="flex items-center justify-between border-b border-outline-variant/60 pb-4">
+<h3 class="font-headline-md text-headline-md text-on-surface">交付记录与复盘</h3>
+<span class="text-xs text-on-surface-variant">共 12 篇历史交付</span>
+</div>
+<!-- Record Item -->
+<div class="flex flex-col gap-3 p-4 bg-surface rounded-lg border border-outline-variant/60">
+<div class="flex flex-wrap items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm text-on-surface">深度洞察：2026 年大模型交互趋势</span>
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-xs rounded font-medium">已推送到草稿箱</span>
+</div>
+<span class="text-body-sm text-outline">2026-03-30 10:42</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-body-sm text-on-surface-variant shrink-0">发布链接：</span>
+<input class="h-9 px-3 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md text-on-surface w-full focus:border-primary focus:ring-1 focus:ring-primary outline-none text-xs" type="text" value="https://mp.weixin.qq.com/s/example_draft_url"/>
+</div>
+<!-- Collapsible Review Form -->
+<div class="pt-2 border-t border-outline-variant/60">
+<div class="flex items-center justify-between cursor-pointer py-1" onclick="toggleReviewForm()">
+<span class="text-xs font-semibold text-primary flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">edit_note</span>
+                  填写复盘表单 (核心认知洞察与后续行动建议)
+                </span>
+<span class="material-symbols-outlined text-[16px] text-primary" id="reviewArrow">expand_more</span>
+</div>
+<div class="hidden flex flex-col gap-3 pt-3" id="reviewContent">
+<div class="flex flex-col gap-1">
+<label class="text-xs font-medium text-on-surface-variant">核心认知洞察</label>
+<textarea class="p-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none" placeholder="总结本次排版与发布过程中的核心收获..." rows="2">大模型交互文章对代码块与引用样式的排版要求极高，读者在移动端的停留时间明显增加。</textarea>
+</div>
+<div class="flex flex-col gap-1">
+<label class="text-xs font-medium text-on-surface-variant">后续行动建议</label>
+<textarea class="p-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none" placeholder="针对下一篇文章的改进方向..." rows="2">建议下期长文提前准备两套定制化封面，并在正文中增加交互动图以提升完读率。</textarea>
+</div>
+<div class="flex justify-end">
+<button class="h-8 px-3 bg-secondary hover:bg-secondary/90 text-on-secondary rounded font-label-md text-xs transition-colors">保存复盘</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right 320px Fixed Width Configuration Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 shadow-sm flex flex-col gap-4 lg:sticky lg:top-6">
+<div class="flex items-center justify-between border-b border-outline-variant/60 pb-3">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">公众号连接</h3>
+<span class="px-2 py-0.5 bg-error-container text-on-error-container text-[11px] rounded font-medium">未配置</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Status -->
+<div class="p-3 bg-surface rounded-lg border border-outline-variant/60 flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant">接口授权状态</span>
+<span class="text-error font-medium flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-error"></span>未授权
+            </span>
+</div>
+<!-- AppID -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-on-surface-variant">AppID</label>
+<input class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none text-xs" placeholder="请输入微信公众号 AppID" type="text"/>
+</div>
+<!-- AppSecret -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-on-surface-variant">AppSecret</label>
+<input class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none text-xs" placeholder="请输入 AppSecret" type="password"/>
+</div>
+<!-- Checkbox -->
+<div class="pt-1">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded text-primary focus:ring-primary w-4 h-4" type="checkbox"/>
+<span class="text-body-sm text-on-surface font-medium">启用连接</span>
+</label>
+</div>
+</div>
+<!-- Buttons -->
+<div class="flex flex-col gap-2 pt-2 border-t border-outline-variant/60">
+<button class="w-full h-9 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+<span>测试配置</span>
+</button>
+<button class="w-full h-9 bg-primary hover:bg-primary/90 text-on-primary rounded-lg font-label-md flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>验证保存</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<script>
+  function toggleArticlePreview() {
+    const content = document.getElementById('previewContent');
+    const arrow = document.getElementById('previewArrow');
+    content.classList.toggle('hidden');
+    arrow.textContent = content.classList.contains('hidden') ? 'expand_more' : 'expand_less';
+  }
+
+  function toggleReviewForm() {
+    const content = document.getElementById('reviewContent');
+    const arrow = document.getElementById('reviewArrow');
+    content.classList.toggle('hidden');
+    arrow.textContent = content.classList.contains('hidden') ? 'expand_more' : 'expand_less';
+  }
+</script>
+</body></html>

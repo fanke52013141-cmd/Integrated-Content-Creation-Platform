@@ -22,7 +22,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps): React.JSX.Element | null {
   // P1-6: 使用 ModalBase 统一处理 focus trap / Escape / inert 背景
   return (
-    <ModalBase open={open} onClose={onCancel} titleId="confirm-title" labelledBy="confirm-title">
+    <ModalBase open={open} onClose={onCancel} titleId="confirm-title" describedBy="confirm-message" className="confirm-dialog">
       <button className="icon-button modal-close" onClick={onCancel} aria-label="关闭">
         <X size={18} />
       </button>
@@ -30,9 +30,9 @@ export function ConfirmDialog({
         <AlertTriangle size={22} />
       </span>
       <h2 id="confirm-title">{title}</h2>
-      <p>{message}</p>
+      <p id="confirm-message">{message}</p>
       <div className="modal-actions">
-        <button className="button secondary" onClick={onCancel}>取消</button>
+        <button className="button secondary" data-autofocus onClick={onCancel}>取消</button>
         <button className={`button ${danger ? 'danger' : 'primary'}`} onClick={onConfirm}>
           {confirmLabel}
         </button>

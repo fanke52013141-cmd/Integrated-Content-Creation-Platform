@@ -10,6 +10,7 @@
  * It is a no-op when the real bridge already exists.
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
+import { createUiFixtures } from './ui-fixtures'
 import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
@@ -229,6 +230,9 @@ const DEMO_PROVIDER_PRESETS: ProviderPreset[] = [
  * crashing.
  */
 function createMockBridge(): MoliuApi {
+  const fixtures = import.meta.env.DEV && new URLSearchParams(window.location.search).get('ui-fixtures') === '1'
+    ? createUiFixtures(DEMO_BOOTSTRAP.accounts[0].id)
+    : undefined
   const emptyArray = <T>(): Promise<T[]> => Promise.resolve([])
   const void_ = (): Promise<void> => Promise.resolve()
 
@@ -273,7 +277,7 @@ function createMockBridge(): MoliuApi {
       createBackup: (): Promise<{ path: string; checksum: string }> =>
         Promise.resolve({ path: '/demo/workspace/backups/moliu-backup-demo', checksum: 'demo' }),
       restoreBackup: (): Promise<{ restoredImages: number }> => Promise.resolve({ restoredImages: 0 }),
-      listBackups: (): Promise<string[]> => Promise.resolve([]),
+      listBackups: (): Promise<string[]> => Promise.resolve(fixtures?.backups ?? []),
       exportPortableBackup: () => Promise.resolve({ path: null }),
       selectPortableBackup: () => Promise.resolve(null)
     },
@@ -326,7 +330,7 @@ function createMockBridge(): MoliuApi {
           currentVersionId: 'demo-version-1',
           fields: demoFields,
           wizardAnswers: [],
-          versions: [],
+          versions: fixtures ? [1, 2].map(versionNumber => ({ id: `demo-version-${versionNumber}`, profileId: id, versionNumber, source: 'manual', fields: demoFields.map(field => ({ ...field, value: versionNumber === 2 ? `${field.value}（演示历史版本）` : field.value })), wizardAnswers: [], createdAt: summary.createdAt })) : [],
           redlines: demoRedlines,
           platformAccounts: demoBindings,
           memories: demoMemories
@@ -417,10 +421,10 @@ function createMockBridge(): MoliuApi {
       clearWeiboCookie: () => void_()
     },
     topics: {
-      getSchema: () => Promise.resolve([]),
+      getSchema: () => Promise.resolve(fixtures?.schema ?? []),
       saveSchema: (fields: unknown) => Promise.resolve(fields),
       resetSchema: () => Promise.resolve([]),
-      list: () => emptyArray(),
+      list: () => fixtures ? Promise.resolve(fixtures.topics) : emptyArray(),
       generate: () => Promise.resolve({ topics: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
       setLocked: () => void_(),
@@ -431,7 +435,7 @@ function createMockBridge(): MoliuApi {
     materials: {
       document: () => Promise.resolve(null),
       previewContext: () => Promise.resolve({ fragments: [], totalChars: 0, usedChars: 0, omittedChars: 0, text: '' }),
-      list: () => emptyArray(),
+      list: () => fixtures ? Promise.resolve(fixtures.materials) : emptyArray(),
       search: () => Promise.resolve({ items: [], total: 0 }),
       addSearchResult: () => void_(),
       addManual: () => void_(),
@@ -440,9 +444,9 @@ function createMockBridge(): MoliuApi {
       remove: () => void_()
     },
     frameworks: {
-      listTemplates: () => emptyArray(),
+      listTemplates: () => fixtures ? Promise.resolve(fixtures.templates) : emptyArray(),
       saveTemplate: (input: unknown) => Promise.resolve(input),
-      list: () => emptyArray(),
+      list: () => fixtures ? Promise.resolve(fixtures.frameworks) : emptyArray(),
       generate: () => Promise.resolve({ frameworks: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
       setLocked: () => void_(),
@@ -450,32 +454,32 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     articles: {
-      getSummary: () => Promise.resolve(null),
-      listRequests: () => emptyArray(),
+      getSummary: (id: string) => Promise.resolve(fixtures?.summaries().items.find(item => item.id === id) ?? null),
+      listRequests: () => fixtures ? Promise.resolve(fixtures.requests) : emptyArray(),
       continueResult: () => Promise.resolve({ articles: [], failed: [] }),
       recoverResult: () => Promise.reject(new Error('演示模式没有可恢复内容')),
       adoptCandidate: () => Promise.reject(new Error('演示模式没有候选')),
       retryRequest: () => Promise.resolve({ articles: [], failed: [] }),
-      listSummaries: () => Promise.resolve({ items: [], total: 0 }),
+      listSummaries: (query = {}) => Promise.resolve(fixtures?.summaries(query) ?? { items: [], total: 0 }),
       getDraft: () => Promise.resolve(null),
       saveDraft: (input: any) => Promise.resolve({ ...input, revision: (input.expectedRevision ?? 0) + 1, updatedAt: new Date().toISOString() }),
       discardDraft: () => void_(),
       commitDraft: () => void_(),
-      list: () => emptyArray(),
-      get: (): Promise<null> => Promise.resolve(null),
+      list: () => fixtures ? Promise.resolve(fixtures.articles) : emptyArray(),
+      get: (id: string) => Promise.resolve(fixtures?.articles.find(item => item.id === id) ?? null),
       generate: () => Promise.resolve({ articles: [], failed: [] }),
       revise: () => Promise.resolve({ articles: [], failed: [] }),
       save: (input: unknown) => Promise.resolve(input),
-      restore: () => void_(),
+      restore: () => Promise.reject(new Error('演示模式不支持恢复历史版本，请在桌面应用中操作')),
       setLocked: () => void_(),
       remove: () => void_(),
       onStream: () => () => undefined
     },
     reviews: {
-      listRoles: () => emptyArray(),
+      listRoles: () => fixtures ? Promise.resolve(fixtures.reviewRoles) : emptyArray(),
       saveRole: (input: unknown) => Promise.resolve(input),
       removeRole: () => void_(),
-      listTasks: () => emptyArray(),
+      listTasks: (articleId: string) => fixtures ? Promise.resolve(fixtures.reviewTasks.filter(task => task.articleId === articleId)) : emptyArray(),
       start: () => void_(),
       updateProblem: () => void_(),
       addManualProblem: () => void_(),
@@ -484,7 +488,7 @@ function createMockBridge(): MoliuApi {
     },
     visuals: {
       createManualPack: () => Promise.reject(new Error('请在桌面应用中导入图片')),
-      list: () => emptyArray(),
+      list: (articleId?: string) => fixtures ? Promise.resolve(fixtures.visualPacks.filter(pack => !articleId || pack.articleId === articleId)) : emptyArray(),
       generate: () => void_(),
       remove: () => void_(),
       onStream: () => () => undefined,
@@ -508,7 +512,7 @@ function createMockBridge(): MoliuApi {
       events: () => () => undefined
     },
     layouts: {
-      list: () => emptyArray(),
+      list: () => fixtures ? Promise.resolve(fixtures.layouts) : emptyArray(),
       // mock 提供真实主题数据：否则界面上主题下拉是空的，
       // 「按类型选主题」这类界面改动无法在浏览器环境里验证
       themes: () => Promise.resolve(MOCK_LAYOUT_THEMES),
@@ -549,17 +553,14 @@ export function ensureMockBridge(): void {
   const w = window as unknown as { moliu?: MoliuApi }
   if (!w.moliu) {
     w.moliu = createMockBridge()
+    document.documentElement.classList.add('preview-mode')
     console.info('[mock-bridge] window.moliu not detected — injected demo data for UI preview.')
     // 演示桥的所有写入都不落盘。preload 正常时永远不会走到这里；
     // 一旦走到，必须在界面上明示，否则用户会在假数据上操作而不自知。
     const banner = document.createElement('div')
     banner.setAttribute('role', 'alert')
     banner.textContent = '演示模式：本地服务未连接，当前展示的是演示数据，任何修改都不会保存。请重启应用；若反复出现请重新安装。'
-    banner.style.cssText = [
-      'position:fixed', 'left:0', 'right:0', 'bottom:0', 'z-index:9999',
-      'padding:10px 16px', 'background:#b3261e', 'color:#fff',
-      'font:13px/1.5 system-ui, sans-serif', 'text-align:center'
-    ].join(';')
+    banner.className = 'preview-mode-banner'
     document.body.appendChild(banner)
   }
 }

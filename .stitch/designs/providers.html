@@ -1,0 +1,581 @@
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流工作室 · AI服务设置</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Public+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "outline-variant": "#c3c6d7",
+            "on-tertiary-fixed": "#121c2a",
+            "on-surface": "#101c2d",
+            "outline": "#737686",
+            "error": "#ba1a1a",
+            "background": "#f9f9ff",
+            "tertiary-container": "#646e7f",
+            "primary-fixed-dim": "#b4c5ff",
+            "surface-tint": "#0053db",
+            "on-secondary-container": "#556476",
+            "on-primary-fixed": "#00174b",
+            "on-background": "#101c2d",
+            "error-container": "#ffdad6",
+            "secondary": "#516072",
+            "on-primary": "#ffffff",
+            "on-error": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "surface-dim": "#cedbf2",
+            "surface-bright": "#f9f9ff",
+            "on-tertiary": "#ffffff",
+            "primary-fixed": "#dbe1ff",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "secondary-fixed": "#d4e4f9",
+            "on-primary-container": "#eeefff",
+            "surface": "#f9f9ff",
+            "on-secondary-fixed": "#0d1d2c",
+            "surface-variant": "#d7e3fa",
+            "on-tertiary-container": "#ebf1ff",
+            "surface-container-highest": "#d7e3fa",
+            "tertiary-fixed": "#d9e3f6",
+            "tertiary-fixed-dim": "#bdc7da",
+            "surface-container": "#e6eeff",
+            "tertiary": "#4c5666",
+            "surface-container-high": "#dde9ff",
+            "inverse-surface": "#253143",
+            "on-secondary": "#ffffff",
+            "primary-container": "#2563eb",
+            "on-secondary-fixed-variant": "#394859",
+            "on-primary-fixed-variant": "#003ea8",
+            "on-surface-variant": "#434655",
+            "primary": "#004ac6",
+            "surface-container-low": "#eff3ff",
+            "on-error-container": "#93000a",
+            "secondary-fixed-dim": "#b8c8dd",
+            "secondary-container": "#d1e1f6",
+            "inverse-on-surface": "#ebf1ff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "0.75rem",
+            "margin": "2rem",
+            "space-xl": "1.5rem",
+            "space-lg": "1rem",
+            "gutter": "1rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "body-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "label-md": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "headline-lg": ["Inter"]
+          },
+          "fontSize": {
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #f7f8fa;
+      color: #17212f;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="h-full flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="w-[220px] h-screen flex-shrink-0 flex flex-col justify-between bg-surface dark:bg-surface border-r border-[#e2e8f0] select-none p-3 z-20">
+<div>
+<div class="flex items-center gap-3 px-3 py-3 mb-2">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center font-bold text-sm">心</div>
+<div>
+<h1 class="font-headline font-semibold text-base tracking-tight text-on-surface dark:text-on-surface">心流</h1>
+<p class="font-label text-xs text-on-surface-variant">内容创作工作室</p>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>工作台</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">trending_up</span>
+<span>热点发现</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">lightbulb</span>
+<span>选题策划</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">schema</span>
+<span>框架大纲</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+<span>正文写作</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">verified</span>
+<span>内容评审</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">image</span>
+<span>智能配图</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">format_paint</span>
+<span>多端排版</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">send</span>
+<span>一键发布</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">folder_open</span>
+<span>素材资产</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">switch_account</span>
+<span>矩阵账号</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-surface-variant dark:bg-surface-variant text-primary dark:text-primary font-medium rounded-lg text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span>AI 创作助手</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant rounded-lg transition-colors duration-150 ease-in-out text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>系统设置</span>
+</a>
+</nav>
+</div>
+<div class="pt-2 border-t border-[#e2e8f0] flex items-center justify-between text-xs text-on-surface-variant px-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">smart_toy</span>
+<span>AI 服务</span>
+</div>
+<span class="bg-surface-variant px-1.5 py-0.5 rounded text-[10px]">v2.4</span>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8fa]">
+<!-- Top Header -->
+<header class="h-16 px-8 flex justify-between items-center bg-surface border-b border-[#e2e8f0] flex-shrink-0">
+<div class="flex items-center gap-3">
+<h2 class="font-headline-lg text-[22px] font-semibold text-[#17212f]">AI 服务与模型配置</h2>
+<span class="text-xs bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded">Local-First 端侧加密存储</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-3.5 py-2 bg-surface text-[#17212f] border border-[#e2e8f0] hover:bg-surface-variant rounded-lg text-sm font-medium transition-colors" id="open-logs-btn">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+<span>调用日志</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-[#17212f] text-white hover:bg-opacity-90 rounded-lg text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>新建连接</span>
+</button>
+</div>
+</header>
+<!-- Sub Navigation Tabs -->
+<div class="px-8 bg-surface border-b border-[#e2e8f0] flex gap-8 flex-shrink-0">
+<button class="py-3 text-sm font-medium border-b-2 border-primary text-primary flex items-center gap-2" id="tab-model" onclick="switchTab('model')">
+<span class="material-symbols-outlined text-[18px]">psychology</span>
+<span>模型服务</span>
+</button>
+<button class="py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-[#17212f] flex items-center gap-2" id="tab-search" onclick="switchTab('search')">
+<span class="material-symbols-outlined text-[18px]">globe</span>
+<span>搜索服务</span>
+</button>
+</div>
+<!-- Tab Content Container -->
+<div class="flex-1 overflow-y-auto p-8">
+<!-- Model Service View -->
+<div class="max-w-[1240px] mx-auto flex gap-6" id="view-model">
+<!-- Left: Saved Connection List (260px) -->
+<div class="w-[260px] flex-shrink-0 space-y-3">
+<div class="text-xs font-semibold text-on-surface-variant px-1 uppercase tracking-wider">已保存连接</div>
+<div class="p-3 bg-white border border-[#2563eb] rounded-lg cursor-pointer shadow-sm relative" onclick="selectModel(this)">
+<div class="flex items-center justify-between mb-1">
+<span class="font-medium text-sm text-[#17212f]">Anthropic Claude 3.5</span>
+<span class="text-[10px] bg-primary-container text-on-primary px-1.5 py-0.5 rounded">默认</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>api.anthropic.com</span>
+<span class="flex items-center gap-1 text-emerald-600"><span class="material-symbols-outlined text-[12px]">lock</span>已加密</span>
+</div>
+</div>
+<div class="p-3 bg-white border border-[#e2e8f0] hover:border-[#c3c6d7] rounded-lg cursor-pointer transition-colors" onclick="selectModel(this)">
+<div class="flex items-center justify-between mb-1">
+<span class="font-medium text-sm text-[#17212f]">OpenAI GPT-4o</span>
+<span class="text-[10px] bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded">备用</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>api.openai.com</span>
+<span class="flex items-center gap-1 text-emerald-600"><span class="material-symbols-outlined text-[12px]">lock</span>已加密</span>
+</div>
+</div>
+<div class="p-3 bg-white border border-[#e2e8f0] hover:border-[#c3c6d7] rounded-lg cursor-pointer transition-colors" onclick="selectModel(this)">
+<div class="flex items-center justify-between mb-1">
+<span class="font-medium text-sm text-[#17212f]">DeepSeek-V3</span>
+<span class="text-[10px] bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded">高速</span>
+</div>
+<div class="flex items-center justify-between text-xs text-on-surface-variant">
+<span>api.deepseek.com</span>
+<span class="flex items-center gap-1 text-emerald-600"><span class="material-symbols-outlined text-[12px]">lock</span>已加密</span>
+</div>
+</div>
+</div>
+<!-- Right: Wide Editing Area -->
+<div class="flex-1 bg-white border border-[#e2e8f0] rounded-lg p-6 relative flex flex-col justify-between">
+<div class="space-y-6">
+<!-- Header status + Unsaved prompt notice -->
+<div class="flex items-center justify-between pb-4 border-b border-[#e2e8f0]">
+<div>
+<h3 class="font-semibold text-base text-[#17212f]">Anthropic Claude 3.5 配置</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">配置 API 凭证与模型调用参数，数据仅存储于本地 IndexedDB 数据库。</p>
+</div>
+<div class="hidden items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded border border-amber-200" id="unsaved-badge">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>有未保存的更改</span>
+</div>
+</div>
+<!-- Basic Inputs -->
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">连接名称</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none" oninput="showUnsaved()" type="text" value="Anthropic Claude 3.5"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">API 基础地址 (Endpoint)</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none font-mono" oninput="showUnsaved()" type="text" value="https://api.anthropic.com/v1"/>
+</div>
+</div>
+<!-- Masked API Key -->
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">API 密钥 (API Key)</label>
+<div class="relative">
+<input class="w-full h-9 pl-3 pr-10 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none font-mono" id="api-key-input" oninput="showUnsaved()" type="password" value="sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
+<button class="absolute right-2.5 top-2 text-on-surface-variant hover:text-[#17212f]" onclick="toggleApiKey()" type="button">
+<span class="material-symbols-outlined text-[18px]" id="eye-icon">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Collapsible Preset Models -->
+<div class="border border-[#e2e8f0] rounded-lg overflow-hidden">
+<button class="w-full px-4 py-2.5 bg-surface flex items-center justify-between text-xs font-medium text-on-surface" onclick="togglePresets()">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">list</span>
+<span>快速预设模型模板</span>
+</span>
+<span class="material-symbols-outlined text-[16px] transition-transform" id="preset-arrow">expand_more</span>
+</button>
+<div class="hidden p-3 bg-white border-t border-[#e2e8f0] flex gap-2" id="preset-content">
+<button class="px-3 py-1.5 bg-surface border border-[#e2e8f0] hover:bg-surface-variant rounded text-xs" type="button">Claude 3.5 Sonnet</button>
+<button class="px-3 py-1.5 bg-surface border border-[#e2e8f0] hover:bg-surface-variant rounded text-xs" type="button">Claude 3 Opus</button>
+<button class="px-3 py-1.5 bg-surface border border-[#e2e8f0] hover:bg-surface-variant rounded text-xs" type="button">Claude 3.5 Haiku</button>
+</div>
+</div>
+<!-- Model Card Configuration -->
+<div class="space-y-3">
+<div class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">模型卡片配置</div>
+<div class="grid grid-cols-4 gap-3">
+<div class="col-span-2">
+<label class="block text-xs font-medium text-on-surface-variant mb-1">模型 ID</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm font-mono focus:border-[#2563eb] focus:outline-none" oninput="showUnsaved()" type="text" value="claude-3-5-sonnet-20241022"/>
+</div>
+<div class="col-span-2">
+<label class="block text-xs font-medium text-on-surface-variant mb-1">显示名称</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none" oninput="showUnsaved()" type="text" value="Claude 3.5 Sonnet (Latest)"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">上下文上限 (K)</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none" oninput="showUnsaved()" type="number" value="200"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">输出上限 (K)</label>
+<input class="w-full h-9 px-3 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none" oninput="showUnsaved()" type="number" value="8"/>
+</div>
+<div class="col-span-2 flex items-center gap-6 pt-4">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">启用此模型</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">设为默认模型</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Capability Switches -->
+<div class="space-y-3 pt-2">
+<div class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">能力支持</div>
+<div class="flex gap-6">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">文本生成 (Text Generation)</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">图片生成 (Image Gen)</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">多模态解析 (Multimodal)</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Bottom Fixed Action Bar -->
+<div class="pt-6 mt-6 border-t border-[#e2e8f0] flex items-center justify-between">
+<button class="px-4 py-2 bg-surface text-[#17212f] border border-[#e2e8f0] hover:bg-surface-variant rounded-lg text-sm font-medium transition-colors flex items-center gap-2" onclick="testConnection()" type="button">
+<span class="material-symbols-outlined text-[16px]">bolt</span>
+<span>测试连接</span>
+</button>
+<div class="flex items-center gap-3">
+<span class="text-xs text-emerald-600 hidden flex items-center gap-1" id="test-result">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>连接响应正常 (142ms)
+              </span>
+<button class="px-5 py-2 bg-[#17212f] text-white hover:bg-opacity-90 rounded-lg text-sm font-medium transition-colors" onclick="saveConfig()" type="button">
+                保存配置
+              </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Search Service View (Hidden by default) -->
+<div class="max-w-[720px] mx-auto hidden space-y-6" id="view-search">
+<div class="bg-white border border-[#e2e8f0] rounded-lg p-6 space-y-6">
+<div>
+<h3 class="font-semibold text-base text-[#17212f]">Tavily Search API 密钥</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">用于选题策划与热点发现的实时网络检索支持。</p>
+</div>
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">API 密钥</label>
+<div class="relative">
+<input class="w-full h-9 pl-3 pr-10 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none font-mono" type="password" value="tvly-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
+<button class="absolute right-2.5 top-2 text-on-surface-variant hover:text-[#17212f]" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#e2e8f0]">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">启用 Tavily 联网搜索增强</span>
+</label>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface text-[#17212f] border border-[#e2e8f0] hover:bg-surface-variant rounded-lg text-sm font-medium" type="button">测试连接</button>
+<button class="px-5 py-2 bg-[#17212f] text-white hover:bg-opacity-90 rounded-lg text-sm font-medium" type="button">加密保存</button>
+</div>
+</div>
+</div>
+<div class="bg-white border border-[#e2e8f0] rounded-lg p-6 space-y-6">
+<div>
+<h3 class="font-semibold text-base text-[#17212f]">Exa Search API 密钥</h3>
+<p class="text-xs text-on-surface-variant mt-0.5">用于深度学术与长文资料检索。</p>
+</div>
+<div>
+<label class="block text-xs font-medium text-on-surface-variant mb-1">API 密钥</label>
+<div class="relative">
+<input class="w-full h-9 pl-3 pr-10 bg-white border border-[#e2e8f0] rounded text-sm focus:border-[#2563eb] focus:outline-none font-mono" placeholder="请输入 Exa API 密钥" type="password" value=""/>
+<button class="absolute right-2.5 top-2 text-on-surface-variant hover:text-[#17212f]" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-4 border-t border-[#e2e8f0]">
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="rounded border-[#e2e8f0] text-primary focus:ring-0" type="checkbox"/>
+<span class="text-xs font-medium">启用 Exa 深度检索</span>
+</label>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface text-[#17212f] border border-[#e2e8f0] hover:bg-surface-variant rounded-lg text-sm font-medium" type="button">测试连接</button>
+<button class="px-5 py-2 bg-[#17212f] text-white hover:bg-opacity-90 rounded-lg text-sm font-medium" type="button">加密保存</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Model Call Logs Modal (900px width) -->
+<div class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 hidden" id="logs-modal">
+<div class="bg-white w-[900px] h-[640px] rounded-xl border border-[#e2e8f0] shadow-xl flex flex-col overflow-hidden">
+<!-- Modal Header -->
+<div class="px-6 py-4 border-b border-[#e2e8f0] flex items-center justify-between bg-surface">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#17212f]">receipt_long</span>
+<h3 class="font-headline font-semibold text-base text-[#17212f]">模型调用日志</h3>
+</div>
+<button class="text-on-surface-variant hover:text-[#17212f]" onclick="toggleLogsModal()">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Toolbar -->
+<div class="px-6 py-3 border-b border-[#e2e8f0] flex items-center justify-between bg-white text-xs">
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant">状态筛选:</span>
+<select class="h-8 px-2 bg-surface border border-[#e2e8f0] rounded text-xs focus:outline-none">
+<option>全部状态</option>
+<option>成功 (200 OK)</option>
+<option>失败 (Error)</option>
+</select>
+</div>
+<span class="text-on-surface-variant">共 12 条本地记录</span>
+</div>
+<!-- Modal Table/Scroll Body -->
+<div class="flex-1 overflow-y-auto">
+<table class="w-full text-left border-collapse text-xs">
+<thead>
+<tr class="bg-surface text-on-surface-variant border-b border-[#e2e8f0]">
+<th class="py-3 px-6 font-medium">供应商 / 模型</th>
+<th class="py-3 px-4 font-medium">时间戳</th>
+<th class="py-3 px-4 font-medium">耗时</th>
+<th class="py-3 px-4 font-medium">Token 消耗量</th>
+<th class="py-3 px-4 font-medium">状态</th>
+<th class="py-3 px-6 font-medium">错误摘要</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#e2e8f0] text-on-surface">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-3.5 px-6 font-medium font-mono">Anthropic / claude-3-5-sonnet</td>
+<td class="py-3.5 px-4 text-on-surface-variant">2025-05-12 14:22:01</td>
+<td class="py-3.5 px-4 font-mono">420ms</td>
+<td class="py-3.5 px-4 font-mono">1,420 / 312</td>
+<td class="py-3.5 px-4"><span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[11px] font-medium">成功</span></td>
+<td class="py-3.5 px-6 text-on-surface-variant">-</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-3.5 px-6 font-medium font-mono">OpenAI / gpt-4o</td>
+<td class="py-3.5 px-4 text-on-surface-variant">2025-05-12 13:10:45</td>
+<td class="py-3.5 px-4 font-mono">850ms</td>
+<td class="py-3.5 px-4 font-mono">2,100 / 510</td>
+<td class="py-3.5 px-4"><span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[11px] font-medium">成功</span></td>
+<td class="py-3.5 px-6 text-on-surface-variant">-</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-3.5 px-6 font-medium font-mono">DeepSeek / deepseek-v3</td>
+<td class="py-3.5 px-4 text-on-surface-variant">2025-05-12 11:05:12</td>
+<td class="py-3.5 px-4 font-mono">310ms</td>
+<td class="py-3.5 px-4 font-mono">980 / 150</td>
+<td class="py-3.5 px-4"><span class="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[11px] font-medium">成功</span></td>
+<td class="py-3.5 px-6 text-on-surface-variant">-</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-3.5 px-6 font-medium font-mono">Anthropic / claude-3-5-sonnet</td>
+<td class="py-3.5 px-4 text-on-surface-variant">2025-05-11 18:40:00</td>
+<td class="py-3.5 px-4 font-mono">1,200ms</td>
+<td class="py-3.5 px-4 font-mono">0 / 0</td>
+<td class="py-3.5 px-4"><span class="px-2 py-0.5 bg-red-50 text-red-600 rounded text-[11px] font-medium">失败</span></td>
+<td class="py-3.5 px-6 text-red-600 font-mono">API Key expired or invalid</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Modal Footer -->
+<div class="px-6 py-3 border-t border-[#e2e8f0] bg-surface flex justify-end">
+<button class="px-4 py-1.5 bg-[#17212f] text-white rounded text-xs font-medium" onclick="toggleLogsModal()">关闭日志</button>
+</div>
+</div>
+</div>
+<!-- Interactive JS logic -->
+<script>
+    function switchTab(tab) {
+      const modelView = document.getElementById('view-model');
+      const searchView = document.getElementById('view-search');
+      const tabModel = document.getElementById('tab-model');
+      const tabSearch = document.getElementById('tab-search');
+
+      if (tab === 'model') {
+        modelView.classList.remove('hidden');
+        searchView.classList.add('hidden');
+        tabModel.className = "py-3 text-sm font-medium border-b-2 border-primary text-primary flex items-center gap-2";
+        tabSearch.className = "py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-[#17212f] flex items-center gap-2";
+      } else {
+        modelView.classList.add('hidden');
+        searchView.classList.remove('hidden');
+        tabSearch.className = "py-3 text-sm font-medium border-b-2 border-primary text-primary flex items-center gap-2";
+        tabModel.className = "py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant hover:text-[#17212f] flex items-center gap-2";
+      }
+    }
+
+    function toggleApiKey() {
+      const input = document.getElementById('api-key-input');
+      const icon = document.getElementById('eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.innerText = 'visibility';
+      } else {
+        input.type = 'password';
+        icon.innerText = 'visibility_off';
+      }
+    }
+
+    function togglePresets() {
+      const content = document.getElementById('preset-content');
+      const arrow = document.getElementById('preset-arrow');
+      content.classList.toggle('hidden');
+      if (content.classList.contains('hidden')) {
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        arrow.style.transform = 'rotate(180deg)';
+      }
+    }
+
+    function showUnsaved() {
+      const badge = document.getElementById('unsaved-badge');
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+    }
+
+    function saveConfig() {
+      const badge = document.getElementById('unsaved-badge');
+      badge.classList.remove('flex');
+      badge.classList.add('hidden');
+      alert('配置已成功加密并保存至本地 IndexedDB。');
+    }
+
+    function testConnection() {
+      const res = document.getElementById('test-result');
+      res.classList.remove('hidden');
+      res.classList.add('flex');
+      setTimeout(() => {
+        res.classList.remove('flex');
+        res.classList.add('hidden');
+      }, 4000);
+    }
+
+    const logsModal = document.getElementById('logs-modal');
+    document.getElementById('open-logs-btn').addEventListener('click', () => {
+      logsModal.classList.remove('hidden');
+    });
+
+    function toggleLogsModal() {
+      logsModal.classList.add('hidden');
+    }
+  </script>
+</body></html>

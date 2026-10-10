@@ -1,0 +1,20 @@
+{
+  "designSystem": {
+    "displayName": "心流 · 简约工作室（仅浅色）",
+    "theme": {
+      "bodyFont": "INTER",
+      "colorMode": "LIGHT",
+      "colorVariant": "FIDELITY",
+      "customColor": "#2563eb",
+      "designMd": "# 心流 · 简约工作室设计系统\n\n唯一视觉令牌来源是 `src/renderer/src/styles/tokens.css`。应用只提供浅色模式，不跟随系统外观，也不读取旧版深色偏好。\n\n## 设计方向\n\n明亮、安静、清楚。减少装饰、层叠面板和重复导航，把宽度留给文章与操作。页面标题统一使用系统无衬线字体；品牌采用简单笔形图标与「心流」文字。\n\n## 色彩与组件\n\n| 用途 | 令牌 | 色值 |\n|---|---|---|\n| 画布 | --background | #f7f8fa |\n| 表面 | --surface | #ffffff |\n| 主文字 | --text | #17212f |\n| 次文字 | --text-secondary | #526173 |\n| 辅助文字 | --text-tertiary | #647084 |\n| 交互蓝 | --primary | #2563eb |\n| 分隔线 | --border-subtle | #e7ebf0 |\n\n主操作用墨色实底，选中导航用浅蓝底，次级操作用描边或文字。面板采用实色表面，不使用玻璃模糊、渐变背景或装饰图片。圆角为 6 / 8 / 12px，主要按钮至少 36px 高。页面标题 26px，正文 14px，辅助信息至少 12px；间距使用既有 4 / 8 / 12 / 16 / 20 / 24 / 32px 令牌。\n\n## 布局\n\n- 应用导航固定 208px，较窄桌面窗口缩到 188px。顶部只承载位置、任务和账号。\n- 内容区采用 32px 边距。保留现有创作、资源与系统路由，避免视觉调整影响创作数据。\n- 创作台采用宽主区 + 280px 待办区，主区上限 1240px。续写主按钮与评审、配图、排版、发布快捷操作分层。\n- 新建入口采用 2×2 紧凑按钮，并展示简短说明。最近作品默认折叠。\n- 小于 1120px 时创作台辅助区落到主区下方；小于 760px 时入口和辅助区改为单列。\n- 工作台、列表和表单沿用已有功能骨架，统一表面、标题、按钮、边框和间距。排版输出文档的主题独立于应用外观。\n\n## 浅色初始化\n\n`public/theme-init.js` 在 React 加载前固定 `data-theme=light` 与原生控件的 `color-scheme=light`，清除旧的 `moliu:theme` 偏好。App 无外观状态，Layout 无主题切换入口。启动错误兜底页也仅使用浅色。\n\n## Stitch 对接\n\n项目：`9009469379776060375`（心流 · 简约工作室 UI 重设计）。\n设计系统：`assets/3131040012205325882`。\n本地元数据位于 `.stitch/metadata.json`。MCP 用户配置与密钥放在用户 Codex 目录，禁止复制进项目或提交到 Git。\n\n## 验证\n\n浅色初始化测试覆盖旧深色偏好与存储不可用场景；构建与类型检查验证代码；浏览器巡检覆盖各路由、桌面与窄窗口。浏览器演示数据不代表真实本地创作数据。\n",
+      "headlineFont": "INTER",
+      "labelFont": "PUBLIC_SANS",
+      "overrideNeutralColor": "#757681",
+      "overridePrimaryColor": "#2563eb",
+      "overrideSecondaryColor": "#526173",
+      "overrideTertiaryColor": "#17212f",
+      "roundness": "ROUND_EIGHT"
+    }
+  },
+  "name": "projects/9009469379776060375/sessions/13409736834959647423"
+}

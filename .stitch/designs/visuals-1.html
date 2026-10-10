@@ -1,0 +1,274 @@
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流工作室 - 智能配图编辑方案</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary-container": "#2563eb",
+            "surface-tint": "#0053db",
+            "surface-container-lowest": "#ffffff",
+            "on-secondary-container": "#556476",
+            "secondary": "#516072",
+            "surface-dim": "#cedbf2",
+            "surface-container": "#e6eeff",
+            "tertiary-fixed": "#d9e3f6",
+            "on-primary-fixed": "#00174b",
+            "on-primary-container": "#eeefff",
+            "error-container": "#ffdad6",
+            "surface-bright": "#f9f9ff",
+            "outline-variant": "#c3c6d7",
+            "primary": "#004ac6",
+            "secondary-fixed-dim": "#b8c8dd",
+            "primary-fixed-dim": "#b4c5ff",
+            "on-surface-variant": "#434655",
+            "inverse-primary": "#b4c5ff",
+            "primary-fixed": "#dbe1ff",
+            "on-surface": "#101c2d",
+            "tertiary-container": "#646e7f",
+            "on-tertiary-container": "#ebf1ff",
+            "secondary-container": "#d1e1f6",
+            "outline": "#737686",
+            "inverse-surface": "#253143",
+            "tertiary-fixed-dim": "#bdc7da",
+            "secondary-fixed": "#d4e4f9",
+            "on-error-container": "#93000a",
+            "inverse-on-surface": "#ebf1ff",
+            "tertiary": "#4c5666",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "surface-container-highest": "#d7e3fa",
+            "on-error": "#ffffff",
+            "surface-variant": "#d7e3fa",
+            "on-secondary": "#ffffff",
+            "surface": "#f9f9ff",
+            "on-tertiary": "#ffffff",
+            "surface-container-low": "#eff3ff",
+            "on-tertiary-fixed": "#121c2a",
+            "on-primary": "#ffffff",
+            "on-secondary-fixed-variant": "#394859",
+            "on-background": "#101c2d",
+            "surface-container-high": "#dde9ff",
+            "background": "#f9f9ff",
+            "on-primary-fixed-variant": "#003ea8",
+            "error": "#ba1a1a",
+            "on-secondary-fixed": "#0d1d2c"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "2rem",
+            "space-xl": "1.5rem",
+            "space-lg": "1rem",
+            "space-md": "0.75rem",
+            "gutter": "1rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "label-md": ["Public Sans"],
+            "body-sm": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "body-md": ["Inter"],
+            "headline-md": ["Inter"],
+            "headline-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          "fontSize": {
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full bg-[#f7f8fa] text-on-background font-body-md antialiased flex">
+<!-- SideNavBar -->
+<aside class="w-[208px] h-screen fixed left-0 top-0 bg-surface border-r border-outline-variant flex flex-col p-space-lg z-20">
+<div class="flex items-center gap-2 mb-8 px-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">flowsheet</span>
+<span class="font-headline-md text-on-surface">心流工作室</span>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md">首页</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">article</span>
+<span class="font-label-md">文章</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary-container text-primary font-bold transition-colors duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">image</span>
+<span class="font-label-md">配图</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-label-md">数据</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors duration-150" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md">设置</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-outline-variant">
+<button class="w-full bg-[#17212f] text-white rounded-lg py-2 px-4 font-label-md hover:bg-opacity-90 transition-colors">新建创作</button>
+</div>
+</aside>
+<!-- Main Content Canvas (Background Workspace View) -->
+<main class="ml-[208px] flex-1 p-space-xl flex flex-col h-screen overflow-hidden">
+<header class="flex justify-between items-center mb-6">
+<div>
+<h1 class="font-headline-lg text-on-surface">智能配图管理</h1>
+<p class="font-body-sm text-on-surface-variant">为当前草稿《独立开发者的高效工作流设计》生成与编排视觉方案</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-surface-container text-on-surface-variant font-body-sm">草稿 v2.4 联动中</span>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md hover:bg-opacity-90">方案总览</button>
+</div>
+</header>
+<div class="flex-1 bg-white border border-[#e7ebf0] rounded-lg p-space-xl overflow-y-auto flex flex-col gap-6">
+<div class="flex justify-between items-center pb-4 border-b border-[#e7ebf0]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">auto_awesome</span>
+<span class="font-headline-sm text-on-surface">文章配图编排列表</span>
+</div>
+<button class="px-3 py-1.5 border border-outline-variant rounded text-label-md hover:bg-surface-container">重新生成全部方案</button>
+</div>
+<!-- Mock list items -->
+<div class="grid grid-cols-1 gap-4">
+<div class="p-4 border border-[#e7ebf0] rounded-lg flex items-center justify-between bg-surface-bright">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 bg-[#e7ebf0] rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">image</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-on-surface">封面图方案：理性极简主义工作台</h4>
+<p class="font-body-sm text-on-surface-variant mt-1">提示词：A clean, minimalist developer workspace featuring a laptop...</p>
+</div>
+</div>
+<button class="px-3.5 py-1.5 bg-[#17212f] text-white rounded font-label-md">编辑配图方案</button>
+</div>
+<div class="p-4 border border-[#e7ebf0] rounded-lg flex items-center justify-between bg-surface-bright">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 bg-[#e7ebf0] rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">image</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-on-surface">文内图 01：多端布局与空间节奏</h4>
+<p class="font-body-sm text-on-surface-variant mt-1">位置：段落「布局采用清晰的侧边导航」下方</p>
+</div>
+</div>
+<button class="px-3.5 py-1.5 border border-outline-variant text-on-surface rounded font-label-md hover:bg-surface-container">编辑方案</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-[#17212f]/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+<!-- Modal Dialog (Width ~800px) -->
+<div class="bg-white border border-[#e7ebf0] rounded-lg w-full max-w-[800px] max-h-[921px] flex flex-col shadow-[0_4px_16px_rgba(23,33,47,0.06)] overflow-hidden">
+<!-- Modal Header -->
+<div class="px-6 py-4 border-b border-[#e7ebf0] flex justify-between items-center bg-white">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">edit_note</span>
+<h3 class="font-headline-md text-on-surface">智能配图 · 编辑配图方案</h3>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface p-1">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body (Scrollable) -->
+<div class="p-6 overflow-y-auto flex-1 flex flex-col gap-6 text-on-background">
+<!-- Warm Notice Box -->
+<div class="p-3.5 bg-surface-container-low border border-outline-variant/50 rounded-lg flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-xl mt-0.5">info</span>
+<div class="flex-1 text-body-sm text-on-surface-variant">
+<span class="font-semibold text-on-surface">温馨提示：</span> 您当前尚未配置默认生图模型（如 Midjourney v6 / DALL-E 3），系统将仅为您生成专业的提示词与排版方案，您可以复制提示词至外部工具生成。草稿与版本已实时联动。
+          </div>
+</div>
+<!-- Section 1: 封面描述与生图提示词 -->
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">wallpaper</span>
+              封面描述与生图提示词
+            </label>
+<span class="font-body-sm text-on-surface-variant">建议长宽比 16:9</span>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<div>
+<span class="font-label-md text-on-surface-variant block mb-1">画面场景描述</span>
+<input class="w-full h-[40px] px-3 bg-white border border-[#e7ebf0] rounded text-body-md focus:border-primary focus:ring-0" type="text" value="一个明亮、安静、清楚的现代独立开发者工作台，摆放着紧凑的机械键盘和明亮显示器。"/>
+</div>
+<div>
+<span class="font-label-md text-on-surface-variant block mb-1">生图提示词 (Prompt)</span>
+<textarea class="w-full p-3 bg-white border border-[#e7ebf0] rounded text-body-md focus:border-primary focus:ring-0" rows="3">A striking minimalist workstation featuring clean flat surfaces, subtle single-pixel borders, soft high-key white lighting, modern typography design studio aesthetic, professional tone, deep blacks and crisp whites with subtle blue accents.</textarea>
+</div>
+</div>
+</div>
+<!-- Section 2: 替代文本 (Alt Text) -->
+<div class="flex flex-col gap-2">
+<label class="font-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">subtitles</span>
+            替代文本 (Alt Text)
+          </label>
+<input class="w-full h-[40px] px-3 bg-white border border-[#e7ebf0] rounded text-body-md focus:border-primary focus:ring-0" type="text" value="心流工作室明亮克制的现代简约开发工作台主视觉封面，呈现专业、高效、专注的创作氛围。"/>
+</div>
+<!-- Section 3: 文内图提示词与位置编排 -->
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">schema</span>
+              文内图提示词与位置编排
+            </label>
+<button class="text-primary font-label-md hover:underline flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">add</span> 添加插图位
+            </button>
+</div>
+<div class="p-4 border border-[#e7ebf0] rounded-lg bg-surface-bright flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-on-surface font-semibold">插图 #01 编排</span>
+<span class="font-body-sm text-on-surface-variant">插入位置：段落「布局采用清晰的侧边导航」后</span>
+</div>
+<textarea class="w-full p-3 bg-white border border-[#e7ebf0] rounded text-body-md focus:border-primary focus:ring-0" rows="2">Detailed view of a compact sidebar navigation rail with 208px fixed width, light background, minimalist flat style.</textarea>
+</div>
+</div>
+<!-- Section 4: 发布用图提示词 -->
+<div class="flex flex-col gap-2">
+<label class="font-headline-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-lg">share</span>
+            发布渠道适配提示词 (Social / Feed)
+          </label>
+<input class="w-full h-[40px] px-3 bg-white border border-[#e7ebf0] rounded text-body-md focus:border-primary focus:ring-0" type="text" value="Square aspect ratio, optimized for newsletter and social card preview, high contrast, clean typography."/>
+</div>
+</div>
+<!-- Modal Footer (Fixed bottom accessible action bar) -->
+<div class="px-6 py-4 border-t border-[#e7ebf0] bg-white flex items-center justify-between">
+<span class="font-body-sm text-on-surface-variant">草稿版本：v2.4 已自动保存</span>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 border border-outline-variant rounded-lg font-label-md text-on-surface hover:bg-surface-container transition-colors">取消</button>
+<button class="px-5 py-2 bg-[#17212f] text-white rounded-lg font-label-md hover:bg-opacity-90 transition-colors">保存/更新方案</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

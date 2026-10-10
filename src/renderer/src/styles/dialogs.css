@@ -1,0 +1,41 @@
+.import-draft-dialog { width: min(840px, calc(100vw - 48px)); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; border-radius: 12px; }
+.import-draft-dialog > header { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.import-draft-dialog > header h2, .version-diff-dialog h2 { font-size: 22px; margin: 0; line-height: 1.5; }
+.import-draft-dialog .eyebrow { display: none; }
+.import-draft-dialog textarea { min-height: 300px; padding: 20px; font-size: 14px; line-height: 1.8; }
+.import-draft-dialog > footer, .version-diff-dialog .modal-actions { position: sticky; bottom: -28px; padding: 20px 28px; margin: 24px -28px -28px; background: var(--surface); border-top: 1px solid var(--border); z-index: 1; }
+.version-diff-dialog { width: min(1000px, calc(100vw - 48px)); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; border-radius: 12px; }
+.version-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.version-comparison > section { min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); overflow: hidden; }
+.version-comparison h3 { margin: 0; padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; background: var(--surface); }
+.version-comparison pre { min-height: 200px; max-height: 45vh; margin: 0; padding: 20px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.8 var(--font-sans); }
+.comparison-changes { margin-top: 20px; }
+.comparison-changes > summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; padding: 12px 0; }
+.article-diff { font-size: 13px; line-height: 1.8; border-radius: 8px; }
+.version-diff-table { max-height: none; margin-top: 20px; }
+.version-diff-row { grid-template-columns: 140px minmax(0, 1fr) minmax(0, 1fr); padding: 16px; gap: 20px; font-size: 14px; line-height: 1.7; }
+.task-center-dialog { width: min(900px, calc(100vw - 48px)); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; border-radius: 12px; }
+.task-center-dialog > header { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.task-center-dialog h2 { font-size: 22px; }
+.task-list { margin: 0; padding: 0; list-style: none; }
+.task-item { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto auto; gap: 20px; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--border); }
+.task-item-main strong { font-size: 15px; }
+.task-item-main small, .task-item-detail { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.task-center-dialog > footer { position: sticky; bottom: -28px; flex-wrap: wrap; margin: 20px -28px -28px; padding: 20px 28px; background: var(--surface); }
+.shortcut-panel-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-lg); }
+.shortcut-panel-dialog > header { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.shortcut-panel-dialog h2 { margin: 0; font-size: 22px; }
+.shortcut-panel-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; padding: 24px 0; }
+.shortcut-category h3 { font-size: 14px; margin: 0 0 16px; color: var(--text-secondary); }
+.shortcut-list { display: grid; gap: 12px; }
+.shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.shortcut-key { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-subtle); white-space: nowrap; font: 12px var(--font-mono); }
+.shortcut-panel-dialog > footer { display: flex; justify-content: flex-end; padding-top: 20px; border-top: 1px solid var(--border); }
+.account-menu-popover { width: 320px; max-width: calc(100vw - 24px); max-height: min(600px, calc(100vh - 120px)); overflow: auto; padding: 12px; border-radius: 8px; box-shadow: var(--shadow-lg); }
+.account-menu-head { padding: 8px 12px 12px; font-size: 13px; letter-spacing: 0; }
+.account-menu-item { padding: 12px; gap: 12px; }
+.account-menu-item-main strong { font-size: 14px; line-height: 1.6; }
+.account-menu-item-main small { font-size: 12px; line-height: 1.7; }
+.account-menu-item.selected { background: var(--primary-wash); }
+.account-menu-item .avatar { width: 32px; height: 32px; background: var(--primary-wash); color: var(--primary); }
+@media (max-width: 800px) { .version-comparison, .shortcut-panel-body { grid-template-columns: minmax(0, 1fr); } .task-item { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; } .task-item-detail { grid-column: 1 / -1; } .version-diff-row { grid-template-columns: minmax(0, 1fr); } }

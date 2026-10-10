@@ -1,0 +1,307 @@
+{
+  "outputComponents": [
+    {
+      "design": {
+        "screens": [
+          {
+            "designSystem": {
+              "designSystem": {
+                "displayName": "Editorial Workspace",
+                "styleGuidelines": "## Brand & Style\nMinimal editorial workspace tailored for Chinese content creators. Emphasizes absolute clarity, calm focus, and deliberate restraint.\n- Core aesthetic: Restrained modern minimalism with quiet utilitarian precision. No decorative gradients, glassmorphism, or ornamental serif page titles.\n- Surface rhythm: Soft warm neutral canvas paired with crisp solid white panels and restrained borders to preserve reading flow and writing stamina.\n- Tone: Professional, structured, unobtrusive, and purpose-built for sustained long-form content generation and editing.\n\n## Layout & Spacing\n- Structural scale: Spacing strictly follows the 8/12/16/24/32 progression (`0.5rem`, `0.75rem`, `1rem`, `1.5rem`, `2rem`).\n- Left navigation sidebar is fixed at 208px with quiet labels and simple icons.\n- Major layout structures: Broad central content canvas dedicating maximal horizontal space to real content and editor workflows.\n- Home dashboard features a large resume workspace with an uncluttered action hierarchy, paired with a separate compact pending-work column.\n- Responsive behavior: On narrow desktop screens, secondary rails stack naturally beneath primary content and toolbars wrap gracefully.\n\n## Elevation & Depth\nDepth is articulated through structural layout rather than heavy simulated shadows:\n- Low-contrast outlines: Surfaces rely on subtle 1px border separation (`#e5e7eb` in light mode) over high-elevation drop shadows.\n- Minimal cards: Avoid unnecessary nested card wrappers; rely on flat white panels set directly on the warm neutral canvas.\n- No frosted glass, blurs, or colored drop shadows. Overlays and popovers use subtle 1-tier soft ambient shadows with crisp border contours.\n\n## Components\n- **Buttons**: Primary buttons are dark slate (`#17212f`) with white text; secondary buttons use clean 1px borders with white fill and `#17212f` text. All interactive controls have a minimum height of 36px and 8px border radius.\n- **Navigation & Rail**: Sidebar items are quiet and compact (height 36px), using `#526173` text by default. Selected items feature `#2563eb` text and subtle background tint without aggressive badges.\n- **Input Fields & Editor Toolbars**: Inputs have crisp borders, 36px minimum touch height, and focus rings using `#2563eb`. Toolbars remain compact and single-tiered where possible, wrapping neatly when space is constrained.\n- **Cards & Containers**: Clean 12px rounded surfaces with minimal nesting. Lists and tables prioritize high density, muted separator borders, and clear whitespace rather than heavy encapsulation.",
+                "theme": {
+                  "bodyFont": "INTER",
+                  "bodyFontFamily": "Inter",
+                  "colorMode": "LIGHT",
+                  "colorVariant": "FIDELITY",
+                  "customColor": "#2563eb",
+                  "designMd": "---\nname: Editorial Workspace\ncolors:\n  surface: '#faf8ff'\n  surface-dim: '#d9d9e5'\n  surface-bright: '#faf8ff'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f3f2ff'\n  surface-container: '#ededf9'\n  surface-container-high: '#e7e7f4'\n  surface-container-highest: '#e2e1ee'\n  on-surface: '#191b24'\n  on-surface-variant: '#434655'\n  inverse-surface: '#2e3039'\n  inverse-on-surface: '#f0f0fc'\n  outline: '#737686'\n  outline-variant: '#c3c6d7'\n  surface-tint: '#0053db'\n  primary: '#004ac6'\n  on-primary: '#ffffff'\n  primary-container: '#2563eb'\n  on-primary-container: '#eeefff'\n  inverse-primary: '#b4c5ff'\n  secondary: '#516072'\n  on-secondary: '#ffffff'\n  secondary-container: '#d1e1f6'\n  on-secondary-container: '#556476'\n  tertiary: '#4c5666'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#646e7f'\n  on-tertiary-container: '#ebf1ff'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#dbe1ff'\n  primary-fixed-dim: '#b4c5ff'\n  on-primary-fixed: '#00174b'\n  on-primary-fixed-variant: '#003ea8'\n  secondary-fixed: '#d4e4f9'\n  secondary-fixed-dim: '#b8c8dd'\n  on-secondary-fixed: '#0d1d2c'\n  on-secondary-fixed-variant: '#394859'\n  tertiary-fixed: '#d9e3f6'\n  tertiary-fixed-dim: '#bdc7da'\n  on-tertiary-fixed: '#121c2a'\n  on-tertiary-fixed-variant: '#3d4757'\n  background: '#faf8ff'\n  on-background: '#191b24'\n  surface-variant: '#e2e1ee'\ntypography:\n  headline-lg:\n    fontFamily: Inter\n    fontSize: 26px\n    fontWeight: '600'\n    lineHeight: 34px\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 24px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 22px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Public Sans\n    fontSize: 13px\n    fontWeight: '500'\n    lineHeight: 18px\n  label-sm:\n    fontFamily: Public Sans\n    fontSize: 11px\n    fontWeight: '500'\n    lineHeight: 16px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 1rem\n  margin: 1.5rem\n  space-xs: 0.5rem\n  space-sm: 0.75rem\n  space-md: 1rem\n  space-lg: 1.5rem\n  space-xl: 2rem\n---\n\nMinimal editorial workspace for Chinese content creators. Warm neutral canvas #f7f8fa, solid white panels, dark slate #17212f text, secondary #526173 text. Blue #2563eb is reserved for selected navigation and interactive focus. Dark primary buttons. Sidebar 208px with quiet labels and simple icons; broad content canvas, restrained section borders, no gradients, no glass, no decorative imagery, no serif page titles. Headings 26px semibold, body 14px, controls at least 36px; spacing 8/12/16/24/32.  Fewer nested cards, consistent compact toolbars, 8px controls and 12px major containers. Home has large resume area with an uncluttered action hierarchy, and a separate compact pending-work column. Forms and editor layouts dedicate most width to real content. At narrow desktop widths stack secondary rails and wrap toolbars.",
+                  "font": "INTER",
+                  "headlineFont": "INTER",
+                  "headlineFontFamily": "Inter",
+                  "labelFont": "PUBLIC_SANS",
+                  "labelFontFamily": "Public Sans",
+                  "namedColors": {
+                    "background": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "error_container": "#ffdad6",
+                    "inverse_on_surface": "#f0f0fc",
+                    "inverse_primary": "#b4c5ff",
+                    "inverse_surface": "#2e3039",
+                    "on_background": "#191b24",
+                    "on_error": "#ffffff",
+                    "on_error_container": "#93000a",
+                    "on_primary": "#ffffff",
+                    "on_primary_container": "#eeefff",
+                    "on_primary_fixed": "#00174b",
+                    "on_primary_fixed_variant": "#003ea8",
+                    "on_secondary": "#ffffff",
+                    "on_secondary_container": "#556476",
+                    "on_secondary_fixed": "#0d1d2c",
+                    "on_secondary_fixed_variant": "#394859",
+                    "on_surface": "#191b24",
+                    "on_surface_variant": "#434655",
+                    "on_tertiary": "#ffffff",
+                    "on_tertiary_container": "#ebf1ff",
+                    "on_tertiary_fixed": "#121c2a",
+                    "on_tertiary_fixed_variant": "#3d4757",
+                    "outline": "#737686",
+                    "outline_variant": "#c3c6d7",
+                    "primary": "#004ac6",
+                    "primary_container": "#2563eb",
+                    "primary_fixed": "#dbe1ff",
+                    "primary_fixed_dim": "#b4c5ff",
+                    "secondary": "#516072",
+                    "secondary_container": "#d1e1f6",
+                    "secondary_fixed": "#d4e4f9",
+                    "secondary_fixed_dim": "#b8c8dd",
+                    "surface": "#faf8ff",
+                    "surface_bright": "#faf8ff",
+                    "surface_container": "#ededf9",
+                    "surface_container_high": "#e7e7f4",
+                    "surface_container_highest": "#e2e1ee",
+                    "surface_container_low": "#f3f2ff",
+                    "surface_container_lowest": "#ffffff",
+                    "surface_dim": "#d9d9e5",
+                    "surface_tint": "#0053db",
+                    "surface_variant": "#e2e1ee",
+                    "tertiary": "#4c5666",
+                    "tertiary_container": "#646e7f",
+                    "tertiary_fixed": "#d9e3f6",
+                    "tertiary_fixed_dim": "#bdc7da"
+                  },
+                  "overrideNeutralColor": "#757681",
+                  "overridePrimaryColor": "#2563eb",
+                  "overrideSecondaryColor": "#526173",
+                  "overrideTertiaryColor": "#17212f",
+                  "roundness": "ROUND_EIGHT",
+                  "spacing": {
+                    "gutter": "1rem",
+                    "margin": "1.5rem",
+                    "space-lg": "1.5rem",
+                    "space-md": "1rem",
+                    "space-sm": "0.75rem",
+                    "space-xl": "2rem",
+                    "space-xs": "0.5rem"
+                  },
+                  "spacingScale": 2,
+                  "typography": {
+                    "body-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "15px",
+                      "fontWeight": "400",
+                      "lineHeight": "24px"
+                    },
+                    "body-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "14px",
+                      "fontWeight": "400",
+                      "lineHeight": "22px"
+                    },
+                    "body-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "12px",
+                      "fontWeight": "400",
+                      "lineHeight": "18px"
+                    },
+                    "headline-lg": {
+                      "fontFamily": "Inter",
+                      "fontSize": "26px",
+                      "fontWeight": "600",
+                      "lineHeight": "34px"
+                    },
+                    "headline-md": {
+                      "fontFamily": "Inter",
+                      "fontSize": "20px",
+                      "fontWeight": "600",
+                      "lineHeight": "28px"
+                    },
+                    "headline-sm": {
+                      "fontFamily": "Inter",
+                      "fontSize": "16px",
+                      "fontWeight": "600",
+                      "lineHeight": "24px"
+                    },
+                    "label-md": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "13px",
+                      "fontWeight": "500",
+                      "lineHeight": "18px"
+                    },
+                    "label-sm": {
+                      "fontFamily": "Public Sans",
+                      "fontSize": "11px",
+                      "fontWeight": "500",
+                      "lineHeight": "16px"
+                    }
+                  }
+                }
+              },
+              "name": "assets/3131040012205325882",
+              "version": "2"
+            },
+            "deviceType": "DESKTOP",
+            "generatedBy": "figaro_agent",
+            "height": "2048",
+            "htmlCode": {
+              "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sX2M3NjgyOGIzN2FiYjQ0ZWE4NGY3ZjI3MGYwYTkzMjY3EgsSBxDuoL_z9gIYAZIBIwoKcHJvamVjdF9pZBIVQhM5MDA5NDY5Mzc5Nzc2MDYwMzc1&filename=&opi=96797242",
+              "mimeType": "text/html",
+              "name": "projects/9009469379776060375/files/49776287b95941baa64a31156fb293de"
+            },
+            "id": "9e66f880dd4c408895fb027c3dbf5145",
+            "name": "projects/9009469379776060375/screens/9e66f880dd4c408895fb027c3dbf5145",
+            "prompt": "Design the '数据与备份' (Data and Backup) page for 心流 (Flow), a local-first desktop content studio app.\nUse the Editorial Workspace design system (surface #faf8ff, primary #2563eb, Inter font).\nInclude the standard SideNavBar (with active state on 系统设置 or data section if appropriate, or a dedicated data & backup tab) and TopNavBar.\n\nPage layout and structure:\n1. Header section with title \"数据与备份\", short explanatory text (\"管理您的本地创作资产备份、存储目录及离线迁移。所有数据均存储在您的本地设备，确保绝对隐私与自主控制。\"), and a primary \"立即备份\" action button.\n2. Main two-column grid layout:\n   - Left wide panel: \"本地备份历史\" (Local Backup History) showing backup count (e.g., 共 4 个可用备份), list of backup archive items with filenames (e.g., `flow_backup_2025_03_02_v2.3.tar`, size, timestamp), individual \"恢复\" (Restore) action buttons, and clear clean styling.\n   - Right narrower sidebar containing two cards:\n     - \"本地存储目录\" (Local Data Directory): showing the absolute local path with word-wrapping (e.g., `/Users/siyuan/Library/Application Support/FlowStudio/storage/db/`), storage health indicator.\n     - \"数据迁移与传输\" (Data Transfer): containing clearly distinct actions: \"导出到外部目录（不含密钥）\" and \"选择外部备份并核对\", with short explanatory copy emphasizing local-only operation and no cloud sync.\n3. Include an embedded or overlay Restore Confirmation Dialog state/card or modal preview showing: focused warning icon, explanation of data replacement and pre-restore safety copy (\"恢复备份将覆盖当前的本地数据库与草稿缓存，建议在恢复前先执行一次当前状态的立即备份\"), cancel and \"确认恢复备份\" buttons.\n4. Clean editorial typography, quiet hierarchy, generous whitespace, comfortable action targets, fully responsive grid styling.\n5. All text and labels in authentic Chinese as requested.",
+            "screenMetadata": {
+              "agentType": "PRO_AGENT",
+              "status": "COMPLETE"
+            },
+            "screenType": "DESIGN",
+            "screenshot": {
+              "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1WyY5mvLq8YMQ1eWETk8EurkSX4RfEC1BQy3Jf2rnD2IBssWVRdakO6sLqfo0QrxyBMe9_tcgAwcL4PUUJGZX-RNRt632d4d6imR71Y5xJntIY08WD5DRVNPmBB_Hj3SHam3LIfgcooqGybF7djxFMGbAQIhVKGSULKU9dZ-XiPQVnF9KaZDL3IkMbZFxegc7H32tlJy1_RGl-C35hD0qDXGngHSUFt0TnfZLlY30l1LE3ltdsLIcjYrQ",
+              "name": "projects/9009469379776060375/files/55a5214f2a2347f4b49db6d1f99b2339"
+            },
+            "theme": {
+              "bodyFont": "INTER",
+              "bodyFontFamily": "Inter",
+              "colorMode": "LIGHT",
+              "colorVariant": "FIDELITY",
+              "customColor": "#2563eb",
+              "font": "INTER",
+              "headlineFont": "INTER",
+              "headlineFontFamily": "Inter",
+              "labelFont": "PUBLIC_SANS",
+              "labelFontFamily": "Public Sans",
+              "namedColors": {
+                "background": "#faf8ff",
+                "error": "#ba1a1a",
+                "error_container": "#ffdad6",
+                "inverse_on_surface": "#f0f0fc",
+                "inverse_primary": "#b4c5ff",
+                "inverse_surface": "#2e3039",
+                "on_background": "#191b24",
+                "on_error": "#ffffff",
+                "on_error_container": "#93000a",
+                "on_primary": "#ffffff",
+                "on_primary_container": "#eeefff",
+                "on_primary_fixed": "#00174b",
+                "on_primary_fixed_variant": "#003ea8",
+                "on_secondary": "#ffffff",
+                "on_secondary_container": "#556476",
+                "on_secondary_fixed": "#0d1d2c",
+                "on_secondary_fixed_variant": "#394859",
+                "on_surface": "#191b24",
+                "on_surface_variant": "#434655",
+                "on_tertiary": "#ffffff",
+                "on_tertiary_container": "#ebf1ff",
+                "on_tertiary_fixed": "#121c2a",
+                "on_tertiary_fixed_variant": "#3d4757",
+                "outline": "#737686",
+                "outline_variant": "#c3c6d7",
+                "primary": "#004ac6",
+                "primary_container": "#2563eb",
+                "primary_fixed": "#dbe1ff",
+                "primary_fixed_dim": "#b4c5ff",
+                "secondary": "#516072",
+                "secondary_container": "#d1e1f6",
+                "secondary_fixed": "#d4e4f9",
+                "secondary_fixed_dim": "#b8c8dd",
+                "surface": "#faf8ff",
+                "surface_bright": "#faf8ff",
+                "surface_container": "#ededf9",
+                "surface_container_high": "#e7e7f4",
+                "surface_container_highest": "#e2e1ee",
+                "surface_container_low": "#f3f2ff",
+                "surface_container_lowest": "#ffffff",
+                "surface_dim": "#d9d9e5",
+                "surface_tint": "#0053db",
+                "surface_variant": "#e2e1ee",
+                "tertiary": "#4c5666",
+                "tertiary_container": "#646e7f",
+                "tertiary_fixed": "#d9e3f6",
+                "tertiary_fixed_dim": "#bdc7da"
+              },
+              "overrideNeutralColor": "#757681",
+              "overridePrimaryColor": "#2563eb",
+              "overrideSecondaryColor": "#526173",
+              "overrideTertiaryColor": "#17212f",
+              "roundness": "ROUND_EIGHT",
+              "spacing": {
+                "gutter": "1rem",
+                "margin": "1.5rem",
+                "space-lg": "1.5rem",
+                "space-md": "1rem",
+                "space-sm": "0.75rem",
+                "space-xl": "2rem",
+                "space-xs": "0.5rem"
+              },
+              "spacingScale": 2,
+              "typography": {
+                "body-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "15px",
+                  "fontWeight": "400",
+                  "lineHeight": "24px"
+                },
+                "body-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "14px",
+                  "fontWeight": "400",
+                  "lineHeight": "22px"
+                },
+                "body-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "12px",
+                  "fontWeight": "400",
+                  "lineHeight": "18px"
+                },
+                "headline-lg": {
+                  "fontFamily": "Inter",
+                  "fontSize": "26px",
+                  "fontWeight": "600",
+                  "lineHeight": "34px"
+                },
+                "headline-md": {
+                  "fontFamily": "Inter",
+                  "fontSize": "20px",
+                  "fontWeight": "600",
+                  "lineHeight": "28px"
+                },
+                "headline-sm": {
+                  "fontFamily": "Inter",
+                  "fontSize": "16px",
+                  "fontWeight": "600",
+                  "lineHeight": "24px"
+                },
+                "label-md": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "13px",
+                  "fontWeight": "500",
+                  "lineHeight": "18px"
+                },
+                "label-sm": {
+                  "fontFamily": "Public Sans",
+                  "fontSize": "11px",
+                  "fontWeight": "500",
+                  "lineHeight": "16px"
+                }
+              }
+            },
+            "title": "心流 · 数据与备份",
+            "width": "2560"
+          }
+        ],
+        "theme": {}
+      }
+    },
+    {
+      "text": "我已经为您完成了「心流 · 数据与备份」页面的本地优先桌面端设计。\n\n### 设计亮点\n1. **本地优先与纯净视觉**：采用 Editorial Workspace 优雅的米色调与现代排版，严格遵循本地化、无云端中转的隐私安全定位。\n2. **两栏式高效布局**：\n   - **左侧本地备份历史**：清晰展示可用备份文件清单、文件体积及版本，支持一键恢复与独立备份。\n   - **右侧存储与迁移区**：明确列出绝对本地存储路径及独立的「导出到外部目录（不含密钥）」与「选择外部备份并核对」操作。\n3. **严谨的恢复确认机制**：内建或支持清晰的恢复警告与前置安全提示，防止误操作导致的草稿覆盖风险。"
+    },
+    {
+      "suggestion": "查看备份恢复确认弹窗细节"
+    },
+    {
+      "suggestion": "调整存储目录路径样式"
+    }
+  ],
+  "projectId": "9009469379776060375",
+  "sessionId": "9342714783758047443"
+}

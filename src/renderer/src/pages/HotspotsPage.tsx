@@ -80,6 +80,7 @@ export function HotspotsPage({
   // 所以判断依据同步写进 ref，state 只留着画"正在拖拽"的样式。
   const draggingSourceIdRef = useRef<string | undefined>(undefined)
   const [activeSourceId, setActiveSourceId] = useState<string>()
+  const [sourceQuery, setSourceQuery] = useState('')
   const [weiboDialogOpen, setWeiboDialogOpen] = useState(false)
   const [weiboConfigured, setWeiboConfigured] = useState(false)
   const [weiboUpdatedAt, setWeiboUpdatedAt] = useState<string>()
@@ -554,7 +555,7 @@ export function HotspotsPage({
   }
 
   return (
-    <div className="hotspots-page">
+    <div className="page hotspots-page">
       {/* 2026-10-06：移除页面顶部的 PipelineSteps。
           侧边栏已承载完整 9 阶段流水线导航（shared/creation-flow 派生），
           顶部再放一条同源导航会让用户在两处找同一目的地，
@@ -580,12 +581,6 @@ export function HotspotsPage({
           )}
         </div>
         <div className="hotspot-hero-actions">
-          <button className="button secondary" onClick={() =>
-            setView((current) => current === 'wall' ? 'favorites' : 'wall')
-          }>
-            <FolderHeart size={16} />
-            {view === 'wall' ? `收藏夹 ${favorites.length}` : '返回热榜墙'}
-          </button>
           {view === 'wall' && (
             <>
               <button className="button secondary" onClick={() => openFilterDialog('wall')}>
@@ -614,6 +609,12 @@ export function HotspotsPage({
         </div>
       </section>
 
+      <div className="hotspot-view-tabs" role="tablist" aria-label="热点视图">
+        <button role="tab" aria-selected={view === 'wall'} onClick={() => setView('wall')}>实时热榜</button>
+        <button role="tab" aria-selected={view === 'favorites'} onClick={() => setView('favorites')}>收藏夹 <span>{favorites.length}</span></button>
+        <button role="tab" aria-selected={view === 'filter'} onClick={() => setView('filter')}>筛选结果 {filterResult && <span>{filterResult.assessments.length}</span>}</button>
+      </div>
+
       {/* 链路引导：收藏热点后可直接带着关键词去生成选题 */}
       {favorites.length > 0 && (
         <NextStepBar
@@ -629,8 +630,9 @@ export function HotspotsPage({
           <section className="hotspot-radar-layout">
             <aside className="hotspot-source-rail">
               <header><strong>信号源</strong></header>
+              <label className="search-field hotspot-source-search"><Search size={14} /><input name="hotspotSourceQuery" value={sourceQuery} onChange={event => setSourceQuery(event.target.value)} placeholder="查找平台…" aria-label="查找信号源" /></label>
               <div>
-                {visibleSources.map((source) => {
+                {visibleSources.filter(source => source.displayName.toLocaleLowerCase().includes(sourceQuery.trim().toLocaleLowerCase())).map((source) => {
                   const result = results[source.id]
                   return (
                     <button
@@ -646,6 +648,7 @@ export function HotspotsPage({
                     </button>
                   )
                 })}
+                {sourceQuery.trim() && !visibleSources.some(source => source.displayName.toLocaleLowerCase().includes(sourceQuery.trim().toLocaleLowerCase())) && <p className="micro-copy">没有匹配的平台</p>}
               </div>
             </aside>
             <main className="hotspot-feed">
@@ -941,7 +944,7 @@ export function HotspotsPage({
               <span className="eyebrow">WEIBO SESSION</span>
               <h2 id="weibo-login-title">微博登录</h2>
               <p>
-                微博热榜接口对匿名访问风控（403/432），需携带登录 Cookie。
+                微博热榜需要有效的登录状态。
                 点击下方按钮会打开微博官方登录窗口，支持二维码扫码或手机号登录，成功后系统自动获取并加密保存 Cookie，无需手动复制。
               </p>
             </div>
@@ -1049,6 +1052,7 @@ export function HotspotsPage({
                       <input
                         type="checkbox"
                         name="sourceVisible"
+                        aria-label={`显示${source.displayName}`}
                         autoComplete="off"
                         checked={visible}
                         onChange={(event) => {

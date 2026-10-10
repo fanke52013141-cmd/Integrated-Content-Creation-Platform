@@ -207,11 +207,9 @@ function AccountList({
           </div>
           <section className="account-card-grid">
             <VirtualList
+              className="account-cards"
               items={filtered}
-              /* 卡片实测高度约 200px（16px 内边距 ×2 + 头像 36 + 标题 16+16
-                 + 简介两行 42 + 领域标签 24 + footer 34）。
-                   原估 90px 严重偏小，滚动时会跳。 */
-              estimateSize={() => 208}
+              estimateSize={() => 300}
               renderItem={(account) => (
                 <button
                   key={account.id}
@@ -240,7 +238,7 @@ function AccountList({
                   <footer>
                     <span>v{account.versionCount}</span>
                     <span>{formatDate(account.updatedAt)}</span>
-                    <ChevronRight size={16} />
+                    <span className="account-edit-link">编辑定位 <ChevronRight size={14} /></span>
                   </footer>
                 </button>
               )}
@@ -624,10 +622,10 @@ function AccountWizard({
 type AccountDimension = 'fields' | 'redlines' | 'platforms' | 'memories'
 
 const dimensionTabs: Array<{ id: AccountDimension; label: string }> = [
-  { id: 'fields', label: '定位' },
-  { id: 'redlines', label: '红线' },
-  { id: 'platforms', label: '平台' },
-  { id: 'memories', label: '记忆' }
+  { id: 'fields', label: '定位字段' },
+  { id: 'redlines', label: '内容红线' },
+  { id: 'platforms', label: '平台账号' },
+  { id: 'memories', label: '账号记忆' }
 ]
 
 function AccountEditor({

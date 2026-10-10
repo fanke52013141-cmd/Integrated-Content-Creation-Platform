@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流 · 新建文章草稿</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-high": "#e7e7f4",
+            "primary-fixed": "#dbe1ff",
+            "on-primary-container": "#eeefff",
+            "outline": "#737686",
+            "secondary-fixed": "#d4e4f9",
+            "on-primary-fixed-variant": "#003ea8",
+            "surface-tint": "#0053db",
+            "inverse-surface": "#2e3039",
+            "on-secondary-fixed": "#0d1d2c",
+            "inverse-on-surface": "#f0f0fc",
+            "tertiary": "#4c5666",
+            "on-tertiary": "#ffffff",
+            "secondary-container": "#d1e1f6",
+            "tertiary-fixed": "#d9e3f6",
+            "on-tertiary-container": "#ebf1ff",
+            "primary-fixed-dim": "#b4c5ff",
+            "outline-variant": "#c3c6d7",
+            "surface": "#faf8ff",
+            "surface-bright": "#faf8ff",
+            "on-error-container": "#93000a",
+            "surface-dim": "#d9d9e5",
+            "surface-container-highest": "#e2e1ee",
+            "primary-container": "#2563eb",
+            "on-surface": "#191b24",
+            "on-secondary-container": "#556476",
+            "on-error": "#ffffff",
+            "background": "#faf8ff",
+            "tertiary-fixed-dim": "#bdc7da",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "surface-variant": "#e2e1ee",
+            "surface-container": "#ededf9",
+            "on-secondary-fixed-variant": "#394859",
+            "surface-container-low": "#f3f2ff",
+            "on-primary-fixed": "#00174b",
+            "surface-container-lowest": "#ffffff",
+            "secondary": "#516072",
+            "on-background": "#191b24",
+            "on-primary": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "primary": "#004ac6",
+            "on-secondary": "#ffffff",
+            "error-container": "#ffdad6",
+            "tertiary-container": "#646e7f",
+            "on-surface-variant": "#434655",
+            "error": "#ba1a1a",
+            "on-tertiary-fixed": "#121c2a",
+            "secondary-fixed-dim": "#b8c8dd"
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          spacing: {
+            "space-xl": "2rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "gutter": "1rem",
+            "space-sm": "0.75rem",
+            "space-xs": "0.5rem",
+            "margin": "1.5rem"
+          },
+          fontFamily: {
+            body: ["Inter", "sans-serif"],
+            headline: ["Inter", "sans-serif"],
+            label: ["Public Sans", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background text-on-background font-body text-sm antialiased selection:bg-primary-fixed selection:on-primary-fixed overflow-hidden">
+<div class="flex h-screen w-screen relative">
+<!-- Background Workspace (Blurred/Dimmed Content Canvas) -->
+<div class="flex h-screen w-screen filter blur-[2px] opacity-40 select-none pointer-events-none">
+<!-- SideNavBar Shell -->
+<aside class="w-52 h-screen flex-shrink-0 flex flex-col justify-between bg-surface border-r border-outline-variant p-3">
+<div class="space-y-4">
+<div class="flex items-center gap-3 px-2 py-1">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold">心</div>
+<div>
+<div class="font-headline font-semibold text-base text-on-surface">心流</div>
+<div class="text-xs text-on-surface-variant">内容创作工作室</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>工作台
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-surface-variant text-primary rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">trending_up</span>热点发现
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl">lightbulb</span>选题策划
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl">schema</span>框架大纲
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface rounded-lg text-sm font-medium" href="#">
+<span class="material-symbols-outlined text-xl">edit_note</span>正文写作
+            </a>
+</nav>
+</div>
+<div class="pt-4 border-t border-outline-variant">
+<div class="flex items-center gap-3 px-3 py-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-xl">settings</span>系统设置
+          </div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background">
+<header class="h-12 px-4 flex justify-between items-center w-full border-b border-outline-variant bg-surface">
+<div class="flex items-center gap-4">
+<span class="font-headline text-sm font-semibold text-on-surface">心流 · 简约工作室</span>
+<div class="flex items-center bg-surface-container px-3 py-1 rounded-md text-xs text-on-surface-variant w-64">
+<span class="material-symbols-outlined text-base mr-2">search</span>全局搜索文章、大纲或素材...
+            </div>
+</div>
+<div class="flex items-center gap-3">
+<button class="bg-[#17212f] text-white px-3 py-1.5 rounded-lg text-xs font-medium">新建文章</button>
+<span class="material-symbols-outlined text-xl text-on-surface-variant">account_circle</span>
+</div>
+</header>
+<div class="flex-1 p-6 space-y-6 overflow-y-auto">
+<div class="flex justify-between items-center">
+<h1 class="font-headline font-semibold text-2xl text-on-surface">热点发现与选题监控</h1>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<div class="bg-surface border border-outline-variant rounded-xl p-5 space-y-3">
+<div class="flex justify-between text-xs text-on-surface-variant"><span>全网热榜</span><span>实时更新</span></div>
+<h3 class="font-headline font-semibold text-base">深度思考与技术平权浪潮</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">探讨大模型下沉至个人工作流的实际效能与边界，结合创作者实际案例进行深度剖析。</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-5 space-y-3">
+<div class="flex justify-between text-xs text-on-surface-variant"><span>垂直领域</span><span>知乎高赞</span></div>
+<h3 class="font-headline font-semibold text-base">独立开发者如何构建长效内容资产</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">从零开始搭建矩阵账号，实现多端内容分发的自动化协同机制与方法论总结。</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-xl p-5 space-y-3">
+<div class="flex justify-between text-xs text-on-surface-variant"><span>趋势预测</span><span>微信公众号</span></div>
+<h3 class="font-headline font-semibold text-base">现代极简主义在数字写作中的实践</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">回归文字本身，去除冗余视觉干扰，建立高专注度的沉浸式创作习惯与日常节奏。</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Modal Backdrop Overlay -->
+<div class="absolute inset-0 bg-[#191b24]/40 z-40 backdrop-blur-sm flex items-center justify-center p-4">
+<!-- Deliberate Roomy Dialog Window -->
+<div class="bg-surface border border-outline-variant rounded-xl w-full max-w-3xl shadow-2xl z-50 flex flex-col max-h-[921px] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+<!-- Dialog Header -->
+<div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">edit_note</span>
+</div>
+<h2 class="font-headline font-semibold text-lg text-on-surface">新建文章草稿</h2>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+<!-- Dialog Body / Form Content -->
+<div class="p-6 space-y-6 overflow-y-auto flex-1">
+<!-- Form Row 1: Framework / Account / Model Selection -->
+<div class="grid grid-cols-3 gap-4">
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-medium text-on-surface-variant">核心选题框架</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>深度解读与方法论</option>
+<option>热点快讯与快评</option>
+<option>个人随笔与思考</option>
+<option>教程与工作流实操</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-medium text-on-surface-variant">目标分发矩阵</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>微信公众号 / 知乎专栏</option>
+<option>全平台矩阵同步</option>
+<option>独立博客 / Substack</option>
+<option>短内容备忘录</option>
+</select>
+</div>
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-medium text-on-surface-variant">AI 创作助手</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>深度逻辑引擎 v2.3</option>
+<option>流畅散文引擎 v1.8</option>
+<option>严谨学术引擎 v3.0</option>
+</select>
+</div>
+</div>
+<!-- Form Row 2: Outline Textarea -->
+<div class="space-y-1.5">
+<div class="flex justify-between items-center">
+<label class="block font-label text-xs font-medium text-on-surface-variant">大纲与核心观点输入</label>
+<span class="text-xs text-on-surface-variant">支持 Markdown 语法与智能联想</span>
+</div>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 text-sm text-on-surface placeholder:text-outline focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none leading-relaxed" placeholder="输入核心观点或粘贴引语，AI 自动生成多层结构大纲..." rows="4">探讨大模型在日常长文写作中的落地实践。重点分析：1. 灵感捕捉与素材结构化整理；2. 多端排版与AI配图的协同效率；3. 保持创作者个人声音与风格的平衡机制。</textarea>
+</div>
+<!-- Form Row 3: Optional Reference Materials -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-medium text-on-surface-variant">参考资料与素材资产</label>
+<div class="border border-dashed border-outline-variant rounded-lg p-4 text-center bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer flex flex-col items-center justify-center gap-2">
+<span class="material-symbols-outlined text-2xl text-primary">cloud_upload</span>
+<div class="text-xs text-on-surface">拖拽或导入 Markdown / PDF / 长文片段到此处</div>
+<div class="text-[11px] text-on-surface-variant">支持多文件上传，系统将自动进行语义向量化索引</div>
+</div>
+</div>
+<!-- Form Row 4: Advanced Options -->
+<div class="space-y-2 pt-2 border-t border-outline-variant">
+<label class="block font-label text-xs font-medium text-on-surface-variant">高级选项</label>
+<div class="grid grid-cols-3 gap-3">
+<label class="flex items-center gap-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 cursor-pointer hover:border-primary transition-colors">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="text-xs text-on-surface font-medium">自动配图预测</span>
+</label>
+<label class="flex items-center gap-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 cursor-pointer hover:border-primary transition-colors">
+<input checked="" class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="text-xs text-on-surface font-medium">多端排版预检</span>
+</label>
+<label class="flex items-center gap-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 cursor-pointer hover:border-primary transition-colors">
+<input class="rounded border-outline text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+<span class="text-xs text-on-surface font-medium">本地加密存储</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="px-6 py-4 border-t border-outline-variant bg-surface-container-low flex items-center justify-end gap-3">
+<button class="px-4 py-2 rounded-lg border border-outline-variant text-[#17212f] bg-white hover:bg-surface-variant text-sm font-medium transition-colors h-[36px]">取消</button>
+<button class="px-5 py-2 rounded-lg bg-[#17212f] text-white hover:bg-opacity-90 text-sm font-medium transition-colors h-[36px] flex items-center gap-2">
+<span>立即生成草稿并进入大纲</span>
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

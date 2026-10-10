@@ -1,0 +1,51 @@
+/* Stitch: 文章库 / 主画布 / 辅助栏；创建流程独立为弹窗。 */
+.articles-page { gap: 20px; }
+.articles-page .article-workbench { margin-top: 0; grid-template-columns: 228px minmax(0, 1fr); min-height: max(580px, calc(100vh - 220px)); box-shadow: none; }
+.articles-page .article-list { padding: 20px 16px; background: #fafbfc; }
+.articles-page .article-list-filters { gap: 12px; }
+.articles-page .article-list-item { padding: 16px 12px; border-radius: 8px; }
+.articles-page .article-canvas { padding: 0 24px 24px; }
+.articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr) 260px; gap: 0; }
+.articles-page .article-rail { padding: 20px 16px; border-left: 1px solid var(--border-subtle); background: #fafbfc; }
+.articles-page .article-editor-head { flex-wrap: wrap; gap: 12px; }
+.articles-page .article-editor-head h2 { font-size: 23px; line-height: 1.4; }
+.articles-page .article-editor-head > div:last-child { flex-wrap: wrap; }
+.articles-page .article-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 480px; padding: 48px 28px; text-align: center; }
+.articles-page .article-empty h3 { margin: 20px 0 8px; font-size: 22px; }
+.articles-page .article-empty p { max-width: 380px; line-height: 1.8; }
+.articles-page .focus-toggle { align-self: flex-end; margin: 0; }
+.articles-page .article-editor-toolbar { justify-content: space-between; gap: 12px; }
+.article-supplement-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+.article-supplement-tools .markdown-formatting { margin: 0; padding: 0; }
+.article-tools-end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.article-tools-end .select { width: 180px; }
+.articles-page .article-export-actions { background: transparent; }
+.articles-page .article-rail .article-history > div { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.articles-page .article-history-actions { flex-wrap: wrap; justify-content: flex-start; }
+/* 改稿面板 footer 原为不换行 flex，260px 栏内放不下，会把「生成改稿」挤出视口 */
+.articles-page .article-rail .article-revision footer { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.articles-page .article-rail .article-revision footer > span { display: none; }
+.articles-page .article-rail .article-revision footer .button { width: 100%; justify-content: center; }
+.articles-page .article-rail .article-revision .revision-advanced { margin-left: 0; }
+.article-composer-dialog.modal { width: min(840px, calc(100vw - 48px)); max-height: calc(100dvh - 64px); padding: 0; gap: 0; overflow: hidden; border-radius: 12px; }
+.article-composer-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--border-subtle); }
+.article-composer-heading h2 { margin: 0; font-size: 21px; }
+.article-composer-heading p { margin: 8px 0 0; color: var(--text-secondary); font-size: 13px; }
+.article-composer-body { min-height: 0; overflow: auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+.article-composer-body .article-compose-grid { margin: 0; gap: 16px; }
+.article-composer-body .article-outline-field { margin: 0; }
+.article-composer-body .article-outline-field textarea { min-height: 132px; }
+.article-composer-body .editorial-input-summary { margin: 0; }
+.article-composer-footer { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 18px 28px; border-top: 1px solid var(--border-subtle); background: #fafbfc; }
+.article-composer-footer .form-hint { flex-basis: 100%; margin: 0; text-align: right; }
+@media (max-width: 1279px) {
+  .articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr); }
+  .articles-page .article-rail { border-left: 0; border-top: 1px solid var(--border-subtle); }
+}
+@media (max-width: 900px) {
+  .articles-page .article-workbench { grid-template-columns: minmax(0, 1fr); }
+  .articles-page .article-list { border-bottom: 1px solid var(--border-subtle); }
+  .article-composer-body .article-compose-grid { grid-template-columns: minmax(0, 1fr); }
+  .article-composer-heading, .article-composer-body { padding: 20px; }
+  .article-composer-footer { padding: 16px 20px; }
+}

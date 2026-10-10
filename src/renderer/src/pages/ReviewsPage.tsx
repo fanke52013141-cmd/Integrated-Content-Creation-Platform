@@ -229,7 +229,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
         onAction={() => onNavigate('articles')}
       />
     ) : (
-      <>
+      <div className="review-studio">
         <section className="review-composer">
           <label className="field"><span>文章</span>
             <ArticlePicker value={articleId} onChange={setArticleId} />
@@ -266,6 +266,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
           )}
         </section>
 
+        <div className="review-output">
         {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在评审…" />}
 
         {lastFailed.length > 0 && !stream.active && (
@@ -346,7 +347,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
             </article>
           })}
         </section>
-      </>
+        </div>
+      </div>
     )}
 
     {roleDialogOpen && <RoleDialog roles={roles} onClose={() => setRoleDialogOpen(false)} onSaved={async () => { setRoleDialogOpen(false); await refresh() }} showToast={showToast} />}

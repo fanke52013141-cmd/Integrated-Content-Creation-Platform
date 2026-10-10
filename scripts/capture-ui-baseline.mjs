@@ -119,11 +119,10 @@ try {
   }
 
   await visit(window, 'dashboard')
-  await window.getByRole('button', { name: '切换主题' }).click()
-  await capture(window, '20-dashboard-dark')
+  await capture(window, '20-dashboard-light')
 
   await visit(window, 'accounts')
-  await capture(window, '21-accounts-dark')
+  await capture(window, '21-accounts-light')
 } finally {
   await application.close()
 }

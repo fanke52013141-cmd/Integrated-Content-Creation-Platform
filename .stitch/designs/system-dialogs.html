@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<title>心流工作室 - 任务中心弹窗</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary-fixed-dim": "#b4c5ff",
+            "error-container": "#ffdad6",
+            "surface-container-highest": "#d7e3fa",
+            "surface-container-high": "#dde9ff",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed": "#0d1d2c",
+            "tertiary": "#4c5666",
+            "surface-container": "#e6eeff",
+            "surface-bright": "#f9f9ff",
+            "on-error": "#ffffff",
+            "on-background": "#101c2d",
+            "tertiary-fixed-dim": "#bdc7da",
+            "tertiary-fixed": "#d9e3f6",
+            "surface-variant": "#d7e3fa",
+            "primary-fixed": "#dbe1ff",
+            "surface-dim": "#cedbf2",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "error": "#ba1a1a",
+            "on-surface-variant": "#434655",
+            "secondary-fixed": "#d4e4f9",
+            "secondary-container": "#d1e1f6",
+            "background": "#f9f9ff",
+            "surface-container-lowest": "#ffffff",
+            "on-secondary-container": "#556476",
+            "inverse-surface": "#253143",
+            "primary": "#004ac6",
+            "outline": "#737686",
+            "on-primary-fixed-variant": "#003ea8",
+            "outline-variant": "#c3c6d7",
+            "on-primary-container": "#eeefff",
+            "secondary-fixed-dim": "#b8c8dd",
+            "on-tertiary": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "on-primary-fixed": "#00174b",
+            "inverse-on-surface": "#ebf1ff",
+            "on-tertiary-fixed": "#121c2a",
+            "surface-tint": "#0053db",
+            "on-primary": "#ffffff",
+            "surface": "#f9f9ff",
+            "on-secondary-fixed-variant": "#394859",
+            "tertiary-container": "#646e7f",
+            "surface-container-low": "#eff3ff",
+            "primary-container": "#2563eb",
+            "on-tertiary-container": "#ebf1ff",
+            "on-error-container": "#93000a",
+            "secondary": "#516072",
+            "on-surface": "#101c2d"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xl": "1.5rem",
+            "margin": "2rem",
+            "space-sm": "0.5rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1rem",
+            "space-md": "0.75rem",
+            "gutter": "1rem"
+          },
+          "fontFamily": {
+            "body-md": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "body-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "label-md": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-sm": ["Inter"]
+          },
+          "fontSize": {
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-lg": ["22px", { "lineHeight": "30px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#f7f8fa] font-body-md text-on-surface antialiased min-h-screen flex items-center justify-center p-4">
+<!-- 遮罩背景 -->
+<div class="fixed inset-0 bg-[#17212f40] flex items-center justify-center z-50 p-4">
+<!-- 模态弹窗主卡片 (宽 900px) -->
+<div class="bg-surface-container-lowest w-full max-w-[900px] rounded-lg border border-outline-variant shadow-[0_4px_16px_rgba(23,33,47,0.06)] flex flex-col max-h-[870px] overflow-hidden">
+<!-- 顶部标题栏 -->
+<div class="px-space-xl py-space-lg border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">任务中心与系统异步队列</h2>
+<p class="font-body-sm text-on-surface-variant mt-0.5">管理当前工作台的后台异步任务、数据索引构建与发布队列状态。</p>
+</div>
+<button aria-label="关闭" class="w-8 h-8 rounded hover:bg-surface-variant flex items-center justify-center text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- 中部内容区：支持内嵌账号切换浮层与滚动任务列表 -->
+<div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+<!-- 左侧：320px 宽的浅色浮层（账号/频道筛选切换区） -->
+<div class="w-full md:w-[320px] border-r border-outline-variant bg-surface-container-low p-space-lg flex flex-col gap-space-md shrink-0">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface">工作频道与账号</span>
+<span class="font-label-sm text-primary bg-primary-fixed px-2 py-0.5 rounded">4 个在线</span>
+</div>
+<!-- 顶部搜索框 -->
+<div class="relative">
+<span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded h-[36px] pl-9 pr-3 font-body-md text-on-surface focus:outline-none focus:border-primary" placeholder="搜索绑定账号或专栏..." type="text"/>
+</div>
+<!-- 账号状态列表 -->
+<div class="flex flex-col gap-2 overflow-y-auto flex-1 pr-1">
+<!-- 当前勾选项 -->
+<div class="p-space-md rounded-lg bg-surface-container-high border border-primary flex items-center justify-between cursor-pointer">
+<div class="flex items-center gap-space-md">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm">心</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">心流官方主站</div>
+<div class="font-body-sm text-on-surface-variant">flowstate.studio</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px]">check_circle</span>
+</div>
+<!-- 其他正常项 -->
+<div class="p-space-md rounded-lg bg-surface-container-lowest border border-outline-variant hover:border-outline flex items-center justify-between cursor-pointer transition-all">
+<div class="flex items-center gap-space-md">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-sm">技</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">技术前沿专栏</div>
+<div class="font-body-sm text-on-surface-variant">tech.flowstate</div>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+</div>
+<div class="p-space-md rounded-lg bg-surface-container-lowest border border-outline-variant hover:border-outline flex items-center justify-between cursor-pointer transition-all">
+<div class="flex items-center gap-space-md">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-sm">设</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface">产品设计手记</div>
+<div class="font-body-sm text-on-surface-variant">design.flowstate</div>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+</div>
+</div>
+<!-- 管理账号入口 -->
+<button class="w-full h-[36px] bg-surface-container-lowest border border-outline-variant rounded font-label-md text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center gap-space-sm">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+            管理授权账号
+          </button>
+</div>
+<!-- 右侧：滚动任务列表 -->
+<div class="flex-1 p-space-xl overflow-y-auto flex flex-col gap-space-md bg-surface-container-lowest">
+<div class="flex items-center justify-between mb-1">
+<span class="font-headline-sm text-headline-sm text-on-surface">任务执行队列</span>
+<span class="font-body-sm text-on-surface-variant">实时同步中</span>
+</div>
+<!-- 任务项 1：运行中 -->
+<div class="p-space-lg rounded-lg border border-outline-variant bg-surface-container-low flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px] animate-spin">progress_activity</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">全量文章向量索引重建</span>
+</div>
+<div class="flex items-center gap-space-md">
+<span class="font-body-sm text-on-surface-variant">10分钟前</span>
+<span class="px-2 py-0.5 rounded text-xs bg-primary-fixed text-on-primary-fixed font-medium">运行中</span>
+</div>
+</div>
+<p class="font-body-md text-on-surface-variant">正在对工作空间内共 1,240 篇历史文章执行 Embedding 向量化与语义分块索引构建...</p>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant">
+<span class="font-body-sm text-primary font-medium">已完成 842 / 1240 (67%)</span>
+<div class="flex gap-2">
+<button class="px-3 h-[32px] rounded border border-error text-error text-xs font-medium hover:bg-error-container transition-colors">取消任务</button>
+<button class="px-3 h-[32px] rounded bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-medium hover:bg-surface-variant transition-colors">查看日志</button>
+</div>
+</div>
+</div>
+<!-- 任务项 2：失败 -->
+<div class="p-space-lg rounded-lg border border-error-container bg-surface-container-lowest flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-error text-[20px]">error</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">第三方媒体平台定时自动分发</span>
+</div>
+<div class="flex items-center gap-space-md">
+<span class="font-body-sm text-on-surface-variant">2小时前</span>
+<span class="px-2 py-0.5 rounded text-xs bg-error-container text-on-error-container font-medium">失败</span>
+</div>
+</div>
+<p class="font-body-md text-on-surface-variant">尝试将《极简工作台的交互逻辑重构》一文自动推送到外部媒体开放 API。</p>
+<!-- 错误原因展示 -->
+<div class="bg-error-container/30 border border-error/30 rounded p-2 text-xs text-error font-mono">
+              错误原因：API_Rate_Limit_Exceeded - 目标平台接口调用频率超限，将在后台自动尝试指数退避重试。
+            </div>
+<div class="flex items-center justify-end pt-2 border-t border-outline-variant">
+<button class="px-3 h-[32px] rounded bg-primary text-on-primary text-xs font-medium hover:bg-primary/90 transition-colors">手动重试</button>
+</div>
+</div>
+<!-- 任务项 3：已完成 -->
+<div class="p-space-lg rounded-lg border border-outline-variant bg-surface-container-lowest flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-emerald-600 text-[20px]">check_circle</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Markdown 静态资源打包导出</span>
+</div>
+<div class="flex items-center gap-space-md">
+<span class="font-body-sm text-on-surface-variant">昨天 18:42</span>
+<span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-medium">已完成</span>
+</div>
+</div>
+<p class="font-body-md text-on-surface-variant">成功导出包含全部插图、元数据及 Front-matter 规范的完整静态包 (v2.4.1.zip)。</p>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant">
+<span class="font-body-sm text-on-surface-variant">文件大小: 14.8 MB</span>
+<button class="px-3 h-[32px] rounded bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-medium hover:bg-surface-variant transition-colors">查看结果</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 底部提示及关闭操作 -->
+<div class="px-space-xl py-space-md border-t border-outline-variant bg-surface-container-low flex items-center justify-between">
+<span class="font-body-sm text-on-surface-variant">仅展示最近 40 条异步任务记录，历史记录已本地持久化。</span>
+<button class="px-4 h-[36px] bg-[#17212f] text-white rounded font-label-md hover:bg-[#17212f]/90 transition-colors">关闭</button>
+</div>
+</div>
+</div>
+</body></html>

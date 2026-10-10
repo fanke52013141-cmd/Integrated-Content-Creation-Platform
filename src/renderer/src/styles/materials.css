@@ -1,0 +1,40 @@
+.materials-intro h2 { font-size: 26px; margin: 0 0 8px; }
+.materials-intro { align-items: center; }
+.materials-page .material-tabs { display: flex; padding: 0; gap: 24px; background: transparent; border-radius: 0; border-bottom: 1px solid var(--border); width: 100%; }
+.materials-page .material-tabs button { padding: 12px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 14px; }
+.materials-page .material-tabs button.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; box-shadow: none; }
+.materials-page .material-search-workspace { grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; }
+.material-search-main, .material-saved-rail { border-radius: 8px; box-shadow: none; padding: 24px; }
+.materials-page .material-search-controls { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto; gap: 16px; padding: 0; border: 0; }
+.material-search-controls .material-search-type { grid-column: 1 / -1; justify-self: start; }
+.material-search-controls .material-query-input { min-width: 0; }
+.material-query-input input { min-width: 0; font-size: 14px; }
+.materials-page .material-search-context { flex-wrap: wrap; max-width: none; padding: 0; margin: 4px 0 20px; border: 0; background: transparent; }
+.material-search-context .select { max-width: 300px; }
+.material-search-empty, .material-search-disabled { min-height: 360px; justify-content: center; padding: 40px 24px; }
+.material-search-results > header { padding: 0; flex-wrap: wrap; gap: 16px; }
+.material-results-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.web-material-results { padding: 0; }
+.web-material-result { padding: 20px; border-radius: 8px; gap: 20px; }
+.material-result-main > button { font-size: 16px; line-height: 1.6; }
+.material-result-main p { font-size: 14px; line-height: 1.8; }
+.materials-page .image-material-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; padding: 0; }
+.image-material-result { display: grid; grid-template-columns: 100px minmax(0, 1fr); padding: 16px; }
+.image-material-result > img { width: 100px; height: 100px; }
+.material-saved-rail h3 { font-size: 16px; }
+.material-collection-toolbar { flex-wrap: wrap; gap: 16px; padding: 20px 24px; background: var(--surface); }
+.material-collection-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.material-collection-toolbar .search-field { min-width: 200px; max-width: none; }
+.materials-page .material-collection-workspace { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.material-collection-list { padding: 0 24px 24px; }
+.material-row { padding: 20px 0; gap: 16px; border-radius: 0; border-bottom: 1px solid var(--border); }
+.material-row-main strong { font-size: 16px; }
+.material-row-main p { font-size: 14px; line-height: 1.8; }
+.manual-material-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 64px); padding: 0; border-radius: 12px; }
+.manual-material-dialog > header { padding: 24px 28px; }
+.manual-material-dialog h2 { margin: 0; font-size: 22px; }
+.manual-material-fields { padding: 24px 28px; gap: 20px; }
+.manual-material-fields textarea { min-height: 220px; }
+.manual-material-dialog > footer { padding: 20px 28px; background: var(--surface); }
+@media (max-width: 1100px) { .materials-page .material-search-workspace { grid-template-columns: minmax(0, 1fr); } .material-saved-rail { max-height: 320px; overflow: auto; } }
+@media (max-width: 760px) { .materials-page .material-search-controls { grid-template-columns: minmax(0, 1fr) 90px; } .material-search-controls > .button { grid-column: 1 / -1; } .material-collection-toolbar .search-field { flex-basis: 100%; } .web-material-result { flex-wrap: wrap; } .manual-material-dialog { width: calc(100vw - 24px); } }

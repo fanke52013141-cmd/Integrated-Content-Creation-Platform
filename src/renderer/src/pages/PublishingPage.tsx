@@ -129,22 +129,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     <PageHeader route="publishing" onNavigate={onNavigate} title="排版交付" description="核对当前作品，推送公众号草稿箱，再记录正式发布链接" />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
-    <section className="publish-channel">
-      <header className="publish-section-head"><div><h3><KeyRound size={16} />公众号连接</h3><p>{channelReady ? `当前目标：${channel?.appId}` : '连接验证成功后才能推送；也可以在排版页导出文件。'}</p></div>
-        <span className={`status-pill ${channelReady ? 'success' : 'muted'}`}>{channelReady ? '验证通过' : channel?.lastTestStatus === 'failure' ? '验证失败' : channel?.hasAppSecret ? '待验证' : '未配置'}</span>
-        <button className="text-button" onClick={() => setChannelOpen(value => !value)}>{channelOpen ? '收起配置' : '修改连接'}</button></header>
-      {channelOpen && <>
-        <p className="micro-copy">在公众号后台「设置与开发 → 基本配置」获取凭证，并将当前公网 IP 加入白名单。</p>
-        <div className="publish-fields">
-          <label className="field"><span>AppID</span><input name="appId" disabled={busy} autoComplete="off" value={appId} onChange={event => setAppId(event.target.value)} /></label>
-          <label className="field"><span>AppSecret {channel?.hasAppSecret && <em>同一公众号留空保留密钥</em>}</span><input type="password" name="appSecret" disabled={busy} autoComplete="new-password" value={secret} onChange={event => setSecret(event.target.value)} /></label>
-          <label className="publish-enabled"><input type="checkbox" disabled={busy} checked={enabled} onChange={event => setEnabled(event.target.checked)} />启用连接</label>
-        </div>
-        <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
-          <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试当前配置</button>
-          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
-      </>}
-    </section>
+    <div className="publication-workspace"><div className="publication-main-column">
     <section className="publish-draft">
       <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览</h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
       <div className="publish-draft-grid">
@@ -153,7 +138,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <label className="field"><span>作者</span><input name="author" disabled={!loaded || busy} value={form.author} onChange={event => update({ author: event.target.value })} maxLength={100} /></label>
         <label className="field"><span>摘要</span><input name="digest" disabled={!loaded || busy} value={form.digest} onChange={event => update({ digest: event.target.value })} maxLength={120} /></label>
         <label className="field"><span>原文链接（可选）</span><input type="url" name="sourceUrl" disabled={!loaded || busy} value={form.contentSourceUrl} onChange={event => update({ contentSourceUrl: event.target.value })} /></label>
-      </div>
+        </div>
       {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}
       <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
       {selectedLayout ? <div className="delivery-preview">
@@ -176,6 +161,24 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         onSaveRetro={retro => saveRetro(item, retro)} onRemember={lesson => rememberLesson(item, lesson)} busy={busy} />)
         : <EmptyState icon={Send} title="暂无交付记录" description="第一次推送后会保存完整交付快照。" />}
     </section>
+    </div>
+    <section className="publish-channel">
+      <header className="publish-section-head"><div><h3><KeyRound size={16} />公众号连接</h3><p>{channelReady ? `当前目标：${channel?.appId}` : '连接验证成功后才能推送；也可以在排版页导出文件。'}</p></div>
+        <span className={`status-pill ${channelReady ? 'success' : 'muted'}`}>{channelReady ? '验证通过' : channel?.lastTestStatus === 'failure' ? '验证失败' : channel?.hasAppSecret ? '待验证' : '未配置'}</span>
+        <button className="text-button" onClick={() => setChannelOpen(value => !value)}>{channelOpen ? '收起配置' : '修改连接'}</button></header>
+      {channelOpen && <>
+        <p className="micro-copy">在公众号后台「设置与开发 → 基本配置」获取凭证，并将当前公网 IP 加入白名单。</p>
+        <div className="publish-fields">
+          <label className="field"><span>AppID</span><input name="appId" disabled={busy} autoComplete="off" value={appId} onChange={event => setAppId(event.target.value)} /></label>
+          <label className="field"><span>AppSecret {channel?.hasAppSecret && <em>同一公众号留空保留密钥</em>}</span><input type="password" name="appSecret" disabled={busy} autoComplete="new-password" value={secret} onChange={event => setSecret(event.target.value)} /></label>
+          <label className="publish-enabled"><input type="checkbox" disabled={busy} checked={enabled} onChange={event => setEnabled(event.target.checked)} />启用连接</label>
+        </div>
+        <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
+          <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试当前配置</button>
+          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
+      </>}
+    </section>
+    </div>
   </div>
 }
 

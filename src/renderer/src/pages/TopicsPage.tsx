@@ -228,6 +228,7 @@ export function TopicsPage({
         actions={<button className="button secondary" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>}
       />
 
+      <div className="topic-studio">
       <section className="topic-composer">
         <div className="topic-composer-head">
           <div>
@@ -259,11 +260,9 @@ export function TopicsPage({
                     rows={4}
                   />
                 </label>
-                <div className="topic-favorites-picker">
-                  <div className="topic-favorites-heading">
-                    <div><FolderHeart size={17} /><strong>关联热点</strong></div>
-                    <button className="button ghost compact" onClick={() => onNavigate('hotspots')}>管理</button>
-                  </div>
+                <details className="topic-favorites-picker">
+                  <summary className="topic-favorites-heading"><FolderHeart size={17} /><strong>关联热点</strong><span>已选 {favoriteIds.size} 条</span></summary>
+                  <button className="button ghost compact" onClick={() => onNavigate('hotspots')}>管理收藏</button>
                   {favorites.length ? (
                     <div className="topic-favorite-options">
                       {favorites.map((favorite) => (
@@ -288,7 +287,7 @@ export function TopicsPage({
                   ) : (
                     <p className="topic-no-favorites">暂无收藏</p>
                   )}
-                </div>
+                </details>
               </div>
               <aside className="topic-generation-settings">
                 <label className="field">
@@ -332,6 +331,7 @@ export function TopicsPage({
           </>
       </section>
 
+      <div className="topic-results">
       {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在生成选题…" />}
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 条未成功：{lastFailed.map((item) => `第 ${item.index} 条 ${item.message.slice(0, 50)}`).join('；')}</p>
@@ -379,8 +379,9 @@ export function TopicsPage({
         ) : displayedTopics.length ? (
           <div className="topic-card-list">
             <VirtualList
+              className="topic-cards"
               items={displayedTopics}
-              estimateSize={() => 110}
+              estimateSize={() => 380}
               renderItem={(topic) => (
                 <TopicCard
                   key={topic.id}
@@ -419,6 +420,8 @@ export function TopicsPage({
         )}
       </section>
 
+      </div>
+      </div>
       {/* 有选题时始终给出明确去向，避免生成完不知道下一步做什么 */}
       {displayedTopics.length > 0 && (
         <NextStepBar

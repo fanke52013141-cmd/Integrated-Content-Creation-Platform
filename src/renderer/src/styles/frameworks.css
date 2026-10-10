@@ -1,0 +1,41 @@
+.framework-studio-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+.framework-studio-layout > * { min-width: 0; margin-top: 0; box-shadow: none; }
+.framework-composer { padding: 24px; }
+.framework-compose-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 24px; }
+.framework-topic-field { margin-top: 20px; }
+.framework-topic-field textarea { min-height: 112px; }
+.framework-composer footer { flex-wrap: wrap; gap: 12px; margin-top: 24px; padding-top: 20px; }
+.framework-composer footer > .button.primary { width: 100%; justify-content: center; }
+.framework-composer footer > .form-hint { width: 100%; margin: 0; }
+.framework-composer .framework-count { width: 100px; }
+.framework-composer .framework-material-options { grid-template-columns: minmax(0, 1fr); }
+.framework-wall { min-height: 600px; }
+.framework-wall > header { flex-wrap: wrap; gap: 12px; padding: 24px; background: var(--surface); }
+.framework-wall > header > div:first-child { flex: 1; }
+.framework-card-grid { display: block; padding: 24px; }
+.framework-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 20px; }
+.framework-cards > div[style] { grid-column: 1 / -1; }
+.framework-cards .framework-card { min-width: 0; min-height: 320px; padding: 20px; border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+.framework-card-title h3 { font-size: 18px; line-height: 1.5; }
+.framework-section-preview p { font-size: 13px; line-height: 1.7; }
+.framework-card footer { flex-wrap: wrap; font-size: 12px; }
+.framework-card footer span + span::before { content: '·'; }
+.framework-template-dialog, .framework-editor-dialog { width: min(800px, calc(100vw - 48px)); max-height: calc(100vh - 64px); padding: 28px; border-radius: 12px; }
+.framework-template-dialog > header, .framework-editor-dialog > header { align-items: flex-start; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.framework-template-dialog h2, .framework-editor-dialog h2 { font-size: 22px; margin-top: 0; }
+.framework-template-dialog > .field, .framework-editor-dialog > .field { margin-bottom: 20px; }
+.framework-template-sections { gap: 12px; margin: 20px 0; }
+.framework-template-sections > div { grid-template-columns: 24px minmax(0, 1fr) repeat(3, 32px); }
+.framework-template-dialog footer, .framework-editor-dialog footer { flex-wrap: wrap; position: sticky; bottom: -28px; margin: 24px -28px -28px; padding: 20px 28px; background: var(--surface); }
+.framework-editor-sections { gap: 24px; }
+.framework-editor-sections textarea { min-height: 140px; }
+@media (max-width: 1100px) {
+  .framework-studio-layout { grid-template-columns: minmax(0, 1fr); }
+  .framework-compose-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .framework-composer footer > .button.primary { width: auto; margin-left: auto; }
+}
+@media (max-width: 760px) {
+  .framework-compose-grid { grid-template-columns: minmax(0, 1fr); }
+  .framework-template-dialog, .framework-editor-dialog { width: calc(100vw - 24px); padding: 20px; }
+  .framework-template-dialog footer, .framework-editor-dialog footer { bottom: -20px; margin: 20px -20px -20px; padding: 16px 20px; }
+}

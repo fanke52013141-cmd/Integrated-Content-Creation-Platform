@@ -487,6 +487,8 @@ export function ProvidersPage({
             )}
           </div>
 
+          <details className="provider-presets">
+            <summary>从服务商预设开始</summary>
           <div className="preset-grid">
             {presets.map((preset) => (
               <button key={preset.id} className="preset-chip" onClick={() => choosePreset(preset)}>
@@ -494,6 +496,7 @@ export function ProvidersPage({
               </button>
             ))}
           </div>
+          </details>
 
           <div className="form-grid">
             <label className={`field full ${errorOf('displayName') ? 'has-error' : ''}`}>

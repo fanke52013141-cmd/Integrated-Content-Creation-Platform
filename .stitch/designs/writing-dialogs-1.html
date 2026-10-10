@@ -1,0 +1,217 @@
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<title>心流工作室 - 导入现成稿</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container": "#e6eeff",
+            "outline": "#737686",
+            "tertiary-container": "#646e7f",
+            "surface": "#f9f9ff",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "outline-variant": "#c3c6d7",
+            "inverse-on-surface": "#ebf1ff",
+            "on-tertiary": "#ffffff",
+            "tertiary-fixed-dim": "#bdc7da",
+            "secondary": "#516072",
+            "secondary-fixed": "#d4e4f9",
+            "primary-fixed-dim": "#b4c5ff",
+            "on-primary-fixed-variant": "#003ea8",
+            "secondary-fixed-dim": "#b8c8dd",
+            "on-surface": "#101c2d",
+            "surface-variant": "#d7e3fa",
+            "surface-container-low": "#eff3ff",
+            "primary": "#004ac6",
+            "on-secondary-container": "#556476",
+            "inverse-primary": "#b4c5ff",
+            "on-secondary-fixed": "#0d1d2c",
+            "on-error": "#ffffff",
+            "secondary-container": "#d1e1f6",
+            "background": "#f9f9ff",
+            "primary-fixed": "#dbe1ff",
+            "error": "#ba1a1a",
+            "surface-container-highest": "#d7e3fa",
+            "on-secondary": "#ffffff",
+            "on-tertiary-container": "#ebf1ff",
+            "surface-container-high": "#dde9ff",
+            "primary-container": "#2563eb",
+            "on-secondary-fixed-variant": "#394859",
+            "on-tertiary-fixed": "#121c2a",
+            "on-surface-variant": "#434655",
+            "tertiary": "#4c5666",
+            "surface-dim": "#cedbf2",
+            "tertiary-fixed": "#d9e3f6",
+            "on-primary": "#ffffff",
+            "surface-bright": "#f9f9ff",
+            "on-primary-container": "#eeefff",
+            "on-error-container": "#93000a",
+            "surface-container-lowest": "#ffffff",
+            "inverse-surface": "#253143",
+            "error-container": "#ffdad6",
+            "surface-tint": "#0053db",
+            "on-primary-fixed": "#00174b",
+            "on-background": "#101c2d"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "space-xl": "1.5rem",
+            "space-sm": "0.5rem",
+            "gutter": "1rem",
+            "space-md": "0.75rem",
+            "space-lg": "1rem"
+          },
+          "fontFamily": {
+            "body-md": ["Inter"],
+            "headline-lg": ["Inter"],
+            "body-sm": ["Inter"],
+            "label-md": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "label-sm": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          "fontSize": {
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#f7f8fa] text-[#17212f] font-body-md min-h-screen flex items-center justify-center antialiased">
+<!-- TopAppBar Rendered for Shell completeness -->
+<header class="fixed top-0 left-0 w-full z-40 bg-surface dark:bg-surface border-b border-outline-variant flex justify-between items-center px-margin h-16">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-on-surface">menu</span>
+<h1 class="text-headline-md font-headline-md font-semibold text-on-surface">心流</h1>
+</div>
+<div class="flex items-center gap-space-lg">
+<span class="text-body-md text-on-surface-variant">专业创作者工作台</span>
+</div>
+</header>
+<!-- SideNavBar Rendered -->
+<aside class="fixed left-0 top-0 h-full w-[208px] bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant flex flex-col justify-between p-space-lg z-30 pt-20">
+<div class="flex flex-col gap-space-lg">
+<div class="flex flex-col gap-space-xs mb-space-sm">
+<h2 class="text-headline-sm font-headline-sm text-on-surface">心流工作室</h2>
+<span class="text-body-sm text-on-surface-variant">专业创作者工作台</span>
+</div>
+<nav class="flex flex-col gap-space-xs">
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined">edit</span>
+<span class="text-body-md">工作台</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg bg-secondary-fixed text-on-secondary-fixed font-bold transition-all duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">article</span>
+<span class="text-body-md">文章</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined">check_circle</span>
+<span class="text-body-md">待办</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined">lightbulb</span>
+<span class="text-body-md">灵感</span>
+</a>
+<a class="flex items-center gap-space-sm px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-body-md">设置</span>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-space-sm pt-space-lg border-t border-outline-variant">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed text-body-sm">心</div>
+<div class="flex flex-col">
+<span class="text-body-sm font-semibold text-on-surface">用户头像</span>
+<span class="text-label-sm text-outline">v2.6.0-stable</span>
+</div>
+</div>
+</aside>
+<!-- Background Dim Overlay -->
+<div class="fixed inset-0 bg-slate-900/10 backdrop-blur-xs z-40 flex items-center justify-center pl-[208px]">
+<!-- Modal Dialog: 840px width, rounded-lg, pure white bg, fine border -->
+<div class="w-[840px] bg-surface-container-lowest rounded-lg border border-[#e7ebf0] shadow-[0_4px_16px_rgba(23,33,47,0.06)] flex flex-col overflow-hidden">
+<!-- Modal Header -->
+<div class="px-margin pt-margin pb-space-lg border-b border-[#e7ebf0] flex justify-between items-start">
+<div class="flex flex-col gap-space-xs">
+<h2 class="text-headline-lg font-headline-lg text-[#17212f]">导入现成稿 / 恢复生成内容</h2>
+<p class="text-body-md text-[#434655]">导入外部 Markdown 或长文片段，系统将自动进行语义向量索引并保存至本地草稿库。</p>
+</div>
+<button class="text-outline hover:text-on-surface transition-colors p-space-xs rounded">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body Form -->
+<div class="px-margin py-space-xl flex flex-col gap-space-lg">
+<!-- 1. Matrix Account Selector -->
+<div class="flex flex-col gap-space-xs">
+<label class="text-label-md font-label-md text-[#17212f]">分发矩阵账号</label>
+<div class="relative">
+<select class="w-full h-10 px-space-md bg-surface-container-lowest border border-[#e7ebf0] rounded text-body-md text-[#17212f] focus:outline-none focus:border-[#2563eb] appearance-none pr-10">
+<option>心流工作室创作矩阵</option>
+<option>独立开发者分发矩阵</option>
+<option>AI 前沿观察专栏</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- 2. Markdown Input Area -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex justify-between items-center">
+<label class="text-label-md font-label-md text-[#17212f]">Markdown 原文输入 / 预览</label>
+<span class="text-body-sm text-outline">支持标准 Markdown 语法与长文本连续输入</span>
+</div>
+<textarea class="w-full h-[360px] p-space-md bg-surface-container-lowest border border-[#e7ebf0] rounded text-body-md text-[#17212f] font-mono focus:outline-none focus:border-[#2563eb] resize-y leading-relaxed"># 2026 年大模型交互趋势
+
+在人机交互快速演进的今天，AI 工具已经从最初的“单次问答”模式，过渡到深度集成的“Local-First 创作工作台”。
+
+## 核心观察
+1. **本地优先与隐私安全**：创作者不再愿意将未完成的灵感和长文裸露在云端。
+2. **向量化检索的日常化**：每一篇导入的草稿都应当自动建立本地嵌入（Embedding），使历史素材能够随时通过语义唤醒。
+3. **极简主义的工作流**：消除不必要的浮窗与动画，将专注力归还给文字本身。
+
+&gt; “心流的本质是降低摩擦力。当界面隐形，思考才能真正发生。”</textarea>
+</div>
+<!-- 3. Security Info Banner -->
+<div class="flex items-center gap-space-sm p-space-md bg-surface-container-low rounded border border-[#e7ebf0] text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-xl">lock</span>
+<span class="text-body-sm">所有导入内容将加密存储在您的本地设备（Local-First），绝不上传云端服务器。</span>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-margin py-space-md bg-surface-container-low border-t border-[#e7ebf0] flex justify-between items-center">
+<span class="text-body-sm text-outline">本地草稿 · 自动保存于刚刚</span>
+<div class="flex items-center gap-space-sm">
+<button class="px-space-lg h-9 rounded border border-[#e7ebf0] bg-surface-container-lowest text-on-surface hover:bg-surface-container transition-colors text-body-md font-medium">取消</button>
+<button class="px-space-lg h-9 rounded bg-[#17212f] text-white hover:bg-opacity-90 transition-colors text-body-md font-medium flex items-center gap-space-xs">
+<span>立即导入</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

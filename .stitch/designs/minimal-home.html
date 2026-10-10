@@ -1,0 +1,388 @@
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/plugins/forms.min.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            surface: "#f7f8fa",
+            "surface-variant": "#edf0f4",
+            "outline-variant": "#e2e8f0",
+            primary: "#2563eb",
+            "on-primary": "#ffffff",
+            "on-surface": "#17212f",
+            "on-surface-variant": "#526173",
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          fontFamily: {
+            headline: ["Inter", "sans-serif"],
+            display: ["Inter", "sans-serif"],
+            body: ["Inter", "sans-serif"],
+            label: ["Public Sans", "sans-serif"]
+          }
+        },
+      },
+    }
+  </script>
+</head>
+<body class="bg-[#f7f8fa] text-[#17212f] font-body antialiased selection:bg-blue-100 selection:text-blue-900">
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="w-52 h-screen flex-shrink-0 flex flex-col justify-between bg-surface dark:bg-surface border-r border-outline-variant dark:border-outline-variant p-3 select-none transition-colors duration-150 ease-in-out">
+<div class="flex flex-col gap-6">
+<!-- Header / Logo -->
+<div class="flex items-center gap-3 px-2 pt-2">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-headline font-semibold text-sm">
+            心
+          </div>
+<div>
+<h1 class="font-headline font-semibold text-base tracking-tight text-on-surface dark:text-on-surface">心流</h1>
+<p class="text-xs text-on-surface-variant">内容创作工作室</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
+<!-- Item 1: 工作台 (Active) -->
+<a class="flex items-center gap-3 px-3 py-2 bg-surface-variant dark:bg-surface-variant text-primary dark:text-primary font-medium rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">dashboard</span>
+<span>工作台</span>
+</a>
+<!-- Item 2 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">trending_up</span>
+<span>热点发现</span>
+</a>
+<!-- Item 3 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">lightbulb</span>
+<span>选题策划</span>
+</a>
+<!-- Item 4 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">schema</span>
+<span>框架大纲</span>
+</a>
+<!-- Item 5 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">edit_note</span>
+<span>正文写作</span>
+</a>
+<!-- Item 6 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">verified</span>
+<span>内容评审</span>
+</a>
+<!-- Item 7 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">image</span>
+<span>智能配图</span>
+</a>
+<!-- Item 8 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">format_paint</span>
+<span>多端排版</span>
+</a>
+<!-- Item 9 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">send</span>
+<span>一键发布</span>
+</a>
+<!-- Item 10 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">folder_open</span>
+<span>素材资产</span>
+</a>
+<!-- Item 11 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">switch_account</span>
+<span>矩阵账号</span>
+</a>
+<!-- Item 12 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">auto_awesome</span>
+<span>AI 创作助手</span>
+</a>
+<!-- Item 13 -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface hover:bg-surface-variant rounded-lg text-sm transition-colors duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl">settings</span>
+<span>系统设置</span>
+</a>
+</nav>
+</div>
+<!-- Footer / Profile -->
+<div class="pt-3 border-t border-outline-variant flex flex-col gap-2">
+<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-variant transition-colors cursor-pointer">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="A professional portrait of a Chinese content creator with neutral expression, soft lighting, solid neutral background, modern corporate workspace style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBx6q8jcaj8mY6xASbT_0elvu2R-P7L8ef0wFgU3IzLvfdFaiMQ2FpmCqVIbOsFaIfT_LH8N8Gw-8e_uJ2dPbToup68Dr2ypEIBplFYZNES-thS1ikDs8Z9CCacP1QErCaiE96bNPs510wCfGB8ERn9O8OP96fFPqlQYrV_O1yO8Pd4Laslr8v9CAi9PInEm-z3QGXas0_aWkDSFQKMqy5QBBTvXP40gXCuqUSC33I2euz-epCS_kRsJIEkxKHmfPo8MYpSFMKilBM"/>
+<div class="flex flex-col overflow-hidden">
+<span class="text-xs font-medium text-on-surface truncate">苏林</span>
+<span class="text-[10px] text-on-surface-variant truncate">高级创作者</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden bg-[#f7f8fa]">
+<!-- TopNavBar -->
+<header class="h-12 px-4 flex justify-between items-center w-full bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-4">
+<span class="font-headline text-sm font-semibold text-on-surface">心流 · 简约工作室</span>
+<span class="text-outline-variant">/</span>
+<span class="text-xs text-on-surface-variant font-medium">创作台</span>
+</div>
+<div class="flex items-center gap-3">
+<!-- Search Bar -->
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-2.5 text-on-surface-variant text-base">search</span>
+<input class="bg-surface-variant text-on-surface text-xs rounded-lg pl-8 pr-3 py-1.5 w-64 border-none focus:ring-1 focus:ring-primary" placeholder="搜索文章、灵感、素材..." type="text"/>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant"></div>
+<!-- Actions & Icons -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>新建文章</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors relative" title="任务状态">
+<span class="material-symbols-outlined text-xl">task_alt</span>
+<span class="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors" title="个人中心">
+<span class="material-symbols-outlined text-xl">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Dashboard Body -->
+<main class="flex-1 overflow-y-auto p-6 flex gap-6">
+<!-- Broad Main Column -->
+<div class="flex-1 flex flex-col gap-6 max-w-[calc(100%-320px)]">
+<!-- Continue Writing Panel -->
+<section class="bg-white border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="px-2 py-0.5 bg-blue-50 text-primary text-[10px] font-medium rounded">正在进行</span>
+<span class="text-xs text-on-surface-variant">上次编辑：12分钟前</span>
+</div>
+<h2 class="font-headline font-semibold text-lg text-on-surface">《深度解读：2025 个人知识管理与自媒体创作流范式转移》</h2>
+</div>
+<div class="text-right">
+<span class="text-xs text-on-surface-variant">完成度</span>
+<p class="text-lg font-semibold text-primary">78%</p>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 78%;"></div>
+</div>
+<div class="flex items-center justify-between pt-2 border-t border-outline-variant/50">
+<div class="flex items-center gap-4 text-xs text-on-surface-variant">
+<span>字数：<strong class="text-on-surface">3,420 字</strong></span>
+<span>预计剩余阅读：<strong class="text-on-surface">12 分钟</strong></span>
+<span>当前节点：<strong class="text-on-surface">第四章：AI 协同工作流</strong></span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 border border-outline-variant text-on-surface rounded-lg text-xs font-medium hover:bg-surface-variant transition-colors">大纲预览</button>
+<button class="px-4 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">edit</span>
+<span>继续写作</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Four Creation Entry Cards -->
+<section class="grid grid-cols-4 gap-4">
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-2 hover:border-primary transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded-lg bg-surface-variant flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-xl">edit_square</span>
+</div>
+<h3 class="font-headline font-semibold text-sm text-on-surface">从主题开始</h3>
+<p class="text-xs text-on-surface-variant line-clamp-2">输入核心观点或关键词，由 AI 辅助延展大纲与正文。</p>
+</div>
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-2 hover:border-primary transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded-lg bg-surface-variant flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-xl">trending_up</span>
+</div>
+<h3 class="font-headline font-semibold text-sm text-on-surface">从热点开始</h3>
+<p class="text-xs text-on-surface-variant line-clamp-2">捕捉全网实时高频热点，一键生成深度分析评论。</p>
+</div>
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-2 hover:border-primary transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded-lg bg-surface-variant flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-xl">folder_open</span>
+</div>
+<h3 class="font-headline font-semibold text-sm text-on-surface">从资料开始</h3>
+<p class="text-xs text-on-surface-variant line-clamp-2">导入长文、PDF 或笔记片段，智能提炼与重组内容。</p>
+</div>
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-2 hover:border-primary transition-colors cursor-pointer group">
+<div class="w-8 h-8 rounded-lg bg-surface-variant flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-xl">upload_file</span>
+</div>
+<h3 class="font-headline font-semibold text-sm text-on-surface">导入文章</h3>
+<p class="text-xs text-on-surface-variant line-clamp-2">支持 Markdown 及主流自媒体平台草稿快速迁移。</p>
+</div>
+</section>
+<!-- Recent Works Table -->
+<section class="bg-white border border-outline-variant rounded-xl p-5 flex flex-col gap-4 shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<h3 class="font-headline font-semibold text-base text-on-surface">最近作品</h3>
+<div class="flex items-center gap-1 bg-surface-variant p-0.5 rounded-lg text-xs font-medium">
+<button class="px-3 py-1 bg-white text-on-surface rounded shadow-sm">全部</button>
+<button class="px-3 py-1 text-on-surface-variant hover:text-on-surface">草稿箱</button>
+<button class="px-3 py-1 text-on-surface-variant hover:text-on-surface">已发布</button>
+</div>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-1.5 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-variant text-on-surface text-xs rounded-lg pl-8 pr-3 py-1.5 w-48 border-none focus:ring-1 focus:ring-primary" placeholder="筛选作品..." type="text"/>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs">
+<thead>
+<tr class="border-b border-outline-variant text-on-surface-variant">
+<th class="py-2.5 px-3 font-medium">标题</th>
+<th class="py-2.5 px-3 font-medium">状态</th>
+<th class="py-2.5 px-3 font-medium">字数</th>
+<th class="py-2.5 px-3 font-medium">更新时间</th>
+<th class="py-2.5 px-3 font-medium text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/50 text-on-surface">
+<tr class="hover:bg-surface-variant/50 transition-colors">
+<td class="py-3 px-3 font-medium">构建你的第二个大脑：Notion 高级工作流实操</td>
+<td class="py-3 px-3"><span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px]">已发布</span></td>
+<td class="py-3 px-3 text-on-surface-variant">5,280 字</td>
+<td class="py-3 px-3 text-on-surface-variant">昨天 18:42</td>
+<td class="py-3 px-3 text-right">
+<button class="text-primary hover:underline mr-3">编辑</button>
+<button class="text-on-surface-variant hover:text-on-surface">更多</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/50 transition-colors">
+<td class="py-3 px-3 font-medium">独立开发者周记 #14：从零打造极简写作工具</td>
+<td class="py-3 px-3"><span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px]">已发布</span></td>
+<td class="py-3 px-3 text-on-surface-variant">2,150 字</td>
+<td class="py-3 px-3 text-on-surface-variant">3 天前</td>
+<td class="py-3 px-3 text-right">
+<button class="text-primary hover:underline mr-3">编辑</button>
+<button class="text-on-surface-variant hover:text-on-surface">更多</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/50 transition-colors">
+<td class="py-3 px-3 font-medium">为什么说“慢思考”是未来大模型时代的稀缺能力</td>
+<td class="py-3 px-3"><span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px]">草稿</span></td>
+<td class="py-3 px-3 text-on-surface-variant">1,840 字</td>
+<td class="py-3 px-3 text-on-surface-variant">5 天前</td>
+<td class="py-3 px-3 text-right">
+<button class="text-primary hover:underline mr-3">继续</button>
+<button class="text-on-surface-variant hover:text-on-surface">更多</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/50 transition-colors">
+<td class="py-3 px-3 font-medium">2025 创作者经济报告：私域沉淀与多端分发矩阵</td>
+<td class="py-3 px-3"><span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px]">草稿</span></td>
+<td class="py-3 px-3 text-on-surface-variant">4,020 字</td>
+<td class="py-3 px-3 text-on-surface-variant">1 周前</td>
+<td class="py-3 px-3 text-right">
+<button class="text-primary hover:underline mr-3">继续</button>
+<button class="text-on-surface-variant hover:text-on-surface">更多</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Narrow Right Pending-Task Column -->
+<div class="w-80 flex-shrink-0 flex flex-col gap-6">
+<!-- 待处理事项 -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+<div class="flex items-center justify-between">
+<h3 class="font-headline font-semibold text-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-base">notifications_active</span>
+<span>待处理事项</span>
+</h3>
+<span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-[10px] font-medium">2 项需关注</span>
+</div>
+<div class="flex flex-col gap-2.5">
+<div class="p-2.5 bg-surface-variant/60 rounded-lg flex flex-col gap-1.5 border-l-2 border-amber-500">
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-on-surface">矩阵账号同步异常</span>
+<span class="text-[10px] text-on-surface-variant">10分钟前</span>
+</div>
+<p class="text-[11px] text-on-surface-variant">微信公众号授权凭证已过期，请前往重新授权以保证一键发布正常。</p>
+<div class="flex justify-end gap-2 mt-1">
+<button class="text-[11px] text-primary font-medium hover:underline">立即处理</button>
+</div>
+</div>
+<div class="p-2.5 bg-surface-variant/60 rounded-lg flex flex-col gap-1.5 border-l-2 border-primary">
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-on-surface">多端排版版本冲突</span>
+<span class="text-[10px] text-on-surface-variant">2小时前</span>
+</div>
+<p class="text-[11px] text-on-surface-variant">《构建你的第二个大脑》在本地与云端存在未合并的修改版本。</p>
+<div class="flex justify-end gap-2 mt-1">
+<button class="text-[11px] text-primary font-medium hover:underline">解决冲突</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 创作心法 -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+<h3 class="font-headline font-semibold text-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-base">lightbulb</span>
+<span>创作心法</span>
+</h3>
+<div class="p-3 bg-blue-50/50 rounded-lg border border-blue-100 flex flex-col gap-2">
+<p class="text-xs font-medium text-on-surface">“先完成，再完美：把写作拆解为低摩擦的原子流。”</p>
+<p class="text-[11px] text-on-surface-variant leading-relaxed">
+                优秀的内容往往来源于持续的碎片化记录与无压力的初稿倾倒。不要在第一遍写作时试图修饰词句，保持心流状态，让大纲引领思绪，排版与润色留到最后评审阶段。
+              </p>
+<div class="flex justify-between items-center pt-1 text-[10px] text-on-surface-variant">
+<span>—— 心流创作指南 04 条</span>
+<button class="text-primary hover:underline">换一条</button>
+</div>
+</div>
+</div>
+<!-- 今日创作脉络 -->
+<div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+<h3 class="font-headline font-semibold text-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-base">analytics</span>
+<span>今日创作脉络</span>
+</h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="p-3 bg-surface-variant/50 rounded-lg flex flex-col">
+<span class="text-[10px] text-on-surface-variant">专注时长</span>
+<span class="text-lg font-semibold text-on-surface mt-1">2<span class="text-xs font-normal text-on-surface-variant ml-0.5">小时</span> 45<span class="text-xs font-normal text-on-surface-variant ml-0.5">分</span></span>
+<span class="text-[10px] text-emerald-600 mt-1">较昨日 +35%</span>
+</div>
+<div class="p-3 bg-surface-variant/50 rounded-lg flex flex-col">
+<span class="text-[10px] text-on-surface-variant">产出字数</span>
+<span class="text-lg font-semibold text-on-surface mt-1">1,850<span class="text-xs font-normal text-on-surface-variant ml-0.5">字</span></span>
+<span class="text-[10px] text-emerald-600 mt-1">达成今日目标</span>
+</div>
+</div>
+<div class="flex flex-col gap-1.5 pt-2">
+<div class="flex justify-between text-xs text-on-surface-variant">
+<span>今日心流指数</span>
+<span class="font-medium text-primary">88 / 极佳</span>
+</div>
+<div class="w-full bg-surface-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 88%;"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

@@ -1,0 +1,25 @@
+.visual-studio { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+.visual-studio > * { min-width: 0; }
+.visual-composer { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+.visual-composer > .button { width: 100%; justify-content: center; }
+.visual-composer > .button.secondary:first-child { order: 1; border-top: 1px solid var(--border); }
+.visual-output { display: grid; gap: 20px; }
+.visual-warning { margin: 0; }
+.visual-results > .empty-state { min-height: 500px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.visual-pack { padding: 28px; gap: 28px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+.visual-pack-head { flex-wrap: wrap; gap: 16px; }
+.visual-pack-head h3 { font-size: 20px; line-height: 1.5; }
+.visual-pack-head p { font-size: 13px; line-height: 1.7; }
+.visual-pack-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.visual-cover { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px; border-color: var(--border); background: var(--surface-subtle); }
+.visual-cover-info strong { font-size: 16px; }
+.visual-cover-info em { font-size: 14px; line-height: 1.7; }
+.visual-prompt-group { gap: 20px; }
+.visual-prompt-group > h4 { font-size: 16px; color: var(--text-primary); }
+.visual-prompt-text { padding: 18px; gap: 16px; }
+.visual-prompt-text p { font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.visual-asset-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 20px; }
+.visual-asset { min-width: 0; margin: 0; }
+.visual-slot-actions { gap: 8px; }
+@media (max-width: 1100px) { .visual-studio { grid-template-columns: minmax(0, 1fr); } .visual-composer { grid-template-columns: repeat(2, minmax(0, 1fr)); } .visual-composer > .button { grid-column: auto; } }
+@media (max-width: 760px) { .visual-composer { grid-template-columns: minmax(0, 1fr); } .visual-pack { padding: 20px; } }

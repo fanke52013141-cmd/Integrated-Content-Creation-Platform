@@ -1,0 +1,28 @@
+.review-studio { display: grid; grid-template-columns: 320px minmax(0, 1fr); align-items: start; gap: 24px; }
+.review-studio > * { min-width: 0; }
+.review-composer { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px; border-color: var(--border); border-radius: 8px; box-shadow: none; }
+.review-composer > .button { width: 100%; justify-content: center; }
+.review-role-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.review-role-title { font-size: 13px; margin-bottom: 4px; }
+.review-role-options label { border-radius: 8px; padding: 12px; font-size: 14px; }
+.review-output { display: grid; gap: 20px; }
+.review-results { gap: 24px; }
+.review-results > .empty-state { min-height: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.review-task { padding: 28px; border-radius: 8px; border-color: var(--border); box-shadow: none; }
+.review-task-head { flex-wrap: wrap; }
+.review-task-head > div { flex: 1 1 280px; }
+.review-task-head strong { font-size: 18px; }
+.review-opinion { padding-top: 24px; gap: 16px; border-top-style: solid; }
+.review-opinion h3 { font-size: 16px; color: var(--text-primary); }
+.review-overall { padding: 16px; font-size: 14px; line-height: 1.7; }
+.review-problem { padding: 18px; gap: 14px; }
+.review-problem-body { gap: 8px; overflow-wrap: anywhere; }
+.review-problem-body strong { font-size: 14px; }
+.review-problem-body small { font-size: 13px; line-height: 1.7; }
+.review-role-dialog { width: min(680px, calc(100vw - 48px)); max-height: calc(100vh - 64px); overflow: auto; padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); gap: 24px; }
+.review-role-dialog h2 { margin: 0; font-size: 22px; }
+.review-role-dialog textarea { min-height: 240px; }
+.review-role-dialog > footer { flex-wrap: wrap; padding-top: 20px; border-top: 1px solid var(--border); }
+.review-role-dialog > footer > .micro-copy { margin-right: auto; }
+@media (max-width: 1100px) { .review-studio { grid-template-columns: minmax(0, 1fr); } .review-composer { grid-template-columns: repeat(2, minmax(0, 1fr)); } .review-composer > .button { width: auto; justify-self: start; } }
+@media (max-width: 760px) { .review-composer { grid-template-columns: minmax(0, 1fr); } .review-role-dialog { width: calc(100vw - 24px); padding: 20px; } }

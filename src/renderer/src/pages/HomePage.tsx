@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, ArrowRight, Clock3, FileInput, Flame, Gauge, Image, Import, Layers,
+  AlertTriangle, ArrowRight, Clock3, Flame, Gauge, Image, Import, Layers,
   ListChecks, Newspaper, PenLine, Send, Sparkles
 } from 'lucide-react'
 import type { AccountProfileSummary, ArticleSummary, GenerationTask, ProviderSummary } from '../../../shared/contracts'
-import { articleTitleOf, useActiveWork } from '../active-work'
+import { useActiveWork } from '../active-work'
 import type { RouteId } from '../components/Layout'
 import { PageHeader } from '../components/PageHeader'
 import type { ToastState } from '../components/Toast'
@@ -67,92 +67,104 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   return (
     <div className="page home-page">
-      <PageHeader title="创作台" description={configured ? '接着上次那篇写，或者选择适合你的创作入口。' : '可以先导入已有文章；需要智能生成时再连接 AI 服务。'} />
+      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('frameworks')}><PenLine size={15} />开始创作</button>} />
 
-      {!configured && (
-        <section className="home-setup">
-          <div>
-            <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
-            <p className="micro-copy">填一次接口地址和密钥，验证通过后就能写。搜索、生图、公众号推送都可以以后再配，不影响先把内容写出来。</p>
-          </div>
-          <button className="button primary" onClick={() => onNavigate('providers')}><ArrowRight size={15} />去AI 服务</button>
-        </section>
-      )}
+      <div className="home-studio-grid">
+        <div className="home-studio-main">
 
-      <p className="micro-copy creation-entry-note">账号定位、热点与评审可按需要使用。已有正文可以直接编辑、排版和导出。</p>
-      <section className="home-resume">
-        <header><h3><Layers size={15} /> 继续上次作品</h3></header>
-        {loading ? <p className="micro-copy">正在读取本地作品…</p> : resume ? (
-          <div className="home-resume-card">
-            <div className="home-resume-main">
-              <strong>{work?.title}</strong>
-              <small>{accounts.find((account) => account.id === (work?.accountId ?? resume.accountId))?.name ?? '未绑定账号'} · 第 {resume.versionCount} 版 · {resume.status === 'locked' ? '已锁定' : '草稿'} · 更新于 {formatDate(resume.updatedAt)}</small>
+          {!configured && (
+            <section className="home-setup">
+              <div>
+                <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
+                <p className="micro-copy">填一次接口地址和密钥，验证通过后就能写。搜索、生图、公众号推送都可以以后再配，不影响先把内容写出来。</p>
+              </div>
+              <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={15} />去AI 服务</button>
+            </section>
+          )}
+
+          <section className="home-resume">
+            <header><h3><Layers size={15} /> 继续上次作品</h3></header>
+            {loading ? <p className="micro-copy">正在读取本地作品…</p> : resume ? (
+              <div className="home-resume-card">
+                <div className="home-resume-main">
+                  <strong>{resume.title}</strong>
+                  <small>{accounts.find((account) => account.id === (work?.accountId ?? resume.accountId))?.name ?? '未绑定账号'} · 第 {resume.versionCount} 版 · {resume.status === 'locked' ? '已锁定' : '草稿'} · 更新于 {formatDate(resume.updatedAt)}</small>
+                </div>
+                <div className="home-resume-actions">
+                  <button className="button primary" onClick={() => onNavigate('articles', { articleId: resume.id })}><PenLine size={15} />继续写作</button>
+                  <div className="home-resume-secondary">
+                    <button className="button ghost compact" onClick={() => onNavigate('reviews', { articleId: resume.id })}><ListChecks size={14} />评审</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('visuals', { articleId: resume.id })}><Image size={14} />配图</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('layouts', { articleId: resume.id })}><Newspaper size={14} />排版</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('publishing', { articleId: resume.id })}><Send size={14} />发布</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="home-empty-card">
+                <span className="home-empty-icon" aria-hidden="true"><PenLine size={24} /></span>
+                <strong>{work ? '上次打开的作品已被删除。' : '下一篇好内容，从这里开始'}</strong>
+                <p className="micro-copy">选择下方入口开始创作，或导入一篇现成稿子。</p>
+                {!verified && <p className="inline-alert"><AlertTriangle size={13} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
+              </div>
+            )}
+          </section>
+
+          <section className="home-start">
+            <header><h3>开始新的创作</h3><span className="micro-copy">选一个适合你的起点</span></header>
+            <div className="home-entry-bar" role="group" aria-label="新建内容">
+              {entryPoints.map((entry) => {
+                const Icon = entry.icon
+                return (
+                  <button key={entry.label} className="home-entry-chip" onClick={() => onNavigate(entry.route, entry.params)} title={entry.hint}>
+                    <Icon size={18} />
+                    <span><strong>{entry.label}</strong><small>{entry.hint}</small></span>
+                    <ArrowRight size={14} />
+                  </button>
+                )
+              })}
             </div>
-            <div className="home-resume-actions">
-              <button className="button secondary compact" onClick={() => onNavigate('reviews', { articleId: resume.id })}><ListChecks size={14} />评审</button>
-              <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: resume.id })}><Image size={14} />配图</button>
-              <button className="button secondary compact" onClick={() => onNavigate('layouts', { articleId: resume.id })}><Newspaper size={14} />排版</button>
-              <button className="button secondary compact" onClick={() => onNavigate('publishing', { articleId: resume.id })}><Send size={14} />发布</button>
-              <button className="button primary" onClick={() => onNavigate('articles', { articleId: resume.id })}><PenLine size={15} />继续写作</button>
-            </div>
-          </div>
-        ) : (
-          <div className="home-empty-card">
-            <p className="micro-copy">{work ? '上次打开的作品已被删除。' : '还没有开始中的作品。挑一个入口，或直接导入一篇现成稿子。'}</p>
-            {!verified && <p className="inline-alert"><AlertTriangle size={13} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
-          </div>
-        )}
-      </section>
+          </section>
 
-      {/* 2026-10-06 收敛：原为 4 张卡片（图标 + 标题 + 说明，共三行），
-          与「接着上次写」的续写卡片争夺主视线。
-          改为一行紧凑按钮：入口信息降级，续写卡片成为唯一主视觉。
-          4 个入口全部保留，只是不再以卡片形态呈现。 */}
-      <div className="home-entry-bar" role="group" aria-label="新建内容">
-        {entryPoints.map((entry) => {
-          const Icon = entry.icon
-          return (
-            <button key={entry.label} className="home-entry-chip" onClick={() => onNavigate(entry.route, entry.params)} title={entry.hint}>
-              <Icon size={14} />
-              <span>{entry.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <section className="home-pending">
-        <header><h3><Clock3 size={15} /> 需要处理{stuckTasks.length + pendingDrafts + unlockedDrafts > 0 && ` · ${stuckTasks.length + pendingDrafts + unlockedDrafts}`}</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>打开任务中心</button>}</header>
-        <ul className="home-pending-list">
-          {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="micro-copy">没有卡住的任务，也没有未保存的本地草稿。</li>}
-          {stuckTasks.length > 0 && <li><span>{stuckTasks.length} 个生成任务未全部成功</span><button className="text-button" onClick={onShowTasks}>查看原因</button></li>}
-          {pendingDrafts > 0 && <li><span>{pendingDrafts} 篇有本地暂存修改，尚未保存为版本</span><button className="text-button" onClick={() => onNavigate('articles', { dirty: '1' })}>查看待保存作品</button></li>}
-          {unlockedDrafts > 0 && <li><span>{unlockedDrafts} 篇仍是草稿状态</span><button className="text-button" onClick={() => onNavigate('articles')}>继续打磨</button></li>}
-        </ul>
-      </section>
-
-      {/* 「最近作品」改为可折叠（2026-10-06）
-          它是回溯功能，而首页的职责是回答「下一步做什么」。
-          默认收起、保留入口与数量提示：功能一点没少，只是不再占据主视线。
-          用原生 <details>，展开状态由浏览器管理，不引入新状态。 */}
-      {recent.length > 0 && (
-        <details className="home-recent">
-          <summary>
-            <Sparkles size={15} />
-            最近作品
-            <span className="home-recent-count">{recent.length}</span>
-          </summary>
-          <ul className="home-recent-list">
-            {recent.map((article) => (
-              <li key={article.id}>
-                <button className="home-recent-item" onClick={() => onNavigate('articles', { articleId: article.id })}>
-                  <strong>{article.title}</strong>
-                  <small>{article.status === 'locked' ? '已锁定' : '草稿'} · 第 {article.versionCount} 版{article.hasWorkDraft ? ' · 有本地修改' : ''}{article.layoutStale ? ' · 排版需检查' : ''}{article.publicationStatus ? ` · ${article.publicationStatus === 'published' ? '已发布' : article.publicationStatus === 'draft' ? '已推送草稿箱' : '交付待处理'}` : ''} · {formatDate(article.updatedAt)}</small>
-                </button>
-              </li>
-            ))}
+          {/* 「最近作品」改为可折叠（2026-10-06）
+              它是回溯功能，而首页的职责是回答「下一步做什么」。
+              默认收起、保留入口与数量提示：功能一点没少，只是不再占据主视线。
+              用原生 <details>，展开状态由浏览器管理，不引入新状态。 */}
+          {recent.length > 0 && (
+            <details className="home-recent">
+              <summary>
+                <Sparkles size={15} />
+                最近作品
+                <span className="home-recent-count">{recent.length}</span>
+              </summary>
+              <ul className="home-recent-list">
+                {recent.map((article) => (
+                  <li key={article.id}>
+                    <button className="home-recent-item" onClick={() => onNavigate('articles', { articleId: article.id })}>
+                      <strong>{article.title}</strong>
+                      <small>{article.status === 'locked' ? '已锁定' : '草稿'} · 第 {article.versionCount} 版{article.hasWorkDraft ? ' · 有本地修改' : ''}{article.layoutStale ? ' · 排版需检查' : ''}{article.publicationStatus ? ` · ${article.publicationStatus === 'published' ? '已发布' : article.publicationStatus === 'draft' ? '已推送草稿箱' : '交付待处理'}` : ''} · {formatDate(article.updatedAt)}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      <aside className="home-studio-aside" aria-label="创作辅助">
+        <section className="home-pending">
+          <header><h3><Clock3 size={15} />需要处理</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>任务中心</button>}</header>
+          <ul className="home-pending-list">
+            {loading ? <li className="micro-copy">正在读取待处理事项…</li> : <>
+              {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="home-pending-clear"><ListChecks size={20} /><strong>一切就绪</strong><span>没有卡住的任务或待保存修改。</span></li>}
+              {stuckTasks.length > 0 && <li><span><strong>{stuckTasks.length} 个任务需要检查</strong><small>生成结果未全部完成</small></span><button className="text-button" onClick={onShowTasks}>查看</button></li>}
+              {pendingDrafts > 0 && <li><span><strong>{pendingDrafts} 篇修改待保存</strong><small>本地修改尚未保存为版本</small></span><button className="text-button" onClick={() => onNavigate('articles', { dirty: '1' })}>查看</button></li>}
+              {unlockedDrafts > 0 && <li><span><strong>{unlockedDrafts} 篇草稿待完善</strong><small>继续打磨后再交付</small></span><button className="text-button" onClick={() => onNavigate('articles')}>打开</button></li>}
+            </>}
           </ul>
-        </details>
-      )}
+        </section>
+        <section className="home-note"><Sparkles size={16} /><h3>按你的节奏创作</h3><p className="micro-copy">不必走完每个步骤。已有正文可以直接编辑、配图、排版和导出。</p></section>
+      </aside>
+      </div>
     </div>
   )
 }

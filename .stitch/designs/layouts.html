@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>心流 · 文章排版</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-background": "#101c2d",
+            "on-error-container": "#93000a",
+            "surface-container": "#e6eeff",
+            "on-tertiary-fixed-variant": "#3d4757",
+            "secondary-fixed": "#d4e4f9",
+            "on-primary": "#ffffff",
+            "on-secondary-fixed-variant": "#394859",
+            "on-secondary-container": "#556476",
+            "error-container": "#ffdad6",
+            "surface-bright": "#f9f9ff",
+            "tertiary": "#4c5666",
+            "on-primary-fixed-variant": "#003ea8",
+            "on-error": "#ffffff",
+            "inverse-primary": "#b4c5ff",
+            "surface": "#f9f9ff",
+            "on-primary-container": "#eeefff",
+            "primary-fixed": "#dbe1ff",
+            "surface-container-highest": "#d7e3fa",
+            "outline-variant": "#c3c6d7",
+            "outline": "#737686",
+            "surface-container-low": "#eff3ff",
+            "secondary-fixed-dim": "#b8c8dd",
+            "error": "#ba1a1a",
+            "on-tertiary-fixed": "#121c2a",
+            "on-tertiary-container": "#ebf1ff",
+            "secondary": "#516072",
+            "on-primary-fixed": "#00174b",
+            "background": "#f9f9ff",
+            "secondary-container": "#d1e1f6",
+            "inverse-surface": "#253143",
+            "tertiary-fixed": "#d9e3f6",
+            "primary-fixed-dim": "#b4c5ff",
+            "surface-container-high": "#dde9ff",
+            "primary": "#004ac6",
+            "on-surface-variant": "#434655",
+            "surface-variant": "#d7e3fa",
+            "surface-tint": "#0053db",
+            "tertiary-container": "#646e7f",
+            "primary-container": "#2563eb",
+            "surface-dim": "#cedbf2",
+            "on-tertiary": "#ffffff",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed": "#0d1d2c",
+            "inverse-on-surface": "#ebf1ff",
+            "on-surface": "#101c2d",
+            "surface-container-lowest": "#ffffff",
+            "tertiary-fixed-dim": "#bdc7da"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "space-md": "0.75rem",
+            "space-xl": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "gutter": "1rem",
+            "space-lg": "1rem"
+          },
+          "fontFamily": {
+            "label-sm": ["Public Sans"],
+            "headline-sm": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"],
+            "headline-lg": ["Inter"],
+            "label-md": ["Public Sans"],
+            "headline-md": ["Inter"],
+            "body-sm": ["Inter"]
+          },
+          "fontSize": {
+            "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "body-lg": ["15px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "fontWeight": "600" }],
+            "label-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md h-full selection:bg-primary-container selection:text-on-primary">
+<div class="min-h-screen flex bg-surface">
+<!-- SideNavBar -->
+<aside class="flex flex-col justify-between w-[220px] p-space-md h-full fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant z-20">
+<div>
+<div class="flex items-center gap-space-sm px-space-xs py-space-sm mb-space-lg">
+<div class="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold">心</div>
+<div>
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface">心流工作室</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">专业排版工作台</div>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span>内容速览</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">edit_note</span>
+<span>文章编辑</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-primary bg-secondary-container font-medium transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">view_carousel</span>
+<span>多端排版</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">cloud_upload</span>
+<span>一键发布</span>
+</a>
+<a class="flex items-center gap-space-md px-space-md py-space-sm rounded-lg font-body-md text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]">folder_special</span>
+<span>素材收藏夹</span>
+</a>
+</nav>
+</div>
+<div class="border-t border-outline-variant pt-space-md">
+<div class="flex items-center justify-between px-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-semibold text-xs">编</div>
+<div class="font-label-md">主编账号</div>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors" onclick="toggleDeleteModal()" title="系统设置">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Main Workspace -->
+<main class="flex-1 ml-[220px] p-6 max-w-[calc(1440px-220px)] mx-auto flex flex-col gap-6">
+<!-- Top Compact Settings Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-lg p-5 shadow-sm">
+<div class="flex flex-wrap items-end justify-between gap-4">
+<div class="flex flex-wrap items-center gap-4 flex-1">
+<!-- Article Select -->
+<div class="flex flex-col gap-1.5 min-w-[200px]">
+<label class="font-label-md text-on-surface-variant">选择文章</label>
+<select class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>深度洞察：2026 年大模型交互趋势</option>
+<option>数字游民的极简工作流与时间管理</option>
+<option>克制美学：如何打造高品质数字产品</option>
+</select>
+</div>
+<!-- Platform -->
+<div class="flex flex-col gap-1.5 w-[140px]">
+<label class="font-label-md text-on-surface-variant">发布平台</label>
+<select class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>微信公众号</option>
+<option>今日头条</option>
+<option>全网分发</option>
+</select>
+</div>
+<!-- Article Type -->
+<div class="flex flex-col gap-1.5 w-[140px]">
+<label class="font-label-md text-on-surface-variant">文章类型</label>
+<select class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>深度长文</option>
+<option>快讯播报</option>
+<option>观点杂谈</option>
+</select>
+</div>
+<!-- Theme -->
+<div class="flex flex-col gap-1.5 w-[140px]">
+<label class="font-label-md text-on-surface-variant">排版主题</label>
+<select class="h-9 px-3 bg-surface border border-outline-variant rounded-lg font-body-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+<option>极简墨黑</option>
+<option>科技流蓝</option>
+<option>温润纸面</option>
+</select>
+</div>
+</div>
+<!-- Action Button -->
+<div>
+<button class="h-9 px-5 bg-on-background hover:bg-primary text-on-primary rounded-lg font-label-md flex items-center gap-2 transition-colors duration-150 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">auto_fix_high</span>
+<span>生成排版稿</span>
+</button>
+</div>
+</div>
+<!-- Tip text -->
+<div class="mt-4 pt-3 border-t border-outline-variant/60 flex items-center justify-between text-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">info</span>
+<span>文章主题允许导出文档自身的配色，但应用整体保持优雅浅色。</span>
+</div>
+<span class="text-xs">已自动保存草稿 (10:42)</span>
+</div>
+</section>
+<!-- Lower Workbench -->
+<div class="flex gap-6 items-start">
+<!-- Left: Version List (220px) -->
+<div class="w-[220px] bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col gap-3 shrink-0">
+<div class="flex items-center justify-between pb-2 border-b border-outline-variant/60">
+<span class="font-headline-sm text-headline-sm">排版版本</span>
+<span class="text-xs px-2 py-0.5 bg-surface-container rounded font-medium text-primary">3 个版本</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Active version -->
+<div class="p-3 rounded-lg bg-surface-container-low border border-primary/40 cursor-pointer transition-all">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-primary font-semibold">版本 v3.2 (当前)</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-1">微调标题间距与引用块色值</p>
+<div class="mt-2 text-[11px] text-outline">今天 10:40</div>
+</div>
+<!-- Inactive version -->
+<div class="p-3 rounded-lg bg-surface hover:bg-surface-container border border-outline-variant/60 cursor-pointer transition-all">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-on-surface">版本 v3.1</span>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-1">引入全网分发多端对齐样式</p>
+<div class="mt-2 text-[11px] text-outline">昨天 18:22</div>
+</div>
+<!-- Expiring version alert -->
+<div class="p-3 rounded-lg bg-surface hover:bg-surface-container border border-outline-variant/60 cursor-pointer transition-all relative">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label-md text-on-surface">版本 v2.9</span>
+<span class="text-[10px] text-error bg-error-container px-1.5 py-0.2 rounded">即将过期</span>
+</div>
+<p class="text-body-sm text-on-surface-variant line-clamp-1">基础排版草稿，含未保存修改</p>
+<div class="mt-2 text-[11px] text-outline">3天前</div>
+</div>
+</div>
+<!-- Empty state example container (hidden by default or styled small) -->
+<div class="mt-4 pt-4 border-t border-outline-variant/60 text-center">
+<button class="w-full py-2 border border-dashed border-outline rounded-lg text-body-sm text-on-surface-variant hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>新建排版版本</span>
+</button>
+</div>
+</div>
+<!-- Right: Content Preview & Viewport Area -->
+<div class="flex-1 bg-surface-container-lowest border border-outline-variant rounded-lg p-5 flex flex-col gap-4">
+<!-- Header Bar: Title, Meta, Action Group -->
+<div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-outline-variant/60">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<h2 class="font-headline-md text-headline-md text-on-surface">深度洞察：2026 年大模型交互趋势</h2>
+<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-xs rounded font-medium">微信公众号</span>
+</div>
+<div class="flex items-center gap-4 text-body-sm text-on-surface-variant">
+<span>字数：3,420 字</span>
+<span>预计阅读：12 分钟</span>
+<span>排版耗时：0.4s</span>
+</div>
+</div>
+<!-- Action Buttons Group -->
+<div class="flex items-center gap-2">
+<button class="h-9 px-3 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+<span>复制图文</span>
+</button>
+<button class="h-9 px-3 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">text_snippet</span>
+<span>复制纯文本</span>
+</button>
+<button class="h-9 px-3 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">code</span>
+<span>复制 HTML</span>
+</button>
+<button class="h-9 px-3 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span>导出</span>
+</button>
+<button class="h-9 px-4 bg-primary-container hover:bg-primary text-on-primary rounded-lg font-label-md flex items-center gap-1.5 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[16px]">send</span>
+<span>去发布</span>
+</button>
+</div>
+</div>
+<!-- Viewport Main Body: 375px WeChat Preview Card -->
+<div class="bg-surface-container-low rounded-lg p-8 flex flex-col items-center justify-center min-h-[600px] border border-outline-variant/40">
+<!-- View Mode Switcher -->
+<div class="mb-4 flex items-center bg-surface border border-outline-variant rounded-lg p-1">
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface text-xs font-semibold shadow-xs">图文预览视窗</button>
+<button class="px-3 py-1 rounded text-on-surface-variant hover:text-on-surface text-xs font-medium transition-colors">纯文本预览</button>
+</div>
+<!-- Phone Frame / WeChat Official Account Card -->
+<div class="w-[375px] bg-white rounded-lg shadow-sm border border-outline-variant overflow-hidden">
+<!-- WeChat Article Header -->
+<div class="p-6 pb-4">
+<h1 class="text-xl font-bold text-gray-900 leading-tight mb-3">深度洞察：2026 年大模型交互趋势与体验革命</h1>
+<div class="flex items-center gap-2 text-xs text-gray-500 mb-4">
+<span class="font-medium text-gray-700">心流工作室</span>
+<span>·</span>
+<span>2026-03-30</span>
+</div>
+<div class="h-px bg-gray-100 w-full mb-4"></div>
+</div>
+<!-- Article Content -->
+<div class="px-6 pb-8 text-gray-800 text-sm leading-relaxed space-y-4 font-body-md">
+<p>在人机交互快速演进的今天，大模型正逐渐从单一的对话框形态剥离，融入各类沉浸式工作流。无论是写作、设计还是代码编写，『心流』体验已成为衡量现代生产力工具的核心标尺。</p>
+<h3 class="font-semibold text-gray-900 text-base pt-2">一、 从指令响应到意图自适应</h3>
+<p>过去的交互依赖复杂的提示词工程，而 2026 年的趋势表明，系统开始具备深度的上下文感知与主动服务能力。克制而优雅的排版与清晰的信息流，是降低认知负荷的关键。</p>
+<div class="p-4 bg-gray-50 border-l-4 border-blue-600 rounded-r text-xs text-gray-600 my-4">
+                  「设计不是单纯的外观装饰，而是让复杂的逻辑呈现出极致的清晰与平静。」—— 简约工作室
+                </div>
+<p>未来的工作台将彻底消除多重嵌套与冗余装饰，将 100% 的注意力留给内容本身与直接操作。</p>
+<div class="w-full h-48 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs overflow-hidden border border-gray-200">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist digital workspace illustration showcasing a modern content editor interface with soft lighting and clear typographic hierarchy, reflecting a professional high-end editorial workflow in a light mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl5cs4yhAvEBZ3_9Xo6fPiiBCEXQc367E4KFvt3VFfSdZp5peHqQaRyYWNCdlllZknZZKEeoylUk4BUsl1_q4B94FU7UInFVUjamEcJAOJ3kyfzCoCpaQz-96oeL_t71HnINqktiLPGONlnTyrF2Kv1TgNqQ8zAXy-7UZW8qW2lXbE1ZCbYQ5c3JntxFYluho7drFe4ZWneGfFaLSsn_zHqQRZ0Gl6pwXWOkgwYtBxEdkwQXHV2bVCqHTxW3DbWEpYMEipet-cNds"/>
+</div>
+<h3 class="font-semibold text-gray-900 text-base pt-2">二、 克制与高效的平衡</h3>
+<p>通过严格的网格系统与标准间距，我们在移动端与桌面端均实现了完美的视觉连贯性。</p>
+</div>
+<!-- WeChat Article Footer -->
+<div class="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+<span>阅读 3,420</span>
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1">👍 128</span>
+<span class="flex items-center gap-1">⭐ 45</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Delete Confirmation Modal (Hidden by default, can be toggled via JS) -->
+<div class="fixed inset-0 bg-[#101c2d]/40 backdrop-blur-[2px] flex items-center justify-center z-50 hidden" id="deleteModal">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 w-[400px] shadow-lg flex flex-col gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">warning</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">确认删除当前排版版本？</h3>
+<p class="font-body-sm text-on-surface-variant">此操作无法撤销，未保存的更改将会丢失。</p>
+</div>
+</div>
+<div class="flex items-center justify-end gap-3 mt-2">
+<button class="h-9 px-4 bg-surface hover:bg-surface-container border border-outline-variant rounded-lg font-label-md text-on-surface transition-colors" onclick="toggleDeleteModal()">
+          取消
+        </button>
+<button class="h-9 px-4 bg-error hover:bg-error/95 text-on-error rounded-lg font-label-md transition-colors shadow-sm" onclick="toggleDeleteModal()">
+          确认删除
+        </button>
+</div>
+</div>
+</div>
+<script>
+    function toggleDeleteModal() {
+      const modal = document.getElementById('deleteModal');
+      modal.classList.toggle('hidden');
+    }
+  </script>
+</body></html>

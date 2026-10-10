@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 /**
@@ -25,7 +25,23 @@ export interface ModalBaseProps {
 }
 
 const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
+
+const modalStack: HTMLElement[] = []
+let restoreBackground: (() => void) | undefined
+
+function syncModalStack(): void {
+  modalStack.forEach((dialog, index) => {
+    dialog.inert = index !== modalStack.length - 1
+    if (dialog.parentElement) dialog.parentElement.style.zIndex = String(1100 + index)
+  })
+}
+
+function focusableElements(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    element => element.getClientRects().length > 0 && !element.closest('[inert], [hidden]')
+  )
+}
 
 export function ModalBase({
   open,
@@ -39,57 +55,43 @@ export function ModalBase({
   bare = false
 }: ModalBaseProps): React.JSX.Element | null {
   const dialogRef = useRef<HTMLElement>(null)
-  const previousActiveElement = useRef<Element | null>(null)
-  const previousInert = useRef<Array<{ element: Element; wasInert: boolean }>>([])
-
-  // P1-6: 锁定背景元素（main 与 body 直接子节点），打开时设 inert
-  const setBgInert = useCallback((shouldInert: boolean) => {
-    const mainEl = document.getElementById('main')
-    const targets: Element[] = []
-    if (mainEl) targets.push(mainEl)
-    // 不直接处理 body 子节点，避免影响 modal 自身
-    if (shouldInert) {
-      previousInert.current = []
-      for (const el of targets) {
-        if (!el.hasAttribute('inert')) {
-          previousInert.current.push({ element: el, wasInert: false })
-          el.setAttribute('inert', '')
-        }
-      }
-    } else {
-      for (const { element } of previousInert.current) {
-        element.removeAttribute('inert')
-      }
-      previousInert.current = []
-    }
-  }, [])
+  // 输入引发重渲染时更新回调，不重建焦点锁。
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
 
   useEffect(() => {
-    if (!open) return
-
-    // 保存当前焦点，关闭时还原
-    previousActiveElement.current = document.activeElement
-    setBgInert(true)
-
     const dialog = dialogRef.current
-    if (dialog) {
-      // 聚焦首个可聚焦元素
-      const focusable = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-      if (focusable) {
-        requestAnimationFrame(() => focusable.focus())
-      } else {
-        requestAnimationFrame(() => dialog.focus())
+    if (!open || !dialog) return
+    const previousActive = document.activeElement
+    if (!modalStack.length) {
+      const root = document.getElementById('root')
+      const wasInert = root?.inert ?? false
+      const previousOverflow = document.body.style.overflow
+      if (root) root.inert = true
+      document.body.style.overflow = 'hidden'
+      restoreBackground = () => {
+        if (root) root.inert = wasInert
+        document.body.style.overflow = previousOverflow
       }
     }
+    modalStack.push(dialog)
+    syncModalStack()
+    const frame = requestAnimationFrame(() => {
+      if (modalStack.at(-1) !== dialog) return
+      const candidates = focusableElements(dialog)
+      ;(candidates.find(element => element.hasAttribute('data-autofocus')) ?? candidates[0] ?? dialog).focus()
+    })
 
     const handleKeydown = (event: KeyboardEvent): void => {
+      if (modalStack.at(-1) !== dialog || event.isComposing) return
       if (event.key === 'Escape') {
-        event.stopPropagation()
-        onClose()
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        closeRef.current()
         return
       }
       if (event.key === 'Tab' && dialog) {
-        const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        const focusables = focusableElements(dialog)
         if (focusables.length === 0) {
           event.preventDefault()
           dialog.focus()
@@ -98,10 +100,10 @@ export function ModalBase({
         const first = focusables[0]
         const last = focusables[focusables.length - 1]
         const active = document.activeElement
-        if (event.shiftKey && active === first) {
+        if (event.shiftKey && (active === first || !dialog.contains(active) || active === dialog)) {
           event.preventDefault()
           last.focus()
-        } else if (!event.shiftKey && active === last) {
+        } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
           event.preventDefault()
           first.focus()
         }
@@ -110,14 +112,22 @@ export function ModalBase({
 
     document.addEventListener('keydown', handleKeydown)
     return () => {
+      cancelAnimationFrame(frame)
       document.removeEventListener('keydown', handleKeydown)
-      setBgInert(false)
-      // 还原焦点
-      if (previousActiveElement.current instanceof HTMLElement) {
-        previousActiveElement.current.focus()
+      const index = modalStack.indexOf(dialog)
+      if (index !== -1) modalStack.splice(index, 1)
+      syncModalStack()
+      if (!modalStack.length) {
+        restoreBackground?.()
+        restoreBackground = undefined
+      }
+      if (previousActive instanceof HTMLElement && previousActive.isConnected && !previousActive.closest('[inert]')) {
+        previousActive.focus()
+      } else if (modalStack.length) {
+        modalStack.at(-1)?.focus()
       }
     }
-  }, [open, onClose, setBgInert])
+  }, [open])
 
   if (!open) return null
 
