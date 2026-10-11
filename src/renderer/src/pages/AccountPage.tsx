@@ -1305,9 +1305,9 @@ function GeneratedFields({
     <div className="generated-fields">
       {fields.map((field, index) => (
         <div className="generated-field" key={field.id}>
+          {/* 来源（AI 生成/恢复/手动）只保留悬停提示，不再渲染可见标签 */}
           <span className="field-index" title={field.source === 'ai' ? 'AI 生成' : field.source === 'restore' ? '来自恢复版本' : '手动填写'}>
             {String(index + 1).padStart(2, '0')}
-            {field.source === 'ai' && <small className="field-source-tag">AI</small>}
           </span>
           <div>
             <div className="field-name-row">

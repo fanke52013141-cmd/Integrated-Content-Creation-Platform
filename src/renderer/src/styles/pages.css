@@ -3880,14 +3880,6 @@
 .dimension-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .dimension-item-main small { color: var(--text-tertiary); font-size: 12px; }
 .dimension-item-date { color: var(--text-soft); font-size: 11px; }
-.field-source-tag {
-  display: inline-block;
-  margin-left: 3px;
-  font-size: 8.5px;
-  font-weight: 700;
-  color: var(--primary);
-  vertical-align: super;
-}
 /* 版本对比弹窗 */
 .version-diff-dialog { width: min(680px, 100%); }
 .version-diff-table { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
