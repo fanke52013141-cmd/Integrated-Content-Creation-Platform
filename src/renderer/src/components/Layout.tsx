@@ -188,7 +188,6 @@ export function Layout({
                   >
                     <span className="nav-icon"><Icon size={16} /></span>
                     <span>{stage.sidebarLabel}</span>
-                    {stage.optional && <span className="nav-item-hint">可选</span>}
                   </button>
                 )
                 })}

@@ -26,6 +26,7 @@ import { FileMaterialService } from './services/file-material-service.js'
 import { WorkspaceService } from './services/workspace-service.js'
 import { ArticleLayoutService } from './services/article-layout-service.js'
 import { WechatPublishService } from './services/wechat-publish-service.js'
+import { KuaishouCookieService } from './services/kuaishou-cookie-service.js'
 import { WeiboLoginService } from './services/weibo-login-service.js'
 
 let database: AppDatabase | undefined
@@ -99,7 +100,8 @@ if (!hasLock) {
       prompts.seed()
       const accountGenerator = new AccountGenerator(gateway, prompts)
       embeddedHotService = new EmbeddedHotService()
-      const hotspotService = new HotspotService(embeddedHotService, keyStore, database)
+      const kuaishouCookieService = new KuaishouCookieService(keyStore)
+      const hotspotService = new HotspotService(embeddedHotService, keyStore, database, kuaishouCookieService)
       const hotspotFilter = new HotspotFilter(database, gateway, prompts)
       const topicGenerator = new TopicGenerator(database, gateway, prompts)
       const materialSearchService = new MaterialSearchService(

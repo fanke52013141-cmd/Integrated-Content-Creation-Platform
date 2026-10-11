@@ -9,6 +9,7 @@ import type {
 import type { AppDatabase } from '../database.js'
 import type { EmbeddedHotService } from './embedded-hot-service.js'
 import type { KeyStore } from '../security/key-store.js'
+import type { KuaishouCookieService } from './kuaishou-cookie-service.js'
 
 interface UpstreamRoute {
   name?: unknown
@@ -32,22 +33,33 @@ type UpstreamItem = Record<string, unknown>
 
 /**
  * 首次运行时默认展示的平台（其余默认隐藏），顺序即排布顺序：
- * 36氪、抖音、微博、知乎、今日头条、快手、哔哩哔哩、百度、IT之家、腾讯新闻。
+ * 抖音、微博、知乎、快手、今日头条、哔哩哔哩、36氪、IT之家、腾讯新闻，其余平台殿后。
  */
 const DEFAULT_VISIBLE_IDS = [
-  '36kr',
   'douyin',
   'weibo',
   'zhihu',
-  'toutiao',
   'kuaishou',
+  'toutiao',
   'bilibili',
-  'baidu',
+  '36kr',
   'ithome',
-  'qq-news'
+  'qq-news',
+  'baidu'
 ]
 
-const PRIMARY_SOURCE_IDS = [...DEFAULT_VISIBLE_IDS]
+const PRIMARY_SOURCE_IDS = [
+  'douyin',
+  'weibo',
+  'zhihu',
+  'kuaishou',
+  'toutiao',
+  'bilibili',
+  '36kr',
+  'ithome',
+  'qq-news',
+  'baidu'
+]
 
 const SOURCE_NAMES: Record<string, string> = {
   '36kr': '36氪',
@@ -104,7 +116,8 @@ export class HotspotService {
   constructor(
     private readonly embedded: EmbeddedHotService,
     private readonly keyStore?: KeyStore,
-    private readonly database?: AppDatabase
+    private readonly database?: AppDatabase,
+    private readonly kuaishouCookie?: KuaishouCookieService
   ) {}
 
   async bootstrap(): Promise<HotspotBootstrap> {
@@ -174,6 +187,7 @@ export class HotspotService {
 
   private async fetchSource(source: HotSource): Promise<HotSourceResult> {
     if (source.id === 'weibo') return this.fetchWeiboHot(source)
+    if (source.id === 'kuaishou') return this.fetchKuaishouHot(source)
 
     const fallback: HotSourceResult = {
       source,
@@ -327,6 +341,87 @@ export class HotspotService {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '微博暂时无法获取'
+      return { ...fallback, error: message }
+    }
+  }
+
+  /**
+   * 快手热榜：dailyhot-api 的路由在无 Cookie 时会被反爬拒绝（仅返回 63 字节
+   * 的拒绝 JSON）。这里用设备 Cookie（隐藏窗口静默引导，无需真实登录）直接
+   * 抓取快手首页，解析 Apollo 状态里的 visionHotRank 数据。
+   */
+  private async fetchKuaishouHot(source: HotSource, forceRefreshCredential = false): Promise<HotSourceResult> {
+    const fallback: HotSourceResult = {
+      source,
+      status: 'error',
+      subtitle: '热榜',
+      updateTime: new Date().toISOString(),
+      items: []
+    }
+    try {
+      if (!this.kuaishouCookie) throw new Error('快手访问凭证服务不可用')
+      const credential = await this.kuaishouCookie.ensureCredential(forceRefreshCredential)
+      const response = await fetch('https://www.kuaishou.com/?isHome=1', {
+        headers: {
+          'User-Agent': credential.userAgent,
+          Cookie: credential.cookie,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9'
+        },
+        signal: AbortSignal.timeout(16_000)
+      })
+      if (!response.ok) throw new Error(`快手热榜请求失败（${response.status}）`)
+      const html = await response.text()
+      const match = html.match(/window\.__APOLLO_STATE__=(.*);\(function\(\)/s)
+      if (!match) throw new Error('快手返回了受限页面')
+      const state = JSON.parse(match[1]) as { defaultClient?: Record<string, unknown> } & Record<string, unknown>
+      const client = state.defaultClient
+      if (!client) throw new Error('快手页面结构已变化')
+      const rankKey = Object.keys(client).find((key) => key.includes('visionHotRank'))
+      const rank = rankKey ? client[rankKey] as { items?: Array<{ id: string }> } | undefined : undefined
+      const itemRefs = rank?.items ?? []
+      if (!itemRefs.length) throw new Error('快手热榜暂无有效数据')
+      const updateTime = new Date().toISOString()
+      const items = itemRefs
+        .map((ref, index): HotItem | undefined => {
+          const raw = client[ref.id] as Record<string, unknown> | undefined
+          if (!raw) return undefined
+          const title = text(raw.name)
+          if (!title) return undefined
+          const photoIds = raw.photoIds as { json?: string[] } | undefined
+          const photoId = photoIds?.json?.[0]
+          const url = photoId ? `https://www.kuaishou.com/short-video/${photoId}` : 'https://www.kuaishou.com/'
+          const rawId = text(raw.id)
+          return {
+            id: rawId || createHash('sha1').update(`kuaishou\n${title}\n${url}`).digest('hex').slice(0, 20),
+            title,
+            desc: '',
+            url,
+            source: source.id,
+            sourceTitle: '快手',
+            subtitle: '热榜',
+            updateTime,
+            hotValue: typeof raw.hotValue === 'string' ? raw.hotValue : formatHotValue(raw.hotValue),
+            rank: index + 1,
+            rawJson: JSON.stringify(raw).slice(0, 4_000)
+          }
+        })
+        .filter((item): item is HotItem => Boolean(item))
+      if (!items.length) throw new Error('快手热榜返回格式无效')
+      return {
+        source: { ...source, displayName: '快手' },
+        status: 'ready',
+        subtitle: '热榜',
+        updateTime,
+        items
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '快手暂时无法获取'
+      // 凭证失效（受限页面 / 引导失败）：强制重新引导设备 Cookie 再试一次
+      if (!forceRefreshCredential && this.kuaishouCookie && /受限|引导失败/.test(message)) {
+        return this.fetchKuaishouHot(source, true)
+      }
+      this.kuaishouCookie?.invalidate()
       return { ...fallback, error: message }
     }
   }

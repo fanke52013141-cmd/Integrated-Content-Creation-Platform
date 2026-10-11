@@ -1934,6 +1934,8 @@ export class AppDatabase {
   getWeiboSessionMeta():{updatedAt?:string}|null { const row=this.db.prepare("SELECT updated_at FROM weibo_sessions WHERE account='weibo-hot'").get() as {updated_at:string}|undefined;return row?{updatedAt:row.updated_at}:null }
   getEncryptedWeiboCookie():Buffer|null { const row=this.db.prepare("SELECT encrypted_cookie FROM weibo_sessions WHERE account='weibo-hot'").get() as {encrypted_cookie:Buffer}|undefined;return row?.encrypted_cookie?Buffer.from(row.encrypted_cookie):null }
   clearWeiboSession():void { this.db.prepare("DELETE FROM weibo_sessions WHERE account='weibo-hot'").run() }
+  saveKuaishouSession(encryptedCredential:Buffer):void { const now=new Date().toISOString();this.db.prepare("INSERT INTO weibo_sessions(account,encrypted_cookie,updated_at) VALUES('kuaishou-hot',?,?) ON CONFLICT(account) DO UPDATE SET encrypted_cookie=excluded.encrypted_cookie,updated_at=excluded.updated_at").run(encryptedCredential,now) }
+  getEncryptedKuaishouSession():Buffer|null { const row=this.db.prepare("SELECT encrypted_cookie FROM weibo_sessions WHERE account='kuaishou-hot'").get() as {encrypted_cookie:Buffer}|undefined;return row?.encrypted_cookie?Buffer.from(row.encrypted_cookie):null }
   createPublication(input: Omit<Publication, 'id' | 'createdAt' | 'updatedAt'>): Publication {
     const id = crypto.randomUUID(), now = new Date().toISOString()
     this.transaction(() => {

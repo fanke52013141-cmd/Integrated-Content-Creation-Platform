@@ -13,6 +13,8 @@
 .hotspots-page .hotspot-source-rail > div { max-height: min(620px, calc(100dvh - 250px)); gap: 4px; }
 .hotspots-page .hotspot-source-rail > div > button { padding: 10px 8px; font-size: 13px; }
 .hotspots-page .hotspot-source-rail > div > button.active { box-shadow: none; background: var(--primary-wash); }
+/* 平台图标容器：行内 svg 默认按文字基线对齐，中心会比文字高约 2px，显式居中 */
+.source-mark { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hotspot-source-search { padding: 8px; }
 .hotspot-source-search input { min-width: 0; width: 100%; font-size: 12px; }
 .hotspots-page .hotspot-feed { padding: 24px; }

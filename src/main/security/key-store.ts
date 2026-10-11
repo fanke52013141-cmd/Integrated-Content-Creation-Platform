@@ -57,4 +57,18 @@ export class KeyStore {
   clearWeiboCookie(): void {
     this.database.clearWeiboSession()
   }
+
+  readKuaishouSession(): string {
+    const encrypted = this.database.getEncryptedKuaishouSession()
+    if (!encrypted) return ''
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('当前系统无法解密快手访问凭证')
+    return safeStorage.decryptString(encrypted)
+  }
+
+  saveKuaishouSession(credentialJson: string): void {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('当前系统无法使用安全存储，请检查 Windows 用户凭据服务')
+    }
+    this.database.saveKuaishouSession(safeStorage.encryptString(credentialJson.trim()))
+  }
 }
