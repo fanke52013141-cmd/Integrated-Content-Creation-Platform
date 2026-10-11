@@ -1,3 +1,6 @@
+// 必须放在首个 import：在 dailyhot-api/winston 等模块加载前装好 stdout 的 EPIPE 兜底，
+// 避免控制台管道失效后每写一条日志就弹一次主进程错误框（详见 stdout-guard.ts 内备注）
+import './stdout-guard.js'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, Menu, protocol } from 'electron'
