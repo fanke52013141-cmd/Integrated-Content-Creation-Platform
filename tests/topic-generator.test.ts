@@ -12,10 +12,16 @@ const validTopic = Object.fromEntries(schema.map((field) => [
 ]))
 
 describe('topic generator parser and prompt boundaries', () => {
-  it('requires exactly the current schema keys and accepts fenced JSON', () => {
+  it('accepts fenced JSON, tolerates extra keys and missing optional fields', () => {
     expect(parseTopicJson(`\`\`\`json\n${JSON.stringify(validTopic)}\n\`\`\``, schema)).toEqual(validTopic)
-    expect(() => parseTopicJson(JSON.stringify({ ...validTopic, 多余字段: '不允许' }), schema))
-      .toThrow('当前选题字段')
+    // 模型多出的未知键按 additionalProperties 语义忽略
+    expect(parseTopicJson(JSON.stringify({ ...validTopic, 多余字段: '忽略我' }), schema)).toEqual(validTopic)
+    // 可选字段（如“备注”）被模型省略时补空串，而不是整条拒绝
+    const withoutOptional = Object.fromEntries(Object.entries(validTopic).filter(([name]) => name !== '备注'))
+    expect(parseTopicJson(JSON.stringify(withoutOptional), schema)).toEqual(validTopic)
+    // 必填字段缺失仍然拒绝
+    const missingRequired = Object.fromEntries(Object.entries(validTopic).filter(([name]) => name !== '选题主题'))
+    expect(() => parseTopicJson(JSON.stringify(missingRequired), schema)).toThrow('当前选题字段')
   })
 
   it('escapes favorite hotspot text inside the XML data boundary', () => {

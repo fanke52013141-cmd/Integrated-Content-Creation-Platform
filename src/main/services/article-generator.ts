@@ -50,7 +50,7 @@ export class ArticleGenerator {
     const baseText = this.prompts.render('article.generate') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + outline
     const evidence = buildMaterialContext(this.database, materials, outline, contextBudget(this.database, input.providerId, input.model, baseText))
     const requestId = this.database.workflow.createRequest('generate', {
-      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 8000), evidence, references: this.referenceSnapshot(framework, account, materials),
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 16_000), evidence, references: this.referenceSnapshot(framework, account, materials),
       input, save: { frameworkId: framework?.id, accountId: account?.id, materialIds: materials.map(item => item.id), manualOutline: framework ? '' : outline, status: 'draft', source: 'generate', rawMarkdown: '' },
       messages: [{ role: 'system', content: this.prompts.render('article.generate') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', outline, evidence.text].join('\n\n') }]
     } satisfies PreparedArticleRequest, '按框架写作', total)
@@ -73,7 +73,7 @@ export class ArticleGenerator {
     const evidence = this.database.workflow.getEvidence<import('../../shared/contracts.js').MaterialContext>(article.currentVersionId) ?? buildMaterialContext(this.database, this.resolveMaterials(article.materialIds), instruction)
     contextBudget(this.database, input.providerId, input.model, this.prompts.render('article.revise') + (input.baseMarkdown?.trim() || article.rawMarkdown) + instruction + (framework?.rawXml ?? '') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + evidence.text)
     const requestId = this.database.workflow.createRequest('revise', {
-      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 8000), evidence, references: this.referenceSnapshot(framework, account, this.resolveMaterials(article.materialIds)),
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 16_000), evidence, references: this.referenceSnapshot(framework, account, this.resolveMaterials(article.materialIds)),
       input, article, save: { frameworkId: article.frameworkId, accountId: article.accountId, materialIds: article.materialIds, manualOutline: article.manualOutline, status: 'draft', source: 'revise', instruction, rawMarkdown: '' },
       messages: [{ role: 'system', content: this.prompts.render('article.revise') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', `<原稿>\n${escapeXml(input.baseMarkdown?.trim() || article.rawMarkdown)}\n</原稿>`, `<修改指令>\n${escapeXml(instruction)}\n</修改指令>`, framework?.rawXml ?? '<框架>未要求对齐</框架>', evidence.text].join('\n\n') }]
     } satisfies PreparedArticleRequest, article.rawMarkdown.match(/^#\s+(.+)$/m)?.[1] ?? '改稿', total, article.id)
@@ -134,7 +134,7 @@ export class ArticleGenerator {
     let lastPersisted = 0
     try {
       const response = await callModelWithFallback(this.gateway, {
-        providerId: prepared.input.providerId, model: prepared.input.model, maxTokens: prepared.maxTokens ?? 8000,
+        providerId: prepared.input.providerId, model: prepared.input.model, maxTokens: prepared.maxTokens ?? 16_000,
         temperature: prepared.article ? 0.45 : 0.7, jsonMode: false, signal,
         messages: [...prepared.messages, { role: 'user', content: `<${prepared.article ? '改稿' : '写作'}任务>第 ${index} 个独立${prepared.article ? '改稿' : '成稿'}候选。</${prepared.article ? '改稿' : '写作'}任务>` }]
       }, { signal, onDelta: delta => {

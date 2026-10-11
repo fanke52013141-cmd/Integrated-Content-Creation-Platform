@@ -23,7 +23,7 @@ export class VisualPackGenerator {
 
     onStream?.({ phase: 'start', index: 0, total: 1 })
     const response = await callModelWithFallback(this.gateway, {
-      providerId: input.providerId, model: input.model, temperature: .65, maxTokens: 4200, jsonMode: false,
+      providerId: input.providerId, model: input.model, temperature: .65, maxTokens: 8_000, jsonMode: false,
       signal,
       extractBlock: { tag: '配图方案', occurrence: 'last' },
       messages: [{ role: 'system', content: this.prompts.render('visual.generate') }, { role: 'user', content: `<文章版本 id="${article.currentVersionId}" 状态="${article.status}">\n${escapeXml(article.rawMarkdown)}\n</文章>\n请设计 1 张封面、${input.inlineCount} 张文内配图、3 张发布配图。` }]

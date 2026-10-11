@@ -275,7 +275,7 @@ export function registerIpc(options: {
     const input = providerSchema.parse(raw)
     const revision = input.id ? database.getProvider(input.id)?.updatedAt : undefined
     if (input.expectedUpdatedAt && revision !== input.expectedUpdatedAt) throw new Error('连接配置已更新，请重新加载')
-    const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: input.defaultModel })
+    const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: input.defaultModel, mode: input.capabilities.image ? 'image' : 'chat' })
     const encrypted = input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
     return database.saveProvider({ ...input, expectedUpdatedAt: revision }, encrypted, result.model)
   })
@@ -289,13 +289,15 @@ export function registerIpc(options: {
       id: z.string().optional(),
       baseUrl: z.string().trim().url(),
       apiKey: z.string().trim().max(10_000).optional(),
-      model: z.string().trim().max(160).optional()
+      model: z.string().trim().max(160).optional(),
+      mode: z.enum(['chat', 'image']).optional()
     }).parse(raw)
     const result = await gateway.testDraft({
       providerId: input.id,
       baseUrl: input.baseUrl,
       apiKey: input.apiKey,
       model: input.model,
+      mode: input.mode,
       onLog: (entry) => database.recordModelCall({
         providerId: input.id ?? null,
         model: entry.model,
@@ -344,24 +346,41 @@ export function registerIpc(options: {
     if (!provider) throw new Error('供应商不存在')
     const startedAt = performance.now()
     try {
-      const result = await gateway.chat({
-        providerId,
-        temperature: 0,
-        maxTokens: 16,
-        messages: [
-          {
-            role: 'user',
-            content: '只回复 OK'
-          }
-        ]
-      })
+      let message: string
+      let responseModel: string
+      try {
+        const result = await gateway.chat({
+          providerId,
+          temperature: 0,
+          maxTokens: 16,
+          messages: [
+            {
+              role: 'user',
+              content: '只回复 OK'
+            }
+          ]
+        })
+        message = `连接成功 · 模型 ${result.model} 正常响应`
+        responseModel = result.model
+      } catch (chatError) {
+        // 勾选了图片生成能力的供应商，默认模型可能只支持生图端点：回退到生图探测
+        if (!provider.capabilities.image) throw chatError
+        const fallback = await gateway.testDraft({
+          providerId,
+          baseUrl: provider.baseUrl,
+          model: provider.defaultModel,
+          mode: 'image'
+        })
+        message = fallback.message
+        responseModel = fallback.model
+      }
       const latencyMs = Math.round(performance.now() - startedAt)
       database.recordProviderTest(providerId, 'success')
       return {
         ok: true,
         latencyMs,
-        model: result.model,
-        message: `连接成功 · 模型 ${result.model} 正常响应`
+        model: responseModel,
+        message
       }
     } catch (error) {
       // 失败同样落库：让"已保存"与"验证失败"在界面上可区分，而不是静默回到未验证

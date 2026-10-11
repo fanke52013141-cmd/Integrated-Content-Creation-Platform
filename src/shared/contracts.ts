@@ -127,6 +127,8 @@ export interface ProviderDraftTestInput {
   baseUrl: string
   apiKey?: string
   model?: string
+  /** 探测通道：勾选「图片生成」能力的供应商用生图端点验证连通性（chat 探测会被纯生图模型拒绝） */
+  mode?: 'chat' | 'image'
 }
 
 /** 单条模型调用日志（含测试连接产生的记录） */

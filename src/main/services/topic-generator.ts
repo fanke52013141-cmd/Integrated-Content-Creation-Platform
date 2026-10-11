@@ -13,6 +13,7 @@ import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { GatewayError } from '../gateway/types.js'
+import { modelOutputTokens } from './material-context.js'
 
 export class TopicGenerator {
   constructor(
@@ -84,7 +85,7 @@ export class TopicGenerator {
       providerId: input.providerId,
       model: input.model,
       temperature: 0.75,
-      maxTokens: 2_000,
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 8_000),
       jsonMode: true,
       messages: [
         {
@@ -150,7 +151,6 @@ export function parseTopicJson(content: string, schema: TopicSchemaField[]): Rec
     content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim(),
     extractJsonObject(content)
   ].filter((value): value is string => Boolean(value))
-  const expected = schema.map((field) => field.name)
 
   for (const candidate of candidates) {
     try {
@@ -158,17 +158,18 @@ export function parseTopicJson(content: string, schema: TopicSchemaField[]): Rec
       const object = Array.isArray(parsed) ? parsed[0] : parsed
       if (!object || typeof object !== 'object' || Array.isArray(object)) continue
       const record = object as Record<string, unknown>
-      const keys = Object.keys(record).sort()
-      if (keys.length !== expected.length || !expected.every((key) => keys.includes(key))) continue
       const normalized: Record<string, string> = {}
       let valid = true
       for (const field of schema) {
         const value = record[field.name]
-        if (typeof value !== 'string') {
-          valid = false
-          break
+        // 真实模型可能省略可选字段、把短语输出成数字：必填字段严格校验，
+        // 可选项缺失补空串，模型多出的未知键按 additionalProperties 语义忽略
+        if (value === undefined || value === null || typeof value === 'object') {
+          if (field.required) { valid = false; break }
+          normalized[field.name] = ''
+          continue
         }
-        normalized[field.name] = value.trim()
+        normalized[field.name] = String(value).trim()
         if (field.required && !normalized[field.name]) {
           valid = false
           break

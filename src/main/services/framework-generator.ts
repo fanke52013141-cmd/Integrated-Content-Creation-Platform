@@ -84,7 +84,7 @@ export class FrameworkGenerator {
       providerId: context.input.providerId,
       model: context.input.model,
       temperature: 0.7,
-      maxTokens: modelOutputTokens(this.database, context.input.providerId, context.input.model, 3500),
+      maxTokens: modelOutputTokens(this.database, context.input.providerId, context.input.model, 16_000),
       jsonMode: false,
       messages: [
         {

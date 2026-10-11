@@ -214,7 +214,8 @@ export function ProvidersPage({
         id: form.id,
         baseUrl: form.baseUrl.trim(),
         apiKey: form.apiKey?.trim() || undefined,
-        model: defaultModel?.modelId.trim()
+        model: defaultModel?.modelId.trim(),
+        mode: form.capabilities.image ? 'image' : 'chat'
       })
       setDraftStatus({ ok: true, message: `${result.message} · ${result.latencyMs}ms` })
       return true
@@ -695,6 +696,19 @@ export function ProvidersPage({
                 })}
               />
               <span><strong>结构化输出</strong></span>
+            </label>
+            <label className="switch-row" title="勾选后该供应商下的模型可出现在智能配图的生图模型列表">
+              <input
+                type="checkbox"
+                name="imageCapability"
+                autoComplete="off"
+                checked={form.capabilities.image}
+                onChange={(event) => setForm({
+                  ...form,
+                  capabilities: { ...form.capabilities, image: event.target.checked }
+                })}
+              />
+              <span><strong>图片生成</strong></span>
             </label>
             <label className="switch-row">
               <input

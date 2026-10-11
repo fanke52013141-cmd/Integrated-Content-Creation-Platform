@@ -34,7 +34,8 @@ export class AccountGenerator {
       providerId: input.providerId,
       model: input.model,
       temperature: 0.35,
-      maxTokens: 1_200,
+      // 1200 会被推理型模型的思考耗尽（GLM-5.3 实测 1994/2000），放宽到 4000
+      maxTokens: 4_000,
       jsonMode: true,
       messages: [
         {

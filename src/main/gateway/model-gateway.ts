@@ -40,6 +40,15 @@ interface OpenAiImageResponse {
   model?: string
   data?: Array<{ b64_json?: string; url?: string }>
   error?: { message?: string }
+  /** 异步任务制供应商（如 gpt-image-2 中转）：提交后返回任务 id，需要轮询取结果 */
+  id?: string
+  task_id?: string
+  status?: string
+  progress?: number
+  result?: {
+    data?: Array<{ url?: string; b64_json?: string }>
+    url?: string
+  }
 }
 
 /** 非流式对话单次尝试超时 */
@@ -87,6 +96,7 @@ export class ModelGateway {
     baseUrl: string
     apiKey?: string
     model?: string
+    mode?: 'chat' | 'image'
     onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void
   }): Promise<{ latencyMs: number; model: string; message: string }> {
     const apiKey = input.apiKey?.trim()
@@ -97,6 +107,8 @@ export class ModelGateway {
     if (!apiKey) throw new GatewayError('ProviderConfigError', '请先填写访问密钥，或使用已保存密钥的连接')
 
     const model = input.model?.trim() || '默认模型'
+    if (input.mode === 'image') return this.testImageDraft(input, apiKey, model)
+
     const endpoint = buildChatEndpoint(input.baseUrl)
     const startedAt = performance.now()
     try {
@@ -130,6 +142,57 @@ export class ModelGateway {
     }
   }
 
+  /**
+   * 生图供应商连通性探测：向生图端点提交一个空提示词请求。
+   * 鉴权失败返回 401/403；鉴权通过但参数缺失返回 4xx 参数错误——
+   * 两种响应都能区分「密钥/端点可用」与「配置错误」，且不会真的消耗生图额度。
+   */
+  private async testImageDraft(
+    input: { baseUrl: string; onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void },
+    apiKey: string,
+    model: string
+  ): Promise<{ latencyMs: number; model: string; message: string }> {
+    const endpoint = buildImageEndpoint(input.baseUrl)
+    const startedAt = performance.now()
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: ' ', n: 1, response_format: 'url' }),
+        signal: AbortSignal.timeout(30_000)
+      })
+      const text = await response.text()
+      let body: OpenAiImageResponse & { message?: string }
+      try {
+        body = JSON.parse(text) as OpenAiImageResponse & { message?: string }
+      } catch {
+        throw new GatewayError('ParseError', `生图端点返回了无法解析的响应（HTTP ${response.status}）`, response.status)
+      }
+      const errorMessage = body.error?.message ?? body.message
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const ok = (message: string): { latencyMs: number; model: string; message: string } => {
+        input.onLog?.({ success: true, latencyMs, model })
+        return { latencyMs, model, message }
+      }
+      if (response.ok && (body.data?.length || body.id || body.task_id || body.status)) {
+        return ok(`连接成功 · 生图端点可用（模型 ${model}）`)
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new GatewayError('AuthError', `生图端点鉴权失败（HTTP ${response.status}），请检查访问密钥`, response.status)
+      }
+      // 鉴权通过但空提示词被参数校验拦截：说明端点与密钥都可用
+      if (errorMessage && /prompt|参数|必填|不能为空|required/i.test(errorMessage)) {
+        return ok(`连接成功 · 生图端点可达，鉴权通过（服务端校验：${errorMessage.slice(0, 80)}）`)
+      }
+      throw new GatewayError('ProviderError', errorMessage?.slice(0, 300) ?? `生图端点请求失败（HTTP ${response.status}）`, response.status)
+    } catch (error) {
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const normalized = normalizeError(error, endpoint)
+      input.onLog?.({ success: false, latencyMs, model, errorKind: normalized.kind, errorMessage: normalized.message })
+      throw normalized
+    }
+  }
+
   async chat(request: UnifiedRequest, options?: ChatOptions): Promise<UnifiedResponse> {
     const provider = this.database.getProvider(request.providerId)
     if (!provider || !provider.enabled) {
@@ -147,19 +210,37 @@ export class ModelGateway {
     const startedAt = performance.now()
 
     try {
-      const result = await this.requestJsonWithRetry<OpenAiResponse>(endpoint, apiKey, {
+      const buildChatBody = (useJsonMode: boolean) => ({
         model,
         messages: request.messages,
         temperature: request.temperature ?? 0.4,
         ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
-        ...(request.jsonMode && !jsonModeSimulated
+        ...(request.jsonMode && useJsonMode
           ? { response_format: { type: 'json_object' } }
           : {})
-      }, options?.signal, CHAT_TIMEOUT_MS)
+      })
+      const jsonModeWanted = Boolean(request.jsonMode) && !jsonModeSimulated
+      let result = await this.requestJsonWithRetry<OpenAiResponse>(endpoint, apiKey, buildChatBody(jsonModeWanted), options?.signal, CHAT_TIMEOUT_MS)
+
+      // 推理型模型在 json_object 约束下可能把输出预算大量耗在思考上
+      // （实测 GLM-5.3-flash：思考量随机波动，超预算时 finish_reason=length，
+      //   正文为空或 JSON 被截断）。去掉结构化约束重试一次：
+      // 系统提示词本身已要求「只返回 JSON」，多数供应商都能遵守。
+      const firstContent = extractReplyText(result.choices?.[0]?.message)
+      const firstFinish = result.choices?.[0]?.finish_reason
+      if (jsonModeWanted && firstFinish === 'length' && (!firstContent || !isWellFormedJson(firstContent))) {
+        result = await this.requestJsonWithRetry<OpenAiResponse>(endpoint, apiKey, buildChatBody(false), options?.signal, CHAT_TIMEOUT_MS)
+      }
 
       const latencyMs = Math.round(performance.now() - startedAt)
       const content = extractReplyText(result.choices?.[0]?.message)
-      if (!content) throw new GatewayError('ParseError', '模型返回了空内容，请确认该模型的回复是否放在额外字段中')
+      if (!content) {
+        // 推理型模型（GLM-5.3 等）会把输出预算耗在 reasoning 上：finish_reason=length 且正文为空
+        const finishReason = result.choices?.[0]?.finish_reason
+        throw new GatewayError('ParseError', finishReason === 'length'
+          ? '模型在输出上限内只完成了推理、未输出正文（被长度截断）：请在「AI 服务」调大该模型的输出上限，或改用输出上限更高的模型'
+          : '模型返回了空内容，请确认该模型的回复是否放在额外字段中')
+      }
 
       const extraction = request.extractBlock
         ? extractTaggedBlock(content, request.extractBlock)
@@ -317,13 +398,24 @@ export class ModelGateway {
     const startedAt = performance.now()
 
     try {
+      // response_format 用 url 而非 b64_json：部分异步中转（gpt-image-2 等）不支持 b64 请求，
+      // 而 url 响应两条路径都能处理（下方统一下载转 base64）。
+      // size 仅在「宽:高」比例形态下透传，像素尺寸（如 1024x1024）对比例制供应商无意义。
+      const size = input.size && /^\d+\s*:\s*\d+$/.test(input.size) ? input.size.replace(/\s/g, '') : undefined
       const payload = await this.requestJsonWithRetry<OpenAiImageResponse>(endpoint, apiKey, {
         model: input.model,
         prompt: input.prompt,
         n: 1,
-        response_format: 'b64_json',
-        ...(input.size ? { size: input.size } : {})
+        response_format: 'url',
+        ...(size ? { size } : {})
       }, input.signal, IMAGE_TIMEOUT_MS)
+
+      if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
+        const base64 = await this.pollImageTask(endpoint, apiKey, payload.id ?? payload.task_id ?? '', input.signal)
+        const latencyMs = Math.round(performance.now() - startedAt)
+        this.database.recordModelCall({ providerId: provider.id, model: input.model, latencyMs, success: true })
+        return { base64, model: payload.model ?? input.model, providerId: provider.id, latencyMs }
+      }
 
       const item = payload.data?.[0]
       let base64 = item?.b64_json
@@ -352,6 +444,49 @@ export class ModelGateway {
       })
       throw normalized
     }
+  }
+
+  /**
+   * 轮询异步生图任务：提交接口只回任务 id 的供应商（gpt-image-2 中转等），
+   * 按 GET {提交端点}/{taskId} 查询直到 completed / failed，总时长受 IMAGE_TIMEOUT_MS 约束。
+   */
+  private async pollImageTask(endpoint: string, apiKey: string, taskId: string, signal?: AbortSignal): Promise<string> {
+    const deadline = Date.now() + IMAGE_TIMEOUT_MS
+    let lastStatus = ''
+    while (Date.now() < deadline) {
+      if (signal?.aborted) throw new GatewayError('CancelledError', '图片生成已取消')
+      const response = await fetch(`${endpoint}/${taskId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal
+      })
+      const text = await response.text()
+      let task: OpenAiImageResponse
+      try {
+        task = JSON.parse(text) as OpenAiImageResponse
+      } catch {
+        throw new GatewayError('ParseError', `生图任务查询返回无法解析的响应（HTTP ${response.status}）`, response.status)
+      }
+      if (!response.ok) throw fromHttpError(response.status, task.error?.message, endpoint)
+      if (task.status !== lastStatus) {
+        lastStatus = task.status ?? ''
+        console.log(`[image-task] ${taskId} status=${lastStatus} progress=${task.progress ?? ''}`)
+      }
+      if (task.status === 'failed') {
+        throw new GatewayError('ProviderError', `生图任务失败：${task.error?.message ?? '供应商未给出原因'}`)
+      }
+      if (task.status === 'completed') {
+        const url = task.result?.data?.find((item) => item.url)?.url
+          ?? task.result?.url
+          ?? task.data?.find((item) => item.url)?.url
+        if (!url) throw new GatewayError('ParseError', '生图任务完成但未返回图片地址')
+        const imageResponse = await fetch(url, { signal })
+        if (!imageResponse.ok) throw new GatewayError('NetworkError', `下载生成图片失败（HTTP ${imageResponse.status}）`)
+        const buffer = Buffer.from(await imageResponse.arrayBuffer())
+        return buffer.toString('base64')
+      }
+      await wait(3_000)
+    }
+    throw new GatewayError('TimeoutError', `生图任务超过 ${Math.round(IMAGE_TIMEOUT_MS / 1_000)} 秒仍未完成，请稍后在调用日志中查看`)
   }
 
   private async requestJsonWithRetry<T>(
@@ -479,6 +614,7 @@ export class ModelGateway {
       const decoder = new TextDecoder()
       let buffer = ''
       let content = ''
+      let reasoning = ''
       let finishReason: string | undefined
       let promptTokens: number | undefined
       let completionTokens: number | undefined
@@ -494,10 +630,17 @@ export class ModelGateway {
         for (const line of lines) {
           const parsed = parseSseLine(line)
           if (!parsed) continue
-          const delta = extractReplyText(parsed.choices?.[0]?.delta)
-          if (delta) {
-            content += delta
-            onDelta(delta)
+          const delta = parsed.choices?.[0]?.delta
+          // 推理型模型（GLM-5.3 等）先推 reasoning_content 再推 content。
+          // 思考增量绝不能拼进正文（否则思考文本会混入成稿），也不推给 UI 预览；
+          // 只有当整条流从未产出正文时，才把 reasoning 兜底当作正文（兼容 reasoning-only 模型）。
+          const contentDelta = typeof delta?.content === 'string' ? delta.content : ''
+          const reasoningDelta = typeof delta?.reasoning_content === 'string' ? delta.reasoning_content : ''
+          if (contentDelta) {
+            content += contentDelta
+            onDelta(contentDelta)
+          } else if (reasoningDelta) {
+            reasoning += reasoningDelta
           }
           if (parsed.choices?.[0]?.finish_reason) finishReason = parsed.choices[0].finish_reason
           if (parsed.model) responseModel = parsed.model
@@ -511,11 +654,21 @@ export class ModelGateway {
       // 处理缓冲区中可能残留的最后一行
       const tail = parseSseLine(buffer)
       if (tail) {
-        const delta = extractReplyText(tail.choices?.[0]?.delta)
-        if (delta) { content += delta; onDelta(delta) }
+        const tailDelta = tail.choices?.[0]?.delta
+        const tailContent = typeof tailDelta?.content === 'string' ? tailDelta.content : ''
+        const tailReasoning = typeof tailDelta?.reasoning_content === 'string' ? tailDelta.reasoning_content : ''
+        if (tailContent) { content += tailContent; onDelta(tailContent) } else if (tailReasoning) { reasoning += tailReasoning }
         if (tail.choices?.[0]?.finish_reason) finishReason = tail.choices[0].finish_reason
       }
 
+      if (!content && reasoning) {
+        // 思考耗尽了输出预算、正文一字未出：交由上层非流式回退处理
+        // （chat() 带 json_object 截断回退），而不是把思考文本当结果
+        if (finishReason === 'length') {
+          throw new GatewayError('ParseError', '模型在输出上限内只完成了推理、未输出正文（被长度截断）')
+        }
+        return { content: reasoning.trim(), finishReason, promptTokens, completionTokens, responseModel }
+      }
       return { content, finishReason, promptTokens, completionTokens, responseModel }
     } catch (error) {
       throw toStreamError(error, endpoint, signal, abortReason)
@@ -683,6 +836,18 @@ function shouldRetry(error: GatewayError): boolean {
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+/** 判断文本是否为可直接解析的 JSON（用于决定是否需要绕开 json_object 约束重试） */
+function isWellFormedJson(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return false
+  try {
+    JSON.parse(trimmed)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
