@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Braces, History, RotateCcw, Save } from 'lucide-react'
+import { Braces, Download, FileUp, History, RotateCcw, Save } from 'lucide-react'
 import type { PromptDefSummary, PromptVersionInfo } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
+import { ImportDialog } from '../components/ImportDialog'
+import { SourceBadge } from '../components/SourceBadge'
 import { useConfirm } from '../components/useConfirm'
 import { errorMessage } from '../lib'
 
@@ -13,6 +15,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
   const [note, setNote] = useState('')
   const [versions, setVersions] = useState<PromptVersionInfo[]>([])
   const [busy, setBusy] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const selected = useMemo(() => defs.find((d) => d.key === selectedKey), [defs, selectedKey])
   const variables = useMemo(() => {
@@ -114,8 +117,19 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
     <div className="page prompts-page">
       <section className="page-intro">
         <div>
-          <h2>提示词</h2>
+          <h1>提示词 <SourceBadge source={selected?.importSource} /></h1>
           <p>集中管理各 AI 环节的自定义提示词，支持版本回溯。写入 <code>{'{'} {'{'}</code>变量<code>{'}'}{'}'}</code> 可注入动态上下文。</p>
+        </div>
+        <div className="page-intro-actions">
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入 JSON</button>
+          <button className="button secondary" disabled={busy || !defs.length} onClick={() => void (async () => {
+            setBusy(true)
+            try {
+              const result = await window.moliu.imports.export({ kind: 'prompt', format: 'json', ids: defs.map((def) => def.key) })
+              showToast(result.path ? { type: 'success', message: `已导出提示词到 ${result.path}` } : { type: 'info', message: '已取消导出' })
+            } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
+            finally { setBusy(false) }
+          })()}><Download size={15} />导出 JSON</button>
         </div>
       </section>
 
@@ -220,6 +234,13 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
           )}
         </section>
       </div>
+      <ImportDialog
+        open={importOpen}
+        kind="prompt"
+        onClose={() => setImportOpen(false)}
+        onImported={() => { void reload('提示词已导入') }}
+        showToast={showToast}
+      />
       {ConfirmPortal}
     </div>
   )

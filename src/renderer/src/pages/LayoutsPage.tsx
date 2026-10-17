@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Code2, Copy, FileDown, FileText, Send, Smartphone, Trash2 } from 'lucide-react'
+import { Code2, Copy, FileDown, FileText, FileUp, Send, Smartphone, Trash2 } from 'lucide-react'
 import type { ArticleGenre, ArticleLayout, ArticleSummary, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
+import { ImportDialog } from '../components/ImportDialog'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { SourceBadge } from '../components/SourceBadge'
 import { EmptyState } from '../components/EmptyState'
 import { useConfirm } from '../components/useConfirm'
 import { errorMessage, formatDate, formatTimedDate, markdownTitle, sanitizeHtml } from '../lib'
@@ -45,6 +47,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [genre, setGenre] = useState<ArticleGenre | ''>('')
   const [genres, setGenres] = useState<Array<{ id: ArticleGenre; label: string; hint: string }>>([])
   const [selectedId, setSelectedId] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
   // 选中态始终限定在当前文章的排版稿集合内：切文章不会出现侧栏是 B、预览是 A
@@ -181,6 +184,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       onNavigate={onNavigate}
       title="文章排版"
       description="把成稿渲染为平台格式，直接推送公众号草稿箱"
+      actions={articleId ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入 HTML</button> : undefined}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
@@ -263,6 +267,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
             {articleLayouts.length ? articleLayouts.map((item) => (
               <button key={item.id} className={`layout-version-item ${item.id === effectiveSelectedId ? 'active' : ''}`} onClick={() => setSelectedId(item.id)}>
                 <strong>{platformNames[item.platform]}{item.themeId && item.themeId !== 'custom' ? ` · ${themes.find((theme) => theme.id === item.themeId)?.name ?? item.themeId}` : ''}</strong>
+                <SourceBadge source={item.importSource} />
                 <small>{formatDate(item.createdAt)}</small>
               </button>
             )) : <EmptyState
@@ -329,5 +334,13 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       </>
     )}
     {ConfirmPortal}
+    <ImportDialog
+      open={importOpen}
+      kind="layout"
+      associations={{ articleId }}
+      onClose={() => setImportOpen(false)}
+      onImported={(result) => { void refresh().then(() => { if (result.created[0]) setSelectedId(result.created[0].id) }) }}
+      showToast={showToast}
+    />
   </div>
 }

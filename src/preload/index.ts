@@ -47,6 +47,12 @@ const api: MoliuApi = {
     exportPortableBackup: () => ipcRenderer.invoke('app:backup-export-portable'),
     selectPortableBackup: () => ipcRenderer.invoke('app:backup-select-portable')
   },
+  imports: {
+    pickFile: (input) => ipcRenderer.invoke('imports:pick', input),
+    preview: (input) => ipcRenderer.invoke('imports:preview', input),
+    commit: (input) => ipcRenderer.invoke('imports:commit', input),
+    export: (input) => ipcRenderer.invoke('imports:export', input)
+  },
   clipboard: {
     writeRichText: (html: string, text: string) => ipcRenderer.invoke('clipboard:writeRichText', { html, text }),
     prepareLayout: (layoutId, mode) => ipcRenderer.invoke('clipboard:prepare-layout', { layoutId, mode })
@@ -202,6 +208,7 @@ const api: MoliuApi = {
     saveRole: (input: SaveReviewRoleInput) => ipcRenderer.invoke('reviews:roles:save', input),
     removeRole: (id: string) => ipcRenderer.invoke('reviews:roles:remove', id),
     listTasks: (articleId?: string) => ipcRenderer.invoke('reviews:tasks:list', articleId),
+    createManualTask: (articleId: string) => ipcRenderer.invoke('reviews:manual-task', articleId),
     start: (input: StartReviewInput) => ipcRenderer.invoke('reviews:start', input),
     updateProblem: (input: UpdateReviewProblemInput) => ipcRenderer.invoke('reviews:problems:update', input),
     addManualProblem: (input: AddManualReviewProblemInput) => ipcRenderer.invoke('reviews:problems:add', input),

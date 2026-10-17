@@ -9,6 +9,7 @@ import {
   Clock3,
   Copy,
   FileClock,
+  FileUp,
   Flame,
   GitCompare,
   Globe,
@@ -44,8 +45,10 @@ import {
 import { serializeAccountXml } from '../../../shared/domain'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
+import { ImportDialog } from '../components/ImportDialog'
 import { ModalBase } from '../components/ModalBase'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { SourceBadge } from '../components/SourceBadge'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
@@ -153,6 +156,8 @@ export function AccountPage({
       onCreate={() => setMode('wizard')}
       onOpen={(id) => void openAccount(id)}
       onNavigate={onNavigate}
+      onRefresh={onRefresh}
+      showToast={showToast}
     />
   )
 }
@@ -163,7 +168,9 @@ function AccountList({
   selectedId,
   onCreate,
   onOpen,
-  onNavigate
+  onNavigate,
+  onRefresh,
+  showToast
 }: {
   accounts: AccountProfileSummary[]
   providers: ProviderSummary[]
@@ -171,8 +178,11 @@ function AccountList({
   onCreate(): void
   onOpen(id: string): void
   onNavigate(route: RouteId): void
+  onRefresh(): Promise<void>
+  showToast(toast: ToastState): void
 }): React.JSX.Element {
   const [search, setSearch] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
   const filtered = accounts.filter((account) =>
     account.name.toLowerCase().includes(search.trim().toLowerCase())
   )
@@ -185,7 +195,10 @@ function AccountList({
         onNavigate={onNavigate}
         title="账号定位"
         description="先定人群与表达方式，后续选题与成稿都会据此调整"
-        actions={<button className="button primary" onClick={onCreate}><Plus size={16} />新建账号</button>}
+        actions={<div className="page-intro-actions">
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+          <button className="button primary" onClick={onCreate}><Plus size={16} />新建账号</button>
+        </div>}
       />
 
       {accounts.length ? (
@@ -236,6 +249,7 @@ function AccountList({
                   <p>{account.intro || '暂未填写账号简介'}</p>
                   <div className="account-card-domain">{account.domain || '未设置领域'}</div>
                   <footer>
+                    <SourceBadge source={account.importSource} />
                     <span>v{account.versionCount}</span>
                     <span>{formatDate(account.updatedAt)}</span>
                     <span className="account-edit-link">编辑定位 <ChevronRight size={14} /></span>
@@ -263,13 +277,26 @@ function AccountList({
             <CircleUserRound size={30} />
             <strong>还没有账号定位</strong>
             <p>新建账号并完成定位填写，会生成一张对应的账号卡片。</p>
-            <button className="button primary large" onClick={onCreate}>
-              <WandSparkles size={17} />新建账号
-            </button>
+            <div className="article-empty-actions">
+              <button className="button primary large" onClick={onCreate}>
+                <WandSparkles size={17} />新建账号
+              </button>
+              <button className="button secondary large" onClick={() => setImportOpen(true)}>
+                <FileUp size={17} />导入账号定位
+              </button>
+            </div>
           </section>
           <FirstRunGuide providers={providers} onNavigate={onNavigate} onCreate={onCreate} />
         </>
       )}
+      <ImportDialog
+        open={importOpen}
+        kind="account"
+        targetFields={[...DEFAULT_ACCOUNT_FIELD_NAMES]}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { void onRefresh() }}
+        showToast={showToast}
+      />
     </div>
   )
 }

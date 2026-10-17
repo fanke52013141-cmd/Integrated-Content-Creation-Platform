@@ -386,7 +386,7 @@ input[type="checkbox"], input[type="radio"] {
 .status-pill.success { background: var(--green-50); color: var(--green-600); }
 .status-pill.warning { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
 .status-pill.danger { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
-.status-pill.muted { background: var(--surface-muted); color: var(--text-tertiary); }
+.status-pill.muted { background: var(--surface-muted); color: var(--text-secondary); }
 
 .status-good { color: var(--green-600); font-size: 12.5px; font-weight: 600; }
 .status-muted { color: var(--text-tertiary); font-size: 12.5px; font-weight: 500; }
@@ -429,7 +429,7 @@ input[type="checkbox"], input[type="radio"] {
 }
 /* 标题与说明同排：说明不再独立占一行，页面头部只占一行高度 */
 .page-intro > div:first-child { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; flex: 1; }
-.page-intro h2 { font-size: 20px; font-family: var(--font-display); font-weight: 650; letter-spacing: -0.035em; line-height: 1.3; margin: 0; }
+.page-intro h1 { font-size: 20px; font-family: var(--font-display); font-weight: 650; letter-spacing: -0.035em; line-height: 1.3; margin: 0; }
 .page-intro .micro-copy { margin: 0; }
 .page-intro-actions { display: inline-flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }
 
@@ -925,4 +925,88 @@ input[type="checkbox"], input[type="radio"] {
   flex: 1;
   min-width: 0;
   margin-bottom: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Flow UI v2 · 控件归一化（2026-10-18）
+ *
+ * 现有实现里同时存在 28/30/32/33/35/36/37/43 px 的控件高度，
+ * 35/36/37 并排时人眼会读成“没对齐”。这里只收敛控件自身的
+ * 尺寸语言（高度 / 圆角 / 内边距 / 命中区），不动颜色与布局结构。
+ *
+ * 三档控件高度：32（行内次操作）/ 36（默认）/ 44（每屏主行动）
+ * 圆角：控件 8，卡片 12，胶囊 999。
+ * 逐页度量见 docs/UI-重构交付说明-2026-10-18.md。
+ * ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* 6px → 8px：全站不再保留 4/6 两档圆角 */
+  --radius-sm: 8px;
+}
+
+.button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.button.compact {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.button.tiny {
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.button.large {
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+/* 图标按钮：28 → 32，命中区达到 32×32 */
+.icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+/* 文字按钮：可点高度 32 */
+.text-button {
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+/* 下拉与分段控件：与 .button 同为 36 */
+.select-trigger {
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.segmented {
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.segmented button {
+  min-height: 30px;
+  border-radius: 6px;
+}
+
+/* 页签：从 37 收敛到 36（保留下划线语义） */
+.page-tabs button,
+.provider-tabs button,
+.materials-tabs button,
+.tab-strip button {
+  min-height: 36px;
 }

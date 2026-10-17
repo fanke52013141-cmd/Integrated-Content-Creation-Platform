@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Copy, Image as ImageIcon, ImagePlus, LayoutTemplate, LoaderCircle, Palette,
+  Copy, FileUp, Image as ImageIcon, ImagePlus, LayoutTemplate, LoaderCircle, Palette,
   Sparkles, Trash2, UploadCloud, X
 } from 'lucide-react'
 import type { ArticleSummary, ProviderSummary, VisualAsset, VisualPack, VisualPrompt, VisualAssetKind } from '../../../shared/contracts'
@@ -9,7 +9,9 @@ import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
+import { ImportDialog } from '../components/ImportDialog'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { SourceBadge } from '../components/SourceBadge'
 import { EmptyState } from '../components/EmptyState'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
@@ -35,6 +37,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [packs, setPacks] = useState<VisualPack[]>([])
   const [articleId, setArticleId] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
   const [count, setCount] = useState(3)
   const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
   const [assetsByPack, setAssetsByPack] = useState<Record<string, VisualAsset[]>>({})
@@ -271,8 +274,10 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       onNavigate={onNavigate}
       title="智能配图"
       description="可直接导入自己的封面与正文图，也可选用 AI 生成配图方案"
-      actions={articleId && <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />
-    去排版</button>}
+      actions={articleId && <div className="page-intro-actions">
+        <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入方案</button>
+        <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />去排版</button>
+      </div>}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={selected} onSaved={refresh} onNavigate={onNavigate} />
@@ -372,6 +377,14 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       </div>
     )}
     {ConfirmPortal}
+    <ImportDialog
+      open={importOpen}
+      kind="visual-plan"
+      associations={{ articleId }}
+      onClose={() => setImportOpen(false)}
+      onImported={() => { void refresh() }}
+      showToast={showToast}
+    />
   </div>
 }
 
@@ -403,7 +416,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
     <article className="visual-pack">
       <header className="visual-pack-head">
         <div>
-          <h3>{articleTitle}</h3>
+          <h3>{articleTitle} <SourceBadge source={pack.importSource} /></h3>
           <p>{pack.model} · {formatDate(pack.createdAt)} · {pack.inlineImages.length} 张文内图 + {pack.releaseImages.length} 张发布图</p>
         </div>
         <div className="visual-pack-actions">

@@ -11,6 +11,7 @@
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
 import { createUiFixtures } from './ui-fixtures'
+import { amplifyUiFixtures } from './ui-fixtures-dense'
 import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
@@ -230,8 +231,9 @@ const DEMO_PROVIDER_PRESETS: ProviderPreset[] = [
  * crashing.
  */
 function createMockBridge(): MoliuApi {
-  const fixtures = import.meta.env.DEV && new URLSearchParams(window.location.search).get('ui-fixtures') === '1'
-    ? createUiFixtures(DEMO_BOOTSTRAP.accounts[0].id)
+  const fixtureParam = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('ui-fixtures') : null
+  const fixtures = fixtureParam
+    ? amplifyUiFixtures(createUiFixtures(DEMO_BOOTSTRAP.accounts[0].id), Number(fixtureParam) || 1)
     : undefined
   const emptyArray = <T>(): Promise<T[]> => Promise.resolve([])
   const void_ = (): Promise<void> => Promise.resolve()
@@ -280,6 +282,12 @@ function createMockBridge(): MoliuApi {
       listBackups: (): Promise<string[]> => Promise.resolve(fixtures?.backups ?? []),
       exportPortableBackup: () => Promise.resolve({ path: null }),
       selectPortableBackup: () => Promise.resolve(null)
+    },
+    imports: {
+      pickFile: () => Promise.resolve(null),
+      preview: () => Promise.reject(new Error('浏览器预览不支持文件导入，请在桌面应用中使用')),
+      commit: () => Promise.reject(new Error('浏览器预览不支持文件导入，请在桌面应用中使用')),
+      export: (): Promise<LocalFileResult> => Promise.resolve({ path: null })
     },
     clipboard: {
       prepareLayout: () => Promise.reject(new Error('请在桌面应用中复制排版稿')),
@@ -480,6 +488,7 @@ function createMockBridge(): MoliuApi {
       saveRole: (input: unknown) => Promise.resolve(input),
       removeRole: () => void_(),
       listTasks: (articleId: string) => fixtures ? Promise.resolve(fixtures.reviewTasks.filter(task => task.articleId === articleId)) : emptyArray(),
+      createManualTask: (articleId: string) => Promise.resolve({ id: `manual-task-${Date.now()}`, articleId, articleVersionId: '', articleVersionNumber: 1, roleIds: [], failures: [], status: 'running' as const, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), opinions: [] }),
       start: () => void_(),
       updateProblem: () => void_(),
       addManualProblem: () => void_(),

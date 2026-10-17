@@ -56,7 +56,8 @@ import type {
   WizardAnswer,
   PromptDefBase,
   PromptDefSummary,
-  PromptVersionInfo
+  PromptVersionInfo,
+  ContentImportSource
 } from '../shared/contracts.js'
 import { createDefaultTopicSchema, escapeXml } from '../shared/domain.js'
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../shared/contracts.js'
@@ -272,6 +273,19 @@ interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:s
 interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
 interface PromptVersionRow { id: string; prompt_key: string; version: number; content: string; source: 'builtin' | 'user'; note: string; created_at: string }
+interface ArtifactImportRow { id: string; artifact_type: string; artifact_id: string | null; version_id: string | null; tool: string; format: string; external_id: string | null; file_name: string | null; content_hash: string | null; source_json: string; imported_at: string }
+
+export interface RecordArtifactImportInput {
+  artifactType: string
+  artifactId: string
+  versionId?: string
+  tool: string
+  format: string
+  externalId?: string
+  fileName?: string
+  contentHash?: string
+  source?: Record<string, unknown>
+}
 
 export class AppDatabase {
   private db: DatabaseSync
@@ -669,6 +683,22 @@ export class AppDatabase {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_prompt_versions_one_default
         ON prompt_versions(prompt_key) WHERE version = 1;
 
+      /* 外部导入来源台账。不修改已有版本表的 source CHECK：
+         第一阶段版本仍以 manual 落库，真实来源在这里留痕，避免高风险表重建。 */
+      CREATE TABLE IF NOT EXISTS artifact_imports (
+        id TEXT PRIMARY KEY,
+        artifact_type TEXT NOT NULL,
+        artifact_id TEXT,
+        version_id TEXT,
+        tool TEXT NOT NULL,
+        format TEXT NOT NULL,
+        external_id TEXT,
+        file_name TEXT,
+        content_hash TEXT,
+        source_json TEXT NOT NULL DEFAULT '{}',
+        imported_at TEXT NOT NULL
+      );
+
       CREATE TRIGGER IF NOT EXISTS artifact_references_immutable
       BEFORE UPDATE ON artifact_references
       BEGIN
@@ -707,6 +737,10 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_materials_kind
         ON materials(kind, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_frameworks_updated ON frameworks(updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_artifact_imports_artifact
+        ON artifact_imports(artifact_type, artifact_id, imported_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_artifact_imports_external
+        ON artifact_imports(artifact_type, external_id);
       CREATE INDEX IF NOT EXISTS idx_articles_updated ON articles(updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_article_versions_article ON article_versions(article_id, version_number DESC);
       CREATE INDEX IF NOT EXISTS idx_review_tasks_article ON review_tasks(article_id, created_at DESC);
@@ -1052,6 +1086,7 @@ export class AppDatabase {
       activeContent: row.active_content ?? '',
       activeVersion: row.active_version,
       versionCount: row.version_count,
+      importSource: this.getArtifactImportSource('prompt', row.key),
       updatedAt: row.updated_at
     }))
   }
@@ -1159,7 +1194,7 @@ export class AppDatabase {
       LEFT JOIN account_profile_versions v ON v.id = p.current_version_id
       ORDER BY p.is_current DESC, p.updated_at DESC
     `).all() as unknown as AccountSummaryRow[]
-    return rows.map(mapAccountSummary)
+    return rows.map((row) => ({ ...mapAccountSummary(row), importSource: this.getArtifactImportSource('account', row.id) }))
   }
 
   getAccount(id: string): AccountProfile | null {
@@ -1184,6 +1219,7 @@ export class AppDatabase {
 
     return {
       ...mapAccountSummary(row),
+      importSource: this.getArtifactImportSource('account', row.id),
       currentVersionId: row.current_version_id,
       fields: parseJson<AccountField[]>(row.fields_json, []),
       wizardAnswers: parseJson<WizardAnswer[]>(row.wizard_answers_json, []),
@@ -1452,7 +1488,7 @@ export class AppDatabase {
       WHERE status = 'active'
       ORDER BY created_at DESC
     `).all() as unknown as HotFavoriteRow[]
-    return rows.map((row) => this.mapHotFavorite(row))
+    return rows.map((row) => ({ ...this.mapHotFavorite(row), importSource: this.getArtifactImportSource('hot-favorite', row.id) }))
   }
 
   listHotSourcePreferences(): HotSourcePreference[] {
@@ -1804,6 +1840,7 @@ export class AppDatabase {
     const rows = this.db.prepare(`SELECT f.*,v.sections_json,v.raw_xml,v.provider_id,v.model,(SELECT COUNT(*) FROM framework_versions x WHERE x.framework_id=f.id) version_count FROM frameworks f JOIN framework_versions v ON v.id=f.current_version_id ORDER BY f.updated_at DESC`).all() as unknown as FrameworkRow[]
     return rows.map((row) => ({
       ...mapFramework(row),
+      importSource: this.getArtifactImportSource('framework', row.id),
       references: this.listArtifactReferencesForTarget('framework', row.id)
     }))
   }
@@ -1811,6 +1848,7 @@ export class AppDatabase {
     const row = this.db.prepare(`SELECT f.*,v.sections_json,v.raw_xml,v.provider_id,v.model,(SELECT COUNT(*) FROM framework_versions x WHERE x.framework_id=f.id) version_count FROM frameworks f JOIN framework_versions v ON v.id=f.current_version_id WHERE f.id=?`).get(id) as FrameworkRow | undefined
     return row ? {
       ...mapFramework(row),
+      importSource: this.getArtifactImportSource('framework', row.id),
       references: this.listArtifactReferencesForTarget('framework', row.id)
     } : null
   }
@@ -1915,7 +1953,7 @@ export class AppDatabase {
       inlineImages: Array.from({ length: 1 }, (_, index) => ({ location: `正文图 ${index + 1}`, purpose: '手动导入', ratio: '', prompt: '', alt: '' })), releaseImages: [], rawXml: '' })
   }
 
-  listVisualPacks(articleId?: string): VisualPack[] { const rows=this.db.prepare(`SELECT * FROM visual_packs ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as VisualPackRow[]; return rows.map(mapVisualPack) }
+  listVisualPacks(articleId?: string): VisualPack[] { const rows=this.db.prepare(`SELECT * FROM visual_packs ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as VisualPackRow[]; return rows.map(row=>({...mapVisualPack(row),importSource:this.getArtifactImportSource('visual-pack',row.id)})) }
   saveVisualPack(input:Omit<VisualPack,'id'|'createdAt'>):VisualPack { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO visual_packs(id,article_id,article_version_id,article_status_snapshot,provider_id,model,cover_json,inline_images_json,release_images_json,raw_xml,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.providerId??null,input.model??null,JSON.stringify(input.cover),JSON.stringify(input.inlineImages),JSON.stringify(input.releaseImages),input.rawXml,now); this.db.prepare('UPDATE visual_packs SET kind=? WHERE id=?').run(input.kind??'generated',id); return mapVisualPack(this.db.prepare('SELECT * FROM visual_packs WHERE id=?').get(id) as unknown as VisualPackRow) }
   removeVisualPack(id:string):void { this.db.prepare('DELETE FROM visual_packs WHERE id=?').run(id) }
   listVisualAssets(packId?:string):VisualAsset[] { const rows=this.db.prepare(`SELECT * FROM visual_assets ${packId?'WHERE pack_id=?':''} ORDER BY created_at DESC`).all(...(packId?[packId]:[])) as unknown as VisualAssetRow[]; return rows.map(mapVisualAsset) }
@@ -1923,10 +1961,10 @@ export class AppDatabase {
   saveVisualAsset(input:Omit<VisualAsset,'id'|'createdAt'|'url'>):VisualAsset { const id=crypto.randomUUID(),now=new Date().toISOString(); const pack=this.listVisualPacks().find(item=>item.id===input.packId); if(pack?.kind==='manual' && input.kind==='inline' && input.slot>=pack.inlineImages.length){ const items=Array.from({length:input.slot+1},(_,slot)=>pack.inlineImages[slot]??{location:`正文图 ${slot+1}`,purpose:'手动导入',ratio:'',prompt:'',alt:''}); this.db.prepare('UPDATE visual_packs SET inline_images_json=? WHERE id=?').run(JSON.stringify(items),pack.id) } this.db.prepare('INSERT INTO visual_assets(id,pack_id,kind,slot,prompt,file_name,source,provider_id,model,size,wechat_media_id,wechat_uploaded_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.packId,input.kind,input.slot??0,input.prompt,input.fileName,input.source,input.providerId??null,input.model??null,input.size??null,input.wechatMediaId??null,input.wechatUploadedAt??null,now); return this.getVisualAsset(id)! }
   removeVisualAsset(id:string):void { this.db.prepare('DELETE FROM visual_assets WHERE id=?').run(id) }
   setVisualAssetWechatMedia(id:string,mediaId:string):VisualAsset { this.db.prepare('UPDATE visual_assets SET wechat_media_id=?,wechat_uploaded_at=? WHERE id=?').run(mediaId,new Date().toISOString(),id); const row=this.getVisualAsset(id); if(!row)throw new Error('配图资产不存在'); return row }
-  listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(mapArticleLayout) }
-  saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
+  listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(row=>({...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',row.id)})) }
+  saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,now);const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow;return {...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',id)} }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
-  getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?mapArticleLayout(row):null }
+  getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?{...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',row.id)}:null }
   getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return { ...mapWechatChannel(row), ...this.workflow.getVerification() } }
   saveWechatPublishChannel(input:{appId:string;enabled:boolean},encryptedSecret?:Buffer):WechatPublishChannel { const previous=this.getWechatPublishChannel(); if(previous.appId && previous.appId!==input.appId && !encryptedSecret) throw new Error("更换公众号时请同时填写新的 AppSecret"); const now=new Date().toISOString();this.transaction(()=>{this.workflow.clearVerification();this.db.prepare("UPDATE publish_channels SET app_id=?,enabled=?,updated_at=? WHERE id='wechat-official'").run(input.appId,input.enabled?1:0,now);if(encryptedSecret)this.db.prepare("INSERT INTO publish_channel_secrets(channel_id,encrypted_secret,updated_at) VALUES('wechat-official',?,?) ON CONFLICT(channel_id) DO UPDATE SET encrypted_secret=excluded.encrypted_secret,updated_at=excluded.updated_at").run(encryptedSecret,now)});return this.getWechatPublishChannel() }
   getEncryptedWechatPublishSecret():Buffer|null { const row=this.db.prepare("SELECT encrypted_secret FROM publish_channel_secrets WHERE channel_id='wechat-official'").get() as {encrypted_secret:Buffer}|undefined;return row?.encrypted_secret??null }
@@ -1971,9 +2009,9 @@ export class AppDatabase {
   removeReviewRole(id:string):void { this.db.prepare('DELETE FROM review_roles WHERE id=?').run(id) }
   getReviewRole(id:string):ReviewRole|null { const row=this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow|undefined; return row?mapReviewRole(row):null }
   createReviewTask(input:{articleId:string, articleVersionId:string, articleVersionNumber:number, roleIds:string[]}):ReviewTask { const id=crypto.randomUUID(),now=new Date().toISOString(); this.db.prepare('INSERT INTO review_tasks(id,article_id,article_version_id,article_version_number,role_ids_json,failures_json,status,created_at,updated_at) VALUES(?,?,?,?,?,?,\'running\',?,?)').run(id,input.articleId,input.articleVersionId,input.articleVersionNumber,JSON.stringify(input.roleIds),'[]',now,now); return this.getReviewTask(id)! }
-  addReviewOpinion(input:{taskId:string;role?:ReviewRole;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now,JSON.stringify({ reviewKind:p.reviewKind,anchor:p.anchor,evidence:p.evidence }))}); return this.getReviewOpinion(id)! }
-  listReviewTasks(articleId?:string):ReviewTask[] { const rows=this.db.prepare(`SELECT * FROM review_tasks ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ReviewTaskRow[]; return rows.map(row=>this.mapReviewTask(row)) }
-  getReviewTask(id:string):ReviewTask|null { const row=this.db.prepare('SELECT * FROM review_tasks WHERE id=?').get(id) as unknown as ReviewTaskRow|undefined; return row?this.mapReviewTask(row):null }
+  addReviewOpinion(input:{taskId:string;role?:ReviewRole;roleName?:string;providerId?:string;model?:string;dimensions:string[];overallSuggestion:string;rawXml:string;extractionMatched:boolean;problems:Omit<ReviewProblem,'id'>[]}):ReviewOpinion { const id=crypto.randomUUID(),now=new Date().toISOString(); this.transaction(()=>{this.db.prepare('INSERT INTO review_opinions(id,task_id,role_id,role_name,provider_id,model,dimensions_json,overall_suggestion,raw_xml,extraction_matched,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,input.taskId,input.role?.id??null,input.role?.name??input.roleName??'人工',input.providerId??null,input.model??null,JSON.stringify(input.dimensions),input.overallSuggestion,input.rawXml,input.extractionMatched?1:0,now); for(const p of input.problems)this.db.prepare('INSERT INTO review_problems(id,opinion_id,position,severity,issue,suggestion,adopted,is_manual,created_at,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,p.position,p.severity,p.issue,p.suggestion,p.adopted?1:0,p.isManual?1:0,now,JSON.stringify({ reviewKind:p.reviewKind,anchor:p.anchor,evidence:p.evidence }))}); return this.getReviewOpinion(id)! }
+  listReviewTasks(articleId?:string):ReviewTask[] { const rows=this.db.prepare(`SELECT * FROM review_tasks ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ReviewTaskRow[]; return rows.map(row=>({...this.mapReviewTask(row),importSource:this.getArtifactImportSource('review-task',row.id)})) }
+  getReviewTask(id:string):ReviewTask|null { const row=this.db.prepare('SELECT * FROM review_tasks WHERE id=?').get(id) as unknown as ReviewTaskRow|undefined; return row?{...this.mapReviewTask(row),importSource:this.getArtifactImportSource('review-task',row.id)}:null }
   /** 评审收尾：按角色成功/失败数量落真实状态与失败原因，全失败绝不能记成 completed */
   finishReviewTask(id:string, status:'completed'|'partial'|'failed', failures:ReviewFailure[]):void { this.db.prepare("UPDATE review_tasks SET status=?,failures_json=?,updated_at=? WHERE id=? AND status='running'").run(status,JSON.stringify(failures),new Date().toISOString(),id) }
   markReviewTaskApplied(id:string):void { this.db.prepare("UPDATE review_tasks SET status='applied',updated_at=? WHERE id=?").run(new Date().toISOString(),id) }
@@ -2089,6 +2127,69 @@ export class AppDatabase {
     }))
   }
 
+  /** 记录一次外部导入；不改变 artifact 的版本 source，只提供来源追溯。 */
+  recordArtifactImport(input: RecordArtifactImportInput): void {
+    this.db.prepare(`
+      INSERT INTO artifact_imports(
+        id, artifact_type, artifact_id, version_id, tool, format,
+        external_id, file_name, content_hash, source_json, imported_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      crypto.randomUUID(),
+      input.artifactType,
+      input.artifactId,
+      input.versionId ?? null,
+      input.tool,
+      input.format,
+      input.externalId ?? null,
+      input.fileName ?? null,
+      input.contentHash ?? null,
+      JSON.stringify(input.source ?? {}),
+      new Date().toISOString()
+    )
+  }
+
+  getArtifactImportSource(artifactType: string, artifactId: string): ContentImportSource | undefined {
+    const row = this.db.prepare(`
+      SELECT tool, format, file_name, imported_at
+      FROM artifact_imports
+      WHERE artifact_type = ? AND artifact_id = ?
+      ORDER BY imported_at DESC
+      LIMIT 1
+    `).get(artifactType, artifactId) as Pick<ArtifactImportRow, 'tool' | 'format' | 'file_name' | 'imported_at'> | undefined
+    if (!row) return undefined
+    return {
+      tool: row.tool,
+      format: row.format as ContentImportSource['format'],
+      fileName: row.file_name ?? undefined,
+      importedAt: row.imported_at
+    }
+  }
+
+  findArtifactImport(artifactType: string, externalId: string): { artifactId: string; versionId?: string; title: string } | null {
+    if (!externalId) return null
+    const row = this.db.prepare(`
+      SELECT * FROM artifact_imports
+      WHERE artifact_type = ? AND external_id = ?
+      ORDER BY imported_at DESC
+      LIMIT 1
+    `).get(artifactType, externalId) as ArtifactImportRow | undefined
+    if (!row?.artifact_id) return null
+    let title = row.artifact_id
+    try {
+      const source = JSON.parse(row.source_json) as { title?: unknown }
+      if (typeof source.title === 'string' && source.title.trim()) title = source.title.trim()
+    } catch { /* 旧数据没有 source_json 也允许冲突提示 */ }
+    return { artifactId: row.artifact_id, versionId: row.version_id ?? undefined, title }
+  }
+
+  listArtifactImports(artifactType: string, artifactId?: string): ArtifactImportRow[] {
+    const rows = artifactId
+      ? this.db.prepare('SELECT * FROM artifact_imports WHERE artifact_type=? AND artifact_id=? ORDER BY imported_at DESC').all(artifactType, artifactId)
+      : this.db.prepare('SELECT * FROM artifact_imports WHERE artifact_type=? ORDER BY imported_at DESC').all(artifactType)
+    return rows as unknown as ArtifactImportRow[]
+  }
+
   private getHotFavorite(id: string): HotFavorite | null {
     const row = this.db.prepare('SELECT * FROM hot_favorites WHERE id = ?')
       .get(id) as HotFavoriteRow | undefined
@@ -2102,6 +2203,7 @@ export class AppDatabase {
       materialIds: parseJson<string[]>(row.material_ids_json, []), manualOutline: row.manual_outline,
       status: row.status, currentVersionId: row.current_version_id, versionCount: Number(row.version_count),
       rawMarkdown: row.raw_markdown, providerId: row.provider_id ?? undefined, model: row.model ?? undefined,
+      importSource: this.getArtifactImportSource('article', row.id),
       createdAt: row.created_at, updatedAt: row.updated_at,
       versions: versions.map(mapArticleVersion),
       references: this.listArtifactReferencesForTarget('article', row.id)
@@ -2150,6 +2252,7 @@ export class AppDatabase {
       fields: parseJson<Record<string, string>>(row.fields_json, {}),
       providerId: row.provider_id ?? undefined,
       model: row.model ?? undefined,
+      importSource: this.getArtifactImportSource('topic', row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       versions: versionRows.map((version) => ({

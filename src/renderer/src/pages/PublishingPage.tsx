@@ -1,12 +1,14 @@
 import { LocalImageImport } from '../components/LocalImageImport'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ClipboardList, CloudUpload, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud } from 'lucide-react'
+import { CheckCircle2, ClipboardList, CloudUpload, FileUp, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud } from 'lucide-react'
 import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
+import { ImportDialog } from '../components/ImportDialog'
 import { Select } from '../components/Select'
+import { SourceBadge } from '../components/SourceBadge'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
 import { SavedVersionGate } from '../components/SavedVersionGate'
@@ -34,6 +36,8 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const [layoutId, setLayoutId] = useState('')
   const [busy, setBusy] = useState(false)
   const [channelOpen, setChannelOpen] = useState(true)
+  const [formReloadKey, setFormReloadKey] = useState(0)
+  const [importOpen, setImportOpen] = useState(false)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [check, setCheck] = useState<DeliveryCheck>()
   const [checking, setChecking] = useState(false)
@@ -42,7 +46,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const { article, error: selectionError } = useSelectedArticle(selectedLayout?.articleId ?? focusArticleId ?? '', articles)
   const coverAssets = assets.articleId === article?.id ? assets.items : []
   const authorDefault = articles.find(item => item.id === article?.id)?.accountId === currentAccount?.id ? currentAccount?.name ?? '' : ''
-  const { form, loaded, error: formError, update } = usePublishForm(article, channel?.appId ?? '', layoutId, authorDefault)
+  const { form, loaded, error: formError, update } = usePublishForm(article, channel?.appId ?? '', layoutId, authorDefault, formReloadKey)
   const draft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
   const selectedCover = coverAssets.find(item => item.id === form.coverAssetId)
   const channelReady = Boolean(channel?.enabled && channel.hasAppSecret && channel.appId && channel.lastTestStatus === 'success')
@@ -126,12 +130,18 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   })
 
   return <div className="page publishing-page">
-    <PageHeader route="publishing" onNavigate={onNavigate} title="排版交付" description="核对当前作品，推送公众号草稿箱，再记录正式发布链接" />
+    <PageHeader
+      route="publishing"
+      onNavigate={onNavigate}
+      title="排版交付"
+      description="核对当前作品，推送公众号草稿箱，再记录正式发布链接"
+      actions={article && selectedLayout ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入交付信息</button> : undefined}
+    />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
     <div className="publication-workspace"><div className="publication-main-column">
     <section className="publish-draft">
-      <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览</h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
+      <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览 <SourceBadge source={form.importSource} /></h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
       <div className="publish-draft-grid">
         <label className="field"><span>排版稿</span><Select value={layoutId} disabled={busy} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map(item => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} /></label>
         <label className="field"><span>封面图片</span><Select value={selectedCover?.id ?? ''} onChange={value => update({ coverAssetId: value, thumbMediaId: '' })} disabled={!loaded || busy} ariaLabel="封面图片" placeholder="选择当前文章的封面" options={coverAssets.map(asset => ({ value: asset.id, label: asset.prompt.slice(0, 40) || '封面图片' }))} /></label>
@@ -144,7 +154,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       {selectedLayout ? <div className="delivery-preview">
         <div><strong>{selectedLayout.title}</strong><p className="micro-copy">正文第 {article?.versionCount} 版 · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
           {selectedCover?.url && <img className="delivery-cover" src={selectedCover.url} alt="将要交付的封面" />}</div>
-        <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html) }} /></details>
+        <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html).replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>') }} /></details>
       </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" description="生成一份当前文章的微信公众号排版稿后继续。" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
       {formError && <p className="inline-alert">{formError}</p>}
       {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
@@ -179,6 +189,14 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       </>}
     </section>
     </div>
+    <ImportDialog
+      open={importOpen}
+      kind="publish-form"
+      associations={{ articleId: article?.id, layoutId }}
+      onClose={() => setImportOpen(false)}
+      onImported={() => setFormReloadKey((current) => current + 1)}
+      showToast={showToast}
+    />
   </div>
 }
 

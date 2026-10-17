@@ -9,6 +9,7 @@ import {
   CircleHelp,
   Code2,
   EyeOff,
+  FileUp,
   Flame,
   FolderHeart,
   GripVertical,
@@ -17,6 +18,7 @@ import {
   MessageCircleMore,
   Music2,
   Newspaper,
+  Plus,
   Rss,
   RefreshCw,
   RotateCcw,
@@ -43,6 +45,9 @@ import type {
 } from '../../../shared/contracts'
 import { errorMessage } from '../lib'
 import type { RouteId } from '../components/Layout'
+import { ImportDialog } from '../components/ImportDialog'
+import { ManualHotDialog, type ManualHotInput } from '../components/ManualHotDialog'
+import { SourceBadge } from '../components/SourceBadge'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
@@ -90,6 +95,8 @@ export function HotspotsPage({
   const [bootError, setBootError] = useState<string>()
   const [refreshingAll, setRefreshingAll] = useState(false)
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
+  const [manualHotOpen, setManualHotOpen] = useState(false)
+  const [hotImportOpen, setHotImportOpen] = useState(false)
   const [favoriteFilter, setFavoriteFilter] = useState<'all' | HotFavoriteTag>('all')
   const [favoriteSourceFilter, setFavoriteSourceFilter] = useState('all')
   const [favoriteSearch, setFavoriteSearch] = useState('')
@@ -336,6 +343,24 @@ export function HotspotsPage({
     }
   }
 
+  async function saveManualHot(input: ManualHotInput): Promise<boolean> {
+    const now = new Date().toISOString()
+    const hotItem: HotItem = {
+      id: `manual-${crypto.randomUUID()}`,
+      title: input.title,
+      desc: input.desc,
+      url: input.url,
+      source: 'manual',
+      sourceTitle: input.source || '手动添加',
+      subtitle: '',
+      updateTime: now,
+      hotValue: input.hotValue || undefined,
+      rank: 1,
+      rawJson: JSON.stringify(input)
+    }
+    return addFavorite(hotItem)
+  }
+
   /** 批量收藏进行中：串行收藏 10 条可能要几秒，按钮要有明确反馈而不是像没点上 */
   const [batchSaving, setBatchSaving] = useState(false)
   async function addSourceBatch(items: HotItem[]): Promise<void> {
@@ -563,13 +588,13 @@ export function HotspotsPage({
           导航统一由侧边栏承担。 */}
       <section className="hotspot-hero">
         <div>
-          <h2>
+          <h1>
             {view === 'wall'
               ? '热点雷达'
               : view === 'favorites'
                 ? '热点收藏'
                 : '智能筛选'}
-          </h2>
+          </h1>
           {view === 'wall' && (
             <p className="hotspot-hero-meta micro-copy">
               <span><Flame size={13} />显示 {visibleSources.length} / {sources.length || '—'} 个平台</span>
@@ -585,6 +610,12 @@ export function HotspotsPage({
             <>
               <button className="button secondary" onClick={() => openFilterDialog('wall')}>
                 <Sparkles size={16} />智能筛选
+              </button>
+              <button className="button secondary" onClick={() => setManualHotOpen(true)}>
+                <Plus size={16} />手动添加
+              </button>
+              <button className="button secondary" onClick={() => setHotImportOpen(true)}>
+                <FileUp size={16} />导入
               </button>
               <button className="button secondary" onClick={openSourceManager}>
                 <Settings2 size={16} />平台设置
@@ -808,6 +839,7 @@ export function HotspotsPage({
                         <span>{favorite.hotItem.sourceTitle} · 第 {favorite.hotItem.rank} 名</span>
                         {favorite.hotItem.hotValue && <span>{favorite.hotItem.hotValue}</span>}
                         <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
+                        <SourceBadge source={favorite.importSource} />
                         <span className="locked-snapshot"><BookmarkCheck size={12} />源快照已锁定</span>
                       </div>
                     </div>
@@ -1201,6 +1233,16 @@ export function HotspotsPage({
         </ModalBase>
       )}
       {ConfirmPortal}
+      <ManualHotDialog open={manualHotOpen} onClose={() => setManualHotOpen(false)} onSave={saveManualHot} />
+      <ImportDialog
+        open={hotImportOpen}
+        kind="hot-item"
+        targetFields={['标题', '链接', '来源', '热度', '摘要']}
+        associations={{ accountId: currentAccountId }}
+        onClose={() => setHotImportOpen(false)}
+        onImported={() => { void window.moliu.hotspots.listFavorites().then(setFavorites) }}
+        showToast={showToast}
+      />
     </div>
   )
 }

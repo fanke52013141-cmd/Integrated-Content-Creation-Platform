@@ -344,7 +344,8 @@
 .work-bar-title {
   border: none;
   background: none;
-  padding: 0;
+  padding: 2px 0;
+  min-height: 24px;
   font: inherit;
   font-weight: 600;
   color: var(--text);
@@ -378,6 +379,7 @@
   align-items: center;
   gap: 4px;
   padding: 4px var(--space-md);
+  min-height: 28px;
   border: 1px solid var(--primary-line);
   border-radius: var(--radius-full);
   background: var(--primary-wash);

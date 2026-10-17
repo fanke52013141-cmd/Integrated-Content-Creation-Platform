@@ -37,6 +37,8 @@ import { GENERATION_DOMAIN_LABELS } from '../shared/contracts.js'
 import { generationOutcome } from './services/generation-outcome.js'
 import { OperationGate } from './services/operation-gate.js'
 import { registerPublishingIpc } from './ipc-publishing.js'
+import { registerImportsIpc } from './ipc-imports.js'
+import { ContentImportService } from './services/content-import-service.js'
 import { resolveExternalUrl, validateAccountFields, validateTopicSchema } from '../shared/domain.js'
 import type {
   AddAccountMemoryInput,
@@ -821,9 +823,10 @@ export function registerIpc(options: {
   handle('reviews:roles:save',(_e,raw:SaveReviewRoleInput)=>database.saveReviewRole(z.object({id:z.string().optional(),name:z.string().trim().min(1).max(80),systemPrompt:z.string().trim().min(1).max(12000),providerId:z.string().uuid().optional(),model:z.string().trim().max(160).optional(),extractionTag:z.string().trim().min(1).max(50),extractionOccurrence:z.enum(['first','last']),dimensions:z.array(z.string().trim().min(1).max(50)).max(10),sortOrder:z.number().int().min(0)}).parse(raw)))
   handle('reviews:roles:remove',(_e,id:string)=>database.removeReviewRole(requireId(id)))
   handle('reviews:tasks:list',(_e,articleId?:string)=>database.listReviewTasks(articleId))
+  handle('reviews:manual-task',(_e,articleId:string)=>{const id=z.string().uuid().parse(articleId);const article=database.getArticle(id);if(!article)throw new Error('文章不存在');return database.createReviewTask({articleId:article.id,articleVersionId:article.currentVersionId,articleVersionNumber:article.versionCount,roleIds:[]})})
   handle('reviews:start',(event,raw:StartReviewInput)=>{const input=z.object({articleId:z.string().uuid(),roleIds:z.array(z.string().uuid()).min(1).max(10),fallbackProviderId:z.string().uuid(),fallbackModel:z.string().min(1).max(160)}).parse(raw);return runGeneration(event,'reviews',(signal)=>reviewService.start(input,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal))})
   handle('reviews:problems:update',(_e,raw:UpdateReviewProblemInput)=>database.updateReviewProblem(z.object({id:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1),adopted:z.boolean()}).parse(raw)))
-  handle('reviews:problems:add',(_e,raw:AddManualReviewProblemInput)=>{const x=z.object({taskId:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1)}).parse(raw);return database.addReviewOpinion({taskId:x.taskId,dimensions:[],overallSuggestion:'',rawXml:'',extractionMatched:true,problems:[{...x,adopted:true,isManual:true}] }).problems[0]})
+  handle('reviews:problems:add',(_e,raw:AddManualReviewProblemInput)=>{const x=z.object({taskId:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1)}).parse(raw);const task=database.getReviewTask(x.taskId);const created=database.addReviewOpinion({taskId:x.taskId,dimensions:[],overallSuggestion:'',rawXml:'',extractionMatched:true,problems:[{...x,adopted:true,isManual:true}] });if(task&&task.status==='running'&&!task.roleIds.length)database.finishReviewTask(task.id,'completed',[]);return created.problems[0]})
   handle('reviews:apply',(event,taskId:string,providerId:string,model:string,force?:boolean)=>runGeneration(event,'reviews',(signal)=>reviewService.apply(requireId(taskId),requireId(providerId),model,{force:Boolean(force)},(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal)))
   handle('visuals:list',(_e,articleId?:string)=>database.listVisualPacks(articleId?requireId(articleId):undefined))
   handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
@@ -853,6 +856,8 @@ export function registerIpc(options: {
   })
   // 发布相关 IPC 由独立模块注册（远端提交已重构为 registerPublishingIpc）
   registerPublishingIpc(handle, database, keyStore, wechatPublishService)
+  // 外部内容导入：文件读取与解析留在主进程，renderer 只拿预览与结果
+  registerImportsIpc(handle, new ContentImportService(database))
 }
 
 const operationGate = new OperationGate()

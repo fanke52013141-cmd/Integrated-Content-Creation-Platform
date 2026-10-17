@@ -7,6 +7,7 @@ export interface PromptDefSummary {
   activeContent: string
   activeVersion: number
   versionCount: number
+  importSource?: ContentImportSource
   updatedAt: string
 }
 
@@ -243,6 +244,7 @@ export interface AccountProfileSummary {
   versionCount: number
   /** 定位完整度：非空默认字段占比（0-100） */
   completeness: number
+  importSource?: ContentImportSource
   createdAt: string
   updatedAt: string
 }
@@ -400,6 +402,7 @@ export interface HotFavorite {
   tags: HotFavoriteTag[]
   accountId?: string
   status: HotFavoriteStatus
+  importSource?: ContentImportSource
   createdAt: string
 }
 
@@ -482,6 +485,8 @@ export interface Topic {
   fields: Record<string, string>
   providerId?: string
   model?: string
+  /** 最近一次外部导入的来源；本应用生成/手动新建时为空 */
+  importSource?: ContentImportSource
   createdAt: string
   updatedAt: string
   versions: TopicVersion[]
@@ -611,7 +616,7 @@ export interface AddFileMaterialInput {
 export type FrameworkStatus = 'draft' | 'locked'
 export interface FrameworkTemplate { id: string; name: string; sections: string[]; isDefault: boolean; isSystem: boolean; createdAt: string; updatedAt: string }
 export interface FrameworkSection { name: string; content: string }
-export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; references: ArtifactReference[] }
+export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; references: ArtifactReference[] }
 export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number }
 export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }> }
 export interface SaveFrameworkInput { id?: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; sections: FrameworkSection[]; providerId?: string; model?: string }
@@ -620,7 +625,7 @@ export interface SaveFrameworkTemplateInput { id?: string; name: string; section
 export type ArticleStatus = 'draft' | 'locked'
 export type ArticleVersionSource = 'generate' | 'revise' | 'manual' | 'restore'
 export interface ArticleVersion { id: string; articleId: string; versionNumber: number; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; label?: string; rawMarkdown: string; createdAt: string }
-export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
+export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
 export type AccountSelection = { mode: 'inherit' } | { mode: 'none' } | { mode: 'specific'; accountId: string }
 export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; accountSelection?: AccountSelection; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }>; requestId?: string }
@@ -643,7 +648,7 @@ export interface ReviewProblem { id: string; position: string; severity: ReviewS
 export interface ReviewOpinion { id: string; taskId: string; roleId?: string; roleName: string; providerId?: string; model?: string; dimensions: string[]; problems: ReviewProblem[]; overallSuggestion: string; rawXml: string; extractionMatched: boolean; createdAt: string }
 export type ReviewTaskStatus = 'running' | 'completed' | 'partial' | 'failed' | 'applied'
 export interface ReviewFailure { roleId: string; roleName: string; message: string }
-export interface ReviewTask { id: string; articleId: string; articleVersionId: string; articleVersionNumber: number; roleIds: string[]; status: ReviewTaskStatus; failures: ReviewFailure[]; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
+export interface ReviewTask { id: string; articleId: string; articleVersionId: string; articleVersionNumber: number; roleIds: string[]; status: ReviewTaskStatus; failures: ReviewFailure[]; importSource?: ContentImportSource; createdAt: string; updatedAt: string; opinions: ReviewOpinion[] }
 export interface SaveReviewRoleInput { id?: string; name: string; systemPrompt: string; providerId?: string; model?: string; extractionTag: string; extractionOccurrence: 'first' | 'last'; dimensions: string[]; sortOrder: number }
 export interface StartReviewInput { articleId: string; roleIds: string[]; fallbackProviderId: string; fallbackModel: string }
 export interface StartReviewResult { task: ReviewTask; failed: ReviewFailure[] }
@@ -652,7 +657,7 @@ export interface AddManualReviewProblemInput { taskId: string; position: string;
 
 export interface VisualCover { visual: string; prompt: string; overlayText: string }
 export interface VisualPrompt { location: string; purpose: string; ratio: string; prompt: string; alt: string }
-export interface VisualPack { id: string; kind?: 'manual' | 'generated'; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; providerId?: string; model?: string; cover: VisualCover; inlineImages: VisualPrompt[]; releaseImages: VisualPrompt[]; rawXml: string; createdAt: string }
+export interface VisualPack { id: string; kind?: 'manual' | 'generated'; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; providerId?: string; model?: string; cover: VisualCover; inlineImages: VisualPrompt[]; releaseImages: VisualPrompt[]; rawXml: string; importSource?: ContentImportSource; createdAt: string }
 export interface GenerateVisualPackInput { articleId: string; providerId: string; model: string; inlineCount: number }
 
 /** 视觉包下的一张具体图片资产（AI 生成或本地导入） */
@@ -692,7 +697,7 @@ export interface LayoutViolation {
   /** 面向用户的修复建议 */
   hint?: string
 }
-export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; createdAt: string }
+export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; importSource?: ContentImportSource; createdAt: string }
 /** 生成排版稿的返回值：附带平台合规校验结果，供界面提示 */
 export type CreateArticleLayoutResult = ArticleLayout & { violations?: LayoutViolation[] }
 export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
@@ -721,7 +726,7 @@ export interface PublicationResolution { decision: 'received' | 'not-received' |
 export interface PublicationSnapshot { retryOf?: string; appId: string; html: string; input: PushWechatDraftInput }
 export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot; resolution?: PublicationResolution; retryOf?: string }
 export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId?: string; coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string; appId?: string }
-export interface PublishFormDraft { articleId: string; layoutId: string; appId: string; coverAssetId: string; thumbMediaId: string; author: string; digest: string; contentSourceUrl: string }
+export interface PublishFormDraft { articleId: string; layoutId: string; appId: string; coverAssetId: string; thumbMediaId: string; author: string; digest: string; contentSourceUrl: string; importSource?: ContentImportSource }
 export interface DeliveryCheck { ready: boolean; issues: string[]; localImageCount: number; title: string; articleVersionNumber: number; appId: string }
 export interface UpdatePublicationInput { id: string; status: 'published'; publishedUrl: string }
 /** 发布复盘：人工记录「目标 / 结果 / 经验」，用来喂给账号记忆 */
@@ -799,7 +804,95 @@ export interface LocalFileResult {
   path: string | null
 }
 
+/** 外部内容导入：第一阶段覆盖选题/框架/文章三个高频阶段。 */
+export type ContentImportKind = 'account' | 'hot-item' | 'topic' | 'framework' | 'article' | 'review' | 'visual-plan' | 'layout' | 'publish-form' | 'prompt'
+export type ContentImportFormat = 'json' | 'markdown' | 'csv' | 'docx' | 'html' | 'text'
+
+export interface ContentImportSource {
+  /** 来源工具/方式，例如 Notion、飞书、Word、文件导入、手动粘贴 */
+  tool: string
+  format: ContentImportFormat
+  fileName?: string
+  importedAt: string
+}
+
+export interface ContentImportPreviewItem {
+  index: number
+  title: string
+  /** 选题/账号/热点/发布：字段映射结果 */
+  fields?: Record<string, string>
+  /** 框架：章节结构 */
+  sections?: FrameworkSection[]
+  /** 文章：Markdown 正文 */
+  rawMarkdown?: string
+  /** 热点：用于收藏的外部条目 */
+  hotItem?: HotItem
+  /** 评审：外部评审问题 */
+  reviewProblems?: Array<{ position: string; severity: ReviewSeverity; issue: string; suggestion: string }>
+  /** 配图：整套配图方案 */
+  visualPlan?: { cover: VisualPack['cover']; inlineImages: VisualPack['inlineImages']; releaseImages: VisualPack['releaseImages'] }
+  /** 排版：外部 HTML 排版稿 */
+  layout?: { title: string; html: string; plainText: string }
+  /** 同来源已存在时，指向已有条目 */
+  existing?: { artifactId: string; title: string; versionId?: string }
+  externalId?: string
+  warnings: string[]
+}
+
+export interface ContentImportPreview {
+  token: string
+  kind: ContentImportKind
+  source: ContentImportSource
+  items: ContentImportPreviewItem[]
+  /** 可映射的源字段（账号/选题/热点/评审/发布） */
+  sourceFields: string[]
+  errors: string[]
+  warnings: string[]
+}
+
+export interface ContentImportAssociations {
+  accountId?: string
+  topicId?: string
+  frameworkId?: string
+  /** 评审/配图/发布导入时的目标文章 */
+  articleId?: string
+  /** 发布元数据导入时的目标排版稿 */
+  layoutId?: string
+}
+
+export interface ContentImportCommitInput {
+  token: string
+  associations?: ContentImportAssociations
+  /** create：始终新建；new-version：同来源命中时更新为已有条目的新版本 */
+  mode?: 'create' | 'new-version'
+  /** 源字段 → 目标字段；空值表示不导入该字段 */
+  mapping?: Record<string, string>
+}
+
+export interface ContentImportResult {
+  created: Array<{ id: string; title: string; versionId?: string }>
+  failed: Array<{ index: number; message: string }>
+  source: ContentImportSource
+}
+
+export interface PickedImportFile {
+  path: string
+  name: string
+  size: number
+  format: ContentImportFormat
+}
+
 export interface MoliuApi {
+  imports: {
+    /** 主进程弹出文件选择框；只返回路径与元信息，不读取内容到 renderer */
+    pickFile(input: { kind: ContentImportKind }): Promise<PickedImportFile | null>
+    /** 解析文件或粘贴内容，返回预览；不落库 */
+    preview(input: { kind: ContentImportKind; filePath?: string; content?: string; fileName?: string; format?: ContentImportFormat }): Promise<ContentImportPreview>
+    /** 确认预览并落库；默认新建条目，不覆盖已有内容 */
+    commit(input: ContentImportCommitInput): Promise<ContentImportResult>
+    /** 导出当前阶段的 JSON / Markdown；ids 省略时导出全部 */
+    export(input: { kind: ContentImportKind; format: 'json' | 'markdown'; ids?: string[] }): Promise<LocalFileResult>
+  }
   app: {
     bootstrap(): Promise<AppBootstrap>
     getDataPath(): Promise<string>
@@ -953,6 +1046,8 @@ export interface MoliuApi {
     saveRole(input: SaveReviewRoleInput): Promise<ReviewRole>
     removeRole(id: string): Promise<void>
     listTasks(articleId?: string): Promise<ReviewTask[]>
+    /** 不跑 AI，创建一个空评审任务，供“手动添加问题/导入评审”使用 */
+    createManualTask(articleId: string): Promise<ReviewTask>
     start(input: StartReviewInput): Promise<StartReviewResult>
     updateProblem(input: UpdateReviewProblemInput): Promise<ReviewProblem>
     addManualProblem(input: AddManualReviewProblemInput): Promise<ReviewProblem>

@@ -373,7 +373,7 @@ export function ProvidersPage({
     <div className="page providers-page">
       <section className="page-intro">
         <div>
-          <h2>AI 服务</h2>
+          <h1>AI 服务</h1>
         </div>
         {view === 'models' && <button
           className="button secondary"

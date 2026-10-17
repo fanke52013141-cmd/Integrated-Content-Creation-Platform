@@ -79,7 +79,11 @@ export function ModalBase({
     const frame = requestAnimationFrame(() => {
       if (modalStack.at(-1) !== dialog) return
       const candidates = focusableElements(dialog)
-      ;(candidates.find(element => element.hasAttribute('data-autofocus')) ?? candidates[0] ?? dialog).focus()
+      const preferred = candidates.find(element => element.hasAttribute('data-autofocus')) ??
+        candidates.find(element => element.matches('input, textarea, select, [contenteditable="true"]')) ??
+        candidates.find(element => element.matches('button:not(.icon-button)')) ??
+        dialog
+      preferred.focus()
     })
 
     const handleKeydown = (event: KeyboardEvent): void => {

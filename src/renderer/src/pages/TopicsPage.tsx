@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   BookmarkCheck,
-  Check,
   ChevronDown,
   ChevronUp,
   FilePenLine,
+  FileUp,
   Flame,
   FolderHeart,
   LibraryBig,
@@ -37,6 +37,10 @@ import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { ExportMenu } from '../components/ExportMenu'
+import { ImportDialog } from '../components/ImportDialog'
+import { ManualTopicDialog } from '../components/ManualTopicDialog'
+import { SourceBadge } from '../components/SourceBadge'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useDraftState } from '../hooks/useDraftState'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
@@ -96,6 +100,9 @@ export function TopicsPage({
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
   const [schemaOpen, setSchemaOpen] = useState(false)
   const [editing, setEditing] = useState<Topic>()
+  const [manualOpen, setManualOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // 「收藏」交接标记用完即清；初始化器只负责读
   useEffect(() => { localStorage.removeItem('moliu:topic-favorite-ids'); localStorage.removeItem('moliu:topic-seed-keyword') }, [])
@@ -149,6 +156,21 @@ export function TopicsPage({
       const title = topic.fields['选题主题'] || Object.values(topic.fields)[0] || ''
       return title.toLowerCase().includes(wallQuery) || topic.seedKeyword.toLowerCase().includes(wallQuery)
     })
+
+  async function exportAll(format: 'json' | 'markdown' = 'json'): Promise<void> {
+    if (!topics.length) return showToast({ type: 'info', message: '还没有可导出的选题' })
+    setExporting(true)
+    try {
+      const result = await window.moliu.imports.export({ kind: 'topic', format, ids: topics.map((topic) => topic.id) })
+      showToast(result.path
+        ? { type: 'success', message: `已导出 ${topics.length} 条选题到 ${result.path}` }
+        : { type: 'info', message: '已取消导出' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
@@ -225,7 +247,12 @@ export function TopicsPage({
         onNavigate={onNavigate}
         title="选题生成"
         description="根据主题与热点生成选题，可选使用已锁定的账号定位"
-        actions={<button className="button secondary" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>}
+        actions={<div className="page-intro-actions">
+          <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={15} />手动新建</button>
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+          <ExportMenu disabled={exporting || !topics.length} onExport={(format) => void exportAll(format)} />
+          <button className="button ghost compact" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>
+        </div>}
       />
 
       <div className="topic-studio">
@@ -408,12 +435,14 @@ export function TopicsPage({
               {listQuery
                 ? '换个关键词试试，或清空搜索条件。'
                 : view === 'drafts'
-                  ? '在上方填一个主题，或切换到「热点」用关键词定位；生成后可以把选中的选题送进内容框架。'
+                  ? '可以让 AI 生成一批，也可以自己写一条，或从其他工具导入；生成后可以把选中的选题送进内容框架。'
                   : '把草稿中的选题加入选题库后，热点刷新时才会拿它做定向筛选。'}
             </p>
             {!listQuery && view === 'drafts' && (
               <div className="article-empty-actions">
                 <button className="button secondary" onClick={() => onNavigate('hotspots')}><Flame size={15} />从热点找选题</button>
+                <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={15} />手动新建</button>
+                <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
               </div>
             )}
           </div>
@@ -425,10 +454,17 @@ export function TopicsPage({
       {/* 有选题时始终给出明确去向，避免生成完不知道下一步做什么 */}
       {displayedTopics.length > 0 && (
         <NextStepBar
-          text={`当前 ${displayedTopics.length} 条选题。选定一条后，去内容框架展开成文。`}
+          text={`当前 ${displayedTopics.length} 条选题。已锁定的选题会直接带进内容框架。`}
           actionLabel="去内容框架"
           icon={<WandSparkles size={14} />}
-          onAction={() => onNavigate('frameworks')}
+          onAction={() => {
+            const target = topics.find((topic) => topic.status === 'locked') ?? displayedTopics[0]
+            if (!target) {
+              showToast({ type: 'info', message: '先创建或锁定一条选题，再带着它去内容框架' })
+              return
+            }
+            onNavigate('frameworks', { topicId: target.id })
+          }}
         />
       )}
 
@@ -447,6 +483,23 @@ export function TopicsPage({
         />
       )}
       {ConfirmPortal}
+      <ManualTopicDialog
+        open={manualOpen}
+        schema={schema}
+        accountId={accountId || undefined}
+        onClose={() => setManualOpen(false)}
+        onSaved={() => { void refresh(); setView('drafts') }}
+        showToast={showToast}
+      />
+      <ImportDialog
+        open={importOpen}
+        kind="topic"
+        targetFields={schema.map((field) => field.name)}
+        associations={{ accountId: accountId || undefined }}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { void refresh(); setView('drafts') }}
+        showToast={showToast}
+      />
     </div>
   )
 }
@@ -519,7 +572,8 @@ function TopicCard({
         </button>
       )}
       <footer>
-        <span>{topic.providerId ? `${topic.model || 'AI'} 生成` : '手动创建'}</span>
+        <SourceBadge source={topic.importSource} />
+        {!topic.importSource && <span>{topic.providerId ? `${topic.model || 'AI'} 生成` : '手动创建'}</span>}
         <span>关键词：{topic.seedKeyword}</span>
         <span><Link2 size={12} />{topic.relatedHotIds.length} 条热点引用</span>
         <span>{formatDate(topic.updatedAt)}</span>

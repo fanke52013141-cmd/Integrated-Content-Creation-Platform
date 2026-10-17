@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Check, CircleCheckBig, FileText, Plus, RotateCcw, Settings2, Sparkles, X
+  Check, CircleCheckBig, FileText, FileUp, Plus, RotateCcw, Settings2, Sparkles, X
 } from 'lucide-react'
 import type { ArticleSummary, ProviderSummary, ReviewFailure, ReviewRole, ReviewTask, ReviewTaskStatus } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
+import { ImportDialog } from '../components/ImportDialog'
+import { ManualReviewProblemDialog } from '../components/ManualReviewProblemDialog'
 import { ModalBase } from '../components/ModalBase'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
@@ -19,6 +21,7 @@ import { errorMessage, formatDate, markdownTitle } from '../lib'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
+import { SourceBadge } from '../components/SourceBadge'
 import { isReviewBaselineStale } from '../../../shared/creation-state'
 
 interface ReviewsPageProps {
@@ -67,6 +70,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
   const [lastFailed, setLastFailed] = useState<ReviewFailure[]>([])
   const [roleDialogOpen, setRoleDialogOpen] = useState(false)
+  const [manualTaskId, setManualTaskId] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [reviewRunning, setReviewRunning] = useState(false)
 
@@ -198,6 +203,19 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     }
   }
 
+  async function openManualProblem(): Promise<void> {
+    if (!selectedArticle) return
+    const existing = articleTasks[0]
+    if (existing) { setManualTaskId(existing.id); return }
+    try {
+      const task = await window.moliu.reviews.createManualTask(selectedArticle.id)
+      await refreshTasks(selectedArticle.id)
+      setManualTaskId(task.id)
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
   const toggleRole = (roleId: string, checked: boolean): void => {
     setSelectedRoles((current) => {
       const next = new Set(current)
@@ -214,8 +232,11 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       onNavigate={onNavigate}
       title="内容评审"
       description="多角色交叉评审文章，采纳问题后一键生成改稿"
-      actions={<button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />
-    评审角色</button>}
+      actions={<div className="page-intro-actions">
+        <button className="button secondary" disabled={!selectedArticle} onClick={() => void openManualProblem()} title={selectedArticle ? undefined : '先选择一篇文章'}><Plus size={15} />手动加问题</button>
+        <button className="button secondary" disabled={!selectedArticle} onClick={() => setImportOpen(true)} title={selectedArticle ? undefined : '先选择一篇文章'}><FileUp size={15} />导入评审</button>
+        <button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />评审角色</button>
+      </div>}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={selectedArticle} onSaved={refresh} onNavigate={onNavigate} />
@@ -291,6 +312,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                 <div>
                   <strong>{markdownTitle(selectedArticle?.rawMarkdown ?? '')}</strong>
                   <span className={`badge ${status.badge}`}>{status.label}</span>
+                  <SourceBadge source={task.importSource} />
                   {isReviewBaselineStale(task, selectedArticle) && task.status !== 'applied' && (
                     <span className="badge warning">基线已过期 · 评审第 {task.articleVersionNumber} 版</span>
                   )}
@@ -302,6 +324,11 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                 {task.failures.length > 0 && task.status !== 'applied' && (
                   <button className="button secondary compact" disabled={stream.active || retrying} onClick={() => void retryFailed(task.failures, task.articleId)}>
                     <RotateCcw size={14} />{retrying ? '重跑中…' : `只重跑失败的 ${task.failures.length} 个角色`}
+                  </button>
+                )}
+                {task.status !== 'applied' && (
+                  <button className="button secondary compact" onClick={() => setManualTaskId(task.id)}>
+                    <Plus size={14} />手动加问题
                   </button>
                 )}
                 {task.status !== 'applied' && (
@@ -352,6 +379,23 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     )}
 
     {roleDialogOpen && <RoleDialog roles={roles} onClose={() => setRoleDialogOpen(false)} onSaved={async () => { setRoleDialogOpen(false); await refresh() }} showToast={showToast} />}
+    {manualTaskId && (
+      <ManualReviewProblemDialog
+        taskId={manualTaskId}
+        onClose={() => setManualTaskId('')}
+        onSaved={() => refreshTasks(selectedArticle?.id ?? '')}
+        showToast={showToast}
+      />
+    )}
+    <ImportDialog
+      open={importOpen}
+      kind="review"
+      targetFields={['位置', '严重度', '问题', '建议']}
+      associations={{ articleId: selectedArticle?.id }}
+      onClose={() => setImportOpen(false)}
+      onImported={() => { if (selectedArticle) void refreshTasks(selectedArticle.id) }}
+      showToast={showToast}
+    />
     {ConfirmPortal}
   </div>
 }

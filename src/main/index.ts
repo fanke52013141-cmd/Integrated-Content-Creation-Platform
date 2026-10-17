@@ -47,8 +47,8 @@ function createWindow(): void {
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1180,
-    minHeight: 720,
+    minWidth: 960,
+    minHeight: 640,
     show: false,
     backgroundColor: '#f5f5f7',
     title: '心流',

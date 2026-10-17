@@ -28,7 +28,7 @@ export function PageHeader({ route, showPipeline = false, title, description, ac
       {showPipeline && route && onNavigate && <PipelineSteps current={route} onNavigate={onNavigate} />}
       <section className="page-intro">
         <div>
-          <h2>{title}</h2>
+          <h1>{title}</h1>
           {description && <p className="micro-copy">{description}</p>}
         </div>
         {actions && <div className="page-intro-actions">{actions}</div>}

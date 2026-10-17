@@ -1,10 +1,10 @@
 .framework-studio-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
 .framework-studio-layout > * { min-width: 0; margin-top: 0; box-shadow: none; }
-.framework-composer { padding: 24px; }
+.framework-composer { padding: 24px; max-height: calc(100dvh - 210px); overflow-y: auto; }
 .framework-compose-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 24px; }
 .framework-topic-field { margin-top: 20px; }
 .framework-topic-field textarea { min-height: 112px; }
-.framework-composer footer { flex-wrap: wrap; gap: 12px; margin-top: 24px; padding-top: 20px; }
+.framework-composer footer { flex-wrap: wrap; gap: 12px; margin-top: 24px; padding: 16px 0 4px; position: sticky; bottom: 0; z-index: 2; background: var(--surface); border-top: 1px solid var(--border-subtle); }
 .framework-composer footer > .button.primary { width: 100%; justify-content: center; }
 .framework-composer footer > .form-hint { width: 100%; margin: 0; }
 .framework-composer .framework-count { width: 100px; }

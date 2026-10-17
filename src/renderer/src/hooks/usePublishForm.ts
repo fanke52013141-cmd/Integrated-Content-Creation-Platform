@@ -7,7 +7,7 @@ function initialForm(article: Article | undefined, appId: string, layoutId: stri
   return { articleId: article?.id ?? '', appId, layoutId, author, digest: paragraph.slice(0, 120), coverAssetId: '', thumbMediaId: '', contentSourceUrl: '' }
 }
 
-export function usePublishForm(article: Article | undefined, appId: string, layoutId: string, defaultAuthor: string) {
+export function usePublishForm(article: Article | undefined, appId: string, layoutId: string, defaultAuthor: string, reloadKey = 0) {
   const [stored, setStored] = useState<PublishFormDraft | null>(null)
   const [loadedId, setLoadedId] = useState('')
   const [error, setError] = useState('')
@@ -28,7 +28,7 @@ export function usePublishForm(article: Article | undefined, appId: string, layo
       setLoadedId(`${id}:${appId}`)
     }).catch(reason => { if (alive) setError(errorMessage(reason)) })
     return () => { alive = false }
-  }, [article?.id, appId])
+  }, [article?.id, appId, reloadKey])
 
   const update = (patch: Partial<PublishFormDraft>): void => {
     if (!article || !loaded) return

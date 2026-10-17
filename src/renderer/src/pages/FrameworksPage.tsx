@@ -1,7 +1,7 @@
 import { MaterialContextPreview } from '../components/MaterialContextPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Check, ChevronDown, ChevronUp, FilePenLine, FolderHeart, Layers3, LoaderCircle,
+  Check, ChevronDown, ChevronUp, FilePenLine, FileUp, Layers3, LoaderCircle,
   Lock, LockOpen, Pencil, PenLine, Plus, Save, Sparkles, Trash2, WandSparkles, X
 } from 'lucide-react'
 import type {
@@ -15,6 +15,9 @@ import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { ExportMenu } from '../components/ExportMenu'
+import { ImportDialog } from '../components/ImportDialog'
+import { SourceBadge } from '../components/SourceBadge'
 import { MaterialPicker } from '../components/MaterialPicker'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useDraftSelection, useDraftState } from '../hooks/useDraftState'
@@ -51,6 +54,8 @@ export function FrameworksPage({
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
   const [manualCreating, setManualCreating] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
 
@@ -81,6 +86,21 @@ export function FrameworksPage({
   }, [accounts, accountId, currentAccountId])
 
   useEffect(() => { if (focusTopicId) setTopicId(focusTopicId) }, [focusTopicId])
+
+  async function exportAll(format: 'json' | 'markdown' = 'json'): Promise<void> {
+    if (!frameworks.length) return showToast({ type: 'info', message: '还没有可导出的框架' })
+    setExporting(true)
+    try {
+      const result = await window.moliu.imports.export({ kind: 'framework', format, ids: frameworks.map((framework) => framework.id) })
+      showToast(result.path
+        ? { type: 'success', message: `已导出 ${frameworks.length} 个框架到 ${result.path}` }
+        : { type: 'info', message: '已取消导出' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
@@ -137,7 +157,12 @@ export function FrameworksPage({
       onNavigate={onNavigate}
       title="内容框架"
       description="把选题拆成结构化章节，锁定后作为写作基线"
-      actions={<button className="button secondary" onClick={() => setTemplateEditor(selectedTemplate ?? 'new')}><Layers3 size={15} />编辑框架模板</button>}
+      actions={<div className="page-intro-actions">
+        <button className="button secondary" onClick={() => setManualCreating(true)}><Plus size={15} />手动新建</button>
+        <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+        <ExportMenu disabled={exporting || !frameworks.length} onExport={(format) => void exportAll(format)} />
+        <button className="button ghost compact" onClick={() => setTemplateEditor(selectedTemplate ?? 'new')}><Layers3 size={15} />编辑模板</button>
+      </div>}
     />
 
     <div className="framework-studio-layout">
@@ -196,7 +221,7 @@ export function FrameworksPage({
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}
-      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div><button className="button secondary compact" onClick={() => setManualCreating(true)} title="不依赖模型：按模板创建空白框架，稍后在编辑器中填写"><Plus size={14} />手动新建</button></header>
+      <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
       {loading ? (
         /* 首载骨架屏：数据没到之前不显示「空态」，避免误导用户以为数据丢了 */
         <div className="wall-skeleton">
@@ -221,6 +246,7 @@ export function FrameworksPage({
               <div className="article-empty-actions">
                 <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={15} />先去选题</button>
                 <button className="button secondary" onClick={() => setManualCreating(true)}><PenLine size={15} />手动新建框架</button>
+                <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入框架</button>
               </div>
             </div>
           )
@@ -238,10 +264,17 @@ export function FrameworksPage({
           <>
             <div className="framework-card-grid"><VirtualList className="framework-cards" items={displayed} estimateSize={() => 320} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
             <NextStepBar
-              text="框架准备好后，去文章创作按它扩写成稿。"
+              text="已锁定的框架会直接带进文章新建弹窗。"
               actionLabel="去文章创作"
               icon={<PenLine size={14} />}
-              onAction={() => onNavigate('articles')}
+              onAction={() => {
+                const target = displayed.find((framework) => framework.status === 'locked')
+                if (!target) {
+                  showToast({ type: 'info', message: '先锁定一个框架，再带着它去文章创作' })
+                  return
+                }
+                onNavigate('articles', { frameworkId: target.id })
+              }}
             />
           </>
         )
@@ -251,13 +284,21 @@ export function FrameworksPage({
     {templateEditor && <TemplateDialog template={templateEditor === 'new' ? undefined : templateEditor} templates={templates} onClose={() => setTemplateEditor(undefined)} onSaved={async () => { setTemplateEditor(undefined); await refresh() }} showToast={showToast} />}
     {manualCreating && <ManualFrameworkDialog templates={templates} initialTemplateId={templateId} onClose={() => setManualCreating(false)} onCreate={createManual} />}
     {editing && <FrameworkEditor framework={editing} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await refresh() }} showToast={showToast} />}
+    <ImportDialog
+      open={importOpen}
+      kind="framework"
+      associations={{ accountId: accountId || undefined, topicId: topicId || undefined }}
+      onClose={() => setImportOpen(false)}
+      onImported={() => { void refresh() }}
+      showToast={showToast}
+    />
     {ConfirmPortal}
   </div>
 }
 
 function FrameworkCard({ framework, onNavigate, onEdit, onToggleLock, onRemove }: { framework: Framework; onNavigate(route: RouteId, params?: Record<string, string>): void; onEdit(): void; onToggleLock(): void; onRemove(): void }): React.JSX.Element {
   const hasDraftReference = framework.references.some((reference) => reference.sourceStatusSnapshot === 'draft')
-  return <article className="framework-card"><header><div className="framework-card-badges"><span className={`badge ${framework.status === 'locked' ? 'success' : 'neutral'}`}>{framework.status === 'locked' ? <Lock size={11} /> : <FilePenLine size={11} />}{framework.status === 'locked' ? '已锁定' : '草稿'}</span>{hasDraftReference && <span className="badge warning">引用草稿</span>}</div><div><button className="icon-button" title="编辑" aria-label="编辑" onClick={onEdit}><Pencil size={15} /></button><button className="icon-button" title={framework.status === 'locked' ? '解锁' : '锁定'} aria-label={framework.status === 'locked' ? '解锁' : '锁定'} onClick={onToggleLock}>{framework.status === 'locked' ? <LockOpen size={15} /> : <Lock size={15} />}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div></header><div className="framework-card-title"><span>框架 · V{framework.versionCount}</span><h3>{framework.sections[0]?.content || framework.manualTopic || '未命名框架'}</h3></div><div className="framework-section-preview">{framework.sections.slice(1, 4).map((section) => <p key={section.name}><strong>{section.name}</strong>{section.content}</p>)}</div>{framework.status === 'locked' && <button className="button primary framework-next-step" onClick={() => onNavigate('articles', { frameworkId: framework.id })}><FilePenLine size={15} />写文章→</button>}<footer><span>{framework.model || '手动'} </span><span>{framework.materialIds.length} 条素材</span><span>{formatDate(framework.updatedAt)}</span></footer></article>
+  return <article className="framework-card"><header><div className="framework-card-badges"><span className={`badge ${framework.status === 'locked' ? 'success' : 'neutral'}`}>{framework.status === 'locked' ? <Lock size={11} /> : <FilePenLine size={11} />}{framework.status === 'locked' ? '已锁定' : '草稿'}</span>{hasDraftReference && <span className="badge warning">引用草稿</span>}</div><div><button className="icon-button" title="编辑" aria-label="编辑" onClick={onEdit}><Pencil size={15} /></button><button className="icon-button" title={framework.status === 'locked' ? '解锁' : '锁定'} aria-label={framework.status === 'locked' ? '解锁' : '锁定'} onClick={onToggleLock}>{framework.status === 'locked' ? <LockOpen size={15} /> : <Lock size={15} />}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button></div></header><div className="framework-card-title"><span>框架 · V{framework.versionCount}</span><h3>{framework.importSource ? framework.manualTopic : (framework.sections[0]?.content || framework.manualTopic || '未命名框架')}</h3></div><div className="framework-section-preview">{framework.sections.slice(1, 4).map((section) => <p key={section.name}><strong>{section.name}</strong>{section.content}</p>)}</div>{framework.status === 'locked' && <button className="button primary framework-next-step" onClick={() => onNavigate('articles', { frameworkId: framework.id })}><FilePenLine size={15} />写文章→</button>}<footer><SourceBadge source={framework.importSource} />{!framework.importSource && <span>{framework.model || '手动'} </span>}<span>{framework.materialIds.length} 条素材</span><span>{formatDate(framework.updatedAt)}</span></footer></article>
 }
 
 function ManualFrameworkDialog({ templates, initialTemplateId, onClose, onCreate }: { templates: FrameworkTemplate[]; initialTemplateId: string; onClose(): void; onCreate(topic: string, sectionNames: string[]): Promise<void> }): React.JSX.Element {

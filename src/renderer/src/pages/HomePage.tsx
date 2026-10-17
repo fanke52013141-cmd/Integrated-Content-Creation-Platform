@@ -67,7 +67,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   return (
     <div className="page home-page">
-      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('frameworks')}><PenLine size={15} />开始创作</button>} />
+      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('topics')}><PenLine size={15} />开始创作</button>} />
 
       <div className="home-studio-grid">
         <div className="home-studio-main">
