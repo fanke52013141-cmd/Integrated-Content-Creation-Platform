@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ModelGateway } from '../src/main/gateway/model-gateway.js'
+import { ModelGateway, extractErrorMessage, normalizeImageRatio } from '../src/main/gateway/model-gateway.js'
 import { GatewayError } from '../src/main/gateway/types.js'
 import type { AppDatabase } from '../src/main/database.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
@@ -436,5 +436,127 @@ describe('ModelGateway.chat - 端点构建边界', () => {
     })
 
     expect(capturedAuth).toBe('Bearer decrypted-secret-key')
+  })
+})
+
+describe('ModelGateway.generateImage - 比例制请求', () => {
+  const imageProvider = () => makeProvider({
+    capabilities: { chat: true, jsonMode: true, streaming: false, vision: false, image: true }
+  })
+
+  it('把比例、质量、分辨率写进请求体，不发送像素尺寸', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let body: Record<string, unknown> | undefined
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return jsonResponse({ data: [{ b64_json: 'AAAA' }], model: 'gpt-image-2-vip' })
+    }))
+
+    const result = await gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: '中文提示词',
+      ratio: '21:9', quality: 'low', resolution: '1k'
+    })
+
+    expect(body).toMatchObject({
+      model: 'gpt-image-2-vip', prompt: '中文提示词', size: '21:9', quality: 'low', resolution: '1k', n: 1
+    })
+    expect(String(body!.size)).not.toMatch(/x/i)
+    expect(result.base64).toBe('AAAA')
+  })
+
+  it('像素尺寸会换算成最简比例', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let body: Record<string, unknown> | undefined
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return jsonResponse({ data: [{ b64_json: 'AAAA' }] })
+    }))
+
+    await gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: 'p', size: '1536x864', quality: 'low'
+    })
+
+    expect(body!.size).toBe('16:9')
+  })
+
+  it('非 gpt-image 系列保留像素尺寸，且不追加 quality/resolution', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let body: Record<string, unknown> | undefined
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return jsonResponse({ data: [{ b64_json: 'AAAA' }] })
+    }))
+
+    await gateway.generateImage({
+      providerId: 'provider-1', model: 'seedream-3.0', prompt: 'p', size: '1024x1024', quality: 'low', resolution: '1k'
+    })
+
+    expect(body!.size).toBe('1024x1024')
+    expect(body).not.toHaveProperty('quality')
+    expect(body).not.toHaveProperty('resolution')
+  })
+
+  it('提交失败只发一次请求，不重试（避免重复建任务）', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    const fetchMock = vi.fn(async () => jsonResponse({ code: 'invalid_request', message: '输入参数无效' }, 400))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: 'p', ratio: '1:1'
+    })).rejects.toMatchObject({ kind: 'ProviderError' })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('供应商用顶层 message 报错时，用户能看到真实原因', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ code: 'invalid_request', message: '缺少必填参数: prompt' }, 400)))
+
+    await expect(gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: 'p', ratio: '1:1'
+    })).rejects.toThrow(/缺少必填参数/)
+  })
+
+  it('异步任务完成时返回任务 id 与实际费用', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const target = String(url)
+      if (target.includes('example.com')) return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { status: 200 })
+      if (target.endsWith('/images/generations')) return jsonResponse({ id: 'tsk_1', status: 'pending' })
+      return jsonResponse({
+        id: 'tsk_1',
+        status: 'completed',
+        result: { data: [{ url: 'https://example.com/a.png' }] },
+        billing: { status: 'settled', cost_usd: '0.0048' }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: 'p', ratio: '16:9', quality: 'low', resolution: '1k'
+    })
+
+    expect(result.taskId).toBe('tsk_1')
+    expect(result.costUsd).toBeCloseTo(0.0048)
+    expect(result.base64.length).toBeGreaterThan(0)
+  })
+})
+
+describe('生图尺寸与错误体解析', () => {
+  it('比例字符串保持原样，像素换算成最简比例', () => {
+    expect(normalizeImageRatio('16:9')).toBe('16:9')
+    expect(normalizeImageRatio('21:9')).toBe('21:9')
+    expect(normalizeImageRatio('1024x1024')).toBe('1:1')
+    expect(normalizeImageRatio('1536x864')).toBe('16:9')
+    expect(normalizeImageRatio('1024x768')).toBe('4:3')
+    expect(normalizeImageRatio('')).toBeUndefined()
+    expect(normalizeImageRatio(undefined)).toBeUndefined()
+  })
+
+  it('兼容 {code,message} 与 {error:{message}} 两种错误体', () => {
+    expect(extractErrorMessage('{"code":"invalid_request","message":"缺少必填参数: prompt"}')).toBe('缺少必填参数: prompt')
+    expect(extractErrorMessage('{"error":{"message":"boom"}}')).toBe('boom')
+    expect(extractErrorMessage('{"ResponseMetadata":{"Error":{"Message":"quota"}}}')).toBe('quota')
+    expect(extractErrorMessage('not json')).toBeUndefined()
   })
 })

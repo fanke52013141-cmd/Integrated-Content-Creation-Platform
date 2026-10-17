@@ -1,5 +1,6 @@
 import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
+import type { ImageQuality, ImageResolution } from '../../shared/contracts.js'
 import { extractTaggedBlock } from './extract-block.js'
 import {
   GatewayError,
@@ -49,12 +50,19 @@ interface OpenAiImageResponse {
     data?: Array<{ url?: string; b64_json?: string }>
     url?: string
   }
+  /** 任务完成后的实际计费（ToAPIs 等会在轮询结果里回传） */
+  billing?: { status?: string; credits?: string; cost_usd?: string | number }
 }
 
 /** 非流式对话单次尝试超时 */
 const CHAT_TIMEOUT_MS = 60_000
-/** 图片生成单次尝试超时（出图普遍偏慢） */
-const IMAGE_TIMEOUT_MS = 180_000
+/**
+ * 生图提交单次超时。提交接口不是幂等的（每次 POST 都会新建任务），
+ * 因此只发一次、超时不重试，避免一笔点击创建多个任务、重复扣费。
+ */
+const IMAGE_SUBMIT_TIMEOUT_MS = 60_000
+/** 生图任务轮询总预算：异步任务制供应商可能跑几分钟，不能沿用提交超时 */
+const IMAGE_TASK_TIMEOUT_MS = 10 * 60_000
 /** 流式请求空闲超时：超过该时长没有收到任何新数据即判定中断 */
 const STREAM_IDLE_TIMEOUT_MS = 60_000
 /** 流式请求总时长上限（长文生成兜底，避免无限挂起） */
@@ -378,14 +386,32 @@ export class ModelGateway {
 
   /**
    * 图片生成：调用 OpenAI 兼容的 /images/generations 接口，返回 base64 图像数据。
+   *
+   * 尺寸统一按「比例」下发：gpt-image-2 系列是比例制接口，传 16:9 这类值；
+   * 传像素尺寸（1024x1024）时上游对中文提示词会直接报 invalid_input，
+   * 所以像素尺寸在这里一律换算成最简比例，真正需要精确像素时由调用层本地缩放。
    */
   async generateImage(input: {
     providerId: string
     model: string
     prompt: string
+    /** 目标比例（优先），如 16:9 / 21:9 */
+    ratio?: string
+    /** 像素尺寸（兼容旧调用），会换算成比例 */
     size?: string
+    /** 质量档位，默认由调用层决定（产品默认 low） */
+    quality?: ImageQuality
+    /** 分辨率档位；比例制供应商用它约束输出像素 */
+    resolution?: ImageResolution
     signal?: AbortSignal
-  }): Promise<{ base64: string; model: string; providerId: string; latencyMs: number }> {
+  }): Promise<{
+    base64: string
+    model: string
+    providerId: string
+    latencyMs: number
+    taskId?: string
+    costUsd?: number
+  }> {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) {
       throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
@@ -400,21 +426,33 @@ export class ModelGateway {
     try {
       // response_format 用 url 而非 b64_json：部分异步中转（gpt-image-2 等）不支持 b64 请求，
       // 而 url 响应两条路径都能处理（下方统一下载转 base64）。
-      // size 仅在「宽:高」比例形态下透传，像素尺寸（如 1024x1024）对比例制供应商无意义。
-      const size = input.size && /^\d+\s*:\s*\d+$/.test(input.size) ? input.size.replace(/\s/g, '') : undefined
-      const payload = await this.requestJsonWithRetry<OpenAiImageResponse>(endpoint, apiKey, {
+      // gpt-image 系列是比例制：像素尺寸一律换算成比例；其它供应商保留原样，避免破坏其像素约定。
+      const isGptImageSeries = /^gpt-image-/i.test(input.model)
+      const requestedSize = normalizeImageRatio(input.ratio)
+        ?? (isGptImageSeries ? normalizeImageRatio(input.size) : input.size?.trim() || undefined)
+      // 提交只发一次：非幂等接口重试会新建任务、重复扣费
+      const payload = await this.requestJsonOnce<OpenAiImageResponse>(endpoint, apiKey, {
         model: input.model,
         prompt: input.prompt,
         n: 1,
         response_format: 'url',
-        ...(size ? { size } : {})
-      }, input.signal, IMAGE_TIMEOUT_MS)
+        ...(requestedSize ? { size: requestedSize } : {}),
+        ...(isGptImageSeries && input.quality ? { quality: input.quality } : {}),
+        ...(isGptImageSeries && input.resolution ? { resolution: input.resolution } : {})
+      }, input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
 
       if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
-        const base64 = await this.pollImageTask(endpoint, apiKey, payload.id ?? payload.task_id ?? '', input.signal)
+        const task = await this.pollImageTask(endpoint, apiKey, payload.id ?? payload.task_id ?? '', input.signal)
         const latencyMs = Math.round(performance.now() - startedAt)
         this.database.recordModelCall({ providerId: provider.id, model: input.model, latencyMs, success: true })
-        return { base64, model: payload.model ?? input.model, providerId: provider.id, latencyMs }
+        return {
+          base64: task.base64,
+          model: payload.model ?? input.model,
+          providerId: provider.id,
+          latencyMs,
+          taskId: task.taskId,
+          costUsd: task.costUsd
+        }
       }
 
       const item = payload.data?.[0]
@@ -448,10 +486,16 @@ export class ModelGateway {
 
   /**
    * 轮询异步生图任务：提交接口只回任务 id 的供应商（gpt-image-2 中转等），
-   * 按 GET {提交端点}/{taskId} 查询直到 completed / failed，总时长受 IMAGE_TIMEOUT_MS 约束。
+   * 按 GET {提交端点}/{taskId} 查询直到 completed / failed，总时长受 IMAGE_TASK_TIMEOUT_MS 约束。
+   * 轮询预算独立于提交超时：生图可能跑几分钟，不能和 60 秒的提交超时共用。
    */
-  private async pollImageTask(endpoint: string, apiKey: string, taskId: string, signal?: AbortSignal): Promise<string> {
-    const deadline = Date.now() + IMAGE_TIMEOUT_MS
+  private async pollImageTask(
+    endpoint: string,
+    apiKey: string,
+    taskId: string,
+    signal?: AbortSignal
+  ): Promise<{ base64: string; taskId: string; costUsd?: number }> {
+    const deadline = Date.now() + IMAGE_TASK_TIMEOUT_MS
     let lastStatus = ''
     while (Date.now() < deadline) {
       if (signal?.aborted) throw new GatewayError('CancelledError', '图片生成已取消')
@@ -466,7 +510,7 @@ export class ModelGateway {
       } catch {
         throw new GatewayError('ParseError', `生图任务查询返回无法解析的响应（HTTP ${response.status}）`, response.status)
       }
-      if (!response.ok) throw fromHttpError(response.status, task.error?.message, endpoint)
+      if (!response.ok) throw fromHttpError(response.status, extractErrorMessage(text) ?? task.error?.message, endpoint)
       if (task.status !== lastStatus) {
         lastStatus = task.status ?? ''
         console.log(`[image-task] ${taskId} status=${lastStatus} progress=${task.progress ?? ''}`)
@@ -482,11 +526,20 @@ export class ModelGateway {
         const imageResponse = await fetch(url, { signal })
         if (!imageResponse.ok) throw new GatewayError('NetworkError', `下载生成图片失败（HTTP ${imageResponse.status}）`)
         const buffer = Buffer.from(await imageResponse.arrayBuffer())
-        return buffer.toString('base64')
+        const rawCost = task.billing?.cost_usd
+        const costUsd = typeof rawCost === 'number' ? rawCost : Number.parseFloat(String(rawCost ?? ''))
+        return {
+          base64: buffer.toString('base64'),
+          taskId,
+          costUsd: Number.isFinite(costUsd) ? costUsd : undefined
+        }
       }
       await wait(3_000)
     }
-    throw new GatewayError('TimeoutError', `生图任务超过 ${Math.round(IMAGE_TIMEOUT_MS / 1_000)} 秒仍未完成，请稍后在调用日志中查看`)
+    throw new GatewayError(
+      'TimeoutError',
+      `生图任务超过 ${IMAGE_TASK_TIMEOUT_MS / 60_000} 分钟仍未完成（任务 ${taskId} 可能仍在生成，可稍后到供应商后台查看）`
+    )
   }
 
   private async requestJsonWithRetry<T>(
@@ -532,9 +585,7 @@ export class ModelGateway {
 
       const text = await response.text()
       if (!response.ok) {
-        let errorMessage: string | undefined
-        try { errorMessage = (JSON.parse(text) as OpenAiResponse).error?.message } catch { /* ignore */ }
-        throw fromHttpError(response.status, errorMessage, endpoint)
+        throw fromHttpError(response.status, extractErrorMessage(text), endpoint)
       }
       try {
         return JSON.parse(text) as T
@@ -601,9 +652,7 @@ export class ModelGateway {
 
       if (!response.ok) {
         const text = await response.text()
-        let errorMessage: string | undefined
-        try { errorMessage = (JSON.parse(text) as OpenAiResponse).error?.message } catch { /* ignore */ }
-        throw fromHttpError(response.status, errorMessage, endpoint)
+        throw fromHttpError(response.status, extractErrorMessage(text), endpoint)
       }
 
       if (!response.body) {
@@ -836,6 +885,45 @@ function shouldRetry(error: GatewayError): boolean {
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+/**
+ * 生图尺寸统一换算成比例：比例制接口只认 `16:9` 这类值；
+ * 像素尺寸（`1024x1024`）换算成最简比例，避免把像素值原样发给比例制供应商。
+ */
+export function normalizeImageRatio(value?: string): string | undefined {
+  const raw = value?.trim()
+  if (!raw) return undefined
+  const ratio = raw.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/)
+  if (ratio) return `${Number(ratio[1])}:${Number(ratio[2])}`
+  const pixel = raw.match(/^(\d{2,5})\s*[x×]\s*(\d{2,5})$/i)
+  if (!pixel) return undefined
+  const width = Number(pixel[1])
+  const height = Number(pixel[2])
+  const divisor = greatestCommonDivisor(width, height) || 1
+  return `${Math.round(width / divisor)}:${Math.round(height / divisor)}`
+}
+
+function greatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : greatestCommonDivisor(b, a % b)
+}
+
+/**
+ * 兼容不同供应商的错误体：OpenAI 用 `{error:{message}}`，ToAPIs 用顶层 `{code,message}`。
+ * 只读 `error.message` 会把这些供应商的真实原因吞掉，用户只能看到 HTTP 400。
+ */
+export function extractErrorMessage(text: string): string | undefined {
+  try {
+    const body = JSON.parse(text) as {
+      error?: { message?: string }
+      message?: string
+      msg?: string
+      ResponseMetadata?: { Error?: { Message?: string } }
+    }
+    return body.error?.message ?? body.message ?? body.msg ?? body.ResponseMetadata?.Error?.Message
+  } catch {
+    return undefined
+  }
 }
 
 /** 判断文本是否为可直接解析的 JSON（用于决定是否需要绕开 json_object 约束重试） */

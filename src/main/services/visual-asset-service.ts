@@ -13,6 +13,27 @@ function sniffImageExt(bytes: Uint8Array): string {
   throw new Error('文件不是可识别的 PNG / JPG / WebP 图片')
 }
 
+/** 读取 PNG / JPEG 的像素尺寸，用于在图片资产上记录实际输出大小 */
+function readImageSize(bytes: Buffer): string | undefined {
+  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    return `${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`
+  }
+  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] !== 0xff) { offset += 1; continue }
+      const marker = bytes[offset + 1]
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+        const height = bytes.readUInt16BE(offset + 5)
+        const width = bytes.readUInt16BE(offset + 7)
+        return `${width}x${height}`
+      }
+      offset += 2 + bytes.readUInt16BE(offset + 2)
+    }
+  }
+  return undefined
+}
+
 /**
  * 视觉图片资产管理：调用生图模型产出图片、从本地导入兜底、登记到 visual_assets 表。
  * 图片文件存放在 userData/images 下，渲染层通过 moliu-asset:// 协议访问。
@@ -39,7 +60,10 @@ export class VisualAssetService {
       providerId: input.providerId,
       model: input.model,
       prompt,
+      ratio: input.ratio,
       size: input.size,
+      quality: input.quality ?? 'low',
+      resolution: input.resolution ?? '1k',
       signal
     })
     const bytes = Buffer.from(result.base64, 'base64')
@@ -54,7 +78,8 @@ export class VisualAssetService {
       source: 'generated',
       providerId: result.providerId,
       model: result.model,
-      size: input.size
+      // 记录实际输出尺寸（比例制供应商按 ratio 出图，尺寸由它决定）
+      size: readImageSize(bytes) ?? input.size
     }) } catch (error) { await unlink(join(this.imagesDir, fileName)).catch(() => undefined); throw error }
   }
 

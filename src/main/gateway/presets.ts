@@ -41,8 +41,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'doubao',
     displayName: '豆包（火山方舟）',
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-    defaultModel: '请填写推理接入点 ID',
+    defaultModel: 'doubao-seed-2-1-turbo-260628',
     capabilities: commonCapabilities
+  },
+  {
+    // 生图专用供应商：只勾图片生成，避免把生图模型拿去跑对话
+    id: 'toapis',
+    displayName: 'ToAPIs 生图',
+    baseUrl: 'https://api.toapis.com/v1',
+    defaultModel: 'gpt-image-2-vip',
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true }
   },
   {
     id: 'wechat-ai',

@@ -6,10 +6,10 @@ export interface ModelOption {
   model: ProviderModel
 }
 
-/** 可用文本模型：已启用 + 已配置密钥的供应商下所有启用模型 */
+/** 可用文本模型：已启用 + 已配置密钥 + 开启文本能力（生图专用供应商不该出现在文本模型下拉里） */
 export function availableModels(providers: ProviderSummary[]): ModelOption[] {
   return providers
-    .filter((provider) => provider.enabled && provider.hasApiKey)
+    .filter((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.chat)
     .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model })))
 }
 

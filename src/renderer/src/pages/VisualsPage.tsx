@@ -23,6 +23,12 @@ import { availableModels, DEFAULT_IMAGE_MODEL_KEY, encodeModelTarget, useModelTa
 import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
 import { disambiguateOptions } from '../../../shared/creation-state'
 
+/** 封面固定 21:9：PRD 原定的 2.35:1 不在供应商支持列表内，21:9 是最接近的横版比例 */
+const COVER_RATIO = '21:9'
+/** 生图默认质量与分辨率：产品默认 low + 1K（桌面端出图足够，成本最低） */
+const IMAGE_QUALITY = 'low' as const
+const IMAGE_RESOLUTION = '1k' as const
+
 interface VisualsPageProps {
   providers: ProviderSummary[]
   onNavigate(route: RouteId, params?: Record<string, string>): void
@@ -102,7 +108,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     }
   }
 
-  const generateImage = async (pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void> => {
+  const generateImage = async (pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void> => {
     const target = decodeTarget(imageTarget)
     if (!target) {
       showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
@@ -111,7 +117,13 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     const key = `${pack.id}:${kind}:${slot}`
     setImageBusyKey(key)
     try {
-      await window.moliu.visuals.generateImage({ packId: pack.id, kind, slot, prompt, providerId: target.providerId, model: target.modelId })
+      await window.moliu.visuals.generateImage({
+        packId: pack.id, kind, slot, prompt,
+        providerId: target.providerId, model: target.modelId,
+        ratio: ratio || (kind === 'cover' ? COVER_RATIO : '1:1'),
+        quality: IMAGE_QUALITY,
+        resolution: IMAGE_RESOLUTION
+      })
       await refreshAssets([pack.id])
       showToast({ type: 'success', message: '图片已生成' })
     } catch (error) {
@@ -139,9 +151,9 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       return
     }
     const slots = [
-      { kind: 'cover' as const, slot: 0, prompt: pack.cover.prompt },
-      ...pack.inlineImages.map((item, index) => ({ kind: 'inline' as const, slot: index, prompt: item.prompt })),
-      ...pack.releaseImages.map((item, index) => ({ kind: 'release' as const, slot: index, prompt: item.prompt }))
+      { kind: 'cover' as const, slot: 0, prompt: pack.cover.prompt, ratio: COVER_RATIO },
+      ...pack.inlineImages.map((item, index) => ({ kind: 'inline' as const, slot: index, prompt: item.prompt, ratio: item.ratio })),
+      ...pack.releaseImages.map((item, index) => ({ kind: 'release' as const, slot: index, prompt: item.prompt, ratio: item.ratio }))
     ].filter((item) => item.prompt.trim())
     const existing = new Set((assetsByPack[pack.id] ?? []).map((asset) => `${asset.kind}:${asset.slot}`))
     const todo = slots.filter((item) => !existing.has(`${item.kind}:${item.slot}`))
@@ -159,7 +171,13 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     for (const item of todo) {
       if (batchStopRef.current) { stopped = true; break }
       try {
-        await window.moliu.visuals.generateImage({ packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt, providerId: target.providerId, model: target.modelId })
+        await window.moliu.visuals.generateImage({
+          packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt,
+          providerId: target.providerId, model: target.modelId,
+          ratio: item.ratio || (item.kind === 'cover' ? COVER_RATIO : '1:1'),
+          quality: IMAGE_QUALITY,
+          resolution: IMAGE_RESOLUTION
+        })
         ok += 1
       } catch (error) {
         if (isCancelError(error)) { cancelled = true; break }
@@ -398,7 +416,7 @@ interface VisualPackCardProps {
   /** 页面级：任意批量进行中（单图生成与批量共用取消域，需暂停单图入口） */
   anyBatch: boolean
   onCopy(text: string): Promise<void>
-  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
+  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void>
   onGenerateAll(): void
   onUploadAll(): void
   onStopBatch(): void
@@ -444,11 +462,12 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
       <section className="visual-cover">
         <div className="visual-cover-info">
           <h4>封面</h4>
+          <em>比例：{COVER_RATIO}</em>
           <strong>{pack.cover.visual}</strong>
           <em>封面文案：{pack.cover.overlayText || '—'}</em>
         </div>
         <VisualSlot
-          pack={pack} kind="cover" slot={0} prompt={pack.cover.prompt} assets={assetsFor('cover', 0)}
+          pack={pack} kind="cover" slot={0} prompt={pack.cover.prompt} ratio={COVER_RATIO} assets={assetsFor('cover', 0)}
           imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
         />
       </section>
@@ -469,7 +488,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
               <span>{item.ratio} · {item.purpose}</span>
             </header>
             <VisualSlot
-              pack={pack} kind={kind} slot={index} prompt={item.prompt} assets={assetsFor(kind, index)}
+              pack={pack} kind={kind} slot={index} prompt={item.prompt} ratio={item.ratio} assets={assetsFor(kind, index)}
               imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
             />
             {item.alt && <small>替代文本：{item.alt}</small>}
@@ -485,18 +504,20 @@ interface VisualSlotProps {
   kind: VisualAssetKind
   slot: number
   prompt: string
+  /** 该槽位的目标比例；封面固定 21:9，文内/发布图用方案里的比例 */
+  ratio?: string
   assets: VisualAsset[]
   imageBusyKey: string
   /** 批量任务进行中：单图生成与批量共用同一个取消域，暂停单图入口避免被「停止批量」连带取消 */
   batchActive?: boolean
   onCopy(text: string): Promise<void>
-  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string): Promise<void>
+  onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void>
   onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
   onUploadAsset(packId: string, asset: VisualAsset): Promise<void>
   onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
 }
 
-function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, batchActive, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
+function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, batchActive, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
   const busy = imageBusyKey === `${pack.id}:${kind}:${slot}`
   return (
     <div className="visual-slot">
@@ -504,7 +525,7 @@ function VisualSlot({ pack, kind, slot, prompt, assets, imageBusyKey, batchActiv
         <p>{prompt}</p>
         <div className="visual-slot-actions">
           <button className="button ghost tiny" onClick={() => void onCopy(prompt)}><Copy size={13} />复制提示词</button>
-          <button className="button secondary tiny" disabled={busy || batchActive || !prompt} title={batchActive ? '批量任务进行中，请先完成或停止' : undefined} onClick={() => void onGenerateImage(pack, kind, slot, prompt)}>
+          <button className="button secondary tiny" disabled={busy || batchActive || !prompt} title={batchActive ? '批量任务进行中，请先完成或停止' : undefined} onClick={() => void onGenerateImage(pack, kind, slot, prompt, ratio)}>
             {busy ? <LoaderCircle size={13} className="spin" /> : <Sparkles size={13} />}{busy ? '生成中…' : '生成图片'}
           </button>
           <button className="button ghost tiny" onClick={() => onImport(pack.id, kind, slot, prompt)}><ImagePlus size={13} />导入本地</button>

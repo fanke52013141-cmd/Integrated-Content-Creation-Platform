@@ -683,7 +683,25 @@ export interface VisualAsset {
   wechatUploadedAt?: string
   createdAt: string
 }
-export interface GenerateVisualAssetInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; providerId: string; model: string; size?: string }
+/** 生图质量档位（与 gpt-image-2 系列一致，默认 low） */
+export type ImageQuality = 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+/** 生图分辨率档位；比例制供应商用它约束输出像素 */
+export type ImageResolution = '1k' | '2k' | '4k'
+
+export interface GenerateVisualAssetInput {
+  packId: string
+  kind: VisualAssetKind
+  slot?: number
+  prompt: string
+  providerId: string
+  model: string
+  /** 目标比例，如 '16:9' / '21:9'。比例制供应商直接按它出图 */
+  ratio?: string
+  /** 兼容旧调用：像素尺寸会被换算成最接近的比例 */
+  size?: string
+  quality?: ImageQuality
+  resolution?: ImageResolution
+}
 export interface ImportVisualAssetInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; filePath: string }
 /** 渲染层直接上传文件内容（沙箱下拿不到本地路径） */
 export interface ImportVisualAssetDataInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; fileName: string; data: ArrayBuffer }
