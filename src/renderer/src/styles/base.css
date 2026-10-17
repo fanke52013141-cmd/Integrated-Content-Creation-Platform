@@ -1010,3 +1010,44 @@ input[type="checkbox"], input[type="radio"] {
 .tab-strip button {
   min-height: 36px;
 }
+
+/* 文章选择器：搜索框与下拉原本直接贴在一起（实测间距 0），补 12px 呼吸 */
+.article-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.article-picker > input {
+  min-height: 36px;
+}
+
+.article-picker-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.article-picker-pagination button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Flow UI v2 · 滚动与吸底规则
+ *
+ * 原来的四张卡片把"提交区"做成 sticky bottom：内容区 padding-bottom 只有
+ * 24px，而条高 69–157px，滚到底时最后几行永远压在条下面；而且有的页面吸、
+ * 有的页面滚出视口，行为不一致。
+ *
+ * 本次实际改动落在各自的分页样式里（需要更高优先级，写在 base 里会被覆盖）：
+ *   · topics.css     吸底条保留，滚动容器补 101px（条高 85 + 16）预留；
+ *   · frameworks.css 157px 的条改为静态（position: static），随内容滚动；
+ * 其余页面（publishing / providers）的条高 ≤ 96px 且实测未压住内容，暂不动。
+ *
+ * 约定：要吸底，就必须给滚动容器补"条高 + 16~24px"，两者成对出现。
+ * ───────────────────────────────────────────────────────────── */

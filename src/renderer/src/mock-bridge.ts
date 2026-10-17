@@ -11,7 +11,6 @@
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
 import { createUiFixtures } from './ui-fixtures'
-import { amplifyUiFixtures } from './ui-fixtures-dense'
 import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
@@ -233,7 +232,7 @@ const DEMO_PROVIDER_PRESETS: ProviderPreset[] = [
 function createMockBridge(): MoliuApi {
   const fixtureParam = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('ui-fixtures') : null
   const fixtures = fixtureParam
-    ? amplifyUiFixtures(createUiFixtures(DEMO_BOOTSTRAP.accounts[0].id), Number(fixtureParam) || 1)
+    ? createUiFixtures(DEMO_BOOTSTRAP.accounts[0].id)
     : undefined
   const emptyArray = <T>(): Promise<T[]> => Promise.resolve([])
   const void_ = (): Promise<void> => Promise.resolve()

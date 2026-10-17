@@ -1,6 +1,6 @@
 .framework-studio-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
 .framework-studio-layout > * { min-width: 0; margin-top: 0; box-shadow: none; }
-.framework-composer { padding: 24px; max-height: calc(100dvh - 210px); overflow-y: auto; }
+.framework-composer { padding: 24px 24px 148px; max-height: calc(100dvh - 210px); overflow-y: auto; }
 .framework-compose-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 24px; }
 .framework-topic-field { margin-top: 20px; }
 .framework-topic-field textarea { min-height: 112px; }
