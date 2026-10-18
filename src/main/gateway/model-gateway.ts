@@ -212,6 +212,7 @@ export class ModelGateway {
 
     const selectedModel = resolveModel(provider.models, request.model)
     const model = selectedModel.modelId
+    const chatParams = resolveChatParams(model, selectedModel.params)
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildChatEndpoint(provider.baseUrl)
     const jsonModeSimulated = Boolean(request.jsonMode && !provider.capabilities.jsonMode)
@@ -219,9 +220,10 @@ export class ModelGateway {
 
     try {
       const buildChatBody = (useJsonMode: boolean) => ({
+        temperature: request.temperature ?? 0.4,
+        ...chatParams,
         model,
         messages: request.messages,
-        temperature: request.temperature ?? 0.4,
         ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
         ...(request.jsonMode && useJsonMode
           ? { response_format: { type: 'json_object' } }
@@ -310,15 +312,17 @@ export class ModelGateway {
 
     const selectedModel = resolveModel(provider.models, request.model)
     const model = selectedModel.modelId
+    const chatParams = resolveChatParams(model, selectedModel.params)
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildChatEndpoint(provider.baseUrl)
     const jsonModeSimulated = Boolean(request.jsonMode && !provider.capabilities.jsonMode)
     const startedAt = performance.now()
 
     const body = {
+      temperature: request.temperature ?? 0.4,
+      ...chatParams,
       model,
       messages: request.messages,
-      temperature: request.temperature ?? 0.4,
       stream: true,
       stream_options: { include_usage: true },
       ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
@@ -404,6 +408,10 @@ export class ModelGateway {
     /** 分辨率档位；比例制供应商用它约束输出像素 */
     resolution?: ImageResolution
     signal?: AbortSignal
+    /** 提交成功、拿到任务 id 时回调（用于落库，重启后续查） */
+    onTaskCreated?: (taskId: string) => void
+    /** 轮询进度回调（0–100） */
+    onProgress?: (progress: number) => void
   }): Promise<{
     base64: string
     model: string
@@ -442,9 +450,18 @@ export class ModelGateway {
       }, input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
 
       if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
-        const task = await this.pollImageTask(endpoint, apiKey, payload.id ?? payload.task_id ?? '', input.signal)
+        const taskId = payload.id ?? payload.task_id ?? ''
+        input.onTaskCreated?.(taskId)
+        const task = await this.pollImageTask(endpoint, apiKey, taskId, input.signal, input.onProgress)
         const latencyMs = Math.round(performance.now() - startedAt)
-        this.database.recordModelCall({ providerId: provider.id, model: input.model, latencyMs, success: true })
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs,
+          success: true,
+          costUsd: task.costUsd,
+          taskId: task.taskId
+        })
         return {
           base64: task.base64,
           model: payload.model ?? input.model,
@@ -485,6 +502,49 @@ export class ModelGateway {
   }
 
   /**
+   * 续查已提交的生图任务（应用重启后）。只用任务 id + 供应商配置重新轮询，
+   * 完成的直接返回图片数据，由调用层落成资产。
+   */
+  async resumeImageTask(input: {
+    providerId: string
+    model: string
+    taskId: string
+    signal?: AbortSignal
+    onProgress?: (progress: number) => void
+  }): Promise<{ base64: string; taskId: string; costUsd?: number }> {
+    const provider = this.database.getProvider(input.providerId)
+    if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
+    if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
+    const apiKey = this.keyStore.read(provider.id)
+    const endpoint = buildImageEndpoint(provider.baseUrl)
+    const startedAt = performance.now()
+    try {
+      const task = await this.pollImageTask(endpoint, apiKey, input.taskId, input.signal, input.onProgress)
+      this.database.recordModelCall({
+        providerId: provider.id,
+        model: input.model,
+        latencyMs: Math.round(performance.now() - startedAt),
+        success: true,
+        costUsd: task.costUsd,
+        taskId: task.taskId
+      })
+      return task
+    } catch (error) {
+      const normalized = normalizeError(error, endpoint, input.signal)
+      this.database.recordModelCall({
+        providerId: provider.id,
+        model: input.model,
+        latencyMs: Math.round(performance.now() - startedAt),
+        success: false,
+        errorKind: normalized.kind,
+        errorMessage: normalized.message,
+        taskId: input.taskId
+      })
+      throw normalized
+    }
+  }
+
+  /**
    * 轮询异步生图任务：提交接口只回任务 id 的供应商（gpt-image-2 中转等），
    * 按 GET {提交端点}/{taskId} 查询直到 completed / failed，总时长受 IMAGE_TASK_TIMEOUT_MS 约束。
    * 轮询预算独立于提交超时：生图可能跑几分钟，不能和 60 秒的提交超时共用。
@@ -493,7 +553,8 @@ export class ModelGateway {
     endpoint: string,
     apiKey: string,
     taskId: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onProgress?: (progress: number) => void
   ): Promise<{ base64: string; taskId: string; costUsd?: number }> {
     const deadline = Date.now() + IMAGE_TASK_TIMEOUT_MS
     let lastStatus = ''
@@ -511,6 +572,7 @@ export class ModelGateway {
         throw new GatewayError('ParseError', `生图任务查询返回无法解析的响应（HTTP ${response.status}）`, response.status)
       }
       if (!response.ok) throw fromHttpError(response.status, extractErrorMessage(text) ?? task.error?.message, endpoint)
+      if (typeof task.progress === 'number') onProgress?.(task.progress)
       if (task.status !== lastStatus) {
         lastStatus = task.status ?? ''
         console.log(`[image-task] ${taskId} status=${lastStatus} progress=${task.progress ?? ''}`)
@@ -729,7 +791,10 @@ export class ModelGateway {
   }
 }
 
-function resolveModel(models: Array<{ enabled: boolean; modelId: string; isDefault: boolean }>, requested?: string): { modelId: string } {
+function resolveModel(
+  models: Array<{ enabled: boolean; modelId: string; isDefault: boolean; params?: Record<string, unknown> }>,
+  requested?: string
+): { modelId: string; params?: Record<string, unknown> } {
   const selected = requested?.trim()
     ? models.find((model) => model.enabled && model.modelId === requested.trim())
     : models.find((model) => model.enabled && model.isDefault)
@@ -740,6 +805,19 @@ function resolveModel(models: Array<{ enabled: boolean; modelId: string; isDefau
     )
   }
   return selected
+}
+
+/**
+ * 合并模型级请求参数。豆包 seed 系列默认开启思考：实测单句回答 1577 token、
+ * 首字 12.7 秒；关闭后 1.85 秒 / 39 token。用户没有显式指定思考参数时默认关闭。
+ */
+export function resolveChatParams(model: string, params?: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(params ?? {}) }
+  // 传输层字段不允许被模型参数覆盖：否则一次配置就能把请求发到别的模型/丢消息
+  for (const key of ['model', 'messages', 'stream']) delete merged[key]
+  const explicit = 'thinking' in merged || 'reasoning_effort' in merged
+  if (!explicit && /^doubao-seed/i.test(model)) merged.thinking = { type: 'disabled' }
+  return merged
 }
 
 /**

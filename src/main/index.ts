@@ -144,6 +144,10 @@ if (!hasLock) {
       })
       registerAssetProtocol(imagesDir)
       createWindow()
+      // 上次没跑完的生图任务在后台补查（不阻塞启动）
+      void visualAssetService.resumePendingTasks()
+        .then((restored) => { if (restored) console.log(`[image-task] 续查恢复 ${restored} 张图片`) })
+        .catch((error) => console.error('[image-task] 续查失败:', error))
     } catch (initError) {
       console.error('[main] initialization failed:', initError)
     }

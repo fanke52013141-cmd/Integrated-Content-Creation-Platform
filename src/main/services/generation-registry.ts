@@ -8,6 +8,11 @@ import type { GenerationDomain } from '../../shared/contracts.js'
 export type { GenerationDomain }
 
 const active = new Map<GenerationDomain, AbortController>()
+/**
+ * 允许并发的子任务（批量生图）：同一模块下可以同时存在多个，
+ * 但不与模块级互斥锁混用——批量生图不应该挡住同页面的其它生成。
+ */
+const children = new Map<GenerationDomain, Set<AbortController>>()
 
 export class GenerationConflictError extends GatewayError {
   constructor(domain: GenerationDomain) {
@@ -29,19 +34,41 @@ export function endGeneration(domain: GenerationDomain): void {
   active.delete(domain)
 }
 
+/** 注册一个可并发的子任务（批量生图的每一张图） */
+export function beginGenerationChild(domain: GenerationDomain): AbortController {
+  const controller = new AbortController()
+  const set = children.get(domain) ?? new Set<AbortController>()
+  set.add(controller)
+  children.set(domain, set)
+  return controller
+}
+
+export function endGenerationChild(domain: GenerationDomain, controller: AbortController): void {
+  const set = children.get(domain)
+  if (!set) return
+  set.delete(controller)
+  if (!set.size) children.delete(domain)
+}
+
 export function cancelGeneration(domain: GenerationDomain): boolean {
   const controller = active.get(domain)
-  if (!controller) return false
-  controller.abort()
-  return true
+  controller?.abort()
+  const set = children.get(domain)
+  if (set) {
+    for (const child of set) child.abort()
+    children.delete(domain)
+  }
+  return Boolean(controller || set?.size)
 }
 
 export function activeGenerationDomains(): GenerationDomain[] {
-  return [...active.keys()]
+  return [...new Set([...active.keys(), ...children.keys()])]
 }
 
 /** 退出/关窗前统一中止所有在途生成 */
 export function cancelAllGenerations(): void {
   for (const controller of active.values()) controller.abort()
+  for (const set of children.values()) for (const controller of set) controller.abort()
   active.clear()
+  children.clear()
 }

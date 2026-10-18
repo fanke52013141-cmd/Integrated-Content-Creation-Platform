@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ModelGateway, extractErrorMessage, normalizeImageRatio } from '../src/main/gateway/model-gateway.js'
+import { ModelGateway, extractErrorMessage, normalizeImageRatio, resolveChatParams } from '../src/main/gateway/model-gateway.js'
 import { GatewayError } from '../src/main/gateway/types.js'
 import type { AppDatabase } from '../src/main/database.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
@@ -558,5 +558,48 @@ describe('生图尺寸与错误体解析', () => {
     expect(extractErrorMessage('{"error":{"message":"boom"}}')).toBe('boom')
     expect(extractErrorMessage('{"ResponseMetadata":{"Error":{"Message":"quota"}}}')).toBe('quota')
     expect(extractErrorMessage('not json')).toBeUndefined()
+  })
+})
+
+describe('模型级请求参数（params）', () => {
+  it('豆包 seed 系列未显式指定时默认关闭思考', () => {
+    expect(resolveChatParams('doubao-seed-2-1-turbo-260628')).toEqual({ thinking: { type: 'disabled' } })
+    expect(resolveChatParams('doubao-seed-2-1-turbo-260628', { temperature: 0.1 })).toEqual({
+      temperature: 0.1,
+      thinking: { type: 'disabled' }
+    })
+  })
+
+  it('用户显式指定思考参数时不再覆盖', () => {
+    expect(resolveChatParams('doubao-seed-2-1-turbo-260628', { thinking: { type: 'enabled' } }))
+      .toEqual({ thinking: { type: 'enabled' } })
+    expect(resolveChatParams('doubao-seed-2-1-turbo-260628', { reasoning_effort: 'minimal' }))
+      .toEqual({ reasoning_effort: 'minimal' })
+  })
+
+  it('非豆包模型不追加任何参数', () => {
+    expect(resolveChatParams('glm-4-flash')).toEqual({})
+    expect(resolveChatParams('gpt-4o', { temperature: 0.2 })).toEqual({ temperature: 0.2 })
+  })
+
+  it('params 合并进请求体，但不能覆盖 model / messages / stream', async () => {
+    const provider = makeProvider()
+    provider.models[0] = {
+      ...provider.models[0],
+      params: { thinking: { type: 'disabled' }, model: 'evil-model', messages: [], stream: true }
+    }
+    const { gateway } = makeGateway(provider)
+    let body: Record<string, unknown> | undefined
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return okResponse('ok')
+    }))
+
+    await gateway.chat({ providerId: 'provider-1', messages: [{ role: 'user', content: 'hi' }] })
+
+    expect(body!.thinking).toEqual({ type: 'disabled' })
+    expect(body!.model).toBe('moliu-test-model')
+    expect(body!.messages).toEqual([{ role: 'user', content: 'hi' }])
+    expect(body!.stream).toBeUndefined()
   })
 })

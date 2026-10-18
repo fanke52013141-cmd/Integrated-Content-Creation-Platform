@@ -42,7 +42,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     displayName: '豆包（火山方舟）',
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: 'doubao-seed-2-1-turbo-260628',
-    capabilities: commonCapabilities
+    capabilities: commonCapabilities,
+    // 该系列默认开启思考，单句回答也要上千 token、首字十几秒；创作类请求默认关闭
+    modelParams: { thinking: { type: 'disabled' } }
   },
   {
     // 生图专用供应商：只勾图片生成，避免把生图模型拿去跑对话

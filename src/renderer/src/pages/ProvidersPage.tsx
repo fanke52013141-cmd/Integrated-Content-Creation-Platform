@@ -116,11 +116,18 @@ export function ProvidersPage({
   const [logsTarget, setLogsTarget] = useState<{ id?: string; name: string }>()
   const [logs, setLogs] = useState<ModelCallLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
+  /** 模型请求参数的编辑草稿（按模型下标）；保存时才解析成对象，允许中途是半截 JSON */
+  const [paramsDrafts, setParamsDrafts] = useState<Record<number, string>>({})
+
+  const paramsTextFor = (index: number, model: SaveProviderModelInput): string => {
+    if (paramsDrafts[index] !== undefined) return paramsDrafts[index]
+    return model.params && Object.keys(model.params).length ? JSON.stringify(model.params, null, 2) : ''
+  }
 
   // 表单基线：记录最近一次「载入/保存」的表单快照。密钥与模型配置填写成本高，
   // 切换供应商 / 选预设 / 新建空白前若未保存，必须先确认而不是静默丢弃
   const formBaseline = useRef(JSON.stringify(emptyForm()))
-  const formDirty = JSON.stringify(form) !== formBaseline.current
+  const formDirty = JSON.stringify(form) !== formBaseline.current || Object.keys(paramsDrafts).length > 0
   const guardUnsavedForm = async (action: string): Promise<boolean> => {
     if (saving || draftTesting) return false
     if (!formDirty) return true
@@ -146,6 +153,7 @@ export function ProvidersPage({
     clearAll()
     setSelectedId(provider.id)
     setDraftStatus(undefined)
+    setParamsDrafts({})
     const next: SaveProviderInput = {
       id: provider.id,
       displayName: provider.displayName,
@@ -162,6 +170,8 @@ export function ProvidersPage({
         contextLimit: model.contextLimit,
         outputLimit: model.outputLimit,
         reasoningVariants: model.reasoningVariants,
+        params: model.params,
+        pricePerImage: model.pricePerImage,
         isDefault: model.isDefault,
         enabled: model.enabled
       })),
@@ -177,6 +187,7 @@ export function ProvidersPage({
     clearAll()
     setSelectedId(undefined)
     setDraftStatus(undefined)
+    setParamsDrafts({})
     const next: SaveProviderInput = {
       ...emptyForm(),
       displayName: preset.displayName,
@@ -188,6 +199,7 @@ export function ProvidersPage({
         modelId: preset.defaultModel,
         displayName: preset.defaultModel,
         reasoningVariants: [],
+        params: preset.modelParams,
         isDefault: true,
         enabled: true
       }]
@@ -228,13 +240,31 @@ export function ProvidersPage({
   }
 
   async function save(): Promise<void> {
-    const models = form.models.map((model) => ({
-      ...model,
-      modelId: model.modelId.trim(),
-      displayName: model.displayName.trim(),
-      contextLimit: normalizeOptionalNumber(model.contextLimit),
-      outputLimit: normalizeOptionalNumber(model.outputLimit)
-    }))
+    let models: SaveProviderModelInput[]
+    try {
+      models = form.models.map((model, index) => {
+        const text = paramsTextFor(index, model).trim()
+        let params: Record<string, unknown> | undefined
+        if (text) {
+          const parsed = JSON.parse(text) as unknown
+          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            throw new Error(`第 ${index + 1} 个模型的请求参数必须是 JSON 对象`)
+          }
+          params = parsed as Record<string, unknown>
+        }
+        return {
+          ...model,
+          modelId: model.modelId.trim(),
+          displayName: model.displayName.trim(),
+          contextLimit: normalizeOptionalNumber(model.contextLimit),
+          outputLimit: normalizeOptionalNumber(model.outputLimit),
+          params
+        }
+      })
+    } catch (error) {
+      showToast({ type: 'error', message: `请求参数不是合法 JSON：${errorMessage(error)}` })
+      return
+    }
     const enabledModels = models.filter((model) => model.enabled)
     const defaultModel = enabledModels.find((model) => model.isDefault)
     const valid = validate(
@@ -330,6 +360,7 @@ export function ProvidersPage({
       setSelectedId(undefined)
       const next = emptyForm()
       setForm(next)
+      setParamsDrafts({})
       formBaseline.current = JSON.stringify(next)
       await onRefresh()
       showToast({ type: 'success', message: '供应商已删除' })
@@ -356,6 +387,7 @@ export function ProvidersPage({
   }
 
   function removeModel(index: number): void {
+    setParamsDrafts({})
     setForm((current) => {
       if (current.models.length === 1) return current
       const removedWasDefault = current.models[index]?.isDefault
@@ -382,6 +414,7 @@ export function ProvidersPage({
             setSelectedId(undefined)
             const next = emptyForm()
             setForm(next)
+            setParamsDrafts({})
             formBaseline.current = JSON.stringify(next)
           })()}
         >
@@ -677,7 +710,38 @@ export function ProvidersPage({
                         placeholder="low, medium, high…"
                       />
                     </label>
+                    <label className="field">
+                      <span>单张成本（USD）</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        name="pricePerImage"
+                        autoComplete="off"
+                        min="0"
+                        step="0.0001"
+                        value={model.pricePerImage ?? ''}
+                        onChange={(event) => updateModel(index, {
+                          pricePerImage: event.target.value ? Number(event.target.value) : undefined
+                        })}
+                        placeholder="0.02…"
+                      />
+                    </label>
                   </div>
+                  <label className="field full">
+                    <span>请求参数（JSON，可选）</span>
+                    <textarea
+                      name="modelParams"
+                      autoComplete="off"
+                      spellCheck={false}
+                      rows={2}
+                      value={paramsTextFor(index, model)}
+                      onChange={(event) => setParamsDrafts((current) => ({ ...current, [index]: event.target.value }))}
+                      placeholder='{"thinking":{"type":"disabled"}}'
+                    />
+                    <small className="field-help">
+                      原样合并进对话请求体，可传供应商专属参数；不能覆盖 model / messages / stream。豆包推理模型默认关闭思考（预设已填）。
+                    </small>
+                  </label>
                 </article>
               ))}
             </div>
@@ -786,6 +850,7 @@ export function ProvidersPage({
                       {log.promptTokens !== undefined || log.completionTokens !== undefined
                         ? ` · ${log.promptTokens ?? 0} / ${log.completionTokens ?? 0} tokens`
                         : ''}
+                      {log.costUsd !== undefined ? ` · $${log.costUsd.toFixed(4)}` : ''}
                       {!log.success && log.errorKind ? ` · ${errorKindLabel(log.errorKind)}` : ''}
                     </small>
                     {!log.success && log.errorMessage && <p>{log.errorMessage}</p>}

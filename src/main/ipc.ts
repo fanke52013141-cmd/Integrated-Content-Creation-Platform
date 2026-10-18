@@ -29,8 +29,10 @@ import { validateWechatLayout } from './services/layout-validator.js'
 import {
   activeGenerationDomains,
   beginGeneration,
+  beginGenerationChild,
   cancelGeneration,
   endGeneration,
+  endGenerationChild,
   type GenerationDomain
 } from './services/generation-registry.js'
 import { GENERATION_DOMAIN_LABELS } from '../shared/contracts.js'
@@ -100,6 +102,8 @@ const providerSchema = z.object({
     contextLimit: z.number().int().positive().optional(),
     outputLimit: z.number().int().positive().optional(),
     reasoningVariants: z.array(z.string().trim().min(1).max(40)),
+    params: z.record(z.string(), z.unknown()).optional(),
+    pricePerImage: z.number().positive().max(100).optional(),
     isDefault: z.boolean(),
     enabled: z.boolean()
   })).min(1),
@@ -117,6 +121,11 @@ const providerSchema = z.object({
   if (new Set(modelIds).size !== modelIds.length) {
     context.addIssue({ code: 'custom', message: '同一连接内的模型 ID 不能重复', path: ['models'] })
   }
+  input.models.forEach((model, index) => {
+    if (model.params && JSON.stringify(model.params).length > 4_000) {
+      context.addIssue({ code: 'custom', message: '请求参数过长（上限 4000 字符）', path: ['models', index, 'params'] })
+    }
+  })
 })
 
 const hotItemSchema = z.object({
@@ -832,7 +841,7 @@ export function registerIpc(options: {
   handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
   handle('visuals:remove',async(_e,id:string)=>{const packId=requireId(id);await visualAssets.removePackAssets(packId);database.removeVisualPack(packId)})
   handle('visuals:list-assets',(_e,packId:string)=>database.listVisualAssets(requireId(packId)))
-  handle('visuals:generate-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(8_000),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),size:z.string().trim().max(40).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),resolution:z.enum(['1k','2k','4k']).optional()}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualAssets.generate(input,signal))})
+  handle('visuals:generate-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(8_000),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),size:z.string().trim().max(40).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),resolution:z.enum(['1k','2k','4k']).optional()}).parse(raw);void event;const controller=beginGenerationChild('visuals');return visualAssets.generate(input,controller.signal).finally(()=>endGenerationChild('visuals',controller))})
   handle('visuals:import-image',(_e,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().max(8_000),filePath:z.string().trim().min(1).max(1_000)}).parse(raw);return visualAssets.importFromFile(input)})
   handle('visuals:import-image-data',(_e,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().max(8_000),fileName:z.string().trim().min(1).max(300),data:z.instanceof(ArrayBuffer)}).parse(raw);return visualAssets.importFromData(input)})
   handle('visuals:remove-asset',(_e,id:string)=>visualAssets.removeAsset(requireId(id)))

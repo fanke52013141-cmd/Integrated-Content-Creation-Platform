@@ -164,30 +164,36 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
 
     batchStopRef.current = false
     setBatchState({ packId: pack.id, done: 0, total: todo.length, phase: 'generate' })
-    let ok = 0
-    let cancelled = false
-    let stopped = false
-    const failed: string[] = []
-    for (const item of todo) {
-      if (batchStopRef.current) { stopped = true; break }
-      try {
-        await window.moliu.visuals.generateImage({
-          packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt,
-          providerId: target.providerId, model: target.modelId,
-          ratio: item.ratio || (item.kind === 'cover' ? COVER_RATIO : '1:1'),
-          quality: IMAGE_QUALITY,
-          resolution: IMAGE_RESOLUTION
-        })
-        ok += 1
-      } catch (error) {
-        if (isCancelError(error)) { cancelled = true; break }
-        failed.push(`第 ${item.slot + 1} 张${item.kind === 'cover' ? '封面' : item.kind === 'inline' ? '文内图' : '发布图'}：${errorMessage(error).slice(0, 60)}`)
-      } finally {
-        setBatchState((current) => current ? { ...current, done: current.done + 1 } : current)
+    // 生图以网络等待为主：2 路并发能把 7 张图从十几分钟压到几分钟
+    const queue = [...todo]
+    const result = { ok: 0, cancelled: false, failed: [] as string[] }
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        if (batchStopRef.current || result.cancelled) return
+        const item = queue.shift()
+        if (!item) return
+        try {
+          await window.moliu.visuals.generateImage({
+            packId: pack.id, kind: item.kind, slot: item.slot, prompt: item.prompt,
+            providerId: target.providerId, model: target.modelId,
+            ratio: item.ratio || (item.kind === 'cover' ? COVER_RATIO : '1:1'),
+            quality: IMAGE_QUALITY,
+            resolution: IMAGE_RESOLUTION
+          })
+          result.ok += 1
+        } catch (error) {
+          if (isCancelError(error)) { result.cancelled = true; return }
+          result.failed.push(`第 ${item.slot + 1} 张${item.kind === 'cover' ? '封面' : item.kind === 'inline' ? '文内图' : '发布图'}：${errorMessage(error).slice(0, 60)}`)
+        } finally {
+          setBatchState((current) => current ? { ...current, done: current.done + 1 } : current)
+        }
       }
     }
+    await Promise.all(Array.from({ length: Math.min(2, queue.length) }, () => worker()))
     await refreshAssets([pack.id])
     setBatchState(null)
+    const { ok, cancelled, failed } = result
+    const stopped = batchStopRef.current || queue.length > 0
     if (cancelled || stopped) showToast({ type: 'info', message: `批量生成已停止（成功 ${ok} 张${failed.length ? `，失败 ${failed.length} 张` : ''}，未生成 ${todo.length - ok - failed.length} 张）` })
     else if (failed.length) showToast({ type: 'warning', message: `生成完成：成功 ${ok} 张，失败 ${failed.length} 张（${failed[0]}）` })
     else showToast({ type: 'success', message: `全部 ${ok} 张图片已生成` })
@@ -538,6 +544,8 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
               <img src={asset.url} alt={asset.prompt.slice(0, 40)} loading="lazy" />
               <figcaption>
                 <span className={`badge ${asset.source === 'generated' ? 'primary' : 'neutral'}`}>{asset.source === 'generated' ? 'AI 生成' : '本地导入'}</span>
+                {asset.size && <span className="badge neutral">{asset.size}</span>}
+                {asset.costUsd !== undefined && <span className="badge neutral">{asset.costEstimated ? '≈' : ''}${asset.costUsd.toFixed(4)}</span>}
                 {asset.wechatMediaId
                   ? <span className="badge success"><UploadCloud size={11} />已上传素材库</span>
                   : <button className="button secondary tiny" disabled={Boolean(imageBusyKey)} onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}

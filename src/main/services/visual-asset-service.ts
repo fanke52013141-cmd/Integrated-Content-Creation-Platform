@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { ImportVisualAssetInput, GenerateVisualAssetInput, VisualAsset, VisualAssetKind } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { isCancelledError } from '../gateway/types.js'
 
 /** 从二进制头部嗅探图片扩展名（生图接口可能返回 png 或 jpeg） */
 function sniffImageExt(bytes: Uint8Array): string {
@@ -56,31 +57,123 @@ export class VisualAssetService {
     if (!prompt) throw new Error('提示词为空，无法生成图片')
 
     await this.ensureDir()
-    const result = await this.gateway.generateImage({
-      providerId: input.providerId,
-      model: input.model,
-      prompt,
-      ratio: input.ratio,
-      size: input.size,
-      quality: input.quality ?? 'low',
-      resolution: input.resolution ?? '1k',
-      signal
-    })
+    let taskId: string | undefined
+    let result: Awaited<ReturnType<ModelGateway['generateImage']>>
+    try {
+      result = await this.gateway.generateImage({
+        providerId: input.providerId,
+        model: input.model,
+        prompt,
+        ratio: input.ratio,
+        size: input.size,
+        quality: input.quality ?? 'low',
+        resolution: input.resolution ?? '1k',
+        signal,
+        // 任务 id 一拿到就落库：之后即使应用退出/崩溃，重启也能续查这张图
+        onTaskCreated: (id) => {
+          taskId = id
+          this.database.createImageTask({
+            id,
+            providerId: input.providerId,
+            model: input.model,
+            packId: input.packId,
+            kind: input.kind,
+            slot: input.slot ?? 0,
+            prompt,
+            ratio: input.ratio,
+            quality: input.quality ?? 'low',
+            resolution: input.resolution ?? '1k'
+          })
+        },
+        onProgress: (progress) => {
+          if (taskId) this.database.updateImageTaskProgress(taskId, progress)
+        }
+      })
+    } catch (error) {
+      // 用户取消/关闭应用时不要把任务标记为失败：任务可能仍在供应商侧生成，
+      // 保留 pending 状态，下次启动由 resumePendingTasks 续查
+      if (taskId && !isCancelledError(error) && !signal?.aborted) {
+        this.database.failImageTask(taskId, error instanceof Error ? error.message : '生图失败')
+      }
+      throw error
+    }
     const bytes = Buffer.from(result.base64, 'base64')
     const fileName = `${randomUUID()}${sniffImageExt(bytes)}`
     await writeFile(join(this.imagesDir, fileName), bytes)
-    try { return this.database.saveVisualAsset({
-      packId: input.packId,
-      kind: input.kind,
-      slot: input.slot ?? 0,
-      prompt,
-      fileName,
-      source: 'generated',
-      providerId: result.providerId,
-      model: result.model,
-      // 记录实际输出尺寸（比例制供应商按 ratio 出图，尺寸由它决定）
-      size: readImageSize(bytes) ?? input.size
-    }) } catch (error) { await unlink(join(this.imagesDir, fileName)).catch(() => undefined); throw error }
+    // 供应商回传账单时用实际费用；不回传时回落到模型配置的单张成本（标注为估算）
+    const configuredPrice = this.database.getProvider(input.providerId)?.models
+      .find((model) => model.modelId === input.model)?.pricePerImage
+    const costUsd = result.costUsd ?? configuredPrice
+    const costEstimated = result.costUsd === undefined && configuredPrice !== undefined
+    try {
+      const asset = this.database.saveVisualAsset({
+        packId: input.packId,
+        kind: input.kind,
+        slot: input.slot ?? 0,
+        prompt,
+        fileName,
+        source: 'generated',
+        providerId: result.providerId,
+        model: result.model,
+        // 记录实际输出尺寸（比例制供应商按 ratio 出图，尺寸由它决定）
+        size: readImageSize(bytes) ?? input.size,
+        costUsd,
+        costEstimated
+      })
+      if (taskId) this.database.completeImageTask(taskId, asset.id, result.costUsd)
+      return asset
+    } catch (error) {
+      await unlink(join(this.imagesDir, fileName)).catch(() => undefined)
+      if (taskId) this.database.failImageTask(taskId, error instanceof Error ? error.message : '图片保存失败')
+      throw error
+    }
+  }
+
+  /**
+   * 应用启动后补查上次没跑完的生图任务：只依赖任务 id 与供应商配置，
+   * 完成的直接落成图片资产，失败的写回错误，避免「钱花了图没了」。
+   */
+  async resumePendingTasks(signal?: AbortSignal): Promise<number> {
+    const tasks = this.database.listPendingImageTasks()
+    if (!tasks.length) return 0
+    await this.ensureDir()
+    let restored = 0
+    for (const task of tasks) {
+      if (signal?.aborted) break
+      try {
+        const result = await this.gateway.resumeImageTask({
+          providerId: task.providerId,
+          model: task.model,
+          taskId: task.id,
+          signal,
+          onProgress: (progress) => this.database.updateImageTaskProgress(task.id, progress)
+        })
+        const bytes = Buffer.from(result.base64, 'base64')
+        const fileName = `${randomUUID()}${sniffImageExt(bytes)}`
+        await writeFile(join(this.imagesDir, fileName), bytes)
+        const configuredPrice = this.database.getProvider(task.providerId)?.models
+          .find((model) => model.modelId === task.model)?.pricePerImage
+        const costUsd = result.costUsd ?? configuredPrice
+        const asset = this.database.saveVisualAsset({
+          packId: task.packId,
+          kind: task.kind,
+          slot: task.slot,
+          prompt: task.prompt,
+          fileName,
+          source: 'generated',
+          providerId: task.providerId,
+          model: task.model,
+          size: readImageSize(bytes),
+          costUsd,
+          costEstimated: result.costUsd === undefined && configuredPrice !== undefined
+        })
+        this.database.completeImageTask(task.id, asset.id, result.costUsd)
+        restored += 1
+      } catch (error) {
+        this.database.failImageTask(task.id, error instanceof Error ? error.message : '续查失败')
+      }
+    }
+    return restored
   }
 
   async importFromFile(input: ImportVisualAssetInput): Promise<VisualAsset> {

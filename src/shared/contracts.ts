@@ -43,6 +43,10 @@ export interface ProviderModel {
   contextLimit?: number
   outputLimit?: number
   reasoningVariants: string[]
+  /** 供应商专属请求参数，原样合并进对话请求体（如豆包的 {"thinking":{"type":"disabled"}}） */
+  params?: Record<string, unknown>
+  /** 单张生图成本（USD），供应商不回传账单时用于估算 */
+  pricePerImage?: number
   isDefault: boolean
   enabled: boolean
   createdAt: string
@@ -56,6 +60,10 @@ export interface SaveProviderModelInput {
   contextLimit?: number
   outputLimit?: number
   reasoningVariants: string[]
+  /** 供应商专属请求参数；不能覆盖 model / messages / stream */
+  params?: Record<string, unknown>
+  /** 单张生图成本（USD）；仅生图模型使用 */
+  pricePerImage?: number
   isDefault: boolean
   enabled: boolean
 }
@@ -112,6 +120,8 @@ export interface ProviderPreset {
   baseUrl: string
   defaultModel: string
   capabilities: CapabilityFlags
+  /** 预设模型的默认请求参数（如豆包预设默认关闭思考） */
+  modelParams?: Record<string, unknown>
 }
 
 export interface ProviderTestResult {
@@ -143,6 +153,8 @@ export interface ModelCallLog {
   success: boolean
   errorKind?: string
   errorMessage?: string
+  /** 供应商回传的实际费用（USD），只有生图任务会带 */
+  costUsd?: number
   createdAt: string
 }
 
@@ -678,6 +690,10 @@ export interface VisualAsset {
   providerId?: string
   model?: string
   size?: string
+  /** 该张图的实际费用（USD），比例制任务可能在完成后才结算 */
+  costUsd?: number
+  /** true 表示费用是配置的单张成本估算，不是供应商回传的实际账单 */
+  costEstimated?: boolean
   /** 上传微信公众号素材库后回填的 media_id */
   wechatMediaId?: string
   wechatUploadedAt?: string
