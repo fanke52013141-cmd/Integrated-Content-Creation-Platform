@@ -1,21 +1,57 @@
-.data-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
-.data-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--border-subtle); }
-.data-section-heading p, .data-sidebar p { margin-top: 8px; color: var(--text-secondary); font-size: 13px; }
-.data-history { min-width: 0; min-height: 420px; }
-.data-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 320px; padding: 32px; text-align: center; color: var(--text-secondary); }
-.data-empty h3 { color: var(--text); font-size: 18px; }
-.data-backup-row { display: flex; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border-subtle); }
+/* 数据与备份 —— 按 Flow UI v2 设计稿（13-data）重构：
+ * 单列三卡（备份 / 历史备份 / 导入导出）、最宽 880px、区头 56px、行高 44px。
+ * 原来是「左历史 + 右 320px 侧栏」的两栏，设置类页面不需要那么宽。
+ */
+.data-page .data-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 880px;
+}
+
+/* 侧栏两张卡并入主列，三张卡纵向排列 */
+.data-page .data-sidebar { display: contents; }
+
+.data-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.data-section-heading h3 { font-size: 17px; }
+.data-section-heading p, .data-sidebar p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
+
+.data-history { min-width: 0; }
+
+.data-backup-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
 .data-backup-row:last-child { border-bottom: 0; }
-.data-file-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 8px; background: var(--surface-subtle); color: var(--text-secondary); }
+.data-file-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; background: var(--surface-subtle); color: var(--text-secondary); }
 .data-backup-row > div { flex: 1; min-width: 0; }
-.data-backup-row strong { display: block; overflow-wrap: anywhere; font-size: 14px; }
-.data-backup-row small { display: block; color: var(--text-secondary); margin-top: 6px; }
-.data-sidebar { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.data-sidebar h3 { display: flex; align-items: center; gap: 10px; }
-.data-storage code { display: block; overflow-wrap: anywhere; padding: 14px; margin-top: 16px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 12px; line-height: 1.7; }
-.data-transfer .button { width: 100%; justify-content: center; margin-top: 16px; }
-.data-transfer small { display: block; margin-top: 8px; color: var(--text-secondary); }
-.data-transfer-divider { border-top: 1px solid var(--border-subtle); margin-top: 20px; }
-.data-note { margin: 0; padding: 0 4px; font-size: 12px; color: var(--text-secondary); line-height: 1.8; }
-@media (max-width: 1100px) { .data-workspace { grid-template-columns: minmax(0, 1fr); } .data-sidebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .data-note { grid-column: 1 / -1; } }
-@media (max-width: 760px) { .data-sidebar { grid-template-columns: minmax(0, 1fr); } .data-backup-row { flex-wrap: wrap; } }
+.data-backup-row strong { display: block; overflow-wrap: anywhere; font-size: 13px; }
+.data-backup-row small { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 12px; }
+
+.data-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 240px; padding: 32px; text-align: center; color: var(--text-secondary); }
+.data-empty h3 { color: var(--text); font-size: 15px; }
+
+.data-sidebar h3 { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.data-storage code { display: block; overflow-wrap: anywhere; padding: 12px 14px; margin-top: 12px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; font-size: 12px; line-height: 1.7; }
+.data-transfer .button { width: 100%; justify-content: center; margin-top: 12px; }
+.data-transfer small { display: block; margin-top: 6px; color: var(--text-secondary); font-size: 12px; }
+.data-transfer-divider { margin-top: 16px; border-top: 1px solid var(--border-subtle); }
+.data-note { margin: 0; padding: 0 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
+
+/* 窄窗口：卡片已单列，只需让备份行换行 */
+@media (max-width: 760px) {
+  .data-backup-row { flex-wrap: wrap; }
+}
