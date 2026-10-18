@@ -12,8 +12,10 @@
   --text: #17212f;
   --text-primary: #17212f;
   --text-secondary: #526173;
-  --text-tertiary: #647084;
-  --text-soft: #647084;
+  /* 2026-10-18：#647084 在 #f0f0f0/#e8eaee 这类浅灰底上只有 4.2–4.4:1，压到 4.5 以下。
+     #5b6474 在同样的底色上是 5.2–5.3:1，视觉重量几乎不变。 */
+  --text-tertiary: #5b6474;
+  --text-soft: #5b6474;
 
   --border: #dce2ea;
   --border-subtle: #e7ebf0;

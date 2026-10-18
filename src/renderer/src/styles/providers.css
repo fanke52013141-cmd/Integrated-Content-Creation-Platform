@@ -24,8 +24,8 @@
 .providers-page .model-limit-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 .providers-page .model-editor-card .field input { height: 40px; }
 .providers-page .model-enabled { font-size: 13px; }
-.providers-page .editor-footer { position: sticky; bottom: 0; flex-wrap: wrap; gap: 16px; padding: 16px 28px; margin: 28px -28px 0; background: var(--surface); border-top: 1px solid var(--border-subtle); z-index: 2; }
-.providers-page .editor-footer-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.providers-page .editor-footer { position: static; flex-wrap: wrap; gap: 16px; padding: 16px 28px; margin: 28px -28px 0; background: var(--surface); border-top: 1px solid var(--border-subtle); z-index: 2; }
+.providers-page .editor-footer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .providers-page .search-service-panel { max-width: 800px; padding: 28px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
 .search-service-panel .search-service-fields { gap: 24px; margin: 24px 0; }
 .search-service-panel footer { flex-wrap: wrap; gap: 12px; padding-top: 24px; }
