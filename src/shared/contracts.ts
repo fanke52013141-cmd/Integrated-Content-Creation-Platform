@@ -163,6 +163,10 @@ export interface SearchServiceSummary {
   displayName: string
   enabled: boolean
   hasApiKey: boolean
+  /** 最近一次「测试连接」的结果；与「已保存」分开，避免用已配置冒充可用 */
+  lastTestStatus?: 'success' | 'failure'
+  lastTestAt?: string
+  lastTestError?: string
   updatedAt: string
 }
 

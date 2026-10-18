@@ -67,7 +67,8 @@ export class MaterialSearchService {
           SearchType: 'web',
           Count: count,
           Filter: {
-            NeedContent: true,
+            // 应用只消费 Summary；实测 NeedContent:false 时 Summary 不变，整次请求从 1.3s 降到 0.24s
+            NeedContent: false,
             NeedUrl: true,
             ...(input.sites?.trim() ? { Sites: input.sites.trim() } : {}),
             ...(input.authorityOnly ? { AuthInfoLevel: 1 } : {})

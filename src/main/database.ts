@@ -233,6 +233,9 @@ interface SearchServiceRow {
   display_name: string
   enabled: number
   has_api_key: number
+  last_test_status: string | null
+  last_test_at: string | null
+  last_test_error: string | null
   updated_at: string
 }
 
@@ -604,6 +607,9 @@ export class AppDatabase {
         id TEXT PRIMARY KEY CHECK (id = 'doubao-custom'),
         display_name TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
+        last_test_status TEXT,
+        last_test_at TEXT,
+        last_test_error TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
@@ -822,6 +828,9 @@ export class AppDatabase {
       ['model_calls', 'task_id', 'TEXT'],
       ['visual_assets', 'cost_usd', 'REAL'],
       ['visual_assets', 'cost_estimated', 'INTEGER'],
+      ['search_services', 'last_test_status', 'TEXT'],
+      ['search_services', 'last_test_at', 'TEXT'],
+      ['search_services', 'last_test_error', 'TEXT'],
       ['review_tasks', 'article_version_id', "TEXT NOT NULL DEFAULT ''"],
       ['review_tasks', 'article_version_number', 'INTEGER NOT NULL DEFAULT 1'],
       ['review_tasks', 'failures_json', "TEXT NOT NULL DEFAULT '[]'"],
@@ -1785,6 +1794,7 @@ export class AppDatabase {
   getSearchService(): SearchServiceSummary {
     const row = this.db.prepare(`
       SELECT s.id, s.display_name, s.enabled, s.updated_at,
+        s.last_test_status, s.last_test_at, s.last_test_error,
         EXISTS(SELECT 1 FROM search_service_secrets ss WHERE ss.service_id = s.id) AS has_api_key
       FROM search_services s WHERE s.id = 'doubao-custom'
     `).get() as SearchServiceRow | undefined
@@ -1794,6 +1804,11 @@ export class AppDatabase {
       displayName: row.display_name,
       enabled: Boolean(row.enabled),
       hasApiKey: Boolean(row.has_api_key),
+      lastTestStatus: row.last_test_status === 'success' || row.last_test_status === 'failure'
+        ? row.last_test_status
+        : undefined,
+      lastTestAt: row.last_test_at ?? undefined,
+      lastTestError: row.last_test_error ?? undefined,
       updatedAt: row.updated_at
     }
   }
@@ -1801,8 +1816,11 @@ export class AppDatabase {
   saveSearchService(input: { enabled: boolean }, encryptedKey?: Buffer): SearchServiceSummary {
     const now = new Date().toISOString()
     this.transaction(() => {
+      // 换密钥等于换配置：旧的验证结论立即失效，不能让「已保存」冒充「已验证」
       this.db.prepare(`
-        UPDATE search_services SET enabled = ?, updated_at = ? WHERE id = 'doubao-custom'
+        UPDATE search_services
+        SET enabled = ?, updated_at = ?${encryptedKey ? ', last_test_status = NULL, last_test_at = NULL, last_test_error = NULL' : ''}
+        WHERE id = 'doubao-custom'
       `).run(input.enabled ? 1 : 0, now)
       if (encryptedKey) {
         this.db.prepare(`
@@ -1813,6 +1831,14 @@ export class AppDatabase {
       }
     })
     return this.getSearchService()
+  }
+
+  /** 记录一次搜索连接测试的结果，供界面区分「已验证 / 验证失败 / 额度不足」 */
+  recordSearchServiceTest(status: 'success' | 'failure', error?: string): void {
+    this.db.prepare(`
+      UPDATE search_services SET last_test_status = ?, last_test_at = ?, last_test_error = ?
+      WHERE id = 'doubao-custom'
+    `).run(status, new Date().toISOString(), status === 'failure' ? (error?.slice(0, 500) ?? '连接不可用') : null)
   }
 
   getEncryptedSearchServiceKey(): Buffer | null {

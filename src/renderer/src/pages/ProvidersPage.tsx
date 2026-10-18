@@ -77,6 +77,27 @@ function providerState(provider: ProviderSummary): { label: string; tone: string
   return { label: '未验证', tone: 'warning', note: `配置已保存但尚未验证连接 · ${formatDate(provider.updatedAt)} 更新` }
 }
 
+/** 搜索服务状态：区分「已保存 / 已验证 / 验证失败 / 额度不足」，不拿配置冒充可用 */
+function searchServiceState(service: SearchServiceSummary): { label: string; tone: string; note: string } {
+  if (!service.enabled) return { label: '已停用', tone: 'muted', note: '启用后才能用于素材搜索。' }
+  if (!service.hasApiKey) return { label: '未配置密钥', tone: 'muted', note: '保存访问密钥后再测试连接。' }
+  if (service.lastTestStatus === 'failure') {
+    const error = service.lastTestError ?? '连接不可用'
+    const testedAt = service.lastTestAt ? `${formatFullDate(service.lastTestAt)} · ` : ''
+    return /额度/.test(error)
+      ? { label: '额度不足', tone: 'danger', note: `${testedAt}${error}` }
+      : { label: '验证失败', tone: 'danger', note: `${testedAt}${error}` }
+  }
+  if (service.lastTestStatus === 'success') {
+    return {
+      label: '已验证',
+      tone: 'success',
+      note: service.lastTestAt ? `${formatFullDate(service.lastTestAt)} 测试通过（消耗 1 次额度）` : '测试通过'
+    }
+  }
+  return { label: '未验证', tone: 'warning', note: '密钥已保存，但还没有测过连接。' }
+}
+
 function newModel(isDefault = false): SaveProviderModelInput {
   return {
     modelId: '',
@@ -922,21 +943,24 @@ function SearchServicePanel({
     try {
       const result = await window.moliu.searchService.test()
       setStatus(`${result.message} · ${result.latencyMs}ms`)
+      await onRefresh()
     } catch (error) {
       setStatus(errorMessage(error))
+      await onRefresh().catch(() => undefined)
     } finally {
       setTesting(false)
     }
   }
 
+  const state = searchServiceState(service)
+
   return (
     <section className="search-service-panel panel">
       <div className="section-heading">
         <div><h3>豆包搜索</h3></div>
-        <span className={`status-pill ${service.enabled && service.hasApiKey ? 'success' : ''}`}>
-          {service.enabled && service.hasApiKey ? '可用' : '未就绪'}
-        </span>
+        <span className={`status-pill ${state.tone}`}>{state.label}</span>
       </div>
+      <p className="micro-copy">{state.note}</p>
       <div className="search-service-fields">
         <label className="field">
           <span>访问密钥 {service.hasApiKey && <em>留空表示不修改</em>}</span>

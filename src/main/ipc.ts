@@ -417,8 +417,14 @@ export function registerIpc(options: {
   })
   handle('search-service:test', async () => {
     const startedAt = performance.now()
-    await materialSearchService.search({ query: '测试', type: 'web', count: 1 })
-    return { ok: true, latencyMs: Math.round(performance.now() - startedAt), message: '搜索服务连接成功（已消耗 1 次搜索额度）' }
+    try {
+      await materialSearchService.search({ query: '测试', type: 'web', count: 1 })
+      database.recordSearchServiceTest('success')
+      return { ok: true, latencyMs: Math.round(performance.now() - startedAt), message: '搜索服务连接成功（已消耗 1 次搜索额度）' }
+    } catch (error) {
+      database.recordSearchServiceTest('failure', error instanceof Error ? error.message : '搜索服务连接失败')
+      throw error
+    }
   })
 
   handle('accounts:list', () => database.listAccounts())

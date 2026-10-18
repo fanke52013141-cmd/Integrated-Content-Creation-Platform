@@ -22,7 +22,7 @@ describe('MaterialSearchService', () => {
     const service = new MaterialSearchService(database as never, keyStore as never, 'https://search.example.com')
     const result = await service.search({ query: '人工智能', type: 'web', count: 10 })
     expect(fetchMock).toHaveBeenCalledWith('https://search.example.com', expect.objectContaining({ method: 'POST' }))
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).Filter).toMatchObject({ NeedContent: true, NeedUrl: true })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).Filter).toMatchObject({ NeedContent: false, NeedUrl: true })
     expect(result.results).toEqual([expect.objectContaining({ summary: '给 AI 使用的长摘要', sourceName: '示例站点', authority: '非常权威' })])
     expect(JSON.stringify(result)).not.toContain('绝不能保存的全文')
   })
