@@ -1,0 +1,78 @@
+/* ─────────────────────────────────────────────────────────────
+ * Flow UI v2 · 全局精修层（最后加载，只影响观感）
+ *
+ * 只做排版、圆角、焦点、滚动条、过渡这类「皮肤」级统一，
+ * 不改任何布局结构、不改任何交互逻辑、不碰 JSX。
+ * 每一条都限定在通用选择器上，页面级样式仍可覆盖。
+ * ───────────────────────────────────────────────────────────── */
+
+/* 1. 页面节奏：统一 16px 纵向间距（原来 14） */
+.page { gap: 16px; }
+
+/* 2. 页面标题：22 / 600 / 轻微负字距；副标题 12px 次级色 */
+.page h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+.page > header p,
+.page-header p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 3. 卡片：统一 12px 圆角与描边，过渡更轻 */
+.panel {
+  border-radius: 12px;
+  border-color: var(--border-subtle);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.panel:hover { border-color: var(--border); }
+
+/* 4. 卡片头部：统一 56px 高、17px 标题（只作用于直接标题，不动内部小标题） */
+.panel > header { min-height: 56px; }
+.panel > header h3,
+.panel > header h4 { font-size: 17px; font-weight: 600; }
+
+/* 5. 卡片内小标题：15px，避免 14/16/18/19 混排 */
+.panel h3 { font-size: 15px; }
+.panel h4 { font-size: 14px; }
+
+/* 6. 正文行高：中文正文 1.65，长段落更好读 */
+.panel p { line-height: 1.65; }
+
+/* 7. 焦点环：键盘可达时统一 2px 主色描边（不覆盖鼠标点击） */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* 8. 细滚动条：12px 轨道，悬停才显色（不改变滚动行为） */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-tertiary) 28%, transparent);
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-tertiary) 48%, transparent);
+  background-clip: content-box;
+}
+
+/* 9. 交互反馈：可点卡片/行 hover 时轻微提亮，不做位移避免抖动 */
+button, .account-card, .article-list-item, .material-card, .hot-item-link {
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+/* 10. 表格/列表分隔线统一到 section 级浅色 */
+.panel li + li,
+.panel article + article { border-top-color: var(--border-subtle); }
+
+/* 11. 选中态文字不被截断 */
+.panel h3, .panel h4 { text-wrap: balance; }

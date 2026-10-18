@@ -1,4 +1,4 @@
-﻿import { StrictMode } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import { ensureMockBridge } from './mock-bridge'
@@ -24,6 +24,7 @@ import './styles/publishing.css'
 import './styles/materials.css'
 import './styles/providers.css'
 import './styles/dialogs.css'
+import './styles/polish.css'
 
 // Inject demo bridge when not running inside Electron (browser preview only)
 ensureMockBridge()
