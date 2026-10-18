@@ -1,9 +1,10 @@
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { ImportVisualAssetInput, GenerateVisualAssetInput, VisualAsset, VisualAssetKind } from '../../shared/contracts.js'
+import type { ImportVisualAssetInput, GenerateVisualAssetInput, EditVisualAssetInput, VisualAsset, VisualAssetKind } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
+import { pixelSizeForRatio } from '../gateway/image-sizing.js'
 import { isCancelledError } from '../gateway/types.js'
 
 /** 从二进制头部嗅探图片扩展名（生图接口可能返回 png 或 jpeg） */
@@ -68,6 +69,7 @@ export class VisualAssetService {
         size: input.size,
         quality: input.quality ?? 'low',
         resolution: input.resolution ?? '1k',
+        background: input.background,
         signal,
         // 任务 id 一拿到就落库：之后即使应用退出/崩溃，重启也能续查这张图
         onTaskCreated: (id) => {
@@ -97,34 +99,111 @@ export class VisualAssetService {
       }
       throw error
     }
+    return this.persistImage({
+      packId: input.packId,
+      kind: input.kind,
+      slot: input.slot,
+      prompt,
+      requestedSize: input.size,
+      background: input.background
+    }, result)
+  }
+
+  /**
+   * 参考图编辑：把公网图片 URL 与修改提示词交给 /images/edits，
+   * 结果与普通生成一样落成本地资产（并记录远端 URL，便于继续改图）。
+   */
+  async edit(input: EditVisualAssetInput, signal?: AbortSignal): Promise<VisualAsset> {
+    const pack = this.database.listVisualPacks().find((item) => item.id === input.packId)
+    if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
+    const prompt = input.prompt.trim()
+    if (!prompt) throw new Error('修改提示词为空，无法改图')
+    const imageUrl = input.imageUrl.trim()
+    if (!/^https?:\/\//i.test(imageUrl)) throw new Error('参考图必须是可访问的 http(s) 图片地址')
+
+    await this.ensureDir()
+    let taskId: string | undefined
+    let result: Awaited<ReturnType<ModelGateway['editImage']>>
+    try {
+      result = await this.gateway.editImage({
+        providerId: input.providerId,
+        model: input.model,
+        prompt,
+        imageUrl,
+        // 改图接口实测只吃像素尺寸（传比例会一直卡住）
+        size: pixelSizeForRatio(input.ratio ?? '1:1'),
+        quality: input.quality ?? 'low',
+        background: input.background,
+        signal,
+        onTaskCreated: (id) => {
+          taskId = id
+          this.database.createImageTask({
+            id,
+            providerId: input.providerId,
+            model: input.model,
+            packId: input.packId,
+            kind: input.kind,
+            slot: input.slot ?? 0,
+            prompt,
+            ratio: input.ratio ?? '1:1',
+            quality: input.quality ?? 'low'
+          })
+        },
+        onProgress: (progress) => {
+          if (taskId) this.database.updateImageTaskProgress(taskId, progress)
+        }
+      })
+    } catch (error) {
+      if (taskId && !isCancelledError(error) && !signal?.aborted) {
+        this.database.failImageTask(taskId, error instanceof Error ? error.message : '改图失败')
+      }
+      throw error
+    }
+    return this.persistImage({
+      packId: input.packId,
+      kind: input.kind,
+      slot: input.slot,
+      prompt,
+      requestedSize: pixelSizeForRatio(input.ratio ?? '1:1'),
+      background: input.background
+    }, result)
+  }
+
+  /** 把网关返回的图片数据落盘、登记资产，并把生图任务标记完成 */
+  private async persistImage(
+    context: { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; requestedSize?: string; background?: 'transparent' },
+    result: { base64: string; providerId: string; model: string; costUsd?: number; remoteUrl?: string; taskId?: string }
+  ): Promise<VisualAsset> {
     const bytes = Buffer.from(result.base64, 'base64')
     const fileName = `${randomUUID()}${sniffImageExt(bytes)}`
     await writeFile(join(this.imagesDir, fileName), bytes)
     // 供应商回传账单时用实际费用；不回传时回落到模型配置的单张成本（标注为估算）
-    const configuredPrice = this.database.getProvider(input.providerId)?.models
-      .find((model) => model.modelId === input.model)?.pricePerImage
+    const configuredPrice = this.database.getProvider(result.providerId)?.models
+      .find((model) => model.modelId === result.model)?.pricePerImage
     const costUsd = result.costUsd ?? configuredPrice
     const costEstimated = result.costUsd === undefined && configuredPrice !== undefined
     try {
       const asset = this.database.saveVisualAsset({
-        packId: input.packId,
-        kind: input.kind,
-        slot: input.slot ?? 0,
-        prompt,
+        packId: context.packId,
+        kind: context.kind,
+        slot: context.slot ?? 0,
+        prompt: context.prompt,
         fileName,
         source: 'generated',
         providerId: result.providerId,
         model: result.model,
         // 记录实际输出尺寸（比例制供应商按 ratio 出图，尺寸由它决定）
-        size: readImageSize(bytes) ?? input.size,
+        size: readImageSize(bytes) ?? context.requestedSize,
         costUsd,
-        costEstimated
+        costEstimated,
+        remoteUrl: result.remoteUrl,
+        background: context.background
       })
-      if (taskId) this.database.completeImageTask(taskId, asset.id, result.costUsd)
+      if (result.taskId) this.database.completeImageTask(result.taskId, asset.id, result.costUsd)
       return asset
     } catch (error) {
       await unlink(join(this.imagesDir, fileName)).catch(() => undefined)
-      if (taskId) this.database.failImageTask(taskId, error instanceof Error ? error.message : '图片保存失败')
+      if (result.taskId) this.database.failImageTask(result.taskId, error instanceof Error ? error.message : '图片保存失败')
       throw error
     }
   }
@@ -148,26 +227,12 @@ export class VisualAssetService {
           signal,
           onProgress: (progress) => this.database.updateImageTaskProgress(task.id, progress)
         })
-        const bytes = Buffer.from(result.base64, 'base64')
-        const fileName = `${randomUUID()}${sniffImageExt(bytes)}`
-        await writeFile(join(this.imagesDir, fileName), bytes)
-        const configuredPrice = this.database.getProvider(task.providerId)?.models
-          .find((model) => model.modelId === task.model)?.pricePerImage
-        const costUsd = result.costUsd ?? configuredPrice
-        const asset = this.database.saveVisualAsset({
+        await this.persistImage({
           packId: task.packId,
           kind: task.kind,
           slot: task.slot,
-          prompt: task.prompt,
-          fileName,
-          source: 'generated',
-          providerId: task.providerId,
-          model: task.model,
-          size: readImageSize(bytes),
-          costUsd,
-          costEstimated: result.costUsd === undefined && configuredPrice !== undefined
-        })
-        this.database.completeImageTask(task.id, asset.id, result.costUsd)
+          prompt: task.prompt
+        }, { ...result, providerId: task.providerId, model: task.model })
         restored += 1
       } catch (error) {
         this.database.failImageTask(task.id, error instanceof Error ? error.message : '续查失败')

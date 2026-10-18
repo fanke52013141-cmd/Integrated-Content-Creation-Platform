@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModelGateway, extractErrorMessage, normalizeImageRatio, resolveChatParams } from '../src/main/gateway/model-gateway.js'
+import { pixelSizeForRatio } from '../src/main/gateway/image-sizing.js'
 import { GatewayError } from '../src/main/gateway/types.js'
 import type { AppDatabase } from '../src/main/database.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
@@ -601,5 +602,67 @@ describe('模型级请求参数（params）', () => {
     expect(body!.model).toBe('moliu-test-model')
     expect(body!.messages).toEqual([{ role: 'user', content: 'hi' }])
     expect(body!.stream).toBeUndefined()
+  })
+})
+
+describe('透明背景与参考图编辑', () => {
+  const imageProvider = () => makeProvider({
+    capabilities: { chat: true, jsonMode: true, streaming: false, vision: false, image: true }
+  })
+
+  it('比例 → 1K 像素（改图接口只吃像素尺寸）', () => {
+    expect(pixelSizeForRatio('1:1')).toBe('1024x1024')
+    expect(pixelSizeForRatio('16:9')).toBe('1536x864')
+    expect(pixelSizeForRatio('21:9')).toBe('2016x864')
+    expect(pixelSizeForRatio('7:5')).toBeUndefined()
+    expect(pixelSizeForRatio(undefined)).toBeUndefined()
+  })
+
+  it('生成请求带 background=transparent', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let body: Record<string, unknown> | undefined
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return jsonResponse({ data: [{ b64_json: 'AAAA' }] })
+    }))
+
+    await gateway.generateImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: '贴纸',
+      ratio: '1:1', quality: 'low', resolution: '1k', background: 'transparent'
+    })
+
+    expect(body!.background).toBe('transparent')
+  })
+
+  it('改图走 multipart，并用任务 id 轮询结果', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let formSnapshot: { model: FormDataEntryValue | null; image: FormDataEntryValue | null; size: FormDataEntryValue | null } | undefined
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const target = String(url)
+      if (target.endsWith('/images/edits')) {
+        expect(init?.body).toBeInstanceOf(FormData)
+        const form = init!.body as FormData
+        formSnapshot = { model: form.get('model'), image: form.get('image'), size: form.get('size') }
+        return jsonResponse({ id: 'tsk_edit', status: 'pending' })
+      }
+      if (target.includes('example.com/out.png')) {
+        return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { status: 200 })
+      }
+      return jsonResponse({
+        id: 'tsk_edit', status: 'completed',
+        result: { data: [{ url: 'https://example.com/out.png' }] }
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await gateway.editImage({
+      providerId: 'provider-1', model: 'gpt-image-2-vip', prompt: '把背景换成夜景',
+      imageUrl: 'https://example.com/ref.png', size: '1024x1024', quality: 'low'
+    })
+
+    expect(formSnapshot).toEqual({ model: 'gpt-image-2-vip', image: 'https://example.com/ref.png', size: '1024x1024' })
+    expect(result.taskId).toBe('tsk_edit')
+    expect(result.remoteUrl).toBe('https://example.com/out.png')
+    expect(result.base64.length).toBeGreaterThan(0)
   })
 })

@@ -15,6 +15,7 @@ import { SourceBadge } from '../components/SourceBadge'
 import { EmptyState } from '../components/EmptyState'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
+import { ModalBase } from '../components/ModalBase'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
@@ -45,12 +46,16 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [articleId, setArticleId] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [count, setCount] = useState(3)
+  /** 透明背景：贴纸 / 图标类素材用，生成带 alpha 通道的 PNG */
+  const [transparent, setTransparent] = useState(false)
   const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
   const [assetsByPack, setAssetsByPack] = useState<Record<string, VisualAsset[]>>({})
   const [imageBusyKey, setImageBusyKey] = useState('')
   const [importTarget, setImportTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string } | null>(null)
   const [batchState, setBatchState] = useState<{ packId: string; done: number; total: number; phase: 'generate' | 'upload' } | null>(null)
   const batchStopRef = useRef(false)
+  /** 参考图编辑：只有带远端 URL 的生成图才能改 */
+  const [editTarget, setEditTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; transparent?: boolean } | null>(null)
 
   const imageModels = useMemo(
     () => providers
@@ -122,7 +127,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
         providerId: target.providerId, model: target.modelId,
         ratio: ratio || (kind === 'cover' ? COVER_RATIO : '1:1'),
         quality: IMAGE_QUALITY,
-        resolution: IMAGE_RESOLUTION
+        resolution: IMAGE_RESOLUTION,
+        background: transparent ? 'transparent' : undefined
       })
       await refreshAssets([pack.id])
       showToast({ type: 'success', message: '图片已生成' })
@@ -178,7 +184,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
             providerId: target.providerId, model: target.modelId,
             ratio: item.ratio || (item.kind === 'cover' ? COVER_RATIO : '1:1'),
             quality: IMAGE_QUALITY,
-            resolution: IMAGE_RESOLUTION
+            resolution: IMAGE_RESOLUTION,
+            background: transparent ? 'transparent' : undefined
           })
           result.ok += 1
         } catch (error) {
@@ -282,6 +289,21 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     }
   }
 
+  const openEdit = (pack: VisualPack, kind: VisualAssetKind, slot: number, asset: VisualAsset): void => {
+    if (!asset.remoteUrl) {
+      showToast({ type: 'warning', message: '这张图没有可访问的远端地址，暂时不能改图' })
+      return
+    }
+    setEditTarget({
+      packId: pack.id,
+      kind,
+      slot,
+      prompt: asset.prompt,
+      imageUrl: asset.remoteUrl,
+      transparent: asset.background === 'transparent'
+    })
+  }
+
   const copy = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text)
@@ -334,6 +356,16 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
           <label className="field"><span>文内图</span>
             <Select value={String(count)} onChange={(value) => setCount(Number(value))} ariaLabel="文内图数量" options={[2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 张` }))} />
           </label>
+          <label className="switch-row" title="生成带透明通道的 PNG，适合贴纸、图标类素材">
+            <input
+              type="checkbox"
+              name="transparentBackground"
+              autoComplete="off"
+              checked={transparent}
+              onChange={(event) => setTransparent(event.target.checked)}
+            />
+            <span><strong>透明背景</strong></span>
+          </label>
           {stream.active ? (
             <button className="button danger" onClick={stream.cancel}><X size={15} />取消</button>
           ) : (
@@ -381,6 +413,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
               anyBatch={Boolean(batchState)}
               onCopy={copy}
               onGenerateImage={generateImage}
+              onEditAsset={openEdit}
               onGenerateAll={() => void generateAllImages(pack)}
               onUploadAll={() => void uploadAllAssets(pack)}
               onStopBatch={() => { batchStopRef.current = true; void window.moliu.generation.cancel('visuals') }}
@@ -401,6 +434,18 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       </div>
     )}
     {ConfirmPortal}
+    {editTarget && (
+      <EditImageDialog
+        target={editTarget}
+        imageTarget={imageTarget}
+        onClose={() => setEditTarget(null)}
+        onDone={async (packId) => {
+          setEditTarget(null)
+          await refreshAssets([packId])
+          showToast({ type: 'success', message: '改图完成' })
+        }}
+      />
+    )}
     <ImportDialog
       open={importOpen}
       kind="visual-plan"
@@ -423,6 +468,7 @@ interface VisualPackCardProps {
   anyBatch: boolean
   onCopy(text: string): Promise<void>
   onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void>
+  onEditAsset(pack: VisualPack, kind: VisualAssetKind, slot: number, asset: VisualAsset): void
   onGenerateAll(): void
   onUploadAll(): void
   onStopBatch(): void
@@ -432,7 +478,7 @@ interface VisualPackCardProps {
   onRemove(): void
 }
 
-function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelReady, batch, anyBatch, onCopy, onGenerateImage, onGenerateAll, onUploadAll, onStopBatch, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
+function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelReady, batch, anyBatch, onCopy, onGenerateImage, onEditAsset, onGenerateAll, onUploadAll, onStopBatch, onImport, onUploadAsset, onRemoveAsset, onRemove }: VisualPackCardProps): React.JSX.Element {
   const assetsFor = (kind: VisualAssetKind, slot: number): VisualAsset[] =>
     assets.filter((asset) => asset.kind === kind && asset.slot === slot)
 
@@ -474,7 +520,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
         </div>
         <VisualSlot
           pack={pack} kind="cover" slot={0} prompt={pack.cover.prompt} ratio={COVER_RATIO} assets={assetsFor('cover', 0)}
-          imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+          imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onEditAsset={onEditAsset} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
         />
       </section>
 
@@ -495,7 +541,7 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
             </header>
             <VisualSlot
               pack={pack} kind={kind} slot={index} prompt={item.prompt} ratio={item.ratio} assets={assetsFor(kind, index)}
-              imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
+              imageBusyKey={imageBusyKey} batchActive={anyBatch || Boolean(batch)} onCopy={onCopy} onGenerateImage={onGenerateImage} onEditAsset={onEditAsset} onImport={onImport} onUploadAsset={onUploadAsset} onRemoveAsset={onRemoveAsset}
             />
             {item.alt && <small>替代文本：{item.alt}</small>}
           </div>
@@ -518,12 +564,13 @@ interface VisualSlotProps {
   batchActive?: boolean
   onCopy(text: string): Promise<void>
   onGenerateImage(pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void>
+  onEditAsset(pack: VisualPack, kind: VisualAssetKind, slot: number, asset: VisualAsset): void
   onImport(packId: string, kind: VisualAssetKind, slot: number, prompt: string): void
   onUploadAsset(packId: string, asset: VisualAsset): Promise<void>
   onRemoveAsset(packId: string, asset: VisualAsset): Promise<void>
 }
 
-function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, batchActive, onCopy, onGenerateImage, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
+function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, batchActive, onCopy, onGenerateImage, onEditAsset, onImport, onUploadAsset, onRemoveAsset }: VisualSlotProps): React.JSX.Element {
   const busy = imageBusyKey === `${pack.id}:${kind}:${slot}`
   return (
     <div className="visual-slot">
@@ -546,6 +593,11 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
                 <span className={`badge ${asset.source === 'generated' ? 'primary' : 'neutral'}`}>{asset.source === 'generated' ? 'AI 生成' : '本地导入'}</span>
                 {asset.size && <span className="badge neutral">{asset.size}</span>}
                 {asset.costUsd !== undefined && <span className="badge neutral">{asset.costEstimated ? '≈' : ''}${asset.costUsd.toFixed(4)}</span>}
+                {asset.remoteUrl && (
+                  <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="用这张图做参考，按修改提示词重新生成">
+                    <Sparkles size={12} />改这张图
+                  </button>
+                )}
                 {asset.wechatMediaId
                   ? <span className="badge success"><UploadCloud size={11} />已上传素材库</span>
                   : <button className="button secondary tiny" disabled={Boolean(imageBusyKey)} onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}
@@ -556,6 +608,85 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
         </div>
       )}
     </div>
+  )
+}
+
+function EditImageDialog({ target, imageTarget, onClose, onDone }: {
+  target: { packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; transparent?: boolean }
+  imageTarget: string
+  onClose(): void
+  onDone(packId: string): Promise<void>
+}): React.JSX.Element {
+  const [prompt, setPrompt] = useState('')
+  const [imageUrl, setImageUrl] = useState(target.imageUrl)
+  const [ratio, setRatio] = useState('1:1')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async (): Promise<void> => {
+    const decoded = decodeTarget(imageTarget)
+    if (!decoded) { setError('请先在配图页选择生图模型'); return }
+    if (!prompt.trim()) { setError('请填写修改提示词'); return }
+    if (!/^https?:\/\//i.test(imageUrl.trim())) { setError('参考图必须是 http(s) 地址'); return }
+    setBusy(true)
+    setError('')
+    try {
+      await window.moliu.visuals.editImage({
+        packId: target.packId,
+        kind: target.kind,
+        slot: target.slot,
+        prompt: prompt.trim(),
+        providerId: decoded.providerId,
+        model: decoded.modelId,
+        imageUrl: imageUrl.trim(),
+        ratio,
+        quality: 'low'
+      })
+      await onDone(target.packId)
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <ModalBase open onClose={onClose} titleId="edit-image-title" className="edit-image-dialog">
+      <header>
+        <div>
+          <h2 id="edit-image-title">参考图编辑</h2>
+          <p>保留主体、按提示词修改。参考图必须是供应商能访问的 http(s) 地址。</p>
+        </div>
+        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button>
+      </header>
+      {target.transparent && (
+        <p className="inline-alert">这张图是透明背景，供应商可能拒绝把它当参考图（实测会失败）。建议先生成一张不透明图再改，或换一个参考图地址。</p>
+      )}
+      <label className="field">
+        <span>参考图地址</span>
+        <input type="url" name="editImageUrl" autoComplete="off" spellCheck={false} value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} />
+      </label>
+      <label className="field">
+        <span>修改提示词</span>
+        <textarea name="editPrompt" rows={4} autoComplete="off" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="例如：把背景换成夜晚的城市，保留主体和构图" />
+      </label>
+      <label className="field">
+        <span>输出比例</span>
+        <Select value={ratio} onChange={setRatio} ariaLabel="改图比例" options={[
+          { value: '1:1', label: '1:1' },
+          { value: '16:9', label: '16:9' },
+          { value: '9:16', label: '9:16' },
+          { value: '4:3', label: '4:3' },
+          { value: '3:2', label: '3:2' },
+          { value: '21:9', label: '21:9' }
+        ]} />
+      </label>
+      {error && <p className="inline-alert danger" role="alert">{error}</p>}
+      <footer>
+        <button className="button ghost" disabled={busy} onClick={onClose}>取消</button>
+        <button className="button primary" disabled={busy} onClick={() => void submit()}>{busy ? '改图中…' : '开始改图'}</button>
+      </footer>
+    </ModalBase>
   )
 }
 

@@ -225,6 +225,7 @@ const api: MoliuApi = {
     generate: (input) => ipcRenderer.invoke('visuals:generate', input),
     remove: (id: string) => ipcRenderer.invoke('visuals:remove', id),
     generateImage: (input) => ipcRenderer.invoke('visuals:generate-image', input),
+    editImage: (input) => ipcRenderer.invoke('visuals:edit-image', input),
     importImage: (input) => ipcRenderer.invoke('visuals:import-image', input),
     importImageData: (input) => ipcRenderer.invoke('visuals:import-image-data', input),
     listAssets: (packId: string) => ipcRenderer.invoke('visuals:list-assets', packId),

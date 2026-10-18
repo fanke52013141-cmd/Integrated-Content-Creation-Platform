@@ -698,6 +698,10 @@ export interface VisualAsset {
   costUsd?: number
   /** true 表示费用是配置的单张成本估算，不是供应商回传的实际账单 */
   costEstimated?: boolean
+  /** 供应商返回的远端图片 URL（通常 7 天有效），用于参考图编辑 */
+  remoteUrl?: string
+  /** 生成时是否要求透明背景；透明图作为改图参考图可能被供应商拒绝 */
+  background?: 'transparent'
   /** 上传微信公众号素材库后回填的 media_id */
   wechatMediaId?: string
   wechatUploadedAt?: string
@@ -721,6 +725,21 @@ export interface GenerateVisualAssetInput {
   size?: string
   quality?: ImageQuality
   resolution?: ImageResolution
+  /** 透明背景（贴纸 / 图标类素材） */
+  background?: 'transparent'
+}
+/** 参考图编辑：imageUrl 必须是供应商服务端可访问的公网地址 */
+export interface EditVisualAssetInput {
+  packId: string
+  kind: VisualAssetKind
+  slot?: number
+  prompt: string
+  providerId: string
+  model: string
+  imageUrl: string
+  ratio?: string
+  quality?: ImageQuality
+  background?: 'transparent'
 }
 export interface ImportVisualAssetInput { packId: string; kind: VisualAssetKind; slot?: number; prompt: string; filePath: string }
 /** 渲染层直接上传文件内容（沙箱下拿不到本地路径） */
@@ -1101,6 +1120,8 @@ export interface MoliuApi {
     onStream(callback: (event: StreamEvent) => void): () => void
     /** 用提示词生成一张具体图片 */
     generateImage(input: GenerateVisualAssetInput): Promise<VisualAsset>
+    /** 用公网参考图做编辑（图生图） */
+    editImage(input: EditVisualAssetInput): Promise<VisualAsset>
     /** 从本地导入一张图片作为资产（供应商不支持生图时的兜底） */
     importImage(input: ImportVisualAssetInput): Promise<VisualAsset>
     /** 直接上传图片内容导入为资产 */

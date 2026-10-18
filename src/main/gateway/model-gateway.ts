@@ -407,6 +407,8 @@ export class ModelGateway {
     quality?: ImageQuality
     /** 分辨率档位；比例制供应商用它约束输出像素 */
     resolution?: ImageResolution
+    /** 透明背景；仅对支持的模型生效 */
+    background?: 'transparent'
     signal?: AbortSignal
     /** 提交成功、拿到任务 id 时回调（用于落库，重启后续查） */
     onTaskCreated?: (taskId: string) => void
@@ -419,6 +421,7 @@ export class ModelGateway {
     latencyMs: number
     taskId?: string
     costUsd?: number
+    remoteUrl?: string
   }> {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) {
@@ -446,7 +449,8 @@ export class ModelGateway {
         response_format: 'url',
         ...(requestedSize ? { size: requestedSize } : {}),
         ...(isGptImageSeries && input.quality ? { quality: input.quality } : {}),
-        ...(isGptImageSeries && input.resolution ? { resolution: input.resolution } : {})
+        ...(isGptImageSeries && input.resolution ? { resolution: input.resolution } : {}),
+        ...(isGptImageSeries && input.background ? { background: input.background } : {})
       }, input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
 
       if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
@@ -468,7 +472,8 @@ export class ModelGateway {
           providerId: provider.id,
           latencyMs,
           taskId: task.taskId,
-          costUsd: task.costUsd
+          costUsd: task.costUsd,
+          remoteUrl: task.remoteUrl
         }
       }
 
@@ -502,6 +507,125 @@ export class ModelGateway {
   }
 
   /**
+   * 参考图编辑：POST /images/edits（multipart），提交后同样按任务 id 轮询。
+   * 只支持公网图片 URL（供应商服务端需要能取到图），本地文件必须先换成 URL。
+   */
+  async editImage(input: {
+    providerId: string
+    model: string
+    prompt: string
+    imageUrl: string
+    /** 像素尺寸，如 1024x1024；不传则由供应商决定 */
+    size?: string
+    quality?: ImageQuality
+    background?: 'transparent'
+    signal?: AbortSignal
+    onTaskCreated?: (taskId: string) => void
+    onProgress?: (progress: number) => void
+  }): Promise<{
+    base64: string
+    model: string
+    providerId: string
+    latencyMs: number
+    taskId?: string
+    costUsd?: number
+    remoteUrl?: string
+  }> {
+    const provider = this.database.getProvider(input.providerId)
+    if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
+    if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
+    const apiKey = this.keyStore.read(provider.id)
+    const editEndpoint = buildApiBase(provider.baseUrl, '/images/edits')
+    const pollEndpoint = buildImageEndpoint(provider.baseUrl)
+    const startedAt = performance.now()
+
+    try {
+      const form = new FormData()
+      form.set('model', input.model)
+      form.set('prompt', input.prompt)
+      form.set('image', input.imageUrl)
+      form.set('quality', input.quality ?? 'low')
+      if (input.size) form.set('size', input.size)
+      if (input.background) form.set('background', input.background)
+      form.set('n', '1')
+
+      const { signal: combined, cleanup } = combineSignals(input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
+      let text: string
+      let ok: boolean
+      let status: number
+      try {
+        const response = await fetch(editEndpoint, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: form,
+          signal: combined
+        })
+        ok = response.ok
+        status = response.status
+        text = await response.text()
+      } finally {
+        cleanup()
+      }
+      if (!ok) throw fromHttpError(status, extractErrorMessage(text), editEndpoint)
+
+      let payload: OpenAiImageResponse
+      try {
+        payload = JSON.parse(text) as OpenAiImageResponse
+      } catch {
+        throw new GatewayError('ParseError', `改图接口返回了无法解析的响应（HTTP ${status}）`, status)
+      }
+
+      if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
+        const taskId = payload.id ?? payload.task_id ?? ''
+        input.onTaskCreated?.(taskId)
+        const task = await this.pollImageTask(pollEndpoint, apiKey, taskId, input.signal, input.onProgress)
+        const latencyMs = Math.round(performance.now() - startedAt)
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs,
+          success: true,
+          costUsd: task.costUsd,
+          taskId: task.taskId
+        })
+        return {
+          base64: task.base64,
+          model: payload.model ?? input.model,
+          providerId: provider.id,
+          latencyMs,
+          taskId: task.taskId,
+          costUsd: task.costUsd,
+          remoteUrl: task.remoteUrl
+        }
+      }
+
+      const item = payload.data?.[0]
+      let base64 = item?.b64_json
+      if (!base64 && item?.url) {
+        const imageResponse = await fetch(item.url, { signal: input.signal })
+        if (!imageResponse.ok) throw new GatewayError('NetworkError', `下载编辑结果失败（HTTP ${imageResponse.status}）`)
+        base64 = Buffer.from(await imageResponse.arrayBuffer()).toString('base64')
+      }
+      if (!base64) throw new GatewayError('ParseError', '改图接口未返回图像数据')
+      const latencyMs = Math.round(performance.now() - startedAt)
+      this.database.recordModelCall({ providerId: provider.id, model: input.model, latencyMs, success: true })
+      return { base64, model: payload.model ?? input.model, providerId: provider.id, latencyMs }
+    } catch (error) {
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const normalized = normalizeError(error, editEndpoint, input.signal)
+      this.database.recordModelCall({
+        providerId: provider.id,
+        model: input.model,
+        latencyMs,
+        success: false,
+        errorKind: normalized.kind,
+        errorMessage: normalized.message
+      })
+      throw normalized
+    }
+  }
+
+  /**
    * 续查已提交的生图任务（应用重启后）。只用任务 id + 供应商配置重新轮询，
    * 完成的直接返回图片数据，由调用层落成资产。
    */
@@ -511,7 +635,7 @@ export class ModelGateway {
     taskId: string
     signal?: AbortSignal
     onProgress?: (progress: number) => void
-  }): Promise<{ base64: string; taskId: string; costUsd?: number }> {
+  }): Promise<{ base64: string; taskId: string; costUsd?: number; remoteUrl?: string }> {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
     if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
@@ -555,7 +679,7 @@ export class ModelGateway {
     taskId: string,
     signal?: AbortSignal,
     onProgress?: (progress: number) => void
-  ): Promise<{ base64: string; taskId: string; costUsd?: number }> {
+  ): Promise<{ base64: string; taskId: string; costUsd?: number; remoteUrl?: string }> {
     const deadline = Date.now() + IMAGE_TASK_TIMEOUT_MS
     let lastStatus = ''
     while (Date.now() < deadline) {
@@ -593,6 +717,7 @@ export class ModelGateway {
         return {
           base64: buffer.toString('base64'),
           taskId,
+          remoteUrl: url,
           costUsd: Number.isFinite(costUsd) ? costUsd : undefined
         }
       }
