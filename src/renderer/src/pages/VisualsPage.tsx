@@ -55,7 +55,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [batchState, setBatchState] = useState<{ packId: string; done: number; total: number; phase: 'generate' | 'upload' } | null>(null)
   const batchStopRef = useRef(false)
   /** 参考图编辑：只有带远端 URL 的生成图才能改 */
-  const [editTarget, setEditTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; transparent?: boolean } | null>(null)
+  const [editTarget, setEditTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; assetId?: string; transparent?: boolean } | null>(null)
 
   const imageModels = useMemo(
     () => providers
@@ -290,16 +290,13 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   }
 
   const openEdit = (pack: VisualPack, kind: VisualAssetKind, slot: number, asset: VisualAsset): void => {
-    if (!asset.remoteUrl) {
-      showToast({ type: 'warning', message: '这张图没有可访问的远端地址，暂时不能改图' })
-      return
-    }
     setEditTarget({
       packId: pack.id,
       kind,
       slot,
       prompt: asset.prompt,
-      imageUrl: asset.remoteUrl,
+      imageUrl: asset.remoteUrl ?? '',
+      assetId: asset.remoteUrl ? undefined : asset.id,
       transparent: asset.background === 'transparent'
     })
   }
@@ -593,8 +590,12 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
                 <span className={`badge ${asset.source === 'generated' ? 'primary' : 'neutral'}`}>{asset.source === 'generated' ? 'AI 生成' : '本地导入'}</span>
                 {asset.size && <span className="badge neutral">{asset.size}</span>}
                 {asset.costUsd !== undefined && <span className="badge neutral">{asset.costEstimated ? '≈' : ''}${asset.costUsd.toFixed(4)}</span>}
-                {asset.remoteUrl && (
+                {asset.remoteUrl ? (
                   <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="用这张图做参考，按修改提示词重新生成">
+                    <Sparkles size={12} />改这张图
+                  </button>
+                ) : (
+                  <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="先自动上传这张图，再按修改提示词重新生成">
                     <Sparkles size={12} />改这张图
                   </button>
                 )}
@@ -612,7 +613,7 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
 }
 
 function EditImageDialog({ target, imageTarget, onClose, onDone }: {
-  target: { packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; transparent?: boolean }
+  target: { packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; assetId?: string; transparent?: boolean }
   imageTarget: string
   onClose(): void
   onDone(packId: string): Promise<void>
@@ -627,7 +628,9 @@ function EditImageDialog({ target, imageTarget, onClose, onDone }: {
     const decoded = decodeTarget(imageTarget)
     if (!decoded) { setError('请先在配图页选择生图模型'); return }
     if (!prompt.trim()) { setError('请填写修改提示词'); return }
-    if (!/^https?:\/\//i.test(imageUrl.trim())) { setError('参考图必须是 http(s) 地址'); return }
+    const url = imageUrl.trim()
+    if (!url && !target.assetId) { setError('请填写参考图地址'); return }
+    if (url && !/^https?:\/\//i.test(url)) { setError('参考图必须是 http(s) 地址'); return }
     setBusy(true)
     setError('')
     try {
@@ -638,7 +641,7 @@ function EditImageDialog({ target, imageTarget, onClose, onDone }: {
         prompt: prompt.trim(),
         providerId: decoded.providerId,
         model: decoded.modelId,
-        imageUrl: imageUrl.trim(),
+        ...(url ? { imageUrl: url } : { assetId: target.assetId }),
         ratio,
         quality: 'low'
       })
@@ -663,8 +666,8 @@ function EditImageDialog({ target, imageTarget, onClose, onDone }: {
         <p className="inline-alert">这张图是透明背景，供应商可能拒绝把它当参考图（实测会失败）。建议先生成一张不透明图再改，或换一个参考图地址。</p>
       )}
       <label className="field">
-        <span>参考图地址</span>
-        <input type="url" name="editImageUrl" autoComplete="off" spellCheck={false} value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} />
+        <span>参考图地址{target.assetId ? '（留空则自动上传当前图片）' : ''}</span>
+        <input type="url" name="editImageUrl" autoComplete="off" spellCheck={false} value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder={target.assetId ? '留空：自动上传这张本地图片' : 'https://…'} />
       </label>
       <label className="field">
         <span>修改提示词</span>

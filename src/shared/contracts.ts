@@ -736,7 +736,10 @@ export interface EditVisualAssetInput {
   prompt: string
   providerId: string
   model: string
-  imageUrl: string
+  /** 公网参考图地址；与 assetId 至少给一个 */
+  imageUrl?: string
+  /** 本地资产 id：没有公网地址时先上传再编辑 */
+  assetId?: string
   ratio?: string
   quality?: ImageQuality
   background?: 'transparent'

@@ -55,6 +55,14 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true }
   },
   {
+    // VIP 版：按 token 结算，支持六档质量；同一把 key 即可
+    id: 'toapis-vip',
+    displayName: 'ToAPIs 生图（VIP）',
+    baseUrl: 'https://api.toapis.com/v1',
+    defaultModel: 'gpt-image-2.5-flare-vip',
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true }
+  },
+  {
     id: 'wechat-ai',
     displayName: '微信云开发 AI',
     baseUrl: 'https://chatapi.weixin.qq.com/openai/v1',

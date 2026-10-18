@@ -666,3 +666,30 @@ describe('透明背景与参考图编辑', () => {
     expect(result.base64.length).toBeGreaterThan(0)
   })
 })
+
+describe('本地图片上传', () => {
+  const imageProvider = () => makeProvider({
+    capabilities: { chat: true, jsonMode: true, streaming: false, vision: false, image: true }
+  })
+
+  it('multipart 上传后返回公网 URL', async () => {
+    const { gateway } = makeGateway(imageProvider())
+    let uploaded: File | null = null
+    vi.stubGlobal('fetch', vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const form = init!.body as FormData
+      uploaded = form.get('file') as File
+      return jsonResponse({ data: { id: 'upload_1', url: 'https://files.example.com/a.png' }, success: true })
+    }))
+
+    const url = await gateway.uploadImage({
+      providerId: 'provider-1',
+      bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      fileName: 'a.png'
+    })
+
+    expect(url).toBe('https://files.example.com/a.png')
+    expect(uploaded).toBeInstanceOf(File)
+    expect(uploaded!.name).toBe('a.png')
+    expect(uploaded!.type).toBe('image/png')
+  })
+})

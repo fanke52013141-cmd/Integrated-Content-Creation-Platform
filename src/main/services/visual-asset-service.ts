@@ -118,8 +118,23 @@ export class VisualAssetService {
     if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
     const prompt = input.prompt.trim()
     if (!prompt) throw new Error('修改提示词为空，无法改图')
-    const imageUrl = input.imageUrl.trim()
-    if (!/^https?:\/\//i.test(imageUrl)) throw new Error('参考图必须是可访问的 http(s) 图片地址')
+    let imageUrl = input.imageUrl?.trim() ?? ''
+    if (!imageUrl) {
+      if (!input.assetId) throw new Error('缺少参考图：请提供图片地址或选择本地图片')
+      const asset = this.database.getVisualAsset(input.assetId)
+      if (!asset) throw new Error('参考图资产不存在，可能已被删除')
+      // 本地图片先上传换公网 URL，编辑接口只接受 URL
+      const bytes = await readFile(join(this.imagesDir, asset.fileName))
+      imageUrl = await this.gateway.uploadImage({
+        providerId: input.providerId,
+        bytes,
+        fileName: asset.fileName,
+        mimeType: asset.fileName.toLowerCase().endsWith('.jpg') ? 'image/jpeg' : 'image/png',
+        signal
+      })
+    } else if (!/^https?:\/\//i.test(imageUrl)) {
+      throw new Error('参考图必须是可访问的 http(s) 图片地址')
+    }
 
     await this.ensureDir()
     let taskId: string | undefined

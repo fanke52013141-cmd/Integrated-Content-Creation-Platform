@@ -507,6 +507,49 @@ export class ModelGateway {
   }
 
   /**
+   * 上传本地图片换取公网 URL（ToAPIs /v1/uploads/images）。
+   * 参考图编辑只接受公网地址，本地图片必须先走这一步。
+   */
+  async uploadImage(input: {
+    providerId: string
+    bytes: Buffer
+    fileName: string
+    mimeType?: string
+    signal?: AbortSignal
+  }): Promise<string> {
+    const provider = this.database.getProvider(input.providerId)
+    if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
+    const apiKey = this.keyStore.read(provider.id)
+    const endpoint = buildApiBase(provider.baseUrl, '/uploads/images')
+    const form = new FormData()
+    form.set('file', new Blob([new Uint8Array(input.bytes)], { type: input.mimeType ?? 'image/png' }), input.fileName)
+    const { signal, cleanup } = combineSignals(input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal
+      })
+      const text = await response.text()
+      if (!response.ok) throw fromHttpError(response.status, extractErrorMessage(text), endpoint)
+      let payload: { data?: { url?: string }; url?: string }
+      try {
+        payload = JSON.parse(text) as { data?: { url?: string }; url?: string }
+      } catch {
+        throw new GatewayError('ParseError', `上传接口返回了无法解析的响应（HTTP ${response.status}）`, response.status)
+      }
+      const url = payload.data?.url ?? payload.url
+      if (!url) throw new GatewayError('ParseError', '图片上传成功但未返回可访问地址')
+      return url
+    } catch (error) {
+      throw normalizeError(error, endpoint, input.signal)
+    } finally {
+      cleanup()
+    }
+  }
+
+  /**
    * 参考图编辑：POST /images/edits（multipart），提交后同样按任务 id 轮询。
    * 只支持公网图片 URL（供应商服务端需要能取到图），本地文件必须先换成 URL。
    */
