@@ -1056,3 +1056,20 @@ input[type="checkbox"], input[type="radio"] {
 .topic-tabs button.active small {
   color: #1d4ed8;
 }
+
+/* 文章编辑器工具栏的分段控件：原来是 39px 外框 + 33px 按钮（padding 7/10、gap 8），
+   和全站 .segmented（36 外框 / 30 内钮）不一致。这里对齐到 36 外框、32 内钮：
+   32 + 2×2px 内边距 = 36，既不破坏工具栏 65px 的高度，也回到三档体系。 */
+.article-editor-toolbar > div:has(> button) {
+  min-height: 36px;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+}
+
+.article-editor-toolbar > div > button {
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
