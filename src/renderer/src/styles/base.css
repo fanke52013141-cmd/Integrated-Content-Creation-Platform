@@ -993,13 +993,16 @@ input[type="checkbox"], input[type="radio"] {
   border-radius: 8px;
 }
 
+/* 分段控件：外框保持 36，内钮从 30 提到 32（内边距 3→2，36 = 32 + 2×2） */
 .segmented {
   min-height: 36px;
+  padding: 2px;
   border-radius: 8px;
 }
 
 .segmented button {
-  min-height: 30px;
+  min-height: 32px;
+  padding: 4px 12px;
   border-radius: 6px;
 }
 
