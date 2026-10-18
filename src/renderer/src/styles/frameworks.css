@@ -9,6 +9,8 @@
 .framework-composer footer > .form-hint { width: 100%; margin: 0; }
 .framework-composer .framework-count { width: 100px; }
 .framework-composer .framework-material-options { grid-template-columns: minmax(0, 1fr); }
+/* 素材面板独立滚动：素材一多时不再把整页撑长 */
+.framework-composer .material-picker-list { max-height: 240px; overflow-y: auto; padding-right: 4px; }
 .framework-wall { min-height: 600px; }
 .framework-wall > header { flex-wrap: wrap; gap: 12px; padding: 24px; background: var(--surface); }
 .framework-wall > header > div:first-child { flex: 1; }

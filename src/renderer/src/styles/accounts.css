@@ -10,6 +10,35 @@
 .account-list-page .account-card > p { margin-top: 10px; }
 .account-list-page .account-card footer { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 16px; margin-top: 20px; border-top: 1px solid var(--border-subtle); }
 .account-edit-link { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text); font-weight: 600; }
+
+/* 桌面宽屏：账号卡改两栏（左头像与领域 / 右名称、简介与操作）
+ * 原来单账号时是一张 300px 宽、285px 高的竖卡，右侧整片留白。 */
+@media (min-width: 1040px) {
+  .account-cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+
+  .account-list-page .account-card {
+    display: grid;
+    grid-template-columns: minmax(0, 180px) minmax(0, 1fr);
+    grid-template-areas:
+      "head title"
+      "head desc"
+      "domain footer";
+    gap: 8px 24px;
+    align-items: start;
+  }
+
+  .account-list-page .account-card-head { grid-area: head; }
+  .account-list-page .account-card h3 { grid-area: title; margin-top: 0; }
+  .account-list-page .account-card > p { grid-area: desc; margin-top: 0; }
+  .account-list-page .account-card-domain { grid-area: domain; }
+  .account-list-page .account-card footer {
+    grid-area: footer;
+    margin-top: 0;
+    padding-top: 12px;
+    justify-self: stretch;
+  }
+  .account-list-page .account-card footer .account-edit-link { margin-left: 0; }
+}
 .account-editor-page > .editor-heading { display: flex; flex-wrap: wrap; margin: 0; padding-bottom: 20px; border-bottom: 1px solid var(--border-subtle); }
 .account-editor-page > .editor-heading .back-button { display: flex; flex-basis: 100%; justify-content: flex-start; text-align: left; }
 .account-editor-page .editor-title { flex: 1; flex-wrap: wrap; gap: 12px; }

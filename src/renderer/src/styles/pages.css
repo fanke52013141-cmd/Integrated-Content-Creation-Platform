@@ -779,7 +779,10 @@
   font-size: 14px;
   line-height: 1.5;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  /* 单行省略：两行会把行高从 56px 撑到 77px，整张榜单的节奏就乱了 */
+  -webkit-line-clamp: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .hot-item-link small {

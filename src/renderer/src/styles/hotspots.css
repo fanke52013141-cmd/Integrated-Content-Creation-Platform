@@ -5,13 +5,13 @@
 .hotspots-page .hotspot-hero-meta { margin: 0; gap: 12px; font-size: 12px; }
 .hotspot-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .hotspot-view-tabs { display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--border-subtle); }
-.hotspot-view-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px 8px; min-height: 32px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 13.5px; }
+.hotspot-view-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px 8px; min-height: 36px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 13.5px; }
 .hotspot-view-tabs button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 .hotspot-view-tabs button span { padding: 2px 6px; border-radius: 8px; background: var(--surface-strong); color: var(--text-secondary); font-size: 12px; }
 .hotspots-page .hotspot-radar-layout { grid-template-columns: 192px minmax(0, 1fr) 228px; min-height: 580px; }
 .hotspots-page .hotspot-source-rail, .hotspots-page .hotspot-insight-rail { padding: 20px 16px; background: #fafbfc; gap: 16px; }
 .hotspots-page .hotspot-source-rail > div { max-height: min(620px, calc(100dvh - 250px)); gap: 4px; }
-.hotspots-page .hotspot-source-rail > div > button { padding: 10px 8px; font-size: 13px; }
+.hotspots-page .hotspot-source-rail > div > button { min-height: 48px; padding: 8px 10px; font-size: 13px; }
 .hotspots-page .hotspot-source-rail > div > button.active { box-shadow: none; background: var(--primary-wash); }
 /* 平台图标容器：行内 svg 默认按文字基线对齐，中心会比文字高约 2px，显式居中 */
 .source-mark { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -19,7 +19,7 @@
 .hotspot-source-search input { min-width: 0; width: 100%; font-size: 12px; }
 .hotspots-page .hotspot-feed { padding: 24px; }
 .hotspots-page .hotspot-feed h3 { font-size: 19px; }
-.hotspots-page .hot-item-list > li { padding: 16px 0; min-height: 60px; gap: 12px; grid-template-columns: 25px minmax(0, 1fr) auto 32px; }
+.hotspots-page .hot-item-list > li { padding: 6px 0; min-height: 56px; gap: 12px; grid-template-columns: 25px minmax(0, 1fr) auto 32px; }
 .hotspots-page .hot-item-link { min-width: 0; min-height: 44px; padding: 11px 0; font-size: 14px; line-height: 1.6; text-align: left; }
 .hotspots-page .hot-favorite-button { opacity: 1; min-width: 32px; min-height: 32px; }
 .hotspots-page .favorite-toolbar { gap: 20px; padding: 20px; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 12px; }
