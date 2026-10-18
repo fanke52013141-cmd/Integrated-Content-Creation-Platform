@@ -118,11 +118,12 @@
   text-align: left;
 }
 
-/* 当前项：浅蓝底 + 2px 左缘条（与侧边栏、账号卡片、排版权限同一表达） */
+/* 当前项：浅蓝底 + 1px 主色描边（全站选中态统一表达） */
 .provider-card.selected {
   background: var(--primary-wash);
   color: var(--text);
-  box-shadow: inset 2px 0 var(--primary);
+  border-color: var(--primary-line);
+  box-shadow: none;
 }
 
 .provider-logo {
@@ -393,7 +394,7 @@
 .account-card.selected {
   background: var(--primary-wash);
   border-color: var(--primary-line);
-  box-shadow: inset 3px 0 var(--primary), var(--shadow-1);
+  box-shadow: var(--shadow-1);
 }
 .account-card.selected:hover {
   background: var(--primary-wash);
@@ -1965,7 +1966,7 @@
 .article-list-item:hover,
 .article-list-item.active { background: var(--surface); }
 
-.article-list-item.active { box-shadow: inset 3px 0 var(--primary); }
+.article-list-item.active { background: var(--primary-wash); box-shadow: none; }
 
 /* 标题单行省略：两行会把行高撑到 118px，列表节奏全乱（实测 99px vs 118px 混排） */
 .article-list-item strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 1.45; }
@@ -3140,7 +3141,8 @@
   transition: background var(--transition-fast); position: relative; }
 .layout-version-item.active {
   background: var(--primary-wash);
-  box-shadow: inset 2px 0 var(--primary);
+  border-color: var(--primary-line);
+  box-shadow: none;
 }
 .layout-version-item.active strong { color: var(--primary); }
 .layout-version-item small { color: var(--text-tertiary); font-size: 12px; }
@@ -3366,7 +3368,6 @@
   background: var(--primary-weak);
   color: var(--primary);
   font-weight: 600;
-  box-shadow: inset 2px 0 var(--primary);
 }
 .hotspot-source-rail > div > button small { margin-left: auto; font-size: 10.5px; color: var(--text-tertiary); }
 .hotspot-source-rail > div > button small.source-status-error { color: var(--red-600); }
@@ -3838,19 +3839,20 @@
 }
 .topic-card::before,
 .framework-card::before,
-.article-list-item::before,
 .visual-pack-card::before,
 .account-card::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 3px;
+  border-radius: 0 0 2px 2px;
   opacity: 0.8;
   pointer-events: none;
 }
+/* 列表行不再挂阶段色条：每行一条竖边太吵，阶段信息交给徽标 */
+.article-list-item::before { content: none; }
 /* 阶段色条：单色相渐进，序号即色深（账号→发布）。 */
 .account-card::before { background: var(--stage-1); }
 .topic-card::before { background: var(--stage-3); }
@@ -3951,8 +3953,8 @@
 }
 .saved-version-gate {
   display: grid; gap: 10px; padding: 16px 20px;
-  border: 1px solid var(--border); border-left: 4px solid var(--primary);
-  border-radius: var(--radius-lg); background: var(--surface);
+  border: 1px solid var(--primary-line);
+  border-radius: var(--radius-lg); background: var(--primary-wash);
 }
 .saved-version-gate .page-intro-actions { flex-wrap: wrap; }
 .article-pagination { display: flex; align-items: center; justify-content: space-between; padding: 10px; font-size: 12px; }

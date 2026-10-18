@@ -138,10 +138,11 @@
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
 }
-/* 当前项：浅蓝底 + 2px 左缘色条，与导航选中态同一种表达 */
+/* 当前项：浅蓝底 + 1px 主色描边（不再用左缘色条） */
 .compare-card.current {
   background: var(--primary-weak);
-  box-shadow: inset 2px 0 var(--primary);
+  border-color: var(--primary-line);
+  box-shadow: none;
 }
 /* 卡片内定义列表：标签弱、数值实 */
 .compare-card dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px var(--space-base); margin: 0; }
