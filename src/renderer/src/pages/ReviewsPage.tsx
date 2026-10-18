@@ -233,9 +233,9 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       title="内容评审"
       description="多角色交叉评审文章，采纳问题后一键生成改稿"
       actions={<div className="page-intro-actions">
-        <button className="button secondary" disabled={!selectedArticle} onClick={() => void openManualProblem()} title={selectedArticle ? undefined : '先选择一篇文章'}><Plus size={15} />手动加问题</button>
-        <button className="button secondary" disabled={!selectedArticle} onClick={() => setImportOpen(true)} title={selectedArticle ? undefined : '先选择一篇文章'}><FileUp size={15} />导入评审</button>
-        <button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={15} />评审角色</button>
+        <button className="button secondary" disabled={!selectedArticle} onClick={() => void openManualProblem()} title={selectedArticle ? undefined : '先选择一篇文章'}><Plus size={16} />手动加问题</button>
+        <button className="button secondary" disabled={!selectedArticle} onClick={() => setImportOpen(true)} title={selectedArticle ? undefined : '先选择一篇文章'}><FileUp size={16} />导入评审</button>
+        <button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={16} />评审角色</button>
       </div>}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
@@ -268,7 +268,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
             )) : <button className="text-button" onClick={() => setRoleDialogOpen(true)}>+ 创建第一个评审角色</button>}
           </div>
           {stream.active ? (
-            <button className="button danger" onClick={stream.cancel}><X size={15} />取消评审</button>
+            <button className="button danger" onClick={stream.cancel}><X size={16} />取消评审</button>
           ) : (
             <>
               <button
@@ -277,7 +277,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                 onClick={() => void start()}
                 title={!selectedRoles.size ? '请先勾选至少一个评审角色' : undefined}
               >
-                <Sparkles size={15} />{retrying ? '重跑失败角色中…' : '开始评审'}
+                <Sparkles size={16} />{retrying ? '重跑失败角色中…' : '开始评审'}
               </button>
               {/* 禁用原因就近说明：用户不必猜，也不必去别处找原因 */}
               {!retrying && !selectedRoles.size && (
@@ -323,17 +323,17 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                 </div>
                 {task.failures.length > 0 && task.status !== 'applied' && (
                   <button className="button secondary compact" disabled={stream.active || retrying} onClick={() => void retryFailed(task.failures, task.articleId)}>
-                    <RotateCcw size={14} />{retrying ? '重跑中…' : `只重跑失败的 ${task.failures.length} 个角色`}
+                    <RotateCcw size={16} />{retrying ? '重跑中…' : `只重跑失败的 ${task.failures.length} 个角色`}
                   </button>
                 )}
                 {task.status !== 'applied' && (
                   <button className="button secondary compact" onClick={() => setManualTaskId(task.id)}>
-                    <Plus size={14} />手动加问题
+                    <Plus size={16} />手动加问题
                   </button>
                 )}
                 {task.status !== 'applied' && (
                   <button className="button secondary compact" onClick={() => void apply(task)} disabled={stream.active || !task.opinions.length}>
-                    <Check size={14} />生成备选稿
+                    <Check size={16} />生成备选稿
                   </button>
                 )}
               </header>
@@ -411,7 +411,7 @@ function RoleDialog({ roles, onClose, onSaved, showToast }: { roles: ReviewRole[
           <h2 id="role-dialog-title">新建评审角色</h2>
           <p>角色会以独立视角并行评审文章。</p>
         </div>
-        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
       </header>
       <label className="field"><span>名称</span><input name="roleName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：标题党猎人" /></label>
       <label className="field"><span>角色指令</span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
@@ -430,7 +430,7 @@ function RoleDialog({ roles, onClose, onSaved, showToast }: { roles: ReviewRole[
           } finally {
             setSaving(false)
           }
-        }}><Plus size={15} />保存</button>
+        }}><Plus size={16} />保存</button>
       </footer>
     </ModalBase>
   )

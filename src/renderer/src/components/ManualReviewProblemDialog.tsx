@@ -44,7 +44,7 @@ export function ManualReviewProblemDialog({ taskId, onClose, onSaved, showToast 
           <h2 id="manual-review-problem-title">手动添加评审问题</h2>
           <p>问题会和 AI 意见一样进入采纳与生成改稿流程。</p>
         </div>
-        <button className="icon-button" aria-label="关闭手动添加问题" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭手动添加问题" onClick={onClose}><X size={20} /></button>
       </header>
       <div className="manual-topic-body">
         <div className="manual-topic-fields">
@@ -66,7 +66,7 @@ export function ManualReviewProblemDialog({ taskId, onClose, onSaved, showToast 
         <div>
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           <button className="button primary" onClick={() => void save()} disabled={busy}>
-            {busy ? <LoaderCircle size={15} className="spin" /> : <Plus size={15} />}添加问题
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}添加问题
           </button>
         </div>
       </footer>

@@ -14,13 +14,13 @@ export function ErrorState({ icon: Icon = CircleAlert, title = '加载失败', m
   return (
     <div className="empty-state error-state" role="alert">
       <div className="empty-state-icon">
-        <Icon size={26} />
+        <Icon size={24} />
       </div>
       <div className="empty-state-title">{title}</div>
       <div className="empty-state-desc break-all">{message}</div>
       {onAction && (
         <button className="button secondary compact empty-state-action" onClick={onAction}>
-          <RotateCcw size={14} />
+          <RotateCcw size={16} />
           {actionLabel}
         </button>
       )}

@@ -63,7 +63,7 @@ export function ManualTopicDialog({ open, schema, accountId, onClose, onSaved, s
           <h2 id="manual-topic-title">手动新建选题</h2>
           <p>只填你现在知道的字段也可以；保存后仍可编辑、锁定和送进框架。</p>
         </div>
-        <button className="icon-button" aria-label="关闭手动新建选题" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭手动新建选题" onClick={onClose}><X size={20} /></button>
       </header>
       <div className="manual-topic-body">
         <div className="manual-topic-fields">
@@ -89,7 +89,7 @@ export function ManualTopicDialog({ open, schema, accountId, onClose, onSaved, s
         <div>
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           <button className="button primary" onClick={() => void save()} disabled={busy}>
-            {busy ? <LoaderCircle size={15} className="spin" /> : <Plus size={15} />}创建选题
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}创建选题
           </button>
         </div>
       </footer>

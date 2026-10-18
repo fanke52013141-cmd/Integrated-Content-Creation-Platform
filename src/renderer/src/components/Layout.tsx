@@ -152,7 +152,7 @@ export function Layout({
       <a href="#main" className="skip-link">跳到主内容</a>
       <aside className="sidebar">
         <button className="brand" onClick={() => onNavigate('home')} aria-label="返回创作台">
-          <span className="brand-mark" aria-hidden="true"><PenLine size={18} /></span>
+          <span className="brand-mark" aria-hidden="true"><PenLine size={20} /></span>
           <span>
             <strong>心流</strong>
             <small>内容创作工作室</small>
@@ -247,12 +247,12 @@ export function Layout({
           <div className="topbar-context">
             <nav className="breadcrumb" aria-label="面包屑">
               <span className="breadcrumb-item">{crumb.group}</span>
-              <ChevronRight size={13} className="breadcrumb-sep" />
+              <ChevronRight size={16} className="breadcrumb-sep" />
               <span className="breadcrumb-item current">{crumb.label}</span>
             </nav>
             {generationLabel && (
               <span className="generation-chip" role="status">
-                <LoaderCircle size={13} className="spin" />
+                <LoaderCircle size={16} className="spin" />
                 {generationLabel}
               </span>
             )}
@@ -265,10 +265,10 @@ export function Layout({
                 title="模型网关尚未配置，智能生成功能暂不可用。点击去配置"
                 aria-label="模型网关未配置，点击去配置"
               >
-                <AlertTriangle size={15} />
+                <AlertTriangle size={16} />
               </button>
             )}
-            <button className="icon-button task-center-button" onClick={onShowTasks} aria-label="任务中心" title="任务中心"><ListChecks size={15} /></button>
+            <button className="icon-button task-center-button" onClick={onShowTasks} aria-label="任务中心" title="任务中心"><ListChecks size={16} /></button>
             <div className="account-menu" ref={accountMenuRef}>
               <button
                 ref={accountTriggerRef}
@@ -289,7 +289,7 @@ export function Layout({
                   <small>当前账号</small>
                   <strong>{currentAccount?.name || '尚未创建'}</strong>
                 </span>
-                {currentAccount?.status === 'locked' && <LockKeyhole size={13} />}
+                {currentAccount?.status === 'locked' && <LockKeyhole size={16} />}
               </button>
               {accountMenuOpen && accounts.length > 0 && (
                 <div className="account-menu-popover" id="account-switcher" role="dialog" aria-label="切换当前账号">
@@ -308,8 +308,8 @@ export function Layout({
                         <strong>{account.name}</strong>
                         <small>{account.domain || account.intro || '未填写领域'}</small>
                       </span>
-                      {account.status === 'locked' && <LockKeyhole size={12} className="account-menu-lock" />}
-                      {account.isCurrent && <Check size={14} className="account-menu-check" />}
+                      {account.status === 'locked' && <LockKeyhole size={16} className="account-menu-lock" />}
+                      {account.isCurrent && <Check size={16} className="account-menu-check" />}
                     </button>
                   ))}
                   <button
@@ -319,7 +319,7 @@ export function Layout({
                       onNavigate('accounts')
                     }}
                   >
-                    <span className="avatar"><CircleUserRound size={14} /></span>
+                    <span className="avatar"><CircleUserRound size={16} /></span>
                     <span className="account-menu-item-main">
                       <strong>管理账号</strong>
                       <small>新建、编辑与切换定位</small>

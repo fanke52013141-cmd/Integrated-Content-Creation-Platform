@@ -47,7 +47,7 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
   const nextStage = currentIndex >= 0 ? STAGES[currentIndex + 1] : undefined
   return (
     <div className="work-bar" aria-label="当前作品">
-      <Layers size={15} className="work-bar-icon" aria-hidden />
+      <Layers size={16} className="work-bar-icon" aria-hidden />
       <button className="work-bar-title" title={work.title} onClick={() => onNavigate('articles', { articleId: work.articleId })}>{work.title}</button>
       <span className="work-bar-meta">{account?.name ?? '未绑定账号'} · 第 {work.versionCount} 版{work.status === 'locked' ? ' · 已锁定' : ''}</span>
       <span className={`badge ${local.dirty || local.status === 'error' ? 'warning' : 'success'}`} role="status">{local.status === 'loading' ? '读取草稿…' : local.status === 'saving' ? '正在暂存…' : local.status === 'error' ? '暂存失败' : local.dirty ? '已本地暂存 · 待保存版本' : `已保存第 ${work.versionCount} 版`}</span>
@@ -67,11 +67,11 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
             title={`前往「${nextStage.workBarLabel ?? nextStage.label}」`}
           >
             下一步：{nextStage.workBarLabel ?? nextStage.label}
-            <ArrowRight size={13} aria-hidden />
+            <ArrowRight size={16} aria-hidden />
           </button>
         )}
       </div>
-      <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={14} /></button>
+      <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={16} /></button>
     </div>
   )
 }
@@ -96,7 +96,7 @@ export function TaskCenterDialog({ open, onClose, onNavigate }: { open: boolean;
 
   return (
     <ModalBase open={open} onClose={onClose} titleId="task-center-title" className="task-center-dialog">
-      <header><div><h2 id="task-center-title"><ListChecks size={16} /> 任务中心</h2><p>每次生成都会留痕：中断、失败与部分完成都按真实结果显示。</p></div><button className="icon-button" aria-label="关闭任务中心" onClick={onClose}><X size={18} /></button></header>
+      <header><div><h2 id="task-center-title"><ListChecks size={16} /> 任务中心</h2><p>每次生成都会留痕：中断、失败与部分完成都按真实结果显示。</p></div><button className="icon-button" aria-label="关闭任务中心" onClick={onClose}><X size={20} /></button></header>
       {error && <p className="inline-alert">{error}</p>}
       {tasks.length ? (
         <ul className="task-list">
@@ -106,7 +106,7 @@ export function TaskCenterDialog({ open, onClose, onNavigate }: { open: boolean;
               <li key={task.id} className="task-item">
                 <span className="task-item-main">
                   <strong>{task.label}</strong>
-                  <small><Clock3 size={11} /> {formatDate(task.finishedAt ?? task.startedAt)}</small>
+                  <small><Clock3 size={16} /> {formatDate(task.finishedAt ?? task.startedAt)}</small>
                 </span>
                 {task.detail && <span className="task-item-detail" title={task.detail}>{task.detail}</span>}
                 <span className={`badge ${state.badge}`}>{state.label}</span>

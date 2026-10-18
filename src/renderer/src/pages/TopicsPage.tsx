@@ -248,10 +248,10 @@ export function TopicsPage({
         title="选题生成"
         description="根据主题与热点生成选题，可选使用已锁定的账号定位"
         actions={<div className="page-intro-actions">
-          <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={15} />手动新建</button>
-          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+          <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={16} />手动新建</button>
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入</button>
           <ExportMenu disabled={exporting || !topics.length} onExport={(format) => void exportAll(format)} />
-          <button className="button ghost compact" onClick={() => setSchemaOpen(true)}><FilePenLine size={15} />配置选题字段</button>
+          <button className="button ghost compact" onClick={() => setSchemaOpen(true)}><FilePenLine size={16} />配置选题字段</button>
         </div>}
       />
 
@@ -288,7 +288,7 @@ export function TopicsPage({
                   />
                 </label>
                 <details className="topic-favorites-picker">
-                  <summary className="topic-favorites-heading"><FolderHeart size={17} /><strong>关联热点</strong><span>已选 {favoriteIds.size} 条</span></summary>
+                  <summary className="topic-favorites-heading"><FolderHeart size={20} /><strong>关联热点</strong><span>已选 {favoriteIds.size} 条</span></summary>
                   <button className="button ghost compact" onClick={() => onNavigate('hotspots')}>管理收藏</button>
                   {favorites.length ? (
                     <div className="topic-favorite-options">
@@ -333,7 +333,7 @@ export function TopicsPage({
               </aside>
             </div>
             <footer className="topic-compose-footer">
-              <span><Link2 size={14} />{selectedFavorites.length} 条热点</span>
+              <span><Link2 size={16} />{selectedFavorites.length} 条热点</span>
               {selectedFavorites.length > 0 && <details><summary>核对热点来源（缓存快照）</summary>{selectedFavorites.map(favorite => <p key={favorite.id}>{favorite.hotItem.title} · {favorite.hotItem.sourceTitle} · {favorite.hotItem.updateTime || favorite.createdAt}<br />{favorite.hotItem.url}<br />{favorite.hotItem.desc || '无摘要，请核对来源后使用'}</p>)}</details>}
               {stream.active ? (
                 <button className="button danger" onClick={stream.cancel}><X size={16} />取消生成</button>
@@ -368,10 +368,10 @@ export function TopicsPage({
         <header className="topic-wall-head">
           <div className="topic-tabs">
             <button className={view === 'drafts' ? 'active' : ''} onClick={() => setView('drafts')}>
-              <FilePenLine size={15} />选题草稿 <small>{topics.filter((topic) => !topic.isInLibrary).length}</small>
+              <FilePenLine size={16} />选题草稿 <small>{topics.filter((topic) => !topic.isInLibrary).length}</small>
             </button>
             <button className={view === 'library' ? 'active' : ''} onClick={() => setView('library')}>
-              <LibraryBig size={15} />我的选题库 <small>{topics.filter((topic) => topic.isInLibrary).length}</small>
+              <LibraryBig size={16} />我的选题库 <small>{topics.filter((topic) => topic.isInLibrary).length}</small>
             </button>
           </div>
           <div className="topic-wall-tools">
@@ -387,7 +387,7 @@ export function TopicsPage({
               </button>
             </div>
             <label className="search-field topic-wall-search">
-              <Search size={14} />
+              <Search size={16} />
               <input name="topicWallQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索选题…" />
             </label>
           </div>
@@ -440,9 +440,9 @@ export function TopicsPage({
             </p>
             {!listQuery && view === 'drafts' && (
               <div className="article-empty-actions">
-                <button className="button secondary" onClick={() => onNavigate('hotspots')}><Flame size={15} />从热点找选题</button>
-                <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={15} />手动新建</button>
-                <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+                <button className="button secondary" onClick={() => onNavigate('hotspots')}><Flame size={16} />从热点找选题</button>
+                <button className="button secondary" onClick={() => setManualOpen(true)}><Plus size={16} />手动新建</button>
+                <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入</button>
               </div>
             )}
           </div>
@@ -456,7 +456,7 @@ export function TopicsPage({
         <NextStepBar
           text={`当前 ${displayedTopics.length} 条选题。已锁定的选题会直接带进内容框架。`}
           actionLabel="去内容框架"
-          icon={<WandSparkles size={14} />}
+          icon={<WandSparkles size={16} />}
           onAction={() => {
             const target = topics.find((topic) => topic.status === 'locked') ?? displayedTopics[0]
             if (!target) {
@@ -535,22 +535,22 @@ function TopicCard({
       <header>
         <div className="topic-card-badges">
           <span className={`badge ${topic.status === 'locked' ? 'success' : 'neutral'}`}>
-            {topic.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
+            {topic.status === 'locked' ? <Lock size={16} /> : <LockOpen size={16} />}
             {topic.status === 'locked' ? '已锁定' : '草稿'}
           </span>
-          {topic.isInLibrary && <span className="badge primary"><BookmarkCheck size={11} />已入库</span>}
+          {topic.isInLibrary && <span className="badge primary"><BookmarkCheck size={16} />已入库</span>}
           {draftReference && <span className="badge warning">引用草稿账号</span>}
         </div>
         <div className="topic-card-actions">
-          <button className="icon-button" title="编辑" aria-label="编辑" onClick={() => onEdit(topic)}><Pencil size={15} /></button>
+          <button className="icon-button" title="编辑" aria-label="编辑" onClick={() => onEdit(topic)}><Pencil size={16} /></button>
           <button className="icon-button" title={topic.isInLibrary ? '移出选题库' : '加入选题库'} aria-label={topic.isInLibrary ? '移出选题库' : '加入选题库'} onClick={onToggleLibrary}>
-            {topic.isInLibrary ? <BookmarkCheck size={15} /> : <LibraryBig size={15} />}
+            {topic.isInLibrary ? <BookmarkCheck size={16} /> : <LibraryBig size={16} />}
           </button>
           <button className="icon-button" title={topic.status === 'locked' ? '解锁编辑' : '锁定选题'} aria-label={topic.status === 'locked' ? '解锁编辑' : '锁定选题'} onClick={onToggleLocked}>
-            {topic.status === 'locked' ? <LockOpen size={15} /> : <Lock size={15} />}
+            {topic.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}
           </button>
-          <button className="icon-button" title="搜集素材" aria-label="搜集素材" onClick={onOpenMaterials}><FolderHeart size={15} /></button>
-          <button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={15} /></button>
+          <button className="icon-button" title="搜集素材" aria-label="搜集素材" onClick={onOpenMaterials}><FolderHeart size={16} /></button>
+          <button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button>
         </div>
       </header>
       <div className="topic-card-title">
@@ -564,10 +564,10 @@ function TopicCard({
           </div>
         ))}
       </dl>
-      {topic.status === 'locked' && <button className="button primary topic-next-step" onClick={() => onNavigate('frameworks', { topicId: topic.id })}><Sparkles size={15} />生成框架→</button>}
+      {topic.status === 'locked' && <button className="button primary topic-next-step" onClick={() => onNavigate('frameworks', { topicId: topic.id })}><Sparkles size={16} />生成框架→</button>}
       {orderedFields.length > 4 && (
         <button className="topic-expand" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           {expanded ? '收起字段' : `展开其余 ${orderedFields.length - 4}\u00A0个字段`}
         </button>
       )}
@@ -575,7 +575,7 @@ function TopicCard({
         <SourceBadge source={topic.importSource} />
         {!topic.importSource && <span>{topic.providerId ? `${topic.model || 'AI'} 生成` : '手动创建'}</span>}
         <span>关键词：{topic.seedKeyword}</span>
-        <span><Link2 size={12} />{topic.relatedHotIds.length} 条热点引用</span>
+        <span><Link2 size={16} />{topic.relatedHotIds.length} 条热点引用</span>
         <span>{formatDate(topic.updatedAt)}</span>
       </footer>
     </article>
@@ -621,22 +621,22 @@ function SchemaDialog({
   }
   return (
     <ModalBase open onClose={onClose} titleId="topic-schema-title" bare className="topic-schema-dialog">
-        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
+        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">
               <strong>{index + 1}</strong>
               <input name="schemaFieldName" autoComplete="off" value={field.name} maxLength={50} onChange={(event) => update(index, { name: event.target.value })} />
               <label><input type="checkbox" name="fieldRequired" autoComplete="off" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} />必填</label>
-              <button className="icon-button" aria-label="上移" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={15} /></button>
-              <button className="icon-button" aria-label="下移" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ChevronDown size={15} /></button>
-              <button className="icon-button danger" aria-label="删除字段" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, currentIndex) => currentIndex !== index))}><Trash2 size={15} /></button>
+              <button className="icon-button" aria-label="上移" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button>
+              <button className="icon-button" aria-label="下移" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button>
+              <button className="icon-button danger" aria-label="删除字段" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, currentIndex) => currentIndex !== index))}><Trash2 size={16} /></button>
             </div>
           ))}
         </div>
-        <button className="button ghost compact" disabled={fields.length >= 20} onClick={() => setFields((current) => [...current, { id: crypto.randomUUID(), name: '', required: false, sortOrder: current.length }])}><Plus size={15} />添加字段</button>
+        <button className="button ghost compact" disabled={fields.length >= 20} onClick={() => setFields((current) => [...current, { id: crypto.randomUUID(), name: '', required: false, sortOrder: current.length }])}><Plus size={16} />添加字段</button>
         <footer>
-          <button className="button ghost" onClick={() => void reset()}><RotateCcw size={15} />恢复默认</button>
+          <button className="button ghost" onClick={() => void reset()}><RotateCcw size={16} />恢复默认</button>
           <span />
           <button className="button secondary" onClick={onClose}>取消</button>
           {/* 有空名称的字段不允许保存（存进去生成提示词会输出空标签）；saving 态防双击重复提交 */}
@@ -693,13 +693,13 @@ function TopicEditor({
   }
   return (
     <ModalBase open onClose={onClose} titleId="topic-editor-title" bare className="topic-editor-dialog">
-        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2 id="topic-editor-title">打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button></header>
+        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2 id="topic-editor-title">打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
         <div className="topic-editor-fields">
           {Object.entries(fields).map(([name, value]) => (
             <label className="field" key={name}><span>{name}</span><textarea name="topicField" autoComplete="off" rows={name === '选题主题' ? 2 : 3} value={value} onChange={(event) => setFields((current) => ({ ...current, [name]: event.target.value }))} /></label>
           ))}
         </div>
-        <footer><span>关联 {topic.relatedHotIds.length} 条热点快照</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={15} className="spin" /> : <Save size={15} />}保存新版本</button></footer>
+        <footer><span>关联 {topic.relatedHotIds.length} 条热点快照</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}保存新版本</button></footer>
     </ModalBase>
   )
 }

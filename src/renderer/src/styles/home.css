@@ -25,7 +25,7 @@
 .home-entry-chip { display: flex; align-items: flex-start; gap: var(--space-md); padding: var(--space-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); text-align: left; transition: background var(--transition-fast), border-color var(--transition-fast); }
 .home-entry-chip:hover { background: var(--surface-subtle); border-color: var(--border-strong); }
 .home-entry-chip > svg { margin-top: 2px; flex-shrink: 0; color: var(--text-secondary); }
-.home-entry-chip > svg:last-child { margin-left: auto; width: 14px; color: var(--text-tertiary); }
+.home-entry-chip > svg:last-child { margin-left: auto; width: 16px; color: var(--text-tertiary); }
 .home-entry-chip > span { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .home-entry-chip strong { font-size: 13px; font-weight: 600; }
 .home-entry-chip small { color: var(--text-tertiary); line-height: 1.6; }

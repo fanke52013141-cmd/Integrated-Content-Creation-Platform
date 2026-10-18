@@ -32,7 +32,7 @@ export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id
         const Icon = config.icon
         return (
           <div key={toast.id} className={`toast ${toast.type}`} role="status" aria-label={config.label}>
-            <Icon size={17} />
+            <Icon size={20} />
             <span className="toast-body">{toast.message}</span>
             {toast.action && (
               <button
@@ -43,7 +43,7 @@ export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id
               </button>
             )}
             <button className="icon-button" onClick={() => onDismiss(toast.id)} aria-label="关闭通知">
-              <X size={13} />
+              <X size={16} />
             </button>
           </div>
         )

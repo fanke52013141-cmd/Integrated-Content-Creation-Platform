@@ -19,7 +19,7 @@ export function ShortcutPanel({ open, onClose }: ShortcutPanelProps): React.JSX.
           <h2 id="shortcut-panel-title">键盘快捷键</h2>
         </div>
         <button className="icon-button" aria-label="关闭" onClick={onClose}>
-          <X size={18} />
+          <X size={20} />
         </button>
       </header>
       <div className="shortcut-panel-body">

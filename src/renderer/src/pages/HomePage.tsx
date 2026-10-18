@@ -67,7 +67,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   return (
     <div className="page home-page">
-      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('topics')}><PenLine size={15} />开始创作</button>} />
+      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('topics')}><PenLine size={16} />开始创作</button>} />
 
       <div className="home-studio-grid">
         <div className="home-studio-main">
@@ -78,12 +78,12 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
                 <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
                 <p className="micro-copy">填一次接口地址和密钥，验证通过后就能写。搜索、生图、公众号推送都可以以后再配，不影响先把内容写出来。</p>
               </div>
-              <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={15} />去AI 服务</button>
+              <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={16} />去AI 服务</button>
             </section>
           )}
 
           <section className="home-resume">
-            <header><h3><Layers size={15} /> 继续上次作品</h3></header>
+            <header><h3><Layers size={16} /> 继续上次作品</h3></header>
             {loading ? <p className="micro-copy">正在读取本地作品…</p> : resume ? (
               <div className="home-resume-card">
                 <div className="home-resume-main">
@@ -91,12 +91,12 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
                   <small>{accounts.find((account) => account.id === (work?.accountId ?? resume.accountId))?.name ?? '未绑定账号'} · 第 {resume.versionCount} 版 · {resume.status === 'locked' ? '已锁定' : '草稿'} · 更新于 {formatDate(resume.updatedAt)}</small>
                 </div>
                 <div className="home-resume-actions">
-                  <button className="button primary" onClick={() => onNavigate('articles', { articleId: resume.id })}><PenLine size={15} />继续写作</button>
+                  <button className="button primary" onClick={() => onNavigate('articles', { articleId: resume.id })}><PenLine size={16} />继续写作</button>
                   <div className="home-resume-secondary">
-                    <button className="button ghost compact" onClick={() => onNavigate('reviews', { articleId: resume.id })}><ListChecks size={14} />评审</button>
-                    <button className="button ghost compact" onClick={() => onNavigate('visuals', { articleId: resume.id })}><Image size={14} />配图</button>
-                    <button className="button ghost compact" onClick={() => onNavigate('layouts', { articleId: resume.id })}><Newspaper size={14} />排版</button>
-                    <button className="button ghost compact" onClick={() => onNavigate('publishing', { articleId: resume.id })}><Send size={14} />发布</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('reviews', { articleId: resume.id })}><ListChecks size={16} />评审</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('visuals', { articleId: resume.id })}><Image size={16} />配图</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('layouts', { articleId: resume.id })}><Newspaper size={16} />排版</button>
+                    <button className="button ghost compact" onClick={() => onNavigate('publishing', { articleId: resume.id })}><Send size={16} />发布</button>
                   </div>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
                 <span className="home-empty-icon" aria-hidden="true"><PenLine size={24} /></span>
                 <strong>{work ? '上次打开的作品已被删除。' : '下一篇好内容，从这里开始'}</strong>
                 <p className="micro-copy">选择下方入口开始创作，或导入一篇现成稿子。</p>
-                {!verified && <p className="inline-alert"><AlertTriangle size={13} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
+                {!verified && <p className="inline-alert"><AlertTriangle size={16} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
               </div>
             )}
           </section>
@@ -117,9 +117,9 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
                 const Icon = entry.icon
                 return (
                   <button key={entry.label} className="home-entry-chip" onClick={() => onNavigate(entry.route, entry.params)} title={entry.hint}>
-                    <Icon size={18} />
+                    <Icon size={20} />
                     <span><strong>{entry.label}</strong><small>{entry.hint}</small></span>
-                    <ArrowRight size={14} />
+                    <ArrowRight size={16} />
                   </button>
                 )
               })}
@@ -133,7 +133,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
           {recent.length > 0 && (
             <details className="home-recent">
               <summary>
-                <Sparkles size={15} />
+                <Sparkles size={16} />
                 最近作品
                 <span className="home-recent-count">{recent.length}</span>
               </summary>
@@ -152,7 +152,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
         </div>
       <aside className="home-studio-aside" aria-label="创作辅助">
         <section className="home-pending">
-          <header><h3><Clock3 size={15} />需要处理</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>任务中心</button>}</header>
+          <header><h3><Clock3 size={16} />需要处理</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>任务中心</button>}</header>
           <ul className="home-pending-list">
             {loading ? <li className="micro-copy">正在读取待处理事项…</li> : <>
               {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="home-pending-clear"><ListChecks size={20} /><strong>一切就绪</strong><span>没有卡住的任务或待保存修改。</span></li>}

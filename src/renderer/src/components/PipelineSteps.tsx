@@ -21,7 +21,7 @@ export function PipelineSteps({ current, onNavigate }: { current: RouteId; onNav
         const state = i === index ? 'current' : i < index ? 'past' : ''
         return (
           <span key={stage.id} className="pipeline-step-slot" style={{ display: 'contents' }}>
-            {i > 0 && <ChevronRight size={12} className="pipeline-step-arrow" aria-hidden />}
+            {i > 0 && <ChevronRight size={16} className="pipeline-step-arrow" aria-hidden />}
             <button
               type="button"
               className={`pipeline-step ${state}`}

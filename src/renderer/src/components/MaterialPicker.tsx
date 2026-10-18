@@ -49,12 +49,12 @@ export function MaterialPicker({ materials, selected, onToggle, onNavigate, maxH
   return (
     <div className="material-picker">
       <div className="material-picker-head">
-        <strong><FolderHeart size={15} />引用素材{selected.size ? `（已选 ${selected.size}）` : ''}</strong>
+        <strong><FolderHeart size={16} />引用素材{selected.size ? `（已选 ${selected.size}）` : ''}</strong>
         <button className="button ghost tiny" onClick={() => onNavigate('materials')}>管理素材</button>
       </div>
       {materials.length > 8 && (
         <label className="search-field material-picker-search">
-          <Search size={14} />
+          <Search size={16} />
           <input
             name="materialPickerQuery"
             autoComplete="off"

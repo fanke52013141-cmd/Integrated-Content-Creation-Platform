@@ -7,7 +7,7 @@
 .hotspot-view-tabs { display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--border-subtle); }
 .hotspot-view-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 0 2px 8px; min-height: 32px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 13.5px; }
 .hotspot-view-tabs button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-.hotspot-view-tabs button span { padding: 2px 6px; border-radius: 5px; background: var(--surface-strong); color: var(--text-secondary); font-size: 12px; }
+.hotspot-view-tabs button span { padding: 2px 6px; border-radius: 8px; background: var(--surface-strong); color: var(--text-secondary); font-size: 12px; }
 .hotspots-page .hotspot-radar-layout { grid-template-columns: 192px minmax(0, 1fr) 228px; min-height: 580px; }
 .hotspots-page .hotspot-source-rail, .hotspots-page .hotspot-insight-rail { padding: 20px 16px; background: #fafbfc; gap: 16px; }
 .hotspots-page .hotspot-source-rail > div { max-height: min(620px, calc(100dvh - 250px)); gap: 4px; }

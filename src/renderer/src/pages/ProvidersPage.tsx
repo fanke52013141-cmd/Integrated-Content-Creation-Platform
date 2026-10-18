@@ -462,7 +462,7 @@ export function ProvidersPage({
                 onClick={() => void openLogs()}
                 title="查看全部模型调用日志"
               >
-                <ScrollText size={15} />调用日志
+                <ScrollText size={16} />调用日志
               </button>
               <span className="count-badge">{providers.length}</span>
             </div>
@@ -475,7 +475,7 @@ export function ProvidersPage({
                 className={`provider-card ${selectedId === provider.id ? 'selected' : ''}`}
                 onClick={() => chooseProvider(provider)}
               >
-                <span className="provider-logo"><Server size={19} /></span>
+                <span className="provider-logo"><Server size={20} /></span>
                 <div className="provider-card-copy">
                   <div>
                     <strong>{provider.displayName}</strong>
@@ -516,7 +516,7 @@ export function ProvidersPage({
               </article>
             )) : (
               <div className="provider-empty">
-                <Unplug size={25} />
+                <Unplug size={24} />
                 <strong>暂无供应商</strong>
                 <p className="micro-copy">在右侧选一个预设（OpenAI / DeepSeek / 智谱 GLM…）填入密钥即可，或点右上「空白配置」从零开始。</p>
               </div>
@@ -524,7 +524,7 @@ export function ProvidersPage({
           </div>
 
           <div className="security-note">
-            <KeyRound size={18} />
+            <KeyRound size={20} />
             <div><strong>本机加密存储</strong></div>
           </div>
         </div>
@@ -537,7 +537,7 @@ export function ProvidersPage({
             </div>
             {form.id && (
               <button className="icon-button danger-text" onClick={() => void remove()} title="删除" aria-label="删除">
-                <Trash2 size={17} />
+                <Trash2 size={20} />
               </button>
             )}
           </div>
@@ -547,7 +547,7 @@ export function ProvidersPage({
           <div className="preset-grid">
             {presets.map((preset) => (
               <button key={preset.id} className="preset-chip" onClick={() => choosePreset(preset)}>
-                <Radio size={14} />{preset.displayName}
+                <Radio size={16} />{preset.displayName}
               </button>
             ))}
           </div>
@@ -614,7 +614,7 @@ export function ProvidersPage({
                   models: [...current.models, newModel(false)]
                 }))}
               >
-                <Plus size={15} />添加模型
+                <Plus size={16} />添加模型
               </button>
             </div>
             <div className="model-editor-list">
@@ -648,7 +648,7 @@ export function ProvidersPage({
                       title="移除模型"
                       aria-label="移除模型"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                   <div className="model-primary-fields">
@@ -811,11 +811,11 @@ export function ProvidersPage({
             <span className={`inline-security draft-status ${draftStatus ? (draftStatus.ok ? 'ok' : 'error') : ''}`}>
               {draftStatus
                 ? draftStatus.ok
-                  ? <><CheckCircle2 size={15} />{draftStatus.message}</>
-                  : <><CircleAlert size={15} />{draftStatus.message}</>
+                  ? <><CheckCircle2 size={16} />{draftStatus.message}</>
+                  : <><CircleAlert size={16} />{draftStatus.message}</>
                 : form.id && selected?.hasApiKey
-                  ? <><CheckCircle2 size={15} />密钥已保存，保存前仍会先测试连接</>
-                  : <><CircleAlert size={15} />保存前会先测试连接，通过后才加密保存</>}
+                  ? <><CheckCircle2 size={16} />密钥已保存，保存前仍会先测试连接</>
+                  : <><CircleAlert size={16} />保存前会先测试连接，通过后才加密保存</>}
             </span>
             <div className="editor-footer-actions">
               <button
@@ -823,7 +823,7 @@ export function ProvidersPage({
                 disabled={draftTesting || saving}
                 onClick={() => void testDraft()}
               >
-                {draftTesting ? <span className="spinner tiny" /> : <Zap size={15} />}
+                {draftTesting ? <span className="spinner tiny" /> : <Zap size={16} />}
                 {draftTesting ? '测试中' : '测试连接'}
               </button>
               <button
@@ -852,7 +852,7 @@ export function ProvidersPage({
               <p>最近 100 条记录，包含内容生成、连接测试与保存前测试。</p>
             </div>
             <button className="icon-button" aria-label="关闭" onClick={() => setLogsOpen(false)}>
-              <X size={18} />
+              <X size={20} />
             </button>
           </header>
           <div className="provider-logs-list">
@@ -879,7 +879,7 @@ export function ProvidersPage({
                 </article>
               ))
             ) : (
-              <div className="provider-logs-empty"><ScrollText size={22} /><span>暂无调用记录</span></div>
+              <div className="provider-logs-empty"><ScrollText size={20} /><span>暂无调用记录</span></div>
             )}
           </div>
         </ModalBase>
@@ -973,8 +973,8 @@ function SearchServicePanel({
       </div>
       <footer>
         <span>{status}</span>
-        <button className="button secondary" disabled={!service.hasApiKey || testing} onClick={() => void test()}>{testing ? <span className="spinner tiny" /> : <Zap size={15} />}测试连接</button>
-        <button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <span className="spinner tiny" /> : <ShieldCheck size={15} />}加密保存</button>
+        <button className="button secondary" disabled={!service.hasApiKey || testing} onClick={() => void test()}>{testing ? <span className="spinner tiny" /> : <Zap size={16} />}测试连接</button>
+        <button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <span className="spinner tiny" /> : <ShieldCheck size={16} />}加密保存</button>
       </footer>
     </section>
   )

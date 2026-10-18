@@ -34,7 +34,7 @@ export function ExportMenu({ onExport, disabled }: ExportMenuProps): React.JSX.E
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <Download size={15} />导出
+        <Download size={16} />导出
       </button>
       {open && (
         <div className="export-menu-list" role="menu" aria-label="导出格式">

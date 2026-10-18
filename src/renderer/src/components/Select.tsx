@@ -211,7 +211,7 @@ export function Select({
         <span className={`select-value ${selected ? '' : 'placeholder'}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDown size={15} className={`select-chevron ${open ? 'up' : ''}`} />
+        <ChevronDown size={16} className={`select-chevron ${open ? 'up' : ''}`} />
       </button>
 
       {open && createPortal(
@@ -249,7 +249,7 @@ export function Select({
                       >
                         <span className="select-option-label">{option.label}</span>
                         {option.hint && <span className="select-option-hint">{option.hint}</span>}
-                        {isSelected && <Check size={14} className="select-option-check" />}
+                        {isSelected && <Check size={16} className="select-option-check" />}
                       </li>
                     )
                   })}

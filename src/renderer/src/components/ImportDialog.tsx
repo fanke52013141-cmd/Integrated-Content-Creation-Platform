@@ -171,7 +171,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
           <h2 id="import-dialog-title">导入{KIND_LABEL[kind]}</h2>
           <p>支持其他工具产出的文件或粘贴内容；导入后是新条目，不会覆盖现有内容。</p>
         </div>
-        <button className="icon-button" aria-label="关闭导入" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭导入" onClick={onClose}><X size={20} /></button>
       </header>
 
       <div className="import-dialog-body">
@@ -183,7 +183,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
         {mode === 'file' ? (
           <div className="import-source-panel">
             <button className="import-file-picker" type="button" data-autofocus onClick={() => void chooseFile()} disabled={busy}>
-              <Upload size={22} />
+              <Upload size={20} />
               <span>
                 <strong>{picked ? picked.name : `选择${KIND_LABEL[kind]}文件`}</strong>
                 <small>{picked ? `${Math.max(1, Math.round(picked.size / 1024))} KB · ${picked.format.toUpperCase()}` : 'JSON / Markdown / CSV / DOCX / HTML'}</small>
@@ -217,7 +217,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
           <p className="import-association-note">导入后会关联当前账号/选题/框架；可以在详情中随时修改。</p>
         )}
 
-        {error && <p className="inline-alert" role="alert"><AlertTriangle size={14} />{error}</p>}
+        {error && <p className="inline-alert" role="alert"><AlertTriangle size={16} />{error}</p>}
 
         {preview && (
           <section className="import-preview" aria-label="导入预览">
@@ -281,16 +281,16 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           {mode === 'paste' && !preview && (
             <button className="button secondary" onClick={() => void parsePaste()} disabled={busy || !content.trim()}>
-              {busy ? <LoaderCircle size={15} className="spin" /> : <FileUp size={15} />}解析预览
+              {busy ? <LoaderCircle size={16} className="spin" /> : <FileUp size={16} />}解析预览
             </button>
           )}
           {mode === 'file' && !preview && (
             <button className="button secondary" onClick={() => void chooseFile()} disabled={busy}>
-              {busy ? <LoaderCircle size={15} className="spin" /> : <FileUp size={15} />}选择并解析
+              {busy ? <LoaderCircle size={16} className="spin" /> : <FileUp size={16} />}选择并解析
             </button>
           )}
           <button className="button primary" onClick={() => void commit()} disabled={busy || !canImport}>
-            {busy ? <LoaderCircle size={15} className="spin" /> : <Upload size={15} />}导入 {preview?.items.length ?? 0} 条
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Upload size={16} />}导入 {preview?.items.length ?? 0} 条
           </button>
         </div>
       </footer>

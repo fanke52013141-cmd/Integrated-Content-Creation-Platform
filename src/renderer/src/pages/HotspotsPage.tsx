@@ -597,11 +597,11 @@ export function HotspotsPage({
           </h1>
           {view === 'wall' && (
             <p className="hotspot-hero-meta micro-copy">
-              <span><Flame size={13} />显示 {visibleSources.length} / {sources.length || '—'} 个平台</span>
-              <span className="success"><CheckCircle2 size={13} />{readyCount} 个已加载</span>
-              <span><BookmarkCheck size={13} />{favorites.length} 条已收藏</span>
-              {errorCount > 0 && <span className="warning"><AlertTriangle size={13} />{errorCount} 个暂不可用</span>}
-              {refreshingAll && <span><LoaderCircle size={13} className="spin" />后台分批加载中</span>}
+              <span><Flame size={16} />显示 {visibleSources.length} / {sources.length || '—'} 个平台</span>
+              <span className="success"><CheckCircle2 size={16} />{readyCount} 个已加载</span>
+              <span><BookmarkCheck size={16} />{favorites.length} 条已收藏</span>
+              {errorCount > 0 && <span className="warning"><AlertTriangle size={16} />{errorCount} 个暂不可用</span>}
+              {refreshingAll && <span><LoaderCircle size={16} className="spin" />后台分批加载中</span>}
             </p>
           )}
         </div>
@@ -651,7 +651,7 @@ export function HotspotsPage({
         <NextStepBar
           text={`已收藏 ${favorites.length} 条热点，可以带着它们去生成选题。`}
           actionLabel="去生成选题"
-          icon={<Sparkles size={14} />}
+          icon={<Sparkles size={16} />}
           onAction={() => onNavigate('topics')}
         />
       )}
@@ -661,7 +661,7 @@ export function HotspotsPage({
           <section className="hotspot-radar-layout">
             <aside className="hotspot-source-rail">
               <header><strong>信号源</strong></header>
-              <label className="search-field hotspot-source-search"><Search size={14} /><input name="hotspotSourceQuery" value={sourceQuery} onChange={event => setSourceQuery(event.target.value)} placeholder="查找平台…" aria-label="查找信号源" /></label>
+              <label className="search-field hotspot-source-search"><Search size={16} /><input name="hotspotSourceQuery" value={sourceQuery} onChange={event => setSourceQuery(event.target.value)} placeholder="查找平台…" aria-label="查找信号源" /></label>
               <div>
                 {visibleSources.filter(source => source.displayName.toLocaleLowerCase().includes(sourceQuery.trim().toLocaleLowerCase())).map((source) => {
                   const result = results[source.id]
@@ -694,11 +694,11 @@ export function HotspotsPage({
                         disabled={batchSaving}
                         onClick={() => void addSourceBatch(activeResult.items)}
                       >
-                        {batchSaving ? <LoaderCircle size={14} className="spin" /> : <Bookmark size={14} />}{batchSaving ? '收藏中…' : '收藏前 10 条'}
+                        {batchSaving ? <LoaderCircle size={16} className="spin" /> : <Bookmark size={16} />}{batchSaving ? '收藏中…' : '收藏前 10 条'}
                       </button>
                     )}
                     <button className="icon-button" aria-label="刷新当前平台" onClick={() => void refreshBatch([activeSource.id])}>
-                      <RefreshCw size={15} className={loadingIds.has(activeSource.id) ? 'spin' : ''} />
+                      <RefreshCw size={16} className={loadingIds.has(activeSource.id) ? 'spin' : ''} />
                     </button>
                   </div>
                 )}
@@ -721,7 +721,7 @@ export function HotspotsPage({
                           aria-label={favorited ? '已收藏' : '收藏'}
                           onClick={() => void addFavorite(item)}
                         >
-                          {favorited ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                          {favorited ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
                         </button>
                       </li>
                     )
@@ -729,7 +729,7 @@ export function HotspotsPage({
                 </ol>
               ) : (
                 <div className="source-loading">
-                  {activeResult?.status === 'error' ? <AlertTriangle size={22} /> : <LoaderCircle size={22} className="spin" />}
+                  {activeResult?.status === 'error' ? <AlertTriangle size={20} /> : <LoaderCircle size={20} className="spin" />}
                   <strong>{activeResult?.status === 'error' ? '暂不可用' : '正在获取榜单'}</strong>
                   {activeResult?.status === 'error' && <small>{activeResult.error}</small>}
                 </div>
@@ -747,7 +747,7 @@ export function HotspotsPage({
                 {!favorites.length && <div className="hotspot-mini-empty">暂无收藏</div>}
               </div>
               <button className="button secondary" disabled={!favorites.length} onClick={() => openFilterDialog('favorites')}>
-                <Sparkles size={15} />智能筛选
+                <Sparkles size={16} />智能筛选
               </button>
               <button className="button primary" disabled={!favorites.length} onClick={openTopicsFromFavorites}>
                 生成选题
@@ -761,7 +761,7 @@ export function HotspotsPage({
           <div className="favorite-toolbar">
             <div className="favorite-filters">
               <label className="search-field">
-                <Search size={15} />
+                <Search size={16} />
                 <input
                   type="search"
                   inputMode="search"
@@ -804,14 +804,14 @@ export function HotspotsPage({
                 disabled={!favorites.length}
                 onClick={() => openFilterDialog('favorites')}
               >
-                <Sparkles size={14} />智能筛选收藏
+                <Sparkles size={16} />智能筛选收藏
               </button>
               <button
                 className="button primary compact"
                 disabled={!filteredFavorites.length}
                 onClick={openTopicsFromFavorites}
               >
-                <Sparkles size={14} />用收藏生成选题
+                <Sparkles size={16} />用收藏生成选题
               </button>
             </div>
           </div>
@@ -833,18 +833,18 @@ export function HotspotsPage({
                         onClick={() => void openSource(favorite.hotItem.url)}
                       >
                         {favorite.hotItem.title}
-                        {favorite.hotItem.url && <ArrowUpRight size={14} />}
+                        {favorite.hotItem.url && <ArrowUpRight size={16} />}
                       </button>
                       <div className="favorite-meta">
                         <span>{favorite.hotItem.sourceTitle} · 第 {favorite.hotItem.rank} 名</span>
                         {favorite.hotItem.hotValue && <span>{favorite.hotItem.hotValue}</span>}
                         <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
                         <SourceBadge source={favorite.importSource} />
-                        <span className="locked-snapshot"><BookmarkCheck size={12} />源快照已锁定</span>
+                        <span className="locked-snapshot"><BookmarkCheck size={16} />源快照已锁定</span>
                       </div>
                     </div>
                     <div className="favorite-tags">
-                      <span><Tags size={13} />标签</span>
+                      <span><Tags size={16} />标签</span>
                       {(['待选题', '已用'] as HotFavoriteTag[]).map((tag) => (
                         <button
                           key={tag}
@@ -861,7 +861,7 @@ export function HotspotsPage({
                       aria-label="取消收藏"
                       onClick={() => void removeFavorite(favorite)}
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={16} />
                     </button>
                   </article>
                 )}
@@ -889,10 +889,10 @@ export function HotspotsPage({
                 </div>
                 <div className="filter-result-actions">
                   <button className="button secondary" onClick={() => openFilterDialog(filterScope)}>
-                    <RotateCcw size={15} />重新筛选
+                    <RotateCcw size={16} />重新筛选
                   </button>
                   <button className="button primary" onClick={() => void adoptAllHigh()}>
-                    <Check size={15} />采纳全部高契合
+                    <Check size={16} />采纳全部高契合
                   </button>
                 </div>
               </div>
@@ -931,7 +931,7 @@ export function HotspotsPage({
                           onClick={() => void openSource(assessment.hotItem.url)}
                         >
                           <span>[{assessment.hotItem.sourceTitle}] {assessment.hotItem.title}</span>
-                          {assessment.hotItem.url && <ArrowUpRight size={14} />}
+                          {assessment.hotItem.url && <ArrowUpRight size={16} />}
                         </button>
                         <dl>
                           <div><dt>判断理由</dt><dd>{assessment.reason}</dd></div>
@@ -943,14 +943,14 @@ export function HotspotsPage({
                           className="button ghost compact"
                           onClick={() => ignoreAssessment(assessment.hotItem)}
                         >
-                          <EyeOff size={14} />忽略
+                          <EyeOff size={16} />忽略
                         </button>
                         <button
                           className={`button compact ${adopted ? 'secondary' : 'primary'}`}
                           disabled={adopted}
                           onClick={() => void addFavorite(assessment.hotItem)}
                         >
-                          {adopted ? <BookmarkCheck size={14} /> : <Check size={14} />}
+                          {adopted ? <BookmarkCheck size={16} /> : <Check size={16} />}
                           {adopted ? '已采纳' : '采纳'}
                         </button>
                       </div>
@@ -981,18 +981,18 @@ export function HotspotsPage({
               </p>
             </div>
             <button className="icon-button" aria-label="关闭" onClick={() => setWeiboDialogOpen(false)}>
-              <X size={18} />
+              <X size={20} />
             </button>
           </header>
           <div className="weibo-login-body">
             {weiboConfigured && weiboUpdatedAt && (
               <div className="weibo-login-status">
-                <CheckCircle2 size={15} />
+                <CheckCircle2 size={16} />
                 <span>已登录 · 保存于 {formatDateTime(weiboUpdatedAt)}</span>
               </div>
             )}
             <div className={`weibo-login-waiting ${savingWeibo ? 'active' : ''}`}>
-              {savingWeibo ? <LoaderCircle size={22} className="spin" /> : <MessageCircleMore size={22} />}
+              {savingWeibo ? <LoaderCircle size={20} className="spin" /> : <MessageCircleMore size={20} />}
               <strong>
                 {savingWeibo
                   ? '已打开微博登录窗口，等待扫码 / 手机号登录完成…'
@@ -1008,7 +1008,7 @@ export function HotspotsPage({
           <footer>
             {weiboConfigured && (
               <button className="button ghost compact" onClick={() => void clearWeiboCookie()}>
-                <Trash2 size={14} />清除登录态
+                <Trash2 size={16} />清除登录态
               </button>
             )}
             <span />
@@ -1035,7 +1035,7 @@ export function HotspotsPage({
                 aria-label="关闭"
                 onClick={() => setSourceManagerOpen(false)}
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </header>
             <div className="source-manager-tools">
@@ -1130,7 +1130,7 @@ export function HotspotsPage({
                 disabled={filtering}
                 onClick={() => setFilterDialogOpen(false)}
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </header>
 
@@ -1169,7 +1169,7 @@ export function HotspotsPage({
                 />
               </label>
               <div className="filter-estimate">
-                <SlidersHorizontal size={17} />
+                <SlidersHorizontal size={20} />
                 <span>
                   <strong>{filterCandidates.length} 条热点</strong>
                   <small>{filterCandidates.length > 200 ? '超过单次 200\u00A0条上限' : '将一次性发送给所选模型'}</small>

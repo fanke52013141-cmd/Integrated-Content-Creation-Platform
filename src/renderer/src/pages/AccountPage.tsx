@@ -196,7 +196,7 @@ function AccountList({
         title="账号定位"
         description="先定人群与表达方式，后续选题与成稿都会据此调整"
         actions={<div className="page-intro-actions">
-          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入</button>
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入</button>
           <button className="button primary" onClick={onCreate}><Plus size={16} />新建账号</button>
         </div>}
       />
@@ -234,7 +234,7 @@ function AccountList({
                     <div className="account-badges">
                       {account.isCurrent && <span className="badge primary">当前</span>}
                       <span className={`badge ${account.status === 'locked' ? 'success' : 'neutral'}`}>
-                        {account.status === 'locked' ? <Lock size={11} /> : <LockOpen size={11} />}
+                        {account.status === 'locked' ? <Lock size={16} /> : <LockOpen size={16} />}
                         {account.status === 'locked' ? '已锁定' : '草稿'}
                       </span>
                       <span
@@ -252,21 +252,21 @@ function AccountList({
                     <SourceBadge source={account.importSource} />
                     <span>v{account.versionCount}</span>
                     <span>{formatDate(account.updatedAt)}</span>
-                    <span className="account-edit-link">编辑定位 <ChevronRight size={14} /></span>
+                    <span className="account-edit-link">编辑定位 <ChevronRight size={16} /></span>
                   </footer>
                 </button>
               )}
             />
           </section>
           {!filtered.length && (
-            <div className="center-empty"><Search size={25} /><strong>没有匹配的账号</strong></div>
+            <div className="center-empty"><Search size={24} /><strong>没有匹配的账号</strong></div>
           )}
           {/* 链路起点：定位建好后明确指向下一阶段，避免用户停在原地 */}
           {accounts.length > 0 && (
             <NextStepBar
               text="账号定位是后续选题与成稿的基准，改完定位后去看今天有什么可写的热点。"
               actionLabel="去看热点"
-              icon={<Flame size={14} />}
+              icon={<Flame size={16} />}
               onAction={() => onNavigate('hotspots')}
             />
           )}
@@ -279,10 +279,10 @@ function AccountList({
             <p>新建账号并完成定位填写，会生成一张对应的账号卡片。</p>
             <div className="article-empty-actions">
               <button className="button primary large" onClick={onCreate}>
-                <WandSparkles size={17} />新建账号
+                <WandSparkles size={20} />新建账号
               </button>
               <button className="button secondary large" onClick={() => setImportOpen(true)}>
-                <FileUp size={17} />导入账号定位
+                <FileUp size={20} />导入账号定位
               </button>
             </div>
           </section>
@@ -311,7 +311,7 @@ function FirstRunGuide({ providers, onNavigate, onCreate }: { providers: Provide
   ]
   return (
     <section className="first-run-guide" aria-label="新手引导">
-      <header><Sparkles size={15} />三步开始第一篇文章</header>
+      <header><Sparkles size={16} />三步开始第一篇文章</header>
       <div className="first-run-steps">
         {steps.map((step) => (
           <div className={`first-run-step ${step.done ? 'done' : ''}`} key={step.title}>
@@ -477,7 +477,7 @@ function AccountWizard({
   return (
     <div className="page wizard-page">
       <div className="wizard-topline">
-        <button className="back-button" onClick={onCancel}><X size={17} />退出向导</button>
+        <button className="back-button" onClick={onCancel}><X size={20} />退出向导</button>
         <span>已回答 {answeredCount} / 7</span>
       </div>
 
@@ -491,12 +491,12 @@ function AccountWizard({
                 key={question.id}
                 className={`${step === index ? 'active' : ''} ${answers[index].answer.trim() ? 'done' : ''}`}
               >
-                <span>{answers[index].answer.trim() ? <Check size={14} /> : index + 1}</span>
+                <span>{answers[index].answer.trim() ? <Check size={16} /> : index + 1}</span>
                 <button onClick={() => setStep(index)}>{question.question}</button>
               </li>
             ))}
             <li className={step === 7 ? 'active' : ''}>
-              <span><Sparkles size={14} /></span><button onClick={() => setStep(7)}>生成结果</button>
+              <span><Sparkles size={16} /></span><button onClick={() => setStep(7)}>生成结果</button>
             </li>
           </ol>
         </aside>
@@ -582,13 +582,13 @@ function AccountWizard({
                   disabled={!modelTarget || generating}
                   onClick={() => void generate()}
                 >
-                  {generating ? <span className="spinner" /> : <Sparkles size={18} />}
+                  {generating ? <span className="spinner" /> : <Sparkles size={20} />}
                   {generating ? '正在生成定位' : '生成账号定位'}
                 </button>
               </div>
               {!usableProviders.length && (
                 <button className="inline-alert" onClick={() => onNavigate('providers')}>
-                  <KeyRound size={16} />需要先配置AI 服务 <ChevronRight size={15} />
+                  <KeyRound size={16} />需要先配置AI 服务 <ChevronRight size={16} />
                 </button>
               )}
               <button className="text-button" onClick={startManual}>手动填写字段</button>
@@ -602,8 +602,8 @@ function AccountWizard({
             <h3>人工确认</h3>
             {generated && (
               <div className="generation-meta">
-                <span><Sparkles size={14} />{generated.model}</span>
-                <span><Clock3 size={14} />{generated.latencyMs}ms</span>
+                <span><Sparkles size={16} />{generated.model}</span>
+                <span><Clock3 size={16} />{generated.latencyMs}ms</span>
               </div>
             )}
             <label className="field regenerate-model-select">
@@ -780,7 +780,7 @@ function AccountEditor({
   return (
     <div className="page account-editor-page">
       <div className="editor-heading">
-        <button className="back-button" onClick={onBack}><ArrowLeft size={17} />账号列表</button>
+        <button className="back-button" onClick={onBack}><ArrowLeft size={20} />账号列表</button>
         <div className="editor-title">
           <span className="profile-avatar">{loadedAccount.name.slice(0, 1)}</span>
           <div>
@@ -788,7 +788,7 @@ function AccountEditor({
             <h2>{loadedAccount.name}</h2>
           </div>
           <span className={`badge ${locked ? 'success' : 'neutral'}`}>
-            {locked ? <Lock size={12} /> : <LockOpen size={12} />}
+            {locked ? <Lock size={16} /> : <LockOpen size={16} />}
             {locked ? '已锁定' : '草稿'}
           </span>
           <span className={`badge ${loadedAccount.completeness >= 80 ? 'success' : 'neutral'}`}>
@@ -826,10 +826,10 @@ function AccountEditor({
             className={dimension === tab.id ? 'active' : ''}
             onClick={() => setDimension(tab.id)}
           >
-            {tab.id === 'fields' && <CircleUserRound size={14} />}
-            {tab.id === 'redlines' && <ShieldAlert size={14} />}
-            {tab.id === 'platforms' && <Globe size={14} />}
-            {tab.id === 'memories' && <BookOpen size={14} />}
+            {tab.id === 'fields' && <CircleUserRound size={16} />}
+            {tab.id === 'redlines' && <ShieldAlert size={16} />}
+            {tab.id === 'platforms' && <Globe size={16} />}
+            {tab.id === 'memories' && <BookOpen size={16} />}
             {tab.label}
             {tab.id === 'redlines' && loadedAccount.redlines.length > 0 && <span className="count-badge">{loadedAccount.redlines.length}</span>}
             {tab.id === 'platforms' && loadedAccount.platformAccounts.length > 0 && <span className="count-badge">{loadedAccount.platformAccounts.length}</span>}
@@ -845,7 +845,7 @@ function AccountEditor({
               <div><h3>定位字段</h3></div>
               {!locked && (
                 <button className="button ghost compact" onClick={() => updateFields([...fields, newCustomField()])}>
-                  <Plus size={15} />添加字段
+                  <Plus size={16} />添加字段
                 </button>
               )}
             </div>
@@ -906,7 +906,7 @@ function AccountEditor({
                       title={version.id === loadedAccount.currentVersionId ? '当前版本' : '点击恢复为当前版本'}
                       onClick={() => void requestRestore(version.id)}
                     >
-                      <span className="version-icon"><FileClock size={15} /></span>
+                      <span className="version-icon"><FileClock size={16} /></span>
                       <span>
                         <strong>版本 {version.versionNumber}</strong>
                         <small>{formatFullDate(version.createdAt)} · {sourceLabel(version.source)}</small>
@@ -919,7 +919,7 @@ function AccountEditor({
                       aria-label={`版本 ${version.versionNumber} 与当前版本对比`}
                       onClick={() => setDiffVersion(version)}
                     >
-                      <GitCompare size={14} />
+                      <GitCompare size={16} />
                     </button>
                   </div>
                 ))}
@@ -1075,7 +1075,7 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
           />
         </label>
         <button className="button primary" disabled={busy || !content.trim()} onClick={() => void add()}>
-          <Plus size={15} />添加
+          <Plus size={16} />添加
         </button>
       </div>
       <div className="dimension-list">
@@ -1086,7 +1086,7 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
             </span>
             <span className="dimension-item-main">{redline.content}</span>
             <button className="icon-button danger" title="删除" aria-label="删除红线" onClick={() => void remove(redline.id)}>
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
         ))}
@@ -1174,7 +1174,7 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
           />
         </label>
         <button className="button primary" disabled={busy || !handle.trim()} onClick={() => void add()}>
-          <Plus size={15} />绑定
+          <Plus size={16} />绑定
         </button>
       </div>
       <div className="dimension-list">
@@ -1186,7 +1186,7 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
               {binding.note && <small>{binding.note}</small>}
             </span>
             <button className="icon-button danger" title="解绑" aria-label="解绑平台账号" onClick={() => void remove(binding.id)}>
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
         ))}
@@ -1286,7 +1286,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
             />
           </label>
           <button className="button primary" disabled={busy || !insight.trim()} onClick={() => void add()}>
-            <Plus size={15} />记录
+            <Plus size={16} />记录
           </button>
         </div>
       </div>
@@ -1300,7 +1300,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
               <small className="dimension-item-date">{memory.memoryDate}</small>
             </span>
             <button className="icon-button danger" title="删除" aria-label="删除记忆" onClick={() => void remove(memory.id)}>
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
         ))}
@@ -1374,7 +1374,7 @@ function GeneratedFields({
           </div>
           {!locked && (
             <button className="icon-button field-remove" onClick={() => onRemove(field.id)} title="删除字段" aria-label="删除字段">
-              <Trash2 size={15} />
+              <Trash2 size={16} />
             </button>
           )}
         </div>

@@ -184,7 +184,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       onNavigate={onNavigate}
       title="文章排版"
       description="把成稿渲染为平台格式，直接推送公众号草稿箱"
-      actions={articleId ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入 HTML</button> : undefined}
+      actions={articleId ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入 HTML</button> : undefined}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
@@ -249,7 +249,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
             onClick={() => void create()}
             title={!articleId ? '请先选择要排版的文章' : undefined}
           >
-            <FileText size={15} />{busy ? '正在排版…' : '生成排版稿'}
+            <FileText size={16} />{busy ? '正在排版…' : '生成排版稿'}
           </button>
         </section>
         {/* 禁用原因就近说明。真实前置是「先选文章」，平台已有默认值，不需要用户额外操作 */}
@@ -297,27 +297,27 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                 </header>
                 <div className="layout-actions">
                   {selected.platform !== 'xiaohongshu' && (<>
-                    <button className="button primary compact" disabled={busy} onClick={() => void copyRich('wechat')}><Copy size={14} />复制图文（带格式）</button>
+                    <button className="button primary compact" disabled={busy} onClick={() => void copyRich('wechat')}><Copy size={16} />复制图文（带格式）</button>
                     <button className="button secondary compact" disabled={busy} onClick={() => void copyRich('placeholders')}>复制正文，手动插图</button>
                   </>)}
                   <span className="layout-actions-sep" aria-hidden="true" />
-                  <button className="button secondary compact" onClick={() => void copy(selected.plainText, '已复制纯文本正文')} title="复制不含样式的纯文本，适合小红书等纯文本编辑器"><Copy size={14} />复制纯文本</button>
-                  <button className="button ghost compact" onClick={() => void copy(selected.html, 'HTML 源码已复制')} title="复制 HTML 源码，供网页或支持源码的编辑器使用"><Code2 size={14} />复制 HTML 源码</button>
-                  <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={14} />导出 HTML 文件</button>
+                  <button className="button secondary compact" onClick={() => void copy(selected.plainText, '已复制纯文本正文')} title="复制不含样式的纯文本，适合小红书等纯文本编辑器"><Copy size={16} />复制纯文本</button>
+                  <button className="button ghost compact" onClick={() => void copy(selected.html, 'HTML 源码已复制')} title="复制 HTML 源码，供网页或支持源码的编辑器使用"><Code2 size={16} />复制 HTML 源码</button>
+                  <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={16} />导出 HTML 文件</button>
                   {selected.platform === 'wechat' && (
-                    <button className="button primary compact" onClick={() => onNavigate('publishing', { articleId: selected.articleId })}><Send size={14} />去发布</button>
+                    <button className="button primary compact" onClick={() => onNavigate('publishing', { articleId: selected.articleId })}><Send size={16} />去发布</button>
                   )}
                 </div>
                 {selected.platform === 'wechat' ? (
                   <div className="layout-device-wrap">
-                    <p className="layout-device-hint micro-copy"><Smartphone size={13} />按手机宽度（375px）预览，实际公众号观感以此为准</p>
+                    <p className="layout-device-hint micro-copy"><Smartphone size={16} />按手机宽度（375px）预览，实际公众号观感以此为准</p>
                     <div className="layout-device">
                       <article className="layout-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selected.html) }} />
                     </div>
                   </div>
                 ) : selected.platform === 'xiaohongshu' ? (
                   <div className="layout-device-wrap">
-                    <p className="layout-device-hint micro-copy"><Smartphone size={13} />小红书为纯文本，复制后在 App 内粘贴使用</p>
+                    <p className="layout-device-hint micro-copy"><Smartphone size={16} />小红书为纯文本，复制后在 App 内粘贴使用</p>
                     <div className="layout-device">
                       <pre className="layout-plain-text">{selected.plainText}</pre>
                     </div>

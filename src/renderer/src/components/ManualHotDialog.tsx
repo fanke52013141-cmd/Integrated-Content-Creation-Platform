@@ -54,7 +54,7 @@ export function ManualHotDialog({ open, onClose, onSave }: ManualHotDialogProps)
           <h2 id="manual-hot-title">手动添加热点</h2>
           <p>可以只填标题；链接、来源和热度稍后再补。保存后进入收藏夹。</p>
         </div>
-        <button className="icon-button" aria-label="关闭手动添加热点" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭手动添加热点" onClick={onClose}><X size={20} /></button>
       </header>
       <div className="manual-topic-body">
         <div className="manual-topic-fields">
@@ -71,7 +71,7 @@ export function ManualHotDialog({ open, onClose, onSave }: ManualHotDialogProps)
         <div>
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           <button className="button primary" onClick={() => void save()} disabled={busy}>
-            {busy ? <LoaderCircle size={15} className="spin" /> : <Plus size={15} />}加入收藏
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}加入收藏
           </button>
         </div>
       </footer>

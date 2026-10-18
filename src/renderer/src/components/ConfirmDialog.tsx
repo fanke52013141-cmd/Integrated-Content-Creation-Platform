@@ -24,10 +24,10 @@ export function ConfirmDialog({
   return (
     <ModalBase open={open} onClose={onCancel} titleId="confirm-title" describedBy="confirm-message" className="confirm-dialog">
       <button className="icon-button modal-close" onClick={onCancel} aria-label="关闭">
-        <X size={18} />
+        <X size={20} />
       </button>
       <span className={`modal-symbol ${danger ? 'danger' : ''}`} aria-hidden="true">
-        <AlertTriangle size={22} />
+        <AlertTriangle size={20} />
       </span>
       <h2 id="confirm-title">{title}</h2>
       <p id="confirm-message">{message}</p>

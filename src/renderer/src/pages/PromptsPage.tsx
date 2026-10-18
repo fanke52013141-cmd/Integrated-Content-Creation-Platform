@@ -121,7 +121,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
           <p>集中管理各 AI 环节的自定义提示词，支持版本回溯。写入 <code>{'{'} {'{'}</code>变量<code>{'}'}{'}'}</code> 可注入动态上下文。</p>
         </div>
         <div className="page-intro-actions">
-          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入 JSON</button>
+          <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入 JSON</button>
           <button className="button secondary" disabled={busy || !defs.length} onClick={() => void (async () => {
             setBusy(true)
             try {
@@ -129,7 +129,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
               showToast(result.path ? { type: 'success', message: `已导出提示词到 ${result.path}` } : { type: 'info', message: '已取消导出' })
             } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
             finally { setBusy(false) }
-          })()}><Download size={15} />导出 JSON</button>
+          })()}><Download size={16} />导出 JSON</button>
         </div>
       </section>
 
@@ -144,7 +144,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 className={`provider-card prompt-card ${selectedKey === d.key ? 'selected' : ''}`}
                 onClick={() => void switchTo(d.key)}
               >
-                <span className="provider-logo"><Braces size={17} /></span>
+                <span className="provider-logo"><Braces size={20} /></span>
                 <span className="prompt-card-copy">
                   <strong>{d.title}</strong>
                   <small>{d.description}</small>
@@ -169,8 +169,8 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 </div>
                 <div className="editor-heading-actions">
                   {dirty && <span className="unsaved-dot">未保存</span>}
-                  <button className="button secondary" onClick={() => void reset()} disabled={busy || selected.activeVersion === 1 && selected.versionCount === 1}><RotateCcw size={15} />重置默认</button>
-                  <button className="button primary" onClick={() => void save()} disabled={busy || !dirty}><Save size={15} />保存为新版本</button>
+                  <button className="button secondary" onClick={() => void reset()} disabled={busy || selected.activeVersion === 1 && selected.versionCount === 1}><RotateCcw size={16} />重置默认</button>
+                  <button className="button primary" onClick={() => void save()} disabled={busy || !dirty}><Save size={16} />保存为新版本</button>
                 </div>
               </div>
 
@@ -203,7 +203,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
               <div className="panel version-panel">
                 <div className="version-panel-head">
-                  <History size={15} />
+                  <History size={16} />
                   <h4>版本历史</h4>
                 </div>
                 <div className="version-list">

@@ -135,7 +135,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       onNavigate={onNavigate}
       title="排版交付"
       description="核对当前作品，推送公众号草稿箱，再记录正式发布链接"
-      actions={article && selectedLayout ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入交付信息</button> : undefined}
+      actions={article && selectedLayout ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入交付信息</button> : undefined}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
@@ -160,7 +160,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
       <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过，推送后还需在公众号后台正式发布。' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
         {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}
-        <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={14} />上传封面</button>
+        <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={16} />上传封面</button>
         <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}{busy ? '正在推送…' : '推送草稿箱'}</button>
       </footer>
     </section>
@@ -184,8 +184,8 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
           <label className="publish-enabled"><input type="checkbox" disabled={busy} checked={enabled} onChange={event => setEnabled(event.target.checked)} />启用连接</label>
         </div>
         <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
-          <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={14} />测试当前配置</button>
-          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={14} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
+          <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={16} />测试当前配置</button>
+          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={16} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
       </>}
     </section>
     </div>
@@ -243,17 +243,17 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
           <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>公众号后台</button>
-          <button className="button secondary compact" disabled={busy || !url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={14} />标记已发布</button>
+          <button className="button secondary compact" disabled={busy || !url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={16} />标记已发布</button>
         </div>
       ) : item.status === 'failed' ? (
-        <button className="button secondary compact" disabled={busy} onClick={() => void onRetry()}><RotateCcw size={14} />重推</button>
+        <button className="button secondary compact" disabled={busy} onClick={() => void onRetry()}><RotateCcw size={16} />重推</button>
       ) : item.publishedUrl ? (
         isSafeUrl(item.publishedUrl)
           ? <button className="button ghost compact" onClick={() => onOpen(item.publishedUrl ?? '')}>查看文章</button>
           : <span className="break-all">{item.publishedUrl}</span>
       ) : null}
       <details className="publication-retro" open={hasRetro}>
-        <summary><ClipboardList size={14} />发布复盘{hasRetro ? '' : '（目标 / 结果 / 经验）'}</summary>
+        <summary><ClipboardList size={16} />发布复盘{hasRetro ? '' : '（目标 / 结果 / 经验）'}</summary>
         <label className="field"><span>目标</span><input name="retroGoal" autoComplete="off" value={retro.goal} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, goal: event.target.value }))} placeholder="这篇发出去想达成什么？" /></label>
         <label className="field"><span>结果</span><input name="retroResult" autoComplete="off" value={retro.result} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, result: event.target.value }))} placeholder="阅读、涨粉或转化，写下真实数字" /></label>
         <label className="field"><span>经验</span><textarea name="retroLesson" rows={2} value={retro.lesson} maxLength={2000} onChange={(event) => setRetro((current) => ({ ...current, lesson: event.target.value }))} placeholder="下次要保留或改掉什么？" /></label>
@@ -264,11 +264,11 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
             disabled={unchanged || savingRetro}
             onClick={() => { setSavingRetro(true); void onSaveRetro(retro).finally(() => setSavingRetro(false)) }}
           >
-            {savingRetro ? <LoaderCircle size={14} className="spin" /> : <Save size={14} />}保存复盘
+            {savingRetro ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}保存复盘
           </button>
           {item.retro?.lesson && (
             <button className="button ghost compact" disabled={!canRemember} title={canRemember ? '把这条经验写入账号记忆' : '这篇文章还没有绑定账号定位'} onClick={() => void onRemember(item.retro?.lesson ?? '')}>
-              <Lightbulb size={14} />记为账号经验
+              <Lightbulb size={16} />记为账号经验
             </button>
           )}
         </footer>

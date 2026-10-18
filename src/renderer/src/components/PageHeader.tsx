@@ -52,7 +52,7 @@ export function NextStepBar({ text, actionLabel, onAction, icon }: NextStepBarPr
       <button className="button primary compact" onClick={onAction}>
         {icon}
         {actionLabel}
-        <ChevronRight size={14} />
+        <ChevronRight size={16} />
       </button>
     </div>
   )

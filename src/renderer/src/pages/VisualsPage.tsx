@@ -318,8 +318,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       title="智能配图"
       description="可直接导入自己的封面与正文图，也可选用 AI 生成配图方案"
       actions={articleId && <div className="page-intro-actions">
-        <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={15} />导入方案</button>
-        <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={15} />去排版</button>
+        <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入方案</button>
+        <button className="button secondary" onClick={() => onNavigate('layouts', { articleId })}><LayoutTemplate size={16} />去排版</button>
       </div>}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
@@ -340,7 +340,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
             await window.moliu.visuals.createManualPack(articleId)
             await refresh()
             showToast({ type: 'success', message: '本地图片集合已就绪，可直接导入封面和正文图片' })
-          })().catch(error => showToast({ type: 'error', message: errorMessage(error) }))}><ImagePlus size={15} />直接导入自己的图片</button>
+          })().catch(error => showToast({ type: 'error', message: errorMessage(error) }))}><ImagePlus size={16} />直接导入自己的图片</button>
           <label className="field"><span>文章</span>
             <ArticlePicker value={articleId} onChange={setArticleId} />
           </label>
@@ -364,7 +364,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
             <span><strong>透明背景</strong></span>
           </label>
           {stream.active ? (
-            <button className="button danger" onClick={stream.cancel}><X size={15} />取消</button>
+            <button className="button danger" onClick={stream.cancel}><X size={16} />取消</button>
           ) : (
             <button
               className="button primary"
@@ -372,7 +372,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
               onClick={() => void generatePlan()}
               title={!articleId ? '请先选择要配图的文章' : '请先选择方案模型'}
             >
-              <Sparkles size={15} />生成方案
+              <Sparkles size={16} />生成方案
             </button>
           )}
           {/* 禁用原因就近说明，避免用户猜测按钮为何点不动 */}
@@ -386,7 +386,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
 
         <div className="visual-output">
         {!imageModels.length && (
-          <p className="inline-alert"><Palette size={14} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
+          <p className="inline-alert"><Palette size={16} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
         )}
 
         {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在设计配图方案…" />}
@@ -492,15 +492,15 @@ function VisualPackCard({ pack, articleTitle, assets, imageBusyKey, imageModelRe
               <span className="badge primary">
                 批量{batch.phase === 'generate' ? '生成' : '上传'}中 {batch.done}/{batch.total}
               </span>
-              <button className="button danger compact" onClick={onStopBatch}><X size={14} />停止</button>
+              <button className="button danger compact" onClick={onStopBatch}><X size={16} />停止</button>
             </>
           ) : (
             <>
               <button className="button secondary compact" disabled={!imageModelReady} onClick={onGenerateAll} title="按封面→文内→发布顺序生成全部图片（已生成的自动跳过）">
-                <Sparkles size={14} />生成全部图片
+                <Sparkles size={16} />生成全部图片
               </button>
               <button className="button secondary compact" disabled={!assets.some((asset) => !asset.wechatMediaId)} onClick={onUploadAll} title="把未上传的图片批量上传公众号素材库">
-                <UploadCloud size={14} />全部上传
+                <UploadCloud size={16} />全部上传
               </button>
             </>
           )}
@@ -574,11 +574,11 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
       <div className="visual-prompt-text">
         <p>{prompt}</p>
         <div className="visual-slot-actions">
-          <button className="button ghost tiny" onClick={() => void onCopy(prompt)}><Copy size={13} />复制提示词</button>
+          <button className="button ghost tiny" onClick={() => void onCopy(prompt)}><Copy size={16} />复制提示词</button>
           <button className="button secondary tiny" disabled={busy || batchActive || !prompt} title={batchActive ? '批量任务进行中，请先完成或停止' : undefined} onClick={() => void onGenerateImage(pack, kind, slot, prompt, ratio)}>
-            {busy ? <LoaderCircle size={13} className="spin" /> : <Sparkles size={13} />}{busy ? '生成中…' : '生成图片'}
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}{busy ? '生成中…' : '生成图片'}
           </button>
-          <button className="button ghost tiny" onClick={() => onImport(pack.id, kind, slot, prompt)}><ImagePlus size={13} />导入本地</button>
+          <button className="button ghost tiny" onClick={() => onImport(pack.id, kind, slot, prompt)}><ImagePlus size={16} />导入本地</button>
         </div>
       </div>
       {assets.length > 0 && (
@@ -592,17 +592,17 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
                 {asset.costUsd !== undefined && <span className="badge neutral">{asset.costEstimated ? '≈' : ''}${asset.costUsd.toFixed(4)}</span>}
                 {asset.remoteUrl ? (
                   <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="用这张图做参考，按修改提示词重新生成">
-                    <Sparkles size={12} />改这张图
+                    <Sparkles size={16} />改这张图
                   </button>
                 ) : (
                   <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="先自动上传这张图，再按修改提示词重新生成">
-                    <Sparkles size={12} />改这张图
+                    <Sparkles size={16} />改这张图
                   </button>
                 )}
                 {asset.wechatMediaId
-                  ? <span className="badge success"><UploadCloud size={11} />已上传素材库</span>
-                  : <button className="button secondary tiny" disabled={Boolean(imageBusyKey)} onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={12} />上传公众号</button>}
-                <button className="icon-button danger" title="删除图片" aria-label="删除图片" onClick={() => void onRemoveAsset(pack.id, asset)}><Trash2 size={13} /></button>
+                  ? <span className="badge success"><UploadCloud size={16} />已上传素材库</span>
+                  : <button className="button secondary tiny" disabled={Boolean(imageBusyKey)} onClick={() => void onUploadAsset(pack.id, asset)}><UploadCloud size={16} />上传公众号</button>}
+                <button className="icon-button danger" title="删除图片" aria-label="删除图片" onClick={() => void onRemoveAsset(pack.id, asset)}><Trash2 size={16} /></button>
               </figcaption>
             </figure>
           ))}
@@ -660,7 +660,7 @@ function EditImageDialog({ target, imageTarget, onClose, onDone }: {
           <h2 id="edit-image-title">参考图编辑</h2>
           <p>保留主体、按提示词修改。参考图必须是供应商能访问的 http(s) 地址。</p>
         </div>
-        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={18} /></button>
+        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
       </header>
       {target.transparent && (
         <p className="inline-alert">这张图是透明背景，供应商可能拒绝把它当参考图（实测会失败）。建议先生成一张不透明图再改，或换一个参考图地址。</p>

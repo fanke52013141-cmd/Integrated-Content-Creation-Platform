@@ -64,7 +64,7 @@ a:hover { text-decoration: underline; }
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .break-all { word-break: break-all; }
@@ -90,7 +90,7 @@ input[type='radio'] {
   flex: 0 0 auto;
   border: 1.5px solid var(--border-strong);
   background: var(--surface-solid);
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   display: inline-grid;
   place-content: center;
@@ -207,7 +207,7 @@ input[type='radio']:disabled {
   font-weight: 500;
   /* 2px→6px：高度 21px→29px，满足 WCAG 2.5.8 的 24px 最小命中区 */
   padding: 6px 4px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 .text-button:hover { text-decoration: underline; }
 
@@ -686,7 +686,7 @@ input[type="checkbox"], input[type="radio"] {
 .confirm-dialog.modal { width: min(480px, 100%); padding: 28px; gap: 16px; border-radius: 12px; }
 .confirm-dialog h2 { font-size: 21px; padding-right: 24px; }
 .confirm-dialog > p { font-size: 14px; line-height: 1.8; }
-.confirm-dialog .modal-symbol { border-radius: 10px; }
+.confirm-dialog .modal-symbol { border-radius: 8px; }
 .confirm-dialog .modal-actions { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
 .modal fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
 
@@ -1003,7 +1003,7 @@ input[type="checkbox"], input[type="radio"] {
 .segmented button {
   min-height: 32px;
   padding: 4px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 /* 页签：从 37 收敛到 36（保留下划线语义） */
@@ -1073,6 +1073,14 @@ input[type="checkbox"], input[type="radio"] {
 .article-editor-toolbar > div > button {
   min-height: 32px;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12.5px;
+}
+
+/* 图标：全站只有 16 / 20 / 24 三档。个别容器把 svg 压到 14/15px，
+   这里兜底拉回默认档（并用 flex:0 0 auto 阻止被 flex 挤扁），避免同一行里 15px 与 16px 混排。 */
+.search-field > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
 }

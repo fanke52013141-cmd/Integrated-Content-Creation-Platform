@@ -10,7 +10,7 @@ export function StreamingPreview({ content, label, progress }: { content: string
     <div className="streaming-preview">
       <header className="streaming-preview-head">
         <div>
-          <span className="eyebrow"><LoaderCircle size={14} className="spin" /> STREAMING</span>
+          <span className="eyebrow"><LoaderCircle size={16} className="spin" /> STREAMING</span>
           <h2>{label}</h2>
           <p role="status">{progress ?? '正在接收模型实时输出…'}</p>
         </div>
