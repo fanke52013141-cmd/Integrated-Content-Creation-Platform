@@ -59,6 +59,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const [listQuery, setListQuery] = useState('')
   const [query, setQuery] = useState('')
   const listSequence = useRef(0)
+  const listResultsRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(0)
   const [total, setTotal] = useState(0)
   const [loadedListKey, setLoadedListKey] = useState('')
@@ -125,9 +126,10 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     if (focusFrameworkId && nextFrameworks.some((f) => f.id === focusFrameworkId)) { setFrameworkId(focusFrameworkId); setComposerOpen(true) }
   }
   useEffect(() => { void refresh().catch(error => showToast({ type: 'error', message: errorMessage(error) })) }, [])
-  useEffect(() => { const timer = window.setTimeout(() => { setQuery(listQuery); setPage(0) }, 250); return () => window.clearTimeout(timer) }, [listQuery])
+  useEffect(() => { if (listQuery === query) return; const timer = window.setTimeout(() => { setQuery(listQuery); setPage(0) }, 250); return () => window.clearTimeout(timer) }, [listQuery, query])
   useEffect(() => { void refreshList().catch(error => showToast({ type: 'error', message: errorMessage(error) })); return () => { listSequence.current++ } }, [page, query, listStatus, accountFilter, dirtyOnly, currentAccountId])
   useEffect(() => { setPage(0) }, [listStatus, accountFilter, dirtyOnly, currentAccountId])
+  useEffect(() => { listResultsRef.current?.scrollTo({ top: 0 }) }, [loadedListKey])
   useEffect(() => { if (focusArticleId) setSelectedId(focusArticleId) }, [focusArticleId])
   useEffect(() => {
     // 未初始化才补默认账号；用户主动选「不使用账号定位」必须保持为空
@@ -278,7 +280,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       onNavigate={onNavigate}
       title="文章工作台"
       description="按框架扩写成稿，改稿打磨后锁定进入评审与发布"
-      actions={<div className="page-intro-actions">
+      actions={<>
         <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入现成稿</button>
         <button className="button ghost compact" onClick={() => setFileImportOpen(true)}><FileUp size={16} />导入 DOCX/HTML</button>
         <button className="button primary" onClick={() => setComposerOpen(true)}><PenLine size={16} />新建草稿</button>
@@ -289,7 +291,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
           <button className="button secondary" onClick={() => onNavigate('visuals', { articleId: selected.id })}><Image size={16} />去配图</button>
           <button className="button primary" onClick={() => onNavigate('layouts', { articleId: selected.id })}><FilePenLine size={16} />去排版</button>
         </>}
-      </div>}
+      </>}
     />
     <ModalBase open={composerOpen} onClose={() => { if (!stream.active) setComposerOpen(false) }} titleId="article-composer-title" className="article-composer-dialog" closeOnOverlay={!stream.active}>
       <header className="article-composer-heading"><div><h2 id="article-composer-title">新建草稿</h2><p>选择写作基线，补充框架和参考资料。</p></div><button className="icon-button" aria-label="关闭新建草稿" disabled={stream.active} onClick={() => setComposerOpen(false)}><X size={20} /></button></header>
@@ -333,7 +335,43 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     <CreationHistory requests={requests} run={stream.run} refresh={refresh} openArticle={setSelectedId} showToast={showToast} />
     {draftConflict && <p className="inline-alert">本地修改基于旧版本，保存会冲突。可以保留两份内容：<button className="button secondary compact" onClick={() => void saveAsNew()}>另存为新文章</button></p>}
     {draftError && <p className="inline-alert" role="alert">{draftError}。请先保留正文副本，再重新加载。</p>}
-    <section className="article-workbench"><aside className="article-list"><header><div><h3>文章 <small>{total}</small></h3></div></header>{listLoading && <p role="status" className="micro-copy">正在读取匹配的文章…</p>}<div className="article-list-filters"><label className="search-field"><Search size={16} /><input name="articleListQuery" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索标题或正文…" /></label><div className="segmented article-list-status">{(['all', 'locked', 'draft'] as const).map((value) => <button key={value} className={listStatus === value ? 'active' : ''} onClick={() => setListStatus(value)}>{value === 'all' ? '全部' : value === 'locked' ? '已锁定' : '草稿'}</button>)}</div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的文章' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></div>{articles.length ? <div><VirtualList items={listLoading ? [] : filteredArticles} estimateSize={() => 80} renderItem={(article) => <button key={article.id} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}><span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span><strong>{article.title}</strong><small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>{article.hasWorkDraft && <em>待保存修改</em>}</button>} /></div> : <div className="article-list-empty"><BookOpenText size={28} /><span>{articles.length ? '没有匹配的文章' : '暂无文章'}</span></div>}<div className="article-pagination"><button className="button ghost compact" disabled={!page} onClick={() => setPage(page - 1)}>上一页</button><span>{page + 1} / {Math.max(1, Math.ceil(total / 30))}</span><button className="button ghost compact" disabled={(page + 1) * 30 >= total} onClick={() => setPage(page + 1)}>下一页</button></div></aside>{selected && selected.id === selectedId ? <ArticleEditor article={selected} draft={draft} dirty={dirty} editorMode={editorMode} imageAssets={imageAssets} onAssetImported={asset => setImageAssets(current => [...current, asset])} instruction={instruction} alignFramework={alignFramework} count={count} revisionMode={revisionMode} onRevisionModeChange={setRevisionMode} onDraftChange={setDraft} loadingDraft={draftStatus === 'loading'} draftStatus={draftStatus} onDiscard={() => { void confirm({ title: '放弃修改', message: '确认放弃当前未保存修改？', danger: true, confirmLabel: '放弃修改' }).then(ok => { if (ok) void discard() }) }} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} onRenameVersion={(versionId, label) => void renameVersion(versionId, label)} revising={revising} onExport={(format) => void exportAs(format)} /> : <div className="article-empty"><LibraryBig size={40} /><h3>{articles.length ? '没有匹配的文章' : '还没有文章'}</h3><p>{articles.length ? '换个关键词或筛选条件试试。' : '可以让模型按框架写一篇，也可以直接把写好的稿子导入进来慢慢打磨。'}</p><div className="article-empty-actions"><button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入现成稿</button><button className="button secondary" onClick={() => setFileImportOpen(true)}><FileUp size={16} />导入 DOCX/HTML</button><button className="button primary" onClick={() => { setComposerOpen(true); setImportOpen(false) }}><PenLine size={16} />开始写作</button></div></div>}</section>
+    <section className="article-workbench">
+      <aside className="article-list" aria-label="文章列表">
+        <header>
+          <h3>文章 <small>{total}</small></h3>
+          <span className="article-list-loading" role="status">{listLoading ? '读取中…' : ''}</span>
+        </header>
+        <div className="article-list-filters">
+          <label className="search-field">
+            <Search size={16} />
+            <input name="articleListQuery" aria-label="搜索文章" autoComplete="off" value={listQuery} onChange={(event) => setListQuery(event.target.value)} placeholder="搜索标题或正文…" />
+          </label>
+          <div className="segmented article-list-status" role="group" aria-label="文章状态">
+            {(['all', 'locked', 'draft'] as const).map((value) => <button key={value} aria-pressed={listStatus === value} className={listStatus === value ? 'active' : ''} onClick={() => setListStatus(value)}>{value === 'all' ? '全部' : value === 'locked' ? '已锁定' : '草稿'}</button>)}
+          </div>
+          <div className="segmented account-filter" role="group" aria-label="账号筛选">
+            <button aria-pressed={accountFilter === 'all'} className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button>
+            <button aria-pressed={accountFilter === 'current'} className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的文章' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button>
+          </div>
+        </div>
+        <div className="article-list-results" ref={listResultsRef} aria-busy={listLoading}>
+          {articles.length ? <VirtualList items={filteredArticles} estimateSize={() => 100} renderItem={(article) => (
+            <button key={article.id} disabled={listLoading} aria-current={article.id === selectedId ? 'true' : undefined} className={`article-list-item ${article.id === selectedId ? 'active' : ''}`} onClick={() => setSelectedId(article.id)}>
+              <span className={`badge ${article.status === 'locked' ? 'success' : 'neutral'}`}>{article.status === 'locked' ? '已锁定' : '草稿'}</span>
+              <strong title={article.title}>{article.title}</strong>
+              <small>第 {article.versionCount} 版 · {formatDate(article.updatedAt)}</small>
+              {article.hasWorkDraft && <em>待保存修改</em>}
+            </button>
+          )} /> : !listLoading && <div className="article-list-empty"><BookOpenText size={28} /><span>{query || listStatus !== 'all' || accountFilter !== 'all' || dirtyOnly ? '没有匹配的文章' : '暂无文章'}</span></div>}
+        </div>
+        <div className="article-pagination">
+          <button className="button ghost compact" disabled={listLoading || !page} onClick={() => setPage(current => Math.max(0, current - 1))}>上一页</button>
+          <span aria-live="polite">{page + 1} / {Math.max(1, Math.ceil(total / 30))}</span>
+          <button className="button ghost compact" disabled={listLoading || (page + 1) * 30 >= total} onClick={() => setPage(current => current + 1)}>下一页</button>
+        </div>
+      </aside>
+      {selected && selected.id === selectedId ? <ArticleEditor article={selected} draft={draft} dirty={dirty} editorMode={editorMode} imageAssets={imageAssets} onAssetImported={asset => setImageAssets(current => [...current, asset])} instruction={instruction} alignFramework={alignFramework} count={count} revisionMode={revisionMode} onRevisionModeChange={setRevisionMode} onDraftChange={setDraft} loadingDraft={draftStatus === 'loading'} draftStatus={draftStatus} onDiscard={() => { void confirm({ title: '放弃修改', message: '确认放弃当前未保存修改？', danger: true, confirmLabel: '放弃修改' }).then(ok => { if (ok) void discard() }) }} onModeChange={setEditorMode} onInstructionChange={setInstruction} onAlignChange={setAlignFramework} onCountChange={setCount} onSave={() => void saveManual()} onRevise={() => void revise()} onLock={() => void toggleLock()} onRemove={() => void remove()} onRestore={(versionId) => void restore(versionId)} onRenameVersion={(versionId, label) => void renameVersion(versionId, label)} revising={revising} onExport={(format) => void exportAs(format)} /> : <div className="article-empty"><LibraryBig size={40} /><h3>{articles.length ? '没有匹配的文章' : '还没有文章'}</h3><p>{articles.length ? '换个关键词或筛选条件试试。' : '可以让模型按框架写一篇，也可以直接把写好的稿子导入进来慢慢打磨。'}</p><div className="article-empty-actions"><button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入现成稿</button><button className="button secondary" onClick={() => setFileImportOpen(true)}><FileUp size={16} />导入 DOCX/HTML</button><button className="button primary" onClick={() => { setComposerOpen(true); setImportOpen(false) }}><PenLine size={16} />开始写作</button></div></div>}
+    </section>
     <ImportDraftDialog open={importOpen} busy={importing} onClose={() => setImportOpen(false)} onImport={(markdown, label) => void importArticle(markdown, label)} />
     <ImportDialog
       open={fileImportOpen}
@@ -387,7 +425,7 @@ function ArticleEditor({ article, draft, dirty, loadingDraft, draftStatus, edito
           /* 源码模式左右并排：左边改字，右边同步看到微信里的真实排版（与正式排版同一渲染函数） */
           <div className={`article-split ${editorMode === 'source' ? 'source-only' : ''}`}>
             <textarea ref={editorRef} onSelect={() => { selectionArticleId.current = article.id }} disabled={loadingDraft} maxLength={190000} className="article-markdown-editor" name="articleMarkdown" aria-label="正文 Markdown 编辑器" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck />
-            {editorMode === 'split' && <WechatLivePreview markdown={draft} />}
+            {editorMode === 'split' && <WechatLivePreview articleId={article.id} markdown={draft} />}
           </div>
         ) : <MarkdownPreview markdown={draft} />}</div><aside className="article-rail desk-rail"><h4 className="article-rail-title rail-h">AI 动作</h4><details className="article-revision"><summary>智能改稿 · 按要求生成新版本</summary><textarea name="instruction" autoComplete="off" rows={3} value={instruction} maxLength={8000} onChange={(event) => onInstructionChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); onRevise() } }} placeholder="输入改稿要求（Ctrl+Enter 生成改稿）" /><footer><Select value={revisionMode} onChange={value => onRevisionModeChange(value as ReviseArticleInput["revisionMode"])} ariaLabel="改稿方式" options={[{ value: "new-version", label: "当前文章新版本" }, { value: "new-candidates", label: "独立备选稿" }]} /><label><input type="checkbox" name="alignFramework" autoComplete="off" checked={alignFramework} onChange={(event) => onAlignChange(event.target.checked)} />对齐框架</label><details className="composer-advanced revision-advanced"><summary><Sliders size={16} />候选 {count} 个</summary><label className="field"><span>候选数</span><Select value={String(count)} onChange={(value) => onCountChange(Number(value))} ariaLabel="改稿候选数" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></label></details><span /><button className="button secondary" disabled={revising || !instruction.trim()} onClick={onRevise}>{revising ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}{revising ? '正在改稿…' : '生成改稿'}</button></footer></details><h4 className="article-rail-title rail-gap">版本历史</h4><details className="article-history"><summary><History size={16} />版本历史 · {article.versionCount} 个版本</summary>{article.versions.map((version) => <div key={version.id}><span>{version.label || `第 ${version.versionNumber} 版`}</span><strong>{version.source === 'generate' ? '智能写作' : version.source === 'revise' ? '智能改稿' : version.source === 'manual' ? '手动编辑' : '恢复版本'}</strong><small>{version.model || '本地'} · {formatDate(version.createdAt)}{version.label ? ` · 第 ${version.versionNumber} 版` : ''}</small><div className="article-history-actions">{namingId === version.id ? <input className="article-version-name" name={`versionName-${version.versionNumber}`} autoComplete="off" defaultValue={version.label ?? ''} maxLength={60} placeholder="给这一版起个名字，回车保存" aria-label={`命名第 ${version.versionNumber} 版`} autoFocus onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); nameCancelRef.current = version.id; setNamingId(''); return } if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }} onBlur={(event) => { const value = event.currentTarget.value; if (nameCancelRef.current === version.id) nameCancelRef.current = ''; else onRenameVersion(version.id, value); setNamingId('') }} /> : <button className="button ghost compact" onClick={() => setNamingId(version.id)}>{version.label ? '改名' : '命名'}</button>}<button className="button ghost compact" onClick={() => setCompareId(version.id)}>对比</button>{version.id !== article.currentVersionId && <button className="button ghost compact" onClick={() => onRestore(version.id)}>恢复</button>}</div></div>)}</details>
 </aside>
@@ -429,7 +467,7 @@ const PREVIEW_WIDTHS = [
   { id: 'full', label: '满宽', width: 0 }
 ] as const
 
-function WechatLivePreview({ markdown, themeId }: { markdown: string; themeId?: string }): React.JSX.Element {
+function WechatLivePreview({ articleId, markdown, themeId }: { articleId?: string; markdown: string; themeId?: string }): React.JSX.Element {
   const [html, setHtml] = useState('')
   const [violations, setViolations] = useState<LayoutViolation[]>([])
   const [widthId, setWidthId] = useState<(typeof PREVIEW_WIDTHS)[number]['id']>('phone')
@@ -445,7 +483,7 @@ function WechatLivePreview({ markdown, themeId }: { markdown: string; themeId?: 
     let cancelled = false
     setPending(true)
     const timer = setTimeout(() => {
-      window.moliu.layouts.renderPreview({ markdown, platform: 'wechat', themeId })
+      window.moliu.layouts.renderPreview({ articleId, markdown, platform: 'wechat', themeId })
         .then((result) => {
           if (cancelled) return
           setHtml(result.html)
@@ -462,7 +500,7 @@ function WechatLivePreview({ markdown, themeId }: { markdown: string; themeId?: 
       cancelled = true
       clearTimeout(timer)
     }
-  }, [markdown, themeId])
+  }, [articleId, markdown, themeId])
 
   const activeWidth = PREVIEW_WIDTHS.find((item) => item.id === widthId)
   const errors = violations.filter((violation) => violation.level === 'error')

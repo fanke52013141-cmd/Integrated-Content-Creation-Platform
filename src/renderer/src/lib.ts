@@ -68,8 +68,9 @@ export function isSafeUrl(value: string | undefined | null): value is string {
 // 那比不预览更糟：用户以为预览就是最终效果。
 const sanitizeConfig = {
   ALLOWED_TAGS: [
-    'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'article', 'section', 'figure', 'figcaption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'p', 'span', 'blockquote', 'br', 'hr',
+    'sup', 'sub',
     'ul', 'ol', 'li',
     'strong', 'em', 'b', 'i', 'u', 's', 'del', 'mark',
     'a', 'img',
@@ -78,7 +79,8 @@ const sanitizeConfig = {
     'section',
     'table', 'thead', 'tbody', 'tr', 'th', 'td'
   ],
-  ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'target', 'rel', 'leaf'],
+  ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'target', 'rel', 'start', 'colspan', 'rowspan', 'scope', 'width', 'height', 'leaf'],
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|moliu-asset:\/\/assets\/|data:image\/(?:png|gif|jpe?g|webp);base64,)/i,
   ALLOW_DATA_ATTR: false
 }
 

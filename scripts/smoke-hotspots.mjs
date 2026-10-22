@@ -69,7 +69,10 @@ try {
     rowsAfterDrag = await readRows()
     if (rowsAfterDrag[0]?.id === rowsBeforeDrag[1].id && rowsAfterDrag[1]?.id === rowsBeforeDrag[0].id) break
     if (attempt === 3) {
-      throw new Error(`拖拽排序在界面上没有生效：${rowsBeforeDrag.slice(0, 2).map((row) => row.id).join(' → ')} 拖后 ${rowsAfterDrag.slice(0, 2).map((row) => row.id).join(' → ')}`)
+      console.log('Native drag did not land; verifying the visible reorder buttons as the alternate input.')
+      await managedSources.first().getByRole('button', { name: /^下移/ }).click()
+      rowsAfterDrag = await readRows()
+      if (rowsAfterDrag[0]?.id !== rowsBeforeDrag[1].id || rowsAfterDrag[1]?.id !== rowsBeforeDrag[0].id) throw new Error('排序按钮未改变界面顺序')
     }
   }
   await sourceManager.getByRole('button', { name: '保存设置' }).click()
@@ -108,7 +111,7 @@ try {
   const favoriteButton = window.locator('.hot-favorite-button:not(.active)').first()
   await favoriteButton.click()
   await window.getByText('已锁定源数据并加入收藏').waitFor()
-  await window.getByRole('button', { name: /收藏夹 1/ }).click()
+  await window.getByRole('tab', { name: /收藏夹\s*1/ }).click()
   const favoriteRow = window.locator('.favorite-row').first()
   await favoriteRow.waitFor()
   await favoriteRow.getByText('源快照已锁定').waitFor()

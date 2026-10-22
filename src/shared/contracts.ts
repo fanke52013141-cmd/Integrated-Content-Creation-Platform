@@ -730,6 +730,7 @@ export interface GenerateVisualAssetInput {
 }
 /** 参考图编辑：imageUrl 必须是供应商服务端可访问的公网地址 */
 export interface EditVisualAssetInput {
+  resolution?: ImageResolution
   packId: string
   kind: VisualAssetKind
   slot?: number
@@ -757,10 +758,10 @@ export interface LayoutViolation {
   /** 面向用户的修复建议 */
   hint?: string
 }
-export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; importSource?: ContentImportSource; createdAt: string }
+export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; layoutVersionId?: string; layoutConfigSnapshot?: { themeId: string; customCss?: string; styleConfig?: LayoutStyleConfig }; renderEngineVersion?: string; importSource?: ContentImportSource; createdAt: string }
 /** 生成排版稿的返回值：附带平台合规校验结果，供界面提示 */
 export type CreateArticleLayoutResult = ArticleLayout & { violations?: LayoutViolation[] }
-export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
+export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
 /**
  * 文章类型。用于「按内容类型选主题」——用户不该面对 5 个色块盲选，
  * 而应该选"我要写教程"然后得到适合教程的主题。
@@ -778,6 +779,32 @@ export interface LayoutThemeInfo {
   /** 视觉性格一句话，帮助用户在相似主题间区分 */
   personality: string
 }
+export interface LayoutStyleConfig {
+  bodyFontSize?: number
+  bodyLineHeight?: number
+  paragraphSpacing?: number
+  paragraphFirstLineIndent?: boolean
+  bodyFontFamily?: 'system' | 'serif'
+  heading2FontSize?: number
+  heading3FontSize?: number
+  heading2Variant?: 'accent-bar' | 'underline' | 'filled'
+  quoteVariant?: 'bar' | 'card' | 'plain'
+  imageRadius?: number
+  imageCaptionFontSize?: number
+  accentColor?: string
+  textColor?: string
+  showTitleInBody?: boolean
+  brandHeaderText?: string
+  brandFooterText?: string
+}
+export interface AccountLayoutVersion { id: string; accountId: string; platform: LayoutPlatform; versionNumber: number; themeId: string; customCss?: string; styleConfig: LayoutStyleConfig; createdAt: string; updatedAt: string }
+export interface SetAccountLayoutDefaultInput { accountId: string; platform: LayoutPlatform; themeId: string; styleConfig?: LayoutStyleConfig; customCss?: string; expectedVersionId?: string | null }
+export interface AccountLayoutDraft { accountId: string; platform: LayoutPlatform; themeId: string; styleConfig: LayoutStyleConfig; customCss?: string; baseVersionId: string | null; revision: number; updatedAt: string }
+export interface SaveAccountLayoutDraftInput { accountId: string; platform: LayoutPlatform; themeId: string; styleConfig: LayoutStyleConfig; customCss?: string; baseVersionId: string | null; expectedRevision: number }
+export interface LayoutPreviewSampleInput { platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; customCss?: string }
+export interface LayoutPreviewResult { title: string; html: string; plainText: string; themeId: string }
+export interface LayoutPresetPackage { format: 'moliu-layout-preset'; schemaVersion: 1; exportedAt: string; themeId: string; styleConfig: LayoutStyleConfig }
+/** 排版主题元信息（完整 CSS 在主进程，不经 IPC 传输） */
 export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
@@ -961,6 +988,8 @@ export interface MoliuApi {
     /** 导出成品到本地：Markdown 或图片内嵌的单文件 HTML，离线可读 */
     exportArticle(input: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }): Promise<LocalFileResult>
     exportLayout(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult>
+    exportLayoutPreset(input: Omit<LayoutPresetPackage, 'format' | 'schemaVersion' | 'exportedAt'>): Promise<LocalFileResult>
+    importLayoutPreset(): Promise<LayoutPresetPackage | null>
     /** 整库备份：数据库快照 + 图片目录 + 校验清单 */
     createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }>
     restoreBackup(input: { bundleDir: string }): Promise<{ restoredImages: number }>
@@ -1143,8 +1172,16 @@ export interface MoliuApi {
      * 实时预览渲染。与正式排版调用同一个 renderLayoutMarkdown，
      * 因此预览所见即最终发布所得。不落库——预览是高频调用。
      */
-    renderPreview(input: { markdown: string; platform?: LayoutPlatform; themeId?: string }): Promise<CreateArticleLayoutResult>
+    renderPreview(input: { articleId?: string; markdown: string; platform?: LayoutPlatform; themeId?: string }): Promise<CreateArticleLayoutResult>
     create(input: CreateArticleLayoutInput): Promise<CreateArticleLayoutResult>
+    getAccountDefault(accountId: string, platform: LayoutPlatform): Promise<AccountLayoutVersion | null>
+    listAccountVersions(accountId: string, platform: LayoutPlatform): Promise<AccountLayoutVersion[]>
+    setAccountDefault(input: SetAccountLayoutDefaultInput): Promise<AccountLayoutVersion>
+    getAccountDraft(accountId: string, platform: LayoutPlatform): Promise<AccountLayoutDraft | null>
+    saveAccountDraft(input: SaveAccountLayoutDraftInput): Promise<AccountLayoutDraft>
+    activateAccountDraft(accountId: string, platform: LayoutPlatform, revision: number): Promise<AccountLayoutVersion>
+    previewSample(input: LayoutPreviewSampleInput): Promise<LayoutPreviewResult>
+    previewArticle(input: CreateArticleLayoutInput): Promise<LayoutPreviewResult>
     remove(id: string): Promise<void>
   }
   publishing: {
@@ -1158,6 +1195,7 @@ export interface MoliuApi {
     resolveUnknown(input: { id: string; decision: 'received' | 'not-received' | 'unresolved'; note: string; expectedUpdatedAt: string; remoteId?: string }): Promise<Publication>
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
+    /** 上传公众号正文图片并返回可用于粘贴的 HTML；不创建草稿 */
     update(input: UpdatePublicationInput): Promise<Publication>
     /** 记录发布复盘（目标/结果/经验），传空即清除 */
     saveRetro(input: SavePublicationRetroInput): Promise<Publication>

@@ -20,6 +20,7 @@
     "test:reviews": "npm run build && node scripts/smoke-reviews.mjs",
     "test:visuals": "npm run build && node scripts/smoke-visuals.mjs",
     "test:layouts": "npm run build && node scripts/smoke-layouts.mjs",
+    "test:account-layouts": "npm run build && node scripts/smoke-account-layouts.mjs",
     "test:publishing": "npm run build && node scripts/smoke-publishing.mjs",
     "test:workspace": "npm run build && node scripts/smoke-workspace.mjs",
     "test:smokes": "npm run build && node scripts/run-all-smokes.mjs",

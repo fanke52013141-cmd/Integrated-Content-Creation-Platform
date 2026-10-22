@@ -36,6 +36,8 @@
 .source-manager-list { flex-shrink: 1; min-height: 0; max-height: 48dvh; }
 .source-manager-list article { display: grid; grid-template-columns: 16px 32px minmax(0, 1fr) auto auto; align-items: center; padding: 12px; gap: 10px; border: 1px solid var(--border-subtle); border-radius: 8px; }
 .source-manager-name strong, .source-manager-list label { font-size: 13px; }
+.source-order-controls { display: inline-flex; align-items: center; gap: 2px; }
+.source-order-controls .button { padding: 2px 4px; min-width: 24px; height: 28px; }
 .filter-dialog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 24px; }
 .weibo-login-body { padding: 24px; }
 @media (max-width: 1279px) { .hotspots-page .hotspot-radar-layout { grid-template-columns: 192px minmax(0, 1fr); } .hotspots-page .hotspot-insight-rail { grid-column: 1 / -1; } }

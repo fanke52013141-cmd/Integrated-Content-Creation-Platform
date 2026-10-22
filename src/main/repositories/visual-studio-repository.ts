@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
-import type { StyleReference, VisualPlan, VisualStyle, VisualStyleInput } from '../../shared/visual-studio.js'
+import type { StyleReference, VisualPlan, VisualStyle, VisualStyleInput, VisualPlanDraft, VisualImageJob, StyleSampleTask } from '../../shared/visual-studio.js'
 
 export class VisualStudioRepository {
   constructor(private readonly db: DatabaseSync) {
@@ -25,6 +25,16 @@ export class VisualStudioRepository {
         plan_id TEXT PRIMARY KEY REFERENCES visual_studio_plans(id) ON DELETE CASCADE,
         article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
         before_markdown TEXT NOT NULL, after_version_id TEXT NOT NULL, previous_form_json TEXT);
+      CREATE TABLE IF NOT EXISTS visual_studio_drafts (
+        plan_id TEXT PRIMARY KEY REFERENCES visual_studio_plans(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL, data_json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS visual_studio_jobs (
+        id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES visual_studio_plans(id) ON DELETE CASCADE,
+        data_json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS visual_asset_specs (
+        asset_id TEXT PRIMARY KEY REFERENCES visual_assets(id) ON DELETE CASCADE,
+        signature TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS visual_style_sample_tasks (id TEXT PRIMARY KEY,data_json TEXT NOT NULL);
     `)
   }
   styles(): VisualStyle[] {
@@ -67,5 +77,25 @@ export class VisualStudioRepository {
   }
   applied(planId: string, articleId: string, before: string, after: string, previousForm: unknown): void { this.db.prepare('INSERT OR REPLACE INTO visual_studio_applications VALUES(?,?,?,?,?)').run(planId, articleId, before, after, previousForm ? JSON.stringify(previousForm) : null) }
   clearApplication(planId: string): void { this.db.prepare('DELETE FROM visual_studio_applications WHERE plan_id=?').run(planId) }
+  draft(planId: string): VisualPlanDraft | null { const row = this.db.prepare('SELECT data_json FROM visual_studio_drafts WHERE plan_id=?').get(planId); return row ? JSON.parse(String(row.data_json)) : null }
+  saveDraft(plan: VisualPlan, expectedRevision: number): VisualPlanDraft {
+    if (this.plan(plan.id).revision !== plan.revision) throw new Error('方案已有新版本，本地草稿保留，请重新载入并检查差异')
+    if ((this.draft(plan.id)?.revision ?? 0) !== expectedRevision) throw new Error('草稿已在其他窗口更新，请先载入草稿')
+    const draft: VisualPlanDraft = { planId: plan.id, revision: expectedRevision + 1, baseRevision: plan.revision, plan, updatedAt: new Date().toISOString() }
+    this.writeDraft(draft); return draft
+  }
+  clearDraft(planId: string, revision: number): void {
+    const current = this.draft(planId)
+    if (!current || current.revision !== revision) throw new Error('草稿已更新，请先载入最新草稿')
+    this.writeDraft({ ...current, revision: revision + 1, plan: null, updatedAt: new Date().toISOString() })
+  }
+  private writeDraft(draft: VisualPlanDraft): void { this.db.prepare('INSERT INTO visual_studio_drafts VALUES(?,?,?) ON CONFLICT(plan_id) DO UPDATE SET revision=excluded.revision,data_json=excluded.data_json').run(draft.planId,draft.revision,JSON.stringify(draft)) }
+  assetSignature(assetId: string): string | undefined { const row = this.db.prepare('SELECT signature FROM visual_asset_specs WHERE asset_id=?').get(assetId); return row ? String(row.signature) : undefined }
+  stampAsset(assetId: string, signature: string): void { this.db.prepare('INSERT OR REPLACE INTO visual_asset_specs VALUES(?,?)').run(assetId,signature) }
+  jobs(planId?: string): VisualImageJob[] { return this.db.prepare(`SELECT data_json FROM visual_studio_jobs ${planId ? 'WHERE plan_id=?' : ''} ORDER BY rowid`).all(...(planId ? [planId] : [])).map(row => JSON.parse(String(row.data_json))) }
+  job(id: string): VisualImageJob { const row = this.db.prepare('SELECT data_json FROM visual_studio_jobs WHERE id=?').get(id); if (!row) throw new Error('图片任务不存在'); return JSON.parse(String(row.data_json)) }
+  saveJob(job: VisualImageJob): void { this.db.prepare('INSERT INTO visual_studio_jobs VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json').run(job.id,job.planId,JSON.stringify({...job,updatedAt:new Date().toISOString()})) }
+  samples(): StyleSampleTask[] { return this.db.prepare('SELECT data_json FROM visual_style_sample_tasks ORDER BY rowid DESC').all().map(row=>JSON.parse(String(row.data_json))) }
+  saveSample(task: StyleSampleTask): void { this.db.prepare('INSERT OR REPLACE INTO visual_style_sample_tasks VALUES(?,?)').run(task.id,JSON.stringify(task)) }
   restoreForm(articleId: string, previous: string | null): void { if (previous) this.db.prepare('INSERT OR REPLACE INTO publish_form_drafts VALUES(?,?)').run(articleId, previous); else this.db.prepare('DELETE FROM publish_form_drafts WHERE article_id=?').run(articleId) }
 }

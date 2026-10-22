@@ -275,6 +275,8 @@ function createMockBridge(): MoliuApi {
       // 浏览器预览没有本地磁盘权限：导出/备份返回「已取消」语义，页面按提示分支展示
       exportArticle: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
       exportLayout: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
+      exportLayoutPreset: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
+      importLayoutPreset: () => Promise.resolve(null),
       createBackup: (): Promise<{ path: string; checksum: string }> =>
         Promise.resolve({ path: '/demo/workspace/backups/moliu-backup-demo', checksum: 'demo' }),
       restoreBackup: (): Promise<{ restoredImages: number }> => Promise.resolve({ restoredImages: 0 }),
@@ -496,6 +498,9 @@ function createMockBridge(): MoliuApi {
     },
     visuals: {
       studio: {
+        samples: () => emptyArray(), recheckSamples: () => void_(),
+        getDraft: () => Promise.resolve(null), saveDraft: () => void_(), discardDraft: () => void_(),
+        assetStates: () => emptyArray(), jobs: () => emptyArray(), enqueue: () => void_(), controlJob: () => void_(),
         styles: () => emptyArray(), plans: () => emptyArray(), defaultStyle: () => Promise.resolve(null),
         saveStyle: () => Promise.reject(new Error('请在桌面应用中保存风格')),
         archiveStyle: () => void_(), styleHistory: () => emptyArray(),
@@ -542,6 +547,14 @@ function createMockBridge(): MoliuApi {
           plainText: input.markdown, themeId: 'wechat-green',
           createdAt: new Date().toISOString(), violations: []
         }),
+      previewSample: () => Promise.resolve({ title: '固定版式标准样稿', html: '', plainText: '', themeId: 'wechat-green' }),
+      previewArticle: () => Promise.reject(new Error('请在桌面应用中预览文章版式')),
+      getAccountDefault: () => Promise.resolve(null),
+      getAccountDraft: () => Promise.resolve(null),
+      saveAccountDraft: () => Promise.reject(new Error('请在桌面应用中保存版式草稿')),
+      activateAccountDraft: () => Promise.reject(new Error('请在桌面应用中启用账号版式')),
+      listAccountVersions: () => emptyArray(),
+      setAccountDefault: (input: unknown) => Promise.resolve(input),
       create: (input: unknown) => Promise.resolve(input),
       remove: () => void_()
     },

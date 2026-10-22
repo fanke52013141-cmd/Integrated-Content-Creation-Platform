@@ -69,6 +69,7 @@ import type {
   SaveArticleInput,
   RestoreArticleVersionInput,
   RenameArticleVersionInput,
+  LayoutPresetPackage,
   SaveReviewRoleInput, StartReviewInput, UpdateReviewProblemInput, AddManualReviewProblemInput,
   TopicSchemaField,
   UpdateHotFavoriteTagsInput
@@ -128,6 +129,33 @@ const providerSchema = z.object({
     }
   })
 })
+
+const layoutStyleConfigSchema = z.object({
+  bodyFontSize: z.number().min(13).max(20).optional(),
+  bodyLineHeight: z.number().min(1.4).max(2.2).optional(),
+  paragraphSpacing: z.number().int().min(8).max(32).optional(),
+  paragraphFirstLineIndent: z.boolean().optional(),
+  bodyFontFamily: z.enum(['system', 'serif']).optional(),
+  heading2FontSize: z.number().int().min(16).max(26).optional(),
+  heading3FontSize: z.number().int().min(14).max(22).optional(),
+  heading2Variant: z.enum(['accent-bar', 'underline', 'filled']).optional(),
+  quoteVariant: z.enum(['bar', 'card', 'plain']).optional(),
+  imageRadius: z.number().int().min(0).max(24).optional(),
+  imageCaptionFontSize: z.number().int().min(10).max(16).optional(),
+  accentColor: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  textColor: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  showTitleInBody: z.boolean().optional(),
+  brandHeaderText: z.string().max(1200).optional(),
+  brandFooterText: z.string().max(1200).optional()
+}).strict()
+
+const layoutPresetPackageSchema = z.object({
+  format: z.literal('moliu-layout-preset'),
+  schemaVersion: z.literal(1),
+  exportedAt: z.string().datetime(),
+  themeId: z.string().trim().min(1).max(60),
+  styleConfig: layoutStyleConfigSchema
+}).strict()
 
 const hotItemSchema = z.object({
   id: z.string().trim().min(1).max(300),
@@ -256,6 +284,19 @@ export function registerIpc(options: {
   handle('app:export-layout', (_event, raw: { layoutId: string; targetDir?: string }) => {
     const input = z.object({ layoutId: z.string().uuid(), targetDir: z.string().min(1).max(1_000).optional() }).parse(raw)
     return workspace.exportLayout(input)
+  })
+  handle('app:export-layout-preset', (_event, raw: unknown) => {
+    const input = z.object({ themeId: z.string().trim().min(1).max(60), styleConfig: layoutStyleConfigSchema }).strict().parse(raw)
+    if (!listLayoutThemes().some((theme) => theme.id === input.themeId)) throw new Error('版式包只能导出内置主题')
+    const bundle: LayoutPresetPackage = { format: 'moliu-layout-preset', schemaVersion: 1, exportedAt: new Date().toISOString(), ...input }
+    return workspace.exportLayoutPreset(bundle)
+  })
+  handle('app:import-layout-preset', async () => {
+    const raw = await workspace.importLayoutPreset()
+    if (raw === null) return null
+    const bundle = layoutPresetPackageSchema.parse(raw)
+    if (!listLayoutThemes().some((theme) => theme.id === bundle.themeId)) throw new Error('版式包中的主题不存在或当前版本不支持')
+    return bundle
   })
   handle('app:backup-create', (_event, raw?: { targetDir?: string }) => {
     const input = z.object({ targetDir: z.string().min(1).max(1_000).optional() }).optional().parse(raw)
@@ -858,17 +899,18 @@ export function registerIpc(options: {
   handle('layouts:list',(_e,articleId?:string)=>database.listArticleLayouts(articleId?requireId(articleId):undefined))
   handle('layouts:themes',()=>listLayoutThemes())
   handle('layouts:genres',()=>listArticleGenres())
-  handle('layouts:create',(_e,raw:unknown)=>articleLayoutService.create(z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional()}).parse(raw)))
-  handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))
   // 实时预览：复用与正式排版完全相同的渲染函数，保证「预览即所得」。
   // 刻意不落库——预览是高频调用，存盘会带来无意义的版本记录。
   handle('layouts:renderPreview',(_e,raw:unknown)=>{
     const input=z.object({
+      articleId:z.string().uuid().optional(),
       markdown:z.string().max(200_000),
       platform:z.enum(['wechat','xiaohongshu','web']).default('wechat'),
       themeId:z.string().trim().min(1).max(60).optional()
     }).parse(raw)
-    const rendered=renderLayoutMarkdown(input.markdown,input.platform,input.themeId)
+    const accountId=input.articleId?database.getArticle(input.articleId)?.accountId:undefined
+    const binding=accountId&&!input.themeId?database.getAccountLayoutDefault(accountId,input.platform):null
+    const rendered=renderLayoutMarkdown(input.markdown,input.platform,input.themeId??binding?.themeId,binding?.customCss,binding?.styleConfig)
     // 一并返回合规校验结果：预览时就能告知「这个写法发出去会丢格式」，
     // 这是实时预览独有的价值——不预览就看不到
     return { ...rendered, violations: validateWechatLayout({ html: rendered.html, title: rendered.title }) }
@@ -877,6 +919,36 @@ export function registerIpc(options: {
   registerPublishingIpc(handle, database, keyStore, wechatPublishService)
   // 外部内容导入：文件读取与解析留在主进程，renderer 只拿预览与结果
   registerImportsIpc(handle, new ContentImportService(database))
+  handle('layouts:preview-sample',(_e,raw:unknown)=>{
+    const input=z.object({platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
+    if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
+    return articleLayoutService.previewSample(input)
+  })
+  handle('layouts:preview-article',(_e,raw:unknown)=>{
+    const input=z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
+    if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
+    return articleLayoutService.previewArticle(input)
+  })
+  handle('layouts:account-default:get',(_e,accountId:string,platform:unknown)=>database.getAccountLayoutDefault(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform)))
+  handle('layouts:account-versions:list',(_e,accountId:string,platform:unknown)=>database.listAccountLayoutVersions(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform)))
+  handle('layouts:account-draft:get',(_e,accountId:string,platform:unknown)=>database.getAccountLayoutDraft(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform)))
+  handle('layouts:account-draft:save',(_e,raw:unknown)=>{
+    const input=z.object({accountId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60),styleConfig:layoutStyleConfigSchema,customCss:z.string().max(20_000).optional(),baseVersionId:z.string().uuid().nullable(),expectedRevision:z.number().int().min(0)}).parse(raw)
+    if(input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
+    return database.saveAccountLayoutDraft(input)
+  })
+  handle('layouts:account-draft:activate',(_e,accountId:string,platform:unknown,revision:unknown)=>database.activateAccountLayoutDraft(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform),z.number().int().min(1).parse(revision)))
+  handle('layouts:account-default:set',(_e,raw:unknown)=>{
+    const input=z.object({accountId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional(),expectedVersionId:z.string().uuid().nullable().optional()}).parse(raw)
+    if(input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
+    return database.setAccountLayoutDefault(input)
+  })
+  handle('layouts:create',(_e,raw:unknown)=>{
+    const input=z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
+    if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
+    return articleLayoutService.create(input)
+  })
+  handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))
 }
 
 const operationGate = new OperationGate()

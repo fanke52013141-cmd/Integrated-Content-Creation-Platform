@@ -1,9 +1,33 @@
 /* Stitch: 文章库 / 主画布 / 辅助栏；创建流程独立为弹窗。 */
-.articles-page { gap: 14px; }
-.articles-page .article-workbench { margin-top: 0; grid-template-columns: 228px minmax(0, 1fr); min-height: max(580px, calc(100vh - 175px)); box-shadow: none; }
-.articles-page .article-list { padding: 20px 16px; background: #fafbfc; }
-.articles-page .article-list-filters { gap: 12px; }
-.articles-page .article-list-item { padding: 16px 12px; border-radius: 8px; }
+.articles-page { gap: 14px; container: article-workspace / inline-size; }
+/* 操作较多时单独占一行，给标题与说明保留完整宽度。 */
+.articles-page > .page-intro { align-items: flex-start; gap: 12px; }
+.articles-page > .page-intro > div:first-child { flex: 1 1 100%; align-items: baseline; gap: 8px 16px; }
+.articles-page > .page-intro h1 { flex: 0 0 auto; white-space: nowrap; }
+.articles-page > .page-intro .micro-copy { flex: 1 1 320px; color: var(--text-secondary); }
+.articles-page > .page-intro > .page-intro-actions { flex: 1 1 100%; min-width: 0; flex-wrap: wrap; gap: 8px; }
+.articles-page > .page-intro .button { flex: 0 0 auto; }
+.articles-page .article-workbench { margin-top: 0; grid-template-columns: 260px minmax(0, 1fr); min-height: max(580px, calc(100vh - 240px)); box-shadow: none; }
+.articles-page .article-list { display: flex; flex-direction: column; min-width: 0; min-height: 360px; max-height: max(360px, calc(100dvh - 340px)); padding: 20px 16px 12px; background: #fafbfc; }
+.articles-page .article-list > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; padding: 0 0 16px; border: 0; }
+.articles-page .article-list h3 { margin: 0; font-size: 15px; }
+.articles-page .article-list h3 small { margin-left: 4px; font-size: 12px; font-weight: 500; }
+.article-list-loading { min-height: 20px; color: var(--text-tertiary); font-size: 12px; }
+.articles-page .article-list-filters { gap: 8px; flex-shrink: 0; padding: 0 0 16px; border-bottom: 1px solid var(--border-subtle); }
+.articles-page .article-list-filters .search-field { min-width: 0; min-height: 36px; }
+.articles-page .article-list-filters input { min-width: 0; font-size: 12px; }
+.articles-page .article-list-filters .segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-self: stretch; }
+.articles-page .article-list-filters .account-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.articles-page .article-list-filters .segmented button { min-width: 0; padding: 4px; font-size: 12px; white-space: nowrap; }
+.article-list-results { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0; }
+.articles-page .article-list-item { gap: 6px; padding: 12px 10px; border: 1px solid transparent; border-bottom-color: var(--border-subtle); border-radius: 8px; }
+.articles-page .article-list-item .badge { justify-self: start; width: fit-content; padding: 2px 8px; line-height: 16px; }
+.articles-page .article-list-item strong { min-width: 0; font-size: 13px; }
+.articles-page .article-list-item small { font-size: 12px; line-height: 18px; }
+.articles-page .article-list-item.active { border-color: var(--primary-line); }
+.articles-page .article-list-item:disabled { opacity: 1; cursor: progress; }
+.articles-page .article-pagination { flex-shrink: 0; gap: 4px; padding: 12px 0 0; border-top: 1px solid var(--border-subtle); font-variant-numeric: tabular-nums; }
+.articles-page .article-pagination .button { padding-inline: 8px; }
 .articles-page .article-canvas { padding: 0 24px 24px; }
 .articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr) 260px; gap: 0; }
 .articles-page .article-rail { padding: 20px 16px; border-left: 1px solid var(--border-subtle); background: #fafbfc; }
@@ -22,6 +46,7 @@
 .articles-page .article-export-actions { background: transparent; }
 .articles-page .article-rail .article-history > div { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .articles-page .article-history-actions { flex-wrap: wrap; justify-content: flex-start; }
+html[data-writing-focus="true"] .articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr); }
 /* 改稿面板 footer 原为不换行 flex，260px 栏内放不下，会把「生成改稿」挤出视口 */
 .articles-page .article-rail .article-revision footer { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .articles-page .article-rail .article-revision footer > span { display: none; }
@@ -38,13 +63,22 @@
 .article-composer-body .editorial-input-summary { margin: 0; }
 .article-composer-footer { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 18px 28px; border-top: 1px solid var(--border-subtle); background: #fafbfc; }
 .article-composer-footer .form-hint { flex-basis: 100%; margin: 0; text-align: right; }
+/* 按实际内容宽度收栏，兼容侧边导航和页面缩放占用的空间。 */
+@container article-workspace (max-width: 1080px) {
+  .articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr); }
+  .articles-page .article-rail { border-left: 0; border-top: 1px solid var(--border-subtle); }
+}
+@container article-workspace (max-width: 760px) {
+  .articles-page .article-workbench { grid-template-columns: minmax(0, 1fr); }
+  .articles-page .article-list { min-height: 0; max-height: 480px; border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+}
 @media (max-width: 1279px) {
   .articles-page .article-editor.layout-desk.two-col { grid-template-columns: minmax(0, 1fr); }
   .articles-page .article-rail { border-left: 0; border-top: 1px solid var(--border-subtle); }
 }
 @media (max-width: 900px) {
   .articles-page .article-workbench { grid-template-columns: minmax(0, 1fr); }
-  .articles-page .article-list { border-bottom: 1px solid var(--border-subtle); }
+  .articles-page .article-list { min-height: 0; max-height: 480px; border-right: 0; border-bottom: 1px solid var(--border-subtle); }
   .article-composer-body .article-compose-grid { grid-template-columns: minmax(0, 1fr); }
   .article-composer-heading, .article-composer-body { padding: 20px; }
   .article-composer-footer { padding: 16px 20px; }

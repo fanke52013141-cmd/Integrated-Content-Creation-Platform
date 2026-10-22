@@ -11,7 +11,7 @@ const server = createServer(async(req,res)=>{
   let raw='';for await(const chunk of req) raw+=chunk
   res.setHeader('Content-Type','application/json')
   if(req.url?.endsWith('/uploads/images')) {calls.upload++;res.end(JSON.stringify({url:`http://127.0.0.1:${server.address().port}/reference.png`}));return}
-  if(req.url?.endsWith('/images/edits')) {calls.edit++;assert.match(raw,/reference\.png/);res.end(JSON.stringify({data:[{b64_json:png.toString('base64')}]}));return}
+  if(req.url?.endsWith('/images/edits')) {calls.edit++;assert.match(raw,/reference\.png/);assert.match(raw,/high/);assert.match(raw,/3072x1728|4032x1728/);res.end(JSON.stringify({data:[{b64_json:png.toString('base64')}]}));return}
   if(req.url?.endsWith('/images/generations')) {calls.image++;res.end(JSON.stringify({data:[{b64_json:png.toString('base64')}]}));return}
   const body=JSON.parse(raw),system=body.messages[0].content
   let content
@@ -34,7 +34,7 @@ const root=await mkdtemp(join(tmpdir(),'moliu-visual-studio-'))
 let app
 try{
   app=await electron.launch({executablePath:resolve('node_modules/electron/dist/electron.exe'),args:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root}})
-  const page=await app.firstWindow()
+  let page=await app.firstWindow()
   page.setDefaultTimeout(12000)
   await page.waitForLoadState('domcontentloaded')
   const rendererErrors=[];page.on('pageerror',e=>rendererErrors.push(e.message))
@@ -55,19 +55,25 @@ try{
   await page.waitForFunction(()=>document.querySelector('.studio-dialog textarea') && [...document.querySelectorAll('.studio-dialog textarea')].some(el=>el.value.includes('米白背景')))
   await dialog.getByRole('button',{name:'保存风格版本',exact:true}).click()
   await dialog.waitFor({state:'hidden'})
+  await page.getByRole('button',{name:'2. 风格与提示词',exact:true}).click()
   await page.getByLabel('当前公众号的默认配图风格',{exact:true}).selectOption({label:'暖色纸感'})
+  await page.getByRole('button',{name:'1. 确认内容方案',exact:true}).click()
   await page.getByRole('button',{name:'AI 生成配图方案',exact:true}).click()
   await page.locator('.studio-picture').nth(2).waitFor()
   assert.equal(await page.locator('.studio-picture').count(),3)
   assert.match(await page.getByLabel('本篇配图风格',{exact:false}).innerText(),/暖色纸感/)
   // Persisted editable plan passes the same strict IPC boundary used by real users.
+  await page.getByRole('button',{name:'1. 确认内容方案',exact:true}).click()
   await page.locator('.studio-picture').nth(2).getByLabel('图注（留空则隐藏）').fill('正文图注验收')
   await page.getByRole('button',{name:'保存方案修改',exact:true}).click()
+  await page.getByRole('button',{name:'2. 风格与提示词',exact:true}).click()
   await page.getByRole('button',{name:'生成／更新提示词',exact:true}).click()
   await page.waitForFunction(()=>[...document.querySelectorAll('.studio-picture textarea')].some(el=>el.value.includes('不含文字和水印')))
+  await page.getByLabel('出图质量',{exact:true}).selectOption('high')
+  await page.getByLabel('生图分辨率',{exact:true}).selectOption('2k')
   await page.locator('.studio-picture').first().getByRole('button',{name:'生成本图／样图',exact:true}).click()
   await page.locator('.studio-picture').first().getByRole('button',{name:'采用此图',exact:true}).click()
-  await page.getByRole('button',{name:'生成剩余图片',exact:true}).click()
+  await page.getByRole('button',{name:'生成剩余图片／更新旧图',exact:true}).click()
   await page.getByRole('button',{name:'开始生成',exact:true}).click()
   await page.locator('.studio-picture').nth(2).getByRole('button',{name:'采用此图',exact:true}).waitFor()
   for(const index of [1,2]){
@@ -89,6 +95,7 @@ try{
   const undone=await page.evaluate(id=>window.moliu.articles.get(id),ids.articleId)
   assert.equal(undone.rawMarkdown,ids.markdown)
   // Unsaved edits survive switching away from the workbench.
+  await page.getByRole('button',{name:'1. 确认内容方案',exact:true}).click()
   await page.locator('.studio-picture').first().getByLabel('图注（留空则隐藏）').fill('未保存的图注')
   await page.getByRole('button',{name:'原有方案与图片',exact:true}).click()
   await page.getByRole('button',{name:'内容配图工作台',exact:true}).click()
@@ -96,6 +103,17 @@ try{
   assert.equal(await page.locator('.studio-picture').first().getByLabel('图注（留空则隐藏）').inputValue(),'未保存的图注')
   await page.getByRole('button',{name:'保存方案修改',exact:true}).click()
   await page.evaluate(()=>{for(const el of document.querySelectorAll('*')) if(el.scrollTop) el.scrollTop=0})
+  await page.locator('.studio-picture').first().getByLabel('图注（留空则隐藏）').fill('跨重启自动草稿')
+  await page.getByText('编辑已自动暂存到本机，可在重启后恢复',{exact:true}).waitFor()
+  await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.destroy()}).catch(()=>undefined)
+  await app.close().catch(()=>undefined)
+  app=await electron.launch({executablePath:resolve('node_modules/electron/dist/electron.exe'),args:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root}})
+  page=await app.firstWindow();page.setDefaultTimeout(12000);await page.waitForLoadState('domcontentloaded')
+  await page.getByRole('button',{name:'智能配图',exact:true}).click()
+  await page.getByText('已恢复本地未保存的方案修改，请保存后继续',{exact:true}).waitFor()
+  assert.equal(await page.locator('.studio-picture').first().getByLabel('图注（留空则隐藏）').inputValue(),'跨重启自动草稿')
+  await page.getByRole('button',{name:'保存方案修改',exact:true}).click()
+  await page.getByRole('button',{name:'3. 生成与选图',exact:true}).click()
   await mkdir(resolve('artifacts'),{recursive:true})
   await page.screenshot({path:resolve('artifacts/visual-studio.png'),fullPage:true})
   await page.setViewportSize({width:900,height:900})

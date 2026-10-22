@@ -51,7 +51,7 @@ export class VisualAssetService {
     await mkdir(this.imagesDir, { recursive: true })
   }
 
-  async generate(input: GenerateVisualAssetInput, signal?: AbortSignal): Promise<VisualAsset> {
+  async generate(input: GenerateVisualAssetInput, signal?: AbortSignal, onTaskCreated?: (id: string) => void): Promise<VisualAsset> {
     const pack = this.database.listVisualPacks().find((item) => item.id === input.packId)
     if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
     const prompt = input.prompt.trim()
@@ -74,6 +74,7 @@ export class VisualAssetService {
         // 任务 id 一拿到就落库：之后即使应用退出/崩溃，重启也能续查这张图
         onTaskCreated: (id) => {
           taskId = id
+          onTaskCreated?.(id)
           this.database.createImageTask({
             id,
             providerId: input.providerId,
@@ -113,7 +114,7 @@ export class VisualAssetService {
    * 参考图编辑：把公网图片 URL 与修改提示词交给 /images/edits，
    * 结果与普通生成一样落成本地资产（并记录远端 URL，便于继续改图）。
    */
-  async edit(input: EditVisualAssetInput, signal?: AbortSignal): Promise<VisualAsset> {
+  async edit(input: EditVisualAssetInput, signal?: AbortSignal, onTaskCreated?: (id: string) => void): Promise<VisualAsset> {
     const pack = this.database.listVisualPacks().find((item) => item.id === input.packId)
     if (!pack) throw new Error('配图方案不存在，请先创建手动配图或生成方案')
     const prompt = input.prompt.trim()
@@ -146,12 +147,13 @@ export class VisualAssetService {
         prompt,
         imageUrl,
         // 改图接口实测只吃像素尺寸（传比例会一直卡住）
-        size: pixelSizeForRatio(input.ratio ?? '1:1'),
+        size: pixelSizeForRatio(input.ratio ?? '1:1', input.resolution),
         quality: input.quality ?? 'low',
         background: input.background,
         signal,
         onTaskCreated: (id) => {
           taskId = id
+          onTaskCreated?.(id)
           this.database.createImageTask({
             id,
             providerId: input.providerId,
@@ -316,6 +318,7 @@ export class VisualAssetService {
 
   /** 删除整个视觉包时清理其下所有图片文件 */
   async removePackAssets(packId: string): Promise<void> {
+    if (this.database.visualStudio.jobs(packId).some(j=>['queued','running','recovering'].includes(j.status))) throw new Error('方案还有生成任务，请先暂停任务再删除')
     const assets = this.database.listVisualAssets(packId)
     if (assets.some(asset => this.database.workflow.isAssetReferenced(asset.fileName))) throw new Error('配图方案中的图片仍被文章引用，不能删除')
     for (const asset of assets) {

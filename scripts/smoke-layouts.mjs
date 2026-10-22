@@ -85,8 +85,9 @@ try {
   const labels = (await twins.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim())
   if (new Set(labels).size !== 2) throw new Error(`同名文章的两个选项无法区分：${JSON.stringify(labels)}`)
   await twins.filter({ hasText: '草稿' }).click()
-  await page.getByText('同名稿子的乙段正文').waitFor()
-  if ((await page.locator('.layout-html').first().innerText()).includes('一段正文')) throw new Error('同名文章切换后预览仍是另一篇')
+  const articleFrame = page.frameLocator('iframe[title="公众号排版预览"]')
+  await articleFrame.getByText('同名稿子的乙段正文').waitFor()
+  if ((await articleFrame.locator('body').innerText()).includes('一段正文')) throw new Error('同名文章切换后预览仍是另一篇')
   await capture(page, { path: resolve(artifactDir, 'layout-same-title-distinguished.png'), animations: 'disabled' })
   console.log('Layout smoke passed: markdown rendering, version snapshot, per-article selection, rich text copy, same-title articles told apart')
 } finally {

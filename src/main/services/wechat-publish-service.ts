@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { basename, extname } from 'node:path'
 import type { DeliveryCheck, Publication, PublicationSnapshot, PushWechatDraftInput, SaveWechatPublishChannelInput, VisualAsset } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
@@ -185,14 +186,16 @@ export class WechatPublishService {
     for (const name of localAssetNames(html)) {
       const asset = assets.get(name)
       if (!asset) throw new Error(`正文图片“${name}”未登记，请重新导入`)
-      await this.visualAssets.readAssetFile(name)
-      let url = this.database.workflow.getUpload(asset.id, appId, 'inline')
+      const bytes=await this.visualAssets.readAssetFile(name)
+      const hash=createHash('sha256').update(bytes).digest('hex')
+      let url = this.database.getWechatBodyImageUrlByHash(appId,hash)
       if (!url) {
         const payload = await this.uploadImageFile(name, 'inline')
         if (!payload.url || !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\/[^\s"'<>]*$/i.test(payload.url)) throw new Error('正文图片上传未返回有效地址')
         url = payload.url
         this.database.workflow.saveUpload(asset.id, appId, 'inline', url)
       }
+      this.database.saveWechatBodyImageUrl(appId,name,hash,url)
       replacements.set(name, url)
     }
     return replaceLocalAssets(html, replacements)

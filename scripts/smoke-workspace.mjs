@@ -36,7 +36,7 @@ try {
   // F09 创作台：未配置模型时先教「连一个文本模型」，且导入不依赖模型
   await window.getByRole('button', { name: '创作台' }).first().click()
   await window.getByText('需要 AI 写作时，连接文本模型').waitFor()
-  await window.getByText('可以先导入已有文章；需要智能生成时再连接 AI 服务。').waitFor()
+  await window.getByText('AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。').waitFor()
   await capture(window, { path: resolve(artifactDir, 'home-setup.png'), animations: 'disabled', timeout: 90_000 })
 
   // F16：导入 .md 文件即成本地草稿，缺标题时自动补出可辨认的名字
@@ -54,7 +54,7 @@ try {
   await window.getByRole('button', { name: '收起作品栏' }).waitFor()
   await window.locator('.work-bar-title').click()
   await window.getByText('文章工作台').first().waitFor()
-  await window.getByLabel('创作阶段').getByRole('button', { name: '排版' }).click()
+  for (const next of ['评审', '配图', '排版']) await window.locator('.work-bar-stage-next').filter({ hasText: `下一步：${next}` }).click()
   if (!window.url().includes('layouts')) throw new Error(`作品条阶段跳转失败：${window.url()}`)
   await window.getByRole('button', { name: '创作台' }).first().click()
   await window.getByText('继续上次作品').waitFor()
@@ -117,8 +117,8 @@ try {
   await window.getByRole('button', { name: '文章创作' }).first().click()
   await window.getByText('已本地暂存 · 待保存版本').first().waitFor()
   await window.getByRole('button', { name: '创作台' }).first().click()
-  await window.getByText(/篇有本地暂存修改，尚未保存为版本/).waitFor()
-  await window.getByText(/个生成任务未全部成功/).waitFor()
+  await window.getByText(/篇修改待保存/).waitFor()
+  await window.getByText(/个任务需要检查/).waitFor()
 
   console.log('Workspace smoke passed: home setup card, import to draft, work bar stages, export inside data dir, backup/restore, failure ledger, unsaved draft count')
 } finally {

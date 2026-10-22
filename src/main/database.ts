@@ -5,6 +5,10 @@ import { WorkflowRepository } from './repositories/workflow-repository.js'
 import { createHash } from 'node:crypto'
 import type {
   AccountField,
+  AccountLayoutVersion,
+  AccountLayoutDraft,
+  SaveAccountLayoutDraftInput,
+  SetAccountLayoutDefaultInput,
   AccountMemory,
   AccountPlatformBinding,
   AccountProfile,
@@ -273,7 +277,7 @@ interface ReviewTaskRow { id:string; article_id:string; article_version_id:strin
 interface ReviewOpinionRow { id:string; task_id:string; role_id:string|null; role_name:string; provider_id:string|null; model:string|null; dimensions_json:string; overall_suggestion:string; raw_xml:string; extraction_matched:number; created_at:string }
 interface ReviewProblemRow { evidence_json:string; id:string; opinion_id:string; position:string; severity:ReviewSeverity; issue:string; suggestion:string; adopted:number; is_manual:number; created_at:string }
 interface VisualPackRow { id:string; kind:'manual'|'generated'; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; provider_id:string|null; model:string|null; cover_json:string; inline_images_json:string; release_images_json:string; raw_xml:string; created_at:string }
-interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; theme_id:string|null; created_at:string }
+interface ArticleLayoutRow { id:string; article_id:string; article_version_id:string; article_status_snapshot:ArticleStatus; platform:LayoutPlatform; title:string; html:string; plain_text:string; theme_id:string|null; layout_version_id:string|null; layout_config_snapshot_json:string|null; render_engine_version:string|null; created_at:string }
 interface VisualAssetRow { id:string; pack_id:string; kind:'cover'|'inline'|'release'; slot:number; prompt:string; file_name:string; source:'generated'|'imported'; provider_id:string|null; model:string|null; size:string|null; cost_usd:number|null; cost_estimated:number|null; remote_url:string|null; background:string|null; wechat_media_id:string|null; wechat_uploaded_at:string|null; created_at:string }
 
 /** 已提交但尚未落成图片资产的生图任务（用于重启后续查） */
@@ -291,6 +295,7 @@ export interface PendingImageTask {
   progress: number
   createdAt: string
 }
+interface AccountLayoutVersionRow { id:string; profile_id:string; platform:LayoutPlatform; version_number:number; theme_id:string; custom_css:string|null; style_config_json:string; created_at:string; updated_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
 interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
@@ -706,6 +711,33 @@ export class AppDatabase {
       );
       CREATE INDEX IF NOT EXISTS idx_image_tasks_status ON image_tasks(status, created_at DESC);
       CREATE TABLE IF NOT EXISTS article_layouts (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,article_status_snapshot TEXT NOT NULL CHECK(article_status_snapshot IN ('draft','locked')),platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),title TEXT NOT NULL,html TEXT NOT NULL,plain_text TEXT NOT NULL,theme_id TEXT,created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS wechat_body_image_cache (app_id TEXT NOT NULL,source_url TEXT NOT NULL,content_hash TEXT NOT NULL,image_url TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(app_id,source_url));
+      CREATE INDEX IF NOT EXISTS idx_wechat_body_image_hash ON wechat_body_image_cache(app_id,content_hash);
+      CREATE TABLE IF NOT EXISTS account_layout_versions (
+        id TEXT PRIMARY KEY,
+        profile_id TEXT NOT NULL REFERENCES account_profiles(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),
+        version_number INTEGER NOT NULL,
+        theme_id TEXT NOT NULL,
+        custom_css TEXT,
+        style_config_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        UNIQUE(profile_id, platform, version_number)
+      );
+      CREATE TABLE IF NOT EXISTS account_layout_drafts (
+        profile_id TEXT NOT NULL REFERENCES account_profiles(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),
+        theme_id TEXT NOT NULL, custom_css TEXT, style_config_json TEXT NOT NULL,
+        base_version_id TEXT, revision INTEGER NOT NULL, updated_at TEXT NOT NULL,
+        PRIMARY KEY(profile_id,platform)
+      );
+      CREATE TABLE IF NOT EXISTS account_layout_bindings (
+        profile_id TEXT NOT NULL REFERENCES account_profiles(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL CHECK(platform IN ('wechat','xiaohongshu','web')),
+        version_id TEXT NOT NULL REFERENCES account_layout_versions(id) ON DELETE CASCADE,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(profile_id, platform)
+      );
       CREATE TABLE IF NOT EXISTS publish_channels (id TEXT PRIMARY KEY CHECK(id='wechat-official'),display_name TEXT NOT NULL,app_id TEXT NOT NULL,enabled INTEGER NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publish_channel_secrets (channel_id TEXT PRIMARY KEY REFERENCES publish_channels(id) ON DELETE CASCADE,encrypted_secret BLOB NOT NULL,updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS publications (id TEXT PRIMARY KEY,article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,article_version_id TEXT NOT NULL,layout_id TEXT NOT NULL REFERENCES article_layouts(id) ON DELETE CASCADE,channel_id TEXT NOT NULL REFERENCES publish_channels(id),external_draft_id TEXT,status TEXT NOT NULL CHECK(status IN ('draft','published','failed','unknown')),title TEXT NOT NULL,thumb_media_id TEXT NOT NULL,published_url TEXT,error_message TEXT,retro_json TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
@@ -841,7 +873,10 @@ export class AppDatabase {
       ['review_problems', 'evidence_json', "TEXT NOT NULL DEFAULT '{}'"],
       ['publications', 'retro_json', 'TEXT'],
       ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"],
-      ['article_layouts', 'theme_id', 'TEXT']
+      ['article_layouts', 'theme_id', 'TEXT'],
+      ['article_layouts', 'layout_version_id', 'TEXT'],
+      ['article_layouts', 'layout_config_snapshot_json', 'TEXT'],
+      ['article_layouts', 'render_engine_version', 'TEXT']
     ]
     for (const [table, column, definition] of added) {
       const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as unknown as Array<{ name: string }>
@@ -2068,6 +2103,15 @@ export class AppDatabase {
     )
   }
 
+  resumeGenerationTask(id: string): void { this.db.prepare("UPDATE generation_tasks SET status='running',finished_at=NULL,detail='' WHERE id=?").run(id) }
+
+  recheckImageTask(id: string): void { this.db.prepare("UPDATE image_tasks SET status='pending',error_message=NULL WHERE id=? AND status='failed'").run(id) }
+
+  getImageTask(id: string): { status: string; assetId?: string; error?: string } | null {
+    const row = this.db.prepare('SELECT status,asset_id,error_message FROM image_tasks WHERE id=?').get(id)
+    return row ? { status: String(row.status), assetId: row.asset_id ? String(row.asset_id) : undefined, error: row.error_message ? String(row.error_message) : undefined } : null
+  }
+
   updateImageTaskProgress(id: string, progress: number): void {
     this.db.prepare("UPDATE image_tasks SET status='running', progress=?, updated_at=? WHERE id=? AND status IN ('pending','running')")
       .run(Math.max(0, Math.min(100, Math.round(progress))), new Date().toISOString(), id)
@@ -2110,8 +2154,86 @@ export class AppDatabase {
   }
 
   setVisualAssetWechatMedia(id:string,mediaId:string):VisualAsset { this.db.prepare('UPDATE visual_assets SET wechat_media_id=?,wechat_uploaded_at=? WHERE id=?').run(mediaId,new Date().toISOString(),id); const row=this.getVisualAsset(id); if(!row)throw new Error('配图资产不存在'); return row }
+  getWechatBodyImageUrl(appId: string, sourceUrl: string): string | null { const row = this.db.prepare('SELECT image_url FROM wechat_body_image_cache WHERE app_id=? AND source_url=?').get(appId, sourceUrl) as { image_url: string } | undefined; return row?.image_url ?? null }
+  getWechatBodyImageUrlByHash(appId: string, contentHash: string): string | null { const row = this.db.prepare('SELECT image_url FROM wechat_body_image_cache WHERE app_id=? AND content_hash=? LIMIT 1').get(appId, contentHash) as { image_url: string } | undefined; return row?.image_url ?? null }
+  saveWechatBodyImageUrl(appId: string, sourceUrl: string, contentHash: string, imageUrl: string): void { this.db.prepare('INSERT INTO wechat_body_image_cache(app_id,source_url,content_hash,image_url,created_at) VALUES(?,?,?,?,?) ON CONFLICT(app_id,source_url) DO UPDATE SET content_hash=excluded.content_hash,image_url=excluded.image_url').run(appId, sourceUrl, contentHash, imageUrl, new Date().toISOString()) }
+  getAccountLayoutDefault(profileId: string, platform: LayoutPlatform): AccountLayoutVersion | null {
+    const row = this.db.prepare(`
+      SELECT v.*, b.updated_at
+      FROM account_layout_bindings b
+      JOIN account_layout_versions v ON v.id = b.version_id
+      WHERE b.profile_id = ? AND b.platform = ?
+    `).get(profileId, platform) as AccountLayoutVersionRow | undefined
+    return row ? mapAccountLayoutVersion(row) : null
+  }
+
+  listAccountLayoutVersions(profileId: string, platform: LayoutPlatform): AccountLayoutVersion[] {
+    const rows = this.db.prepare(`
+      SELECT v.*, v.created_at AS updated_at
+      FROM account_layout_versions v
+      WHERE v.profile_id = ? AND v.platform = ?
+      ORDER BY v.version_number DESC
+    `).all(profileId, platform) as unknown as AccountLayoutVersionRow[]
+    return rows.map(mapAccountLayoutVersion)
+  }
+
+  getAccountLayoutDraft(accountId: string, platform: LayoutPlatform): AccountLayoutDraft | null {
+    const row = this.db.prepare('SELECT * FROM account_layout_drafts WHERE profile_id=? AND platform=?').get(accountId, platform) as {
+      theme_id: string; custom_css: string | null; style_config_json: string; base_version_id: string | null; revision: number; updated_at: string
+    } | undefined
+    return row ? { accountId, platform, themeId: row.theme_id, customCss: row.custom_css ?? undefined, styleConfig: parseJson(row.style_config_json, {}), baseVersionId: row.base_version_id, revision: row.revision, updatedAt: row.updated_at } : null
+  }
+
+  saveAccountLayoutDraft(input: SaveAccountLayoutDraftInput): AccountLayoutDraft {
+    this.transaction(() => {
+      if (!this.db.prepare('SELECT 1 FROM account_profiles WHERE id=?').get(input.accountId)) throw new Error('账号不存在')
+      if (input.baseVersionId && !this.db.prepare('SELECT 1 FROM account_layout_versions WHERE id=? AND profile_id=? AND platform=?').get(input.baseVersionId, input.accountId, input.platform)) throw new Error('版式基准版本不属于该账号和平台')
+      const current = this.getAccountLayoutDraft(input.accountId, input.platform)
+      if ((current?.revision ?? 0) !== input.expectedRevision) throw new Error('编辑草稿已在其他窗口更新，请重新读取后再保存')
+      this.db.prepare(`INSERT INTO account_layout_drafts(profile_id,platform,theme_id,custom_css,style_config_json,base_version_id,revision,updated_at)
+        VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile_id,platform) DO UPDATE SET theme_id=excluded.theme_id,custom_css=excluded.custom_css,style_config_json=excluded.style_config_json,base_version_id=excluded.base_version_id,revision=excluded.revision,updated_at=excluded.updated_at`)
+        .run(input.accountId, input.platform, input.themeId, input.customCss ?? null, JSON.stringify(input.styleConfig), input.baseVersionId, input.expectedRevision + 1, new Date().toISOString())
+    })
+    return this.getAccountLayoutDraft(input.accountId, input.platform)!
+  }
+
+  activateAccountLayoutDraft(accountId: string, platform: LayoutPlatform, revision: number): AccountLayoutVersion {
+    const draft = this.getAccountLayoutDraft(accountId, platform)
+    if (!draft || draft.revision !== revision) throw new Error('编辑草稿已更新或不存在，请重新读取后再启用')
+    return this.setAccountLayoutDefault({ accountId, platform, themeId: draft.themeId, customCss: draft.customCss, styleConfig: draft.styleConfig, expectedVersionId: draft.baseVersionId, draftRevision: revision })
+  }
+
+  setAccountLayoutDefault(input: SetAccountLayoutDefaultInput & { draftRevision?: number }): AccountLayoutVersion {
+    const accountExists = this.db.prepare('SELECT 1 FROM account_profiles WHERE id = ?').get(input.accountId)
+    if (!accountExists) throw new Error('账号不存在')
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    this.transaction(() => {
+      const active = this.getAccountLayoutDefault(input.accountId, input.platform)
+      if ('expectedVersionId' in input && (active?.id ?? null) !== input.expectedVersionId) throw new Error('账号默认版式已更新，请重新读取或更新编辑基准后再启用')
+      if (input.draftRevision !== undefined && this.getAccountLayoutDraft(input.accountId, input.platform)?.revision !== input.draftRevision) throw new Error('编辑草稿已更新，请重新读取后再启用')
+      const current = this.db.prepare(`
+        SELECT MAX(version_number) AS version_number
+        FROM account_layout_versions
+        WHERE profile_id = ? AND platform = ?
+      `).get(input.accountId, input.platform) as { version_number: number | null }
+      const versionNumber = (current.version_number ?? 0) + 1
+      this.db.prepare(`
+        INSERT INTO account_layout_versions(id,profile_id,platform,version_number,theme_id,custom_css,style_config_json,created_at)
+        VALUES(?,?,?,?,?,?,?,?)
+      `).run(id, input.accountId, input.platform, versionNumber, input.themeId, input.customCss ?? null, JSON.stringify(input.styleConfig ?? {}), now)
+      this.db.prepare(`
+        INSERT INTO account_layout_bindings(profile_id,platform,version_id,updated_at)
+        VALUES(?,?,?,?)
+        ON CONFLICT(profile_id,platform) DO UPDATE SET version_id=excluded.version_id,updated_at=excluded.updated_at
+      `).run(input.accountId, input.platform, id, now)
+      if (input.draftRevision !== undefined) this.db.prepare('UPDATE account_layout_drafts SET base_version_id=?,revision=revision+1,updated_at=? WHERE profile_id=? AND platform=?').run(id, now, input.accountId, input.platform)
+    })
+    return this.getAccountLayoutDefault(input.accountId, input.platform)!
+  }
+
   listArticleLayouts(articleId?:string):ArticleLayout[] { const rows=this.db.prepare(`SELECT * FROM article_layouts ${articleId?'WHERE article_id=?':''} ORDER BY created_at DESC`).all(...(articleId?[articleId]:[])) as unknown as ArticleLayoutRow[]; return rows.map(row=>({...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',row.id)})) }
-  saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,now);const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow;return {...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',id)} }
+  saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,layout_version_id,layout_config_snapshot_json,render_engine_version,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,input.layoutVersionId??null,input.layoutConfigSnapshot?JSON.stringify(input.layoutConfigSnapshot):null,input.renderEngineVersion??null,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
   getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?{...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',row.id)}:null }
   getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return { ...mapWechatChannel(row), ...this.workflow.getVerification() } }
@@ -2704,7 +2826,8 @@ function mapReviewProblem(row:ReviewProblemRow):ReviewProblem { return {id:row.i
 function mapVisualPack(row:VisualPackRow):VisualPack { return {id:row.id,kind:row.kind,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,providerId:row.provider_id??undefined,model:row.model??undefined,cover:parseJson(row.cover_json,{visual:'',prompt:'',overlayText:''}),inlineImages:parseJson(row.inline_images_json,[]),releaseImages:parseJson(row.release_images_json,[]),rawXml:row.raw_xml,createdAt:row.created_at} }
 function mapVisualAsset(row:VisualAssetRow):VisualAsset { return {id:row.id,packId:row.pack_id,kind:row.kind,slot:row.slot??0,prompt:row.prompt,fileName:row.file_name,source:row.source,providerId:row.provider_id??undefined,model:row.model??undefined,size:row.size??undefined,costUsd:row.cost_usd??undefined,costEstimated:row.cost_estimated?true:undefined,remoteUrl:row.remote_url??undefined,background:row.background==='transparent'?'transparent':undefined,wechatMediaId:row.wechat_media_id??undefined,wechatUploadedAt:row.wechat_uploaded_at??undefined,createdAt:row.created_at,url:visualAssetUrl(row.file_name)} }
 function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/${fileName.split('/').map(encodeURIComponent).join('/')}` }
-function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,createdAt:row.created_at} }
+function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,layoutVersionId:row.layout_version_id??undefined,layoutConfigSnapshot:row.layout_config_snapshot_json?parseJson<{themeId:string;customCss?:string;styleConfig?:AccountLayoutVersion['styleConfig']}>(row.layout_config_snapshot_json,{themeId:row.theme_id??'wechat-green'}):undefined,renderEngineVersion:row.render_engine_version??undefined,createdAt:row.created_at} }
+function mapAccountLayoutVersion(row:AccountLayoutVersionRow):AccountLayoutVersion { return {id:row.id,accountId:row.profile_id,platform:row.platform,versionNumber:row.version_number,themeId:row.theme_id,customCss:row.custom_css??undefined,styleConfig:parseJson(row.style_config_json,{}),createdAt:row.created_at,updatedAt:row.updated_at} }
 function mapWechatChannel(row:WechatChannelRow):WechatPublishChannel { return {id:row.id,displayName:row.display_name,appId:row.app_id,enabled:Boolean(row.enabled),hasAppSecret:Boolean(row.has_app_secret),updatedAt:row.updated_at} }
 function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,retro:parseRetro(row.retro_json),createdAt:row.created_at,updatedAt:row.updated_at} }
 

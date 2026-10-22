@@ -199,7 +199,8 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     expect(layout.id).toBeDefined()
     expect(layout.title).toBeTruthy()
     expect(layout.html).toContain('<article')
-    expect(layout.html).toContain('<h1')
+    expect(layout.html).not.toContain('<h1')
+    expect(layout.html).toContain('<h2')
     expect(layout.platform).toBe('wechat')
 
     // === 阶段 9：发布到公众号草稿箱 ===

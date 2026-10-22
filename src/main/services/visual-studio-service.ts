@@ -6,8 +6,8 @@ import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 import type { UnifiedMessage } from '../gateway/types.js'
 import type { VisualAssetService } from './visual-asset-service.js'
-import type { ApplyVisualPreview, GeneratePictureInput, PictureBrief, PlanVisualsInput, StyleReference, VisualModelTarget, VisualPlan, VisualStyle, VisualStyleInput } from '../../shared/visual-studio.js'
-import { articleBlocks, styleDescription } from '../../shared/visual-studio.js'
+import type { ApplyVisualPreview, GeneratePictureInput, PictureBrief, PlanVisualsInput, StyleReference, VisualModelTarget, VisualPlan, VisualStyle, VisualStyleInput, StyleSampleTask } from '../../shared/visual-studio.js'
+import { articleBlocks, styleDescription, pictureSignature, blockSimilarity } from '../../shared/visual-studio.js'
 
 const briefSchema = z.object({
   kind: z.enum(['cover', 'header', 'inline']), subject: z.string().trim().min(1).max(2000),
@@ -17,6 +17,8 @@ const briefSchema = z.object({
 })
 
 export class VisualStudioService {
+  private liveSamples=new Set<string>()
+  private checkingSamples=false
   constructor(private readonly database: AppDatabase, private readonly gateway: ModelGateway, private readonly assets: VisualAssetService, private readonly imagesDir: string) {}
   private get store() { return this.database.visualStudio }
   private async json(target: VisualModelTarget, system: string, data: unknown, signal?: AbortSignal): Promise<unknown> {
@@ -45,10 +47,33 @@ export class VisualStudioService {
   }
   async sampleStyle(input: VisualModelTarget & { style: VisualStyleInput }, signal?: AbortSignal): Promise<StyleReference> {
     const style = input.style
-    const result = await this.gateway.generateImage({ providerId: input.providerId, model: input.model,
+    let task: StyleSampleTask={id:randomUUID(),style,providerId:input.providerId,model:input.model,status:'running',createdAt:new Date().toISOString()}
+    this.store.saveSample(task);this.liveSamples.add(task.id)
+    try {
+      const result = await this.gateway.generateImage({ providerId: input.providerId, model: input.model,
       prompt: `生成公众号插画风格样图。主题：书桌上的台灯、笔记本和一盆植物。风格：${style.name}，${style.description}。表现方式：${style.medium}。色彩：${style.colors}。构图：${style.composition}。避免：${style.avoid}。不含文字和水印。`,
-      ratio: '16:9', quality: 'low', resolution: '1k', signal })
-    return this.importReference(Uint8Array.from(Buffer.from(result.base64,'base64')).buffer)
+      ratio: '16:9', quality: 'low', resolution: '1k', signal,onTaskCreated:id=>{task={...task,remoteTaskId:id};this.store.saveSample(task)} })
+      const reference=await this.importReference(Uint8Array.from(Buffer.from(result.base64,'base64')).buffer)
+      this.store.saveSample({...task,status:'completed',reference});return reference
+    } catch(error) {
+      this.store.saveSample({...task,status:'unknown',error:error instanceof Error?error.message:String(error)})
+      throw error
+    } finally {this.liveSamples.delete(task.id)}
+  }
+  async resumeStyleSamples(signal?: AbortSignal): Promise<void> {
+    if(this.checkingSamples)return
+    this.checkingSamples=true
+    try {
+      for(const task of this.store.samples().filter(t=>['running','unknown'].includes(t.status)&&!this.liveSamples.has(t.id))) {
+        if(signal?.aborted)break
+        if(!task.remoteTaskId){this.store.saveSample({...task,status:'unknown',error:'未取得供应商任务标识，请先核对供应商结果，避免重复生成'});continue}
+        try {
+          const result=await this.gateway.resumeImageTask({providerId:task.providerId,model:task.model,taskId:task.remoteTaskId,signal})
+          const reference=await this.importReference(Uint8Array.from(Buffer.from(result.base64,'base64')).buffer)
+          this.store.saveSample({...task,status:'completed',reference,error:undefined})
+        } catch(error) {this.store.saveSample({...task,status:'unknown',error:error instanceof Error?error.message:String(error)})}
+      }
+    } finally {this.checkingSamples=false}
   }
   async analyzeReference(input: VisualModelTarget & { referenceId: string }, signal?: AbortSignal): Promise<string> {
     const ref = this.store.reference(input.referenceId)
@@ -85,7 +110,15 @@ export class VisualStudioService {
       return this.store.create({ id: pack.id, articleId: article.id, articleVersionId: article.currentVersionId, sourceMarkdown: article.rawMarkdown, revision: 1, nextSlot: slot, title: blocks[0]?.text.replace(/^#+\s*/, '') ?? '配图方案', reasoning: result.reasoning, pictures, style: style?.archived ? undefined : style, promptsStale: true, createdAt: new Date().toISOString() })
     })
   }
-  savePlan(input: VisualPlan): VisualPlan {
+  savePlan(input: VisualPlan, draftRevision?: number): VisualPlan {
+    return this.database.atomic(() => {
+      if (draftRevision !== undefined && this.store.draft(input.id)?.revision !== draftRevision) throw new Error('草稿已在其他窗口更新，请先载入最新草稿')
+      const saved = this.savePlanBody(input)
+      if (draftRevision !== undefined) this.store.clearDraft(input.id, draftRevision)
+      return saved
+    })
+  }
+  private savePlanBody(input: VisualPlan): VisualPlan {
     const current = this.store.plan(input.id)
     if (current.revision !== input.revision) throw new Error('方案已更新，请重新加载')
     const ids = new Set<string>(), slots = new Set<string>()
@@ -103,34 +136,37 @@ export class VisualStudioService {
       if (!old && p.kind !== 'cover' && p.slot < current.nextSlot) throw new Error('新增图片必须使用新的槽位')
       if (old && (old.slot !== p.slot || old.kind !== p.kind)) throw new Error('已有图片的标识和类型不能更改，请新建图片项')
       if (p.selectedAssetId && p.selectedAssetId !== old?.selectedAssetId) throw new Error('请通过候选图片选择入口采用图片')
-      return { ...p, style: styleSnapshot(p.style) }
+      const semanticsChanged = !old || old.subject !== p.subject || old.purpose !== p.purpose || old.ratio !== p.ratio ||
+        (old.style ?? current.style)?.versionId !== (p.style ?? input.style)?.versionId
+      return { ...p, style: styleSnapshot(p.style), approvedAssetSignature: old?.approvedAssetSignature,
+        promptStale: p.prompt !== old?.prompt && Boolean(p.prompt.trim()) ? false : semanticsChanged || Boolean(old?.promptStale ?? current.promptsStale) }
     })
     if (pictures.filter(p => p.kind === 'cover').length > 1 || pictures.filter(p => p.kind === 'header').length > 1) throw new Error('封面和顶部图各只能有一张')
-    const signature = (items: PictureBrief[]) => items.map(p => ({ id:p.id, subject:p.subject, purpose:p.purpose, ratio:p.ratio, style:p.style?.versionId })).sort((a,b)=>a.id.localeCompare(b.id))
-    const changed = input.style?.versionId !== current.style?.versionId || JSON.stringify(signature(pictures)) !== JSON.stringify(signature(current.pictures))
-    return this.store.save({ ...current, pictures, nextSlot: Math.max(current.nextSlot,...pictures.map(p => p.slot + 1)), style: styleSnapshot(input.style), promptsStale: current.promptsStale || changed })
+    return this.store.save({ ...current, pictures, nextSlot: Math.max(current.nextSlot,...pictures.map(p => p.slot + 1)), style: styleSnapshot(input.style), promptsStale: pictures.some(p => p.promptStale) })
   }
   async prompts(input: VisualModelTarget & { planId: string; expectedRevision: number }, signal?: AbortSignal): Promise<VisualPlan> {
     const plan = this.checked(input.planId, input.expectedRevision)
-    const unlocked = plan.pictures.filter(p => !p.promptLocked)
+    const stale = plan.pictures.filter(p => !p.prompt || (p.promptStale ?? plan.promptsStale))
+    const unlocked = (stale.length ? stale : plan.pictures).filter(p => !p.promptLocked)
+    if (!unlocked.length) return this.store.save({ ...plan,promptsStale:false,pictures:plan.pictures.map(p=>({...p,promptStale:false})) })
     const result = z.object({ pictures: z.array(z.object({ id: z.string().uuid(), prompt: z.string().trim().min(1).max(6000) })).max(12) }).parse(await this.json(input,
       '为每个图片项写可直接生图的中文提示词。返回 {pictures:[{id,prompt}]}，id 必须与输入完全一致。内容明确主体、场景、构图，结合风格描述和比例，默认没有文字水印。参考图仅学习色彩、笔触、材质，不复制其人物和场景。不得增加无来源的数据。',
       { title: plan.title, article: plan.sourceMarkdown, pictures: unlocked.map(p => ({ id: p.id, subject: p.subject, purpose: p.purpose, ratio: p.ratio, style: styleDescription(p.style ?? plan.style) })) }, signal))
     const prompts = new Map(result.pictures.map(p => [p.id, p.prompt]))
     if (prompts.size !== unlocked.length || unlocked.some(p => !prompts.has(p.id))) throw new Error('模型返回的提示词数量或标识不完整，请重试')
-    return this.store.save({ ...plan, promptsStale: false, pictures: plan.pictures.map(p => ({ ...p, prompt: p.promptLocked ? p.prompt : prompts.get(p.id)! })) })
+    return this.store.save({ ...plan, promptsStale: false, pictures: plan.pictures.map(p => ({ ...p, promptStale: false, prompt: prompts.get(p.id) ?? p.prompt })) })
   }
   private checked(id: string, revision: number): VisualPlan { const plan = this.store.plan(id); if (plan.revision !== revision) throw new Error('方案已更新，请重新加载'); return plan }
-  async generate(input: GeneratePictureInput, signal?: AbortSignal) {
+  async generate(input: GeneratePictureInput, signal?: AbortSignal, onTaskCreated?: (id: string) => void) {
     const plan = this.checked(input.planId, input.expectedRevision)
     const picture = plan.pictures.find(p => p.id === input.pictureId)
     if (!picture || !picture.prompt.trim()) throw new Error('请先生成并保存提示词')
-    if (plan.promptsStale) throw new Error('方案或风格已修改，请重新生成提示词')
+    if (picture.promptStale ?? plan.promptsStale) throw new Error('本图内容或风格已修改，请更新本图提示词')
     const style = picture.style ?? plan.style
     const prompt = `${picture.prompt}\n统一视觉要求：${styleDescription(style)}。默认不含文字和水印。仅参考风格，重新设计本图的主体和场景。`
     const reference = style?.references[0]
     if (input.referenceMode === 'image' && !reference) throw new Error('当前风格没有参考图，请上传参考图或选择文字风格模式')
-    const context = { ...input, packId: plan.id, kind: picture.kind === 'header' ? 'inline' as const : picture.kind, slot: picture.slot, prompt, ratio: picture.ratio, quality: 'low' as const, resolution: '1k' as const }
+    const context = { ...input, packId: plan.id, kind: picture.kind === 'header' ? 'inline' as const : picture.kind, slot: picture.slot, prompt, ratio: picture.ratio, quality: input.quality ?? 'low' as const, resolution: input.resolution ?? '1k' as const }
     const requestId = randomUUID()
     this.store.recordGeneration(requestId, plan.id, picture.id, { status: 'running', picture, style, prompt, referenceMode: input.referenceMode, providerId: input.providerId, model: input.model, createdAt: new Date().toISOString() })
     try {
@@ -140,8 +176,9 @@ export class VisualStudioService {
         if (!saved) throw new Error('风格参考图不存在')
         const bytes = await readFile(join(this.imagesDir, saved.fileName))
         const imageUrl = await this.gateway.uploadImage({ providerId: input.providerId, bytes, fileName: saved.fileName, mimeType: saved.fileName.endsWith('.jpg') ? 'image/jpeg' : saved.fileName.endsWith('.webp') ? 'image/webp' : 'image/png', signal })
-        result = await this.assets.edit({ ...context, imageUrl }, signal)
-      } else result = await this.assets.generate(context, signal)
+        result = await this.assets.edit({ ...context, imageUrl }, signal, onTaskCreated)
+      } else result = await this.assets.generate(context, signal, onTaskCreated)
+      this.store.stampAsset(result.id, pictureSignature(plan,picture))
       this.store.recordGeneration(requestId, plan.id, picture.id, { status: 'completed', assetId: result.id, picture, style, prompt, referenceMode: input.referenceMode, providerId: input.providerId, model: input.model })
       return result
     } catch (error) {
@@ -149,10 +186,21 @@ export class VisualStudioService {
       throw error
     }
   }
-  select(input: { planId: string; pictureId: string; assetId: string; expectedRevision: number }): VisualPlan {
+  assetStates(planId: string) {
+    const plan = this.store.plan(planId)
+    return this.database.listVisualAssets(planId).map(asset => {
+      const picture = plan.pictures.find(p => p.slot === asset.slot && (p.kind === 'header' ? 'inline' : p.kind) === asset.kind)
+      const signature = this.store.assetSignature(asset.id)
+      return { assetId: asset.id, status: !signature ? 'unverified' as const : picture && signature === pictureSignature(plan,picture) ? 'current' as const : 'outdated' as const }
+    })
+  }
+  select(input: { planId: string; pictureId: string; assetId: string; expectedRevision: number; allowOutdated?: boolean }): VisualPlan {
     const plan = this.checked(input.planId, input.expectedRevision), p = plan.pictures.find(item => item.id === input.pictureId), asset = this.database.getVisualAsset(input.assetId)
     if (!p || !asset || asset.packId !== plan.id || asset.slot !== p.slot || asset.kind !== (p.kind === 'header' ? 'inline' : p.kind)) throw new Error('候选图不属于当前图片项')
-    return this.store.save({ ...plan, pictures: plan.pictures.map(item => item.id === p.id ? { ...item, selectedAssetId: asset.id } : item) })
+    const signature = pictureSignature(plan,p), recorded = this.store.assetSignature(asset.id)
+    if ((!recorded && asset.source === 'generated' || recorded && recorded !== signature) && !input.allowOutdated) throw new Error('候选图基于旧内容或旧风格生成，请更新图片，或明确确认沿用旧图')
+    if (!recorded && asset.source === 'imported') this.store.stampAsset(asset.id,signature)
+    return this.store.save({ ...plan, pictures: plan.pictures.map(item => item.id === p.id ? { ...item, selectedAssetId: asset.id, approvedAssetSignature: input.allowOutdated ? signature : undefined } : item) })
   }
   preview(planId: string): ApplyVisualPreview {
     const plan = this.store.plan(planId), article = this.database.getArticle(plan.articleId)
@@ -163,15 +211,23 @@ export class VisualStudioService {
     if (application && application.afterVersionId !== article.currentVersionId) throw new Error('应用配图后文章已有修改，请先在文章编辑器处理现有图片再应用')
     let markdown = application?.beforeMarkdown ?? article.rawMarkdown
     const blocks = articleBlocks(markdown), edits: Array<{ at: number; content: string }> = [], conflicts: string[] = []
+    const suggestions: NonNullable<ApplyVisualPreview['suggestions']> = []
     let coverAssetId: string | undefined
     for (const p of plan.pictures) {
       if (!p.selectedAssetId) { if (p.priority === 'required') conflicts.push(`「${p.subject}」尚未采用图片`); continue }
       const asset = this.database.getVisualAsset(p.selectedAssetId)
       if (!asset) { conflicts.push(`「${p.subject}」的图片已不存在`); continue }
+      const recorded = this.store.assetSignature(asset.id), signature = pictureSignature(plan,p)
+      if (recorded && recorded !== signature && p.approvedAssetSignature !== signature) { conflicts.push(`「${p.subject}」的图片需要更新或确认沿用`); continue }
       if (p.kind === 'cover') { coverAssetId = asset.id; continue }
       if (p.kind === 'release') continue
       const block = blocks.find(b => b.text === p.anchor.block && b.occurrence === p.anchor.occurrence)
-      if (p.anchor.placement !== 'top' && (!block || (!application && article.currentVersionId !== (p.anchor.versionId ?? plan.articleVersionId) && blocks.filter(b => b.text === p.anchor.block).length > 1))) { conflicts.push(`「${p.subject}」的位置需要重新确认`); continue }
+      if (p.anchor.placement !== 'top' && (!block || (!application && article.currentVersionId !== (p.anchor.versionId ?? plan.articleVersionId) && blocks.filter(b => b.text === p.anchor.block).length > 1))) {
+        conflicts.push(`「${p.subject}」的位置需要重新确认`)
+        const candidates=blocks.filter(b=>!/```|~~~/.test(b.text)).map(b=>({block:b,score:blockSimilarity(p.anchor.block,b.text)})).sort((a,b)=>b.score-a.score)
+        for(const candidate of candidates.slice(0,2).filter(c=>c.score>=0.55)) suggestions.push({pictureId:p.id,previousBlock:p.anchor.block,anchor:{versionId:article.currentVersionId,block:candidate.block.text,occurrence:candidate.block.occurrence,placement:p.anchor.placement},score:candidate.score})
+        continue
+      }
       if (p.anchor.placement !== 'top' && /```|~~~/.test(p.anchor.block)) { conflicts.push(`「${p.subject}」不能插入代码块`); continue }
       const at = p.anchor.placement === 'top' ? (blocks[0]?.text.startsWith('# ') ? blocks[0].end : 0) : p.anchor.placement === 'before' ? block!.start : block!.end
       const safeAlt = p.alt.replace(/[\[\]\\\r\n]/g, ' ')
@@ -179,7 +235,7 @@ export class VisualStudioService {
       edits.push({ at, content: `\n\n![${safeAlt}](${asset.url})${caption}\n\n` })
     }
     for (const edit of edits.sort((a,b) => b.at - a.at)) markdown = markdown.slice(0,edit.at) + edit.content + markdown.slice(edit.at)
-    return { markdown, baseVersionId: article.currentVersionId, coverAssetId, conflicts, inserted: edits.length }
+    return { markdown, baseVersionId: article.currentVersionId, coverAssetId, conflicts, inserted: edits.length, suggestions }
   }
   apply(input: { planId: string; expectedRevision: number; baseVersionId: string }) {
     return this.database.atomic(() => {

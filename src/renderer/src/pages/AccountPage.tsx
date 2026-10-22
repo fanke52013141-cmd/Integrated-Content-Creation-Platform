@@ -54,6 +54,7 @@ import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
 import type { ToastState } from '../components/Toast'
 import { errorMessage, formatDate, formatFullDate } from '../lib'
+import { AccountLayoutPanel } from '../components/layout/AccountLayoutPanel'
 
 type AccountMode = 'list' | 'wizard' | 'editor'
 
@@ -646,12 +647,13 @@ function AccountWizard({
   )
 }
 
-type AccountDimension = 'fields' | 'redlines' | 'platforms' | 'memories'
+type AccountDimension = 'fields' | 'redlines' | 'platforms' | 'memories' | 'layout'
 
 const dimensionTabs: Array<{ id: AccountDimension; label: string }> = [
   { id: 'fields', label: '定位字段' },
   { id: 'redlines', label: '内容红线' },
   { id: 'platforms', label: '平台账号' },
+  { id: 'layout', label: '公众号版式' },
   { id: 'memories', label: '账号记忆' }
 ]
 
@@ -677,6 +679,7 @@ function AccountEditor({
   const [restoreVersionId, setRestoreVersionId] = useState<string>()
   const [dimension, setDimension] = useState<AccountDimension>('fields')
   const [diffVersion, setDiffVersion] = useState<AccountVersion>()
+  const [layoutDirty, setLayoutDirty] = useState(false)
 
   useEffect(() => {
     setFields(account?.fields ?? [])
@@ -780,7 +783,10 @@ function AccountEditor({
   return (
     <div className="page account-editor-page">
       <div className="editor-heading">
-        <button className="back-button" onClick={onBack}><ArrowLeft size={20} />账号列表</button>
+        <button className="back-button" onClick={async () => {
+          if (layoutDirty && !(await confirm({ title: '离开版式编辑？', message: '当前参数尚未保存为草稿。本窗口会暂存编辑；保存草稿后可跨重启继续。', confirmLabel: '返回账号列表' }))) return
+          onBack()
+        }}><ArrowLeft size={20} />账号列表</button>
         <div className="editor-title">
           <span className="profile-avatar">{loadedAccount.name.slice(0, 1)}</span>
           <div>
@@ -824,12 +830,17 @@ function AccountEditor({
             role="tab"
             aria-selected={dimension === tab.id}
             className={dimension === tab.id ? 'active' : ''}
-            onClick={() => setDimension(tab.id)}
+            onClick={async () => {
+              if (tab.id === dimension) return
+              if (layoutDirty && !(await confirm({ title: '离开版式编辑？', message: '当前参数尚未保存为草稿。本窗口会暂存编辑；保存草稿后可跨重启继续。', confirmLabel: '切换页签' }))) return
+              setDimension(tab.id)
+            }}
           >
             {tab.id === 'fields' && <CircleUserRound size={16} />}
             {tab.id === 'redlines' && <ShieldAlert size={16} />}
             {tab.id === 'platforms' && <Globe size={16} />}
             {tab.id === 'memories' && <BookOpen size={16} />}
+            {tab.id === 'layout' && <Settings2 size={16} />}
             {tab.label}
             {tab.id === 'redlines' && loadedAccount.redlines.length > 0 && <span className="count-badge">{loadedAccount.redlines.length}</span>}
             {tab.id === 'platforms' && loadedAccount.platformAccounts.length > 0 && <span className="count-badge">{loadedAccount.platformAccounts.length}</span>}
@@ -950,6 +961,9 @@ function AccountEditor({
       )}
       {dimension === 'memories' && (
         <AccountMemoriesPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
+      )}
+      {dimension === 'layout' && (
+        <AccountLayoutPanel key={loadedAccount.id} accountId={loadedAccount.id} accountName={loadedAccount.name} showToast={showToast} onDirtyChange={setLayoutDirty} />
       )}
 
       <ModalBase open={Boolean(diffVersion)} onClose={() => setDiffVersion(undefined)} titleId="version-diff-title" className="version-diff-dialog">

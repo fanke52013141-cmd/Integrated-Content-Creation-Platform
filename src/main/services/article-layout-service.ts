@@ -12,9 +12,9 @@ import xml from 'highlight.js/lib/languages/xml'
 import sql from 'highlight.js/lib/languages/sql'
 import yaml from 'highlight.js/lib/languages/yaml'
 import markdownLang from 'highlight.js/lib/languages/markdown'
-import type { CreateArticleLayoutInput, CreateArticleLayoutResult, LayoutPlatform } from '../../shared/contracts.js'
+import type { LayoutPreviewSampleInput, LayoutStyleConfig, CreateArticleLayoutInput, CreateArticleLayoutResult, LayoutPlatform } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
-import { buildCustomThemeCss, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
+import { buildLayoutThemeCss, buildCustomThemeCss, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
 import { validateWechatLayout } from './layout-validator.js'
 import { decorateDivider, injectToc, renderSlots, stripCustomTags, transformComponents } from './layout-components.js'
 import { annotateWideTables, markNumericCells } from './layout-table.js'
@@ -80,26 +80,88 @@ md.renderer.rules.fence = (tokens, idx) => {
     + `<section style="padding:11px 14px;">${bodyHtml}</section>`
     + '</section>'
 }
+md.renderer.rules.image = (tokens, index, options, _env, renderer): string => {
+  const token = tokens[index]
+  token.attrSet('alt', renderer.renderInlineAsText(token.children ?? [], options, _env))
+  const image = `<img${renderer.renderAttrs(token)}${options.xhtmlOut ? ' />' : '>'}`
+  const caption = String(token.attrGet('alt') ?? '').trim()
+  return `<span class="mly-image-block">${image}${caption ? `<span class="mly-image-caption">${escapeHtml(caption)}</span>` : ''}</span>`
+}
+
+const LAYOUT_SAMPLE_MARKDOWN = `# 固定版式标准样稿
+
+这是用于校准账号版式的标准样稿。调整样式时，请同时观察正文密度、标题层级、引用、图片说明和复杂内容。
+
+## 二级标题 · 章节层级
+
+正文段落用于检查阅读节奏。重点内容会以**强调文字**呈现，行内代码例如 \`const layout = 'consistent'\` 也应保持清晰。这里有一条[外部参考链接](https://example.com/reference)，公众号输出会把它转换成文末脚注。
+
+### 三级标题 · 小节层级
+
+![图片说明会显示在图片下方，用于验证图注字号与颜色](https://sample.invalid/layout-preview.png)
+
+> 这是一段引用示例。它用于检查背景、边线、留白和多行文本的阅读效果。
+
+- 无序列表第一项
+- 无序列表第二项
+  - 嵌套列表项目
+
+1. 有序列表第一项
+2. 有序列表第二项
+
+| 项目 | 说明 |
+| --- | --- |
+| 标题 | 文章标题与正文分开 |
+| 版式 | 新文章沿用账号当前版本 |
+
+\`\`\`text
+代码块示例：检查背景、缩进和长行换行
+\`\`\`
+
+---
+
+最后一段用于观察分割线后的收尾空间。`
 
 export class ArticleLayoutService {
   constructor(private readonly database: AppDatabase) {}
 
-  create(input: CreateArticleLayoutInput): CreateArticleLayoutResult {
-    // 远端提交新增：排版前必须已保存，避免排的是旧版本却以为是新的
-    this.database.workflow.assertSaved(input.articleId)
+  previewArticle(input: CreateArticleLayoutInput) {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('文章不存在')
-    const rendered = renderLayoutMarkdown(article.rawMarkdown, input.platform, input.themeId, input.customCss)
-    // 生成时即校验，但不阻断：用户仍需要看到排版稿才能判断效果。
-    // 硬拦截放在推送前（那一步失败会丢失工作成果），此处只把问题带出去供界面提示。
-    const violations = input.platform === 'wechat'
-      ? validateWechatLayout({ html: rendered.html, title: rendered.title })
-      : []
+    return renderLayoutMarkdown(article.rawMarkdown, input.platform, input.themeId, input.customCss, input.styleConfig)
+  }
+
+  previewSample(input: LayoutPreviewSampleInput) {
+    const rendered = renderLayoutMarkdown(LAYOUT_SAMPLE_MARKDOWN, input.platform, input.themeId, input.customCss, input.styleConfig)
+    const sampleImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGN4/eErAAWaAtFiNrgxAAAAAElFTkSuQmCC'
+    const html = rendered.html.replace(
+      'src="https://sample.invalid/layout-preview.png"',
+      `src="${sampleImage}" width="640" height="168"`
+    )
+    return { ...rendered, html }
+  }
+
+  create(input: CreateArticleLayoutInput) {
+    const article = this.database.getArticle(input.articleId)
+    if (!article) throw new Error('文章不存在')
+    this.database.workflow.assertSaved(input.articleId)
+    const accountLayout = article.accountId
+      ? this.database.getAccountLayoutDefault(article.accountId, input.platform)
+      : null
+    const usesAccountLayout = Boolean(accountLayout && input.themeId === undefined && input.styleConfig === undefined && input.customCss === undefined)
+    const themeId = input.themeId ?? accountLayout?.themeId
+    const customCss = input.customCss ?? accountLayout?.customCss
+    const styleConfig = input.styleConfig ?? accountLayout?.styleConfig
+    const rendered = renderLayoutMarkdown(article.rawMarkdown, input.platform, themeId, customCss, styleConfig)
+    const violations = input.platform === 'wechat' ? validateWechatLayout({ html: rendered.html, title: rendered.title }) : []
     const saved = this.database.saveArticleLayout({
       articleId: article.id,
       articleVersionId: article.currentVersionId,
       articleStatusSnapshot: article.status,
       platform: input.platform,
+      layoutVersionId: usesAccountLayout ? accountLayout?.id : undefined,
+      layoutConfigSnapshot: { themeId: rendered.themeId, ...(customCss ? { customCss } : {}), ...(styleConfig ? { styleConfig } : {}) },
+      renderEngineVersion: 'mly-layout-v4',
       ...rendered
     })
     // 校验结果随返回对象带出，供渲染层在界面上提示；不影响保存
@@ -117,18 +179,19 @@ export function renderLayoutMarkdown(
   markdown: string,
   platform: LayoutPlatform,
   themeId?: string,
-  customCss?: string
+  customCss?: string,
+  styleConfig: LayoutStyleConfig = {}
 ): { title: string; html: string; plainText: string; themeId: string } {
-  const lines = markdown.trim().split(/\r?\n/)
-  const titleIndex = lines.findIndex((line) => /^#\s+/.test(line))
-  const title = (titleIndex >= 0 ? lines[titleIndex].replace(/^#\s+/, '') : '未命名文章').trim()
-  // 仅把第一处一级标题作为文章标题；正文里后续的一级标题仍是合法 Markdown，不能静默丢弃。
-  const body = lines.filter((_line, index) => index !== titleIndex).join('\n')
+  const { title, body } = extractArticleTitle(markdown)
   const resolvedThemeId = themeId || 'wechat-green'
 
+  const showTitle = platform === 'web' || (platform === 'wechat' && styleConfig.showTitleInBody === true)
+  const brandHeader = platform !== 'xiaohongshu' ? normalizeBrandText(styleConfig.brandHeaderText) : ''
+  const brandFooter = platform !== 'xiaohongshu' ? normalizeBrandText(styleConfig.brandFooterText) : ''
+  const plainBody = stripMarkdown(body)
   const plainText = platform === 'xiaohongshu'
-    ? toXiaohongshu(title, stripMarkdown(body))
-    : stripMarkdown(`${title}\n\n${body}`)
+    ? toXiaohongshu(title, plainBody)
+    : [brandHeader, ...(showTitle ? [title] : []), plainBody, brandFooter].filter(Boolean).join('\n\n')
 
   if (platform === 'xiaohongshu') {
     return { title, html: `<article class="mly-body"><h1 class="mly-title">${escapeHtml(title)}</h1><p>${escapeHtml(plainText).replace(/\n/g, '<br>')}</p></article>`, plainText, themeId: resolvedThemeId }
@@ -139,27 +202,17 @@ export function renderLayoutMarkdown(
   const { markdown: withSlots, slots } = platform === 'wechat'
     ? transformComponents(body)
     : { markdown: body, slots: new Map() }
-  let bodyHtml = md.render(withSlots)
+  const refs: Array<{ text: string; href: string }> = []
+  let bodyHtml = platform === 'wechat' ? renderWechatMarkdown(withSlots, refs) : md.render(withSlots)
   if (platform === 'wechat') {
     // 组件内容重新走一遍 markdown-it，保留加粗、列表等行内格式
-    bodyHtml = renderSlots(bodyHtml, slots, (inner) => md.render(inner))
+    bodyHtml = renderSlots(bodyHtml, slots, (inner) => renderWechatMarkdown(inner, refs))
     bodyHtml = injectToc(bodyHtml)
     bodyHtml = decorateDivider(bodyHtml)
     bodyHtml = stripCustomTags(bodyHtml)
   }
-  const css = customCss?.trim()
-    ? buildCustomThemeCss(customCss)
-    : getLayoutTheme(resolvedThemeId).css
+  const css = buildLayoutThemeCss(resolvedThemeId, styleConfig, customCss)
 
-  const refs: Array<{ text: string; href: string }> = []
-  if (platform === 'wechat') {
-    bodyHtml = bodyHtml.replace(/<a\s+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g, (_match: string, href: string, inner: string) => {
-      const text = inner.replace(/<[^>]+>/g, '').trim() || href
-      if (!href || href.startsWith('#')) return inner
-      refs.push({ text, href })
-      return `${text}<sup>[${refs.length}]</sup>`
-    })
-  }
   const refsSection = refs.length
     ? `<section class="mly-refs"><h3>参考链接</h3>${refs.map((ref, index) => `<p>[${index + 1}] ${escapeHtml(ref.text)}：${escapeHtml(ref.href)}</p>`).join('')}</section>`
     : ''
@@ -169,7 +222,11 @@ export function renderLayoutMarkdown(
   // 宽表格提示是纯文本段落，放在 juice 之后即可。
   const bodyForInline = platform === 'wechat' ? markNumericCells(bodyHtml) : bodyHtml
 
-  const composed = `<style>${css}</style><article class="mly-body"><h1 class="mly-title">${escapeHtml(title)}</h1>${bodyForInline}${refsSection}</article>`
+  // 公众号后台已有独立标题字段，正文默认不重复输出一级标题；网页导出仍保留完整文章标题。
+  const titleMarkup = showTitle ? `<h1 class="mly-title">${escapeHtml(title)}</h1>` : ''
+  const brandHeaderMarkup = brandHeader ? `<section class="mly-brand-header"><p>${escapeHtml(brandHeader).replace(/\n/g, '<br>')}</p></section>` : ''
+  const brandFooterMarkup = brandFooter ? `<section class="mly-brand-footer"><p>${escapeHtml(brandFooter).replace(/\n/g, '<br>')}</p></section>` : ''
+  const composed = `<style>${css}</style><article class="mly-body">${brandHeaderMarkup}${titleMarkup}${bodyForInline}${refsSection}${brandFooterMarkup}</article>`
   const inlined = juice(composed, { inlinePseudoElements: false }).replace(/<style[\s\S]*?<\/style>/g, '')
   return { title, html: finalizeWechatHtml(inlined, platform), plainText, themeId: resolvedThemeId }
 }
@@ -218,6 +275,58 @@ function wrapTextNodes(html: string): string {
   )
 }
 
+/** 使用 Markdown token 定位标题，避免把代码围栏里的 `#` 文本误判为文章标题。 */
+function extractArticleTitle(markdown: string): { title: string; body: string } {
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n')
+  const tokens = md.parse(markdown, {})
+  const headingIndex = tokens.findIndex((token) => token.type === 'heading_open' && token.tag === 'h1' && token.level === 0)
+  if (headingIndex < 0) return { title: '未命名文章', body: markdown }
+
+  const heading = tokens[headingIndex]
+  const inline = tokens[headingIndex + 1]
+  const titleHtml = inline?.type === 'inline' ? md.renderInline(inline.content) : ''
+  const title = md.utils.unescapeAll(titleHtml.replace(/<[^>]*>/g, '')).trim() || '未命名文章'
+  const [start, end] = heading.map ?? []
+  if (start === undefined || end === undefined) return { title, body: markdown }
+  lines.splice(start, end - start)
+  return { title, body: lines.join('\n').trim() }
+}
+
+/** 在 token 层移除外链锚点并追加脚注，保留链接内部的加粗、代码等 Markdown 结构。 */
+function renderWechatMarkdown(markdown: string, refs: Array<{ text: string; href: string }>): string {
+  const tokens = md.parse(markdown, {})
+  for (const block of tokens) {
+    if (block.type !== 'inline' || !block.children) continue
+    const children = block.children
+    for (let index = 0; index < children.length; index += 1) {
+      const open = children[index]
+      if (open.type !== 'link_open') continue
+      const href = String(open.attrGet('href') ?? '')
+      if (!href || href.startsWith('#')) continue
+      const closeIndex = children.findIndex((token, candidate) => candidate > index && token.type === 'link_close')
+      if (closeIndex < 0) continue
+      const inner = children.slice(index + 1, closeIndex)
+      const text = inner.map((token) => token.type === 'image'
+        ? token.attrGet('alt') ?? ''
+        : token.type === 'text' || token.type === 'code_inline'
+          ? token.content
+          : '').join('').trim() || href
+      refs.push({ text, href })
+      open.type = 'html_inline'
+      open.tag = ''
+      open.nesting = 0
+      open.content = ''
+      const close = children[closeIndex]
+      close.type = 'html_inline'
+      close.tag = ''
+      close.nesting = 0
+      close.content = `<sup>[${refs.length}]</sup>`
+      index = closeIndex
+    }
+  }
+  return md.renderer.render(tokens, md.options, {})
+}
+
 /** 从 markdown 提取可读纯文本（图片转占位、链接保留文字、表格/代码合理降级） */
 function stripMarkdown(markdown: string): string {
   return markdown
@@ -250,6 +359,10 @@ function toXiaohongshu(title: string, plain: string): string {
 
 function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;')
+}
+
+function normalizeBrandText(value?: string): string {
+  return value?.replace(/\r\n?/g, '\n').trim() ?? ''
 }
 
 export { listLayoutThemes }

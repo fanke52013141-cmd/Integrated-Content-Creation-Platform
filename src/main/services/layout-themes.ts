@@ -1,3 +1,5 @@
+import type { LayoutStyleConfig } from '../../shared/contracts.js'
+
 /**
  * 排版主题注册表：纯静态、无 DB 依赖。
  * 约束（微信兼容）：
@@ -49,12 +51,12 @@ const SERIF_STACK = "Georgia, 'Songti SC', 'Noto Serif SC', SimSun, serif"
 
 function baseCss(accent: string, text: string, headingFont: string): string {
   return `
-.mly-body { font-family: ${FONT_STACK}; font-size: 15px; color: ${text}; line-height: 1.85; letter-spacing: 0.3px; word-break: break-word; }
+.mly-body { font-family: ${FONT_STACK}; font-size: 16px; color: ${text}; line-height: 1.8; letter-spacing: 0.3px; word-break: break-word; }
 .mly-title { font-family: ${headingFont}; font-size: 22px; font-weight: 700; line-height: 1.45; color: ${text}; margin: 0 0 22px; }
-.mly-body h2 { font-family: ${headingFont}; font-size: 18px; font-weight: 700; color: ${text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${accent}; line-height: 1.5; }
-.mly-body h3 { font-family: ${headingFont}; font-size: 16px; font-weight: 700; color: ${text}; margin: 24px 0 10px; line-height: 1.5; }
+.mly-body h2 { font-family: ${headingFont}; font-size: 20px; font-weight: 700; color: ${text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${accent}; line-height: 1.5; }
+.mly-body h3 { font-family: ${headingFont}; font-size: 17px; font-weight: 700; color: ${text}; margin: 24px 0 10px; line-height: 1.5; }
 .mly-body h4 { font-size: 15px; font-weight: 700; color: ${text}; margin: 18px 0 8px; }
-.mly-body p { margin: 0 0 16px; font-size: 15px; line-height: 1.85; }
+.mly-body p { margin: 0 0 16px; font-size: 16px; line-height: 1.8; }
 .mly-body strong { color: ${accent}; font-weight: 700; }
 .mly-body em { font-style: normal; color: ${accent}; }
 .mly-body a { color: ${accent}; text-decoration: none; border-bottom: 1px solid ${accent}; }
@@ -70,6 +72,11 @@ function baseCss(accent: string, text: string, headingFont: string): string {
 .mly-body td { padding: 8px 10px; border: 1px solid #e8e8e8; color: ${text}; }
 .mly-body tr:nth-child(2n) td { background: #fafafa; }
 .mly-body img { max-width: 100%; border-radius: 6px; margin: 6px auto; display: block; }
+.mly-body .mly-image-block { display: block; margin: 18px 0; text-align: center; }
+.mly-body .mly-image-caption { display: block; margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }
+.mly-body figcaption { margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }
+.mly-body .mly-brand-header { margin: 0 0 22px; padding: 12px 14px; color: #666666; background: #f7f8fa; border-left: 3px solid ${accent}; font-size: 13px; line-height: 1.75; }
+.mly-body .mly-brand-footer { margin: 26px 0 0; padding: 14px 0 0; color: #888888; border-top: 1px solid #e8e8e8; font-size: 12px; line-height: 1.75; }
 .mly-body hr { border: none; border-top: 1px solid #e8e8e8; margin: 28px 0; }
 .mly-body sup { font-size: 11px; color: ${accent}; }
 .mly-refs { margin-top: 30px; padding: 14px 16px; background: #f7f8fa; border-radius: 8px; font-size: 13px; color: #595959; }
@@ -262,4 +269,51 @@ export function themesForGenre(genre?: ArticleGenre): string[] {
 /** 自定义主题：用户粘贴的 CSS 原样参与内联（建议选择器以 .mly-body 开头），叠加在基础样式之上 */
 export function buildCustomThemeCss(customCss: string): string {
   return baseCss('#07c160', '#2b2b2b', FONT_STACK) + '\n' + customCss + HLJS_CSS
+}
+/** 基于现有主题追加受控的结构化参数，供账号版式版本和单篇覆盖共用。 */
+export function buildLayoutThemeCss(themeId: string, config: LayoutStyleConfig = {}, customCss?: string): string {
+  const safeNumber = (value: number | undefined, min: number, max: number): number | undefined =>
+    value !== undefined && Number.isFinite(value) && value >= min && value <= max ? value : undefined
+  const safeColor = (value: string | undefined): string | undefined =>
+    value && /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value) ? value : undefined
+  const bodyFontSize = safeNumber(config.bodyFontSize, 13, 20)
+  const bodyLineHeight = safeNumber(config.bodyLineHeight, 1.4, 2.2)
+  const paragraphSpacing = safeNumber(config.paragraphSpacing, 8, 32)
+  const heading2FontSize = safeNumber(config.heading2FontSize, 16, 26)
+  const heading3FontSize = safeNumber(config.heading3FontSize, 14, 22)
+  const imageRadius = safeNumber(config.imageRadius, 0, 24)
+  const imageCaptionFontSize = safeNumber(config.imageCaptionFontSize, 10, 16)
+  const accentColor = safeColor(config.accentColor)
+  const textColor = safeColor(config.textColor)
+  const fontFamily = config.bodyFontFamily === 'serif' ? SERIF_STACK : config.bodyFontFamily === 'system' ? FONT_STACK : undefined
+  const accent = accentColor ?? getLayoutTheme(themeId).accent
+  const heading2Variant = config.heading2Variant ?? 'accent-bar'
+  const quoteVariant = config.quoteVariant ?? 'bar'
+  const overrides = [
+    bodyFontSize !== undefined ? `.mly-body,.mly-body p { font-size: ${bodyFontSize}px; }` : '',
+    bodyLineHeight !== undefined ? `.mly-body,.mly-body p { line-height: ${bodyLineHeight}; }` : '',
+    paragraphSpacing !== undefined ? `.mly-body p { margin-bottom: ${paragraphSpacing}px; }` : '',
+    config.paragraphFirstLineIndent ? `.mly-body p { text-indent: 2em; } .mly-body blockquote p,.mly-body .mly-brand-header p,.mly-body .mly-brand-footer p { text-indent: 0; }` : '',
+    fontFamily ? `.mly-body { font-family: ${fontFamily}; }` : '',
+    heading2FontSize !== undefined ? `.mly-body h2 { font-size: ${heading2FontSize}px; }` : '',
+    heading3FontSize !== undefined ? `.mly-body h3 { font-size: ${heading3FontSize}px; }` : '',
+    imageRadius !== undefined ? `.mly-body img { border-radius: ${imageRadius}px; }` : '',
+    imageCaptionFontSize !== undefined ? `.mly-body .mly-image-caption,.mly-body figcaption { font-size: ${imageCaptionFontSize}px; }` : '',
+    heading2Variant === 'accent-bar' ? `.mly-body h2 { border-left: 4px solid ${accent}; border-bottom: 0; border-radius: 0; padding: 0 0 0 10px; background: transparent; }` : '',
+    heading2Variant === 'underline' ? `.mly-body h2 { border-left: 0; border-bottom: 2px solid ${accent}; border-radius: 0; padding: 0 0 8px; background: transparent; }` : '',
+    heading2Variant === 'filled' ? `.mly-body h2 { border-left: 0; border-bottom: 0; border-radius: 6px; padding: 8px 14px; background: ${tintHex(accent)}; }` : '',
+    quoteVariant === 'bar' ? `.mly-body blockquote { border-left: 4px solid ${accent}; border-radius: 0 6px 6px 0; background: #f7f8fa; padding: 12px 16px; }` : '',
+    quoteVariant === 'card' ? `.mly-body blockquote { border-left: 0; border-radius: 8px; background: #f5f6f7; padding: 14px 16px; }` : '',
+    quoteVariant === 'plain' ? `.mly-body blockquote { border-left: 0; border-radius: 0; background: transparent; padding: 4px 12px; color: #666666; }` : '',
+    accentColor ? `.mly-body strong,.mly-body em,.mly-body a,.mly-body sup { color: ${accentColor}; }.mly-body h2,.mly-body blockquote { border-left-color: ${accentColor}; }.mly-body th { background-color: ${accentColor}; border-color: ${accentColor}; }` : '',
+    textColor ? `.mly-body,.mly-body p,.mly-body h2,.mly-body h3,.mly-body h4 { color: ${textColor}; }` : '',
+    customCss?.trim() ?? ''
+  ].filter(Boolean).join('\n')
+  return `${getLayoutTheme(themeId).css}\n${overrides}`
+}
+
+function tintHex(hex: string): string {
+  const normalized = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16))
+  return `#${channels.map((channel) => Math.round(channel + (255 - channel) * 0.9).toString(16).padStart(2, '0')).join('')}`
 }

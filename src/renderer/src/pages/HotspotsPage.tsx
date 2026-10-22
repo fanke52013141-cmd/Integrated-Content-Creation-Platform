@@ -1057,7 +1057,9 @@ export function HotspotsPage({
                     key={source.id}
                     className={draggedSourceId === source.id ? 'dragging' : ''}
                     draggable
-                    onDragStart={() => {
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move'
+                        event.dataTransfer.setData('text/plain', source.id)
                       draggingSourceIdRef.current = source.id
                       setDraggedSourceId(source.id)
                     }}
@@ -1066,8 +1068,9 @@ export function HotspotsPage({
                       setDraggedSourceId(undefined)
                     }}
                     onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => {
-                      const movingId = draggingSourceIdRef.current
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      const movingId = draggingSourceIdRef.current || event.dataTransfer.getData('text/plain')
                       if (!movingId || movingId === source.id) return
                       draggingSourceIdRef.current = undefined
                       setSourceManagerOrder((current) => moveSource(current, movingId, source.id))
@@ -1079,7 +1082,11 @@ export function HotspotsPage({
                     <span className="source-manager-name">
                       <strong>{source.displayName}</strong>
                     </span>
-                    <small className="source-manager-order">{index + 1}</small>
+                      <span className="source-order-controls">
+                        <button type="button" className="button ghost compact" aria-label={`上移${source.displayName}`} disabled={index===0} onClick={()=>setSourceManagerOrder(current=>moveSource(current,source.id,current[index-1].id))}>↑</button>
+                        <small className="source-manager-order">{index + 1}</small>
+                        <button type="button" className="button ghost compact" aria-label={`下移${source.displayName}`} disabled={index===sourceManagerOrder.length-1} onClick={()=>setSourceManagerOrder(current=>moveSource(current,source.id,current[index+1].id))}>↓</button>
+                      </span>
                     <label>
                       <input
                         type="checkbox"

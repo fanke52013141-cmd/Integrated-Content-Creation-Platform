@@ -137,6 +137,7 @@ try {
   await pickByTitle('长列表素材 06')
   await picker.getByText('引用素材（已选 3）').waitFor()
 
+  if (await window.getByRole('button', { name: '关闭新建草稿', exact: true }).isVisible()) await window.getByRole('button', { name: '关闭新建草稿', exact: true }).click()
   await window.getByRole('button', { name: '素材库', exact: true }).click()
   for (const title of ['中途补的素材甲', '中途补的素材乙']) {
     await window.getByRole('button', { name: '添加文字素材' }).click()
@@ -165,6 +166,7 @@ try {
     const list = await window.moliu.materials.list()
     await window.moliu.materials.remove(list.find((material) => material.title === '访谈摘录').id)
   })
+  if (await window.getByRole('button', { name: '关闭新建草稿', exact: true }).isVisible()) await window.getByRole('button', { name: '关闭新建草稿', exact: true }).click()
   await window.getByRole('button', { name: '素材库', exact: true }).click()
   await window.getByRole('button', { name: '文章创作', exact: true }).click()
   await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()

@@ -18,7 +18,10 @@ const PIXELS: Record<string, string> = {
 }
 
 /** 比例 → 1K 档像素；未知比例返回 undefined（改图时不传 size，由供应商决定） */
-export function pixelSizeForRatio(ratio?: string): string | undefined {
+export function pixelSizeForRatio(ratio?: string, resolution: '1k' | '2k' | '4k' = '1k'): string | undefined {
   const normalized = ratio?.trim().replace(/\s/g, '')
-  return normalized ? PIXELS[normalized] : undefined
+  const base = normalized ? PIXELS[normalized] : undefined
+  if (!base || resolution === '1k') return base
+  const scale = resolution === '2k' ? 2 : 4
+  return base.split('x').map(value => Number(value) * scale).join('x')
 }

@@ -1,10 +1,10 @@
 import { dialog } from 'electron'
-import { copyFile, mkdir, readFile, readdir, writeFile, rename, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, readdir, stat, writeFile, rename, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename, extname, join, resolve, sep } from 'node:path'
-import type { LocalFileResult } from '../../shared/contracts.js'
+import type { LayoutPresetPackage, LocalFileResult } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import { renderLayoutMarkdown } from './article-layout-service.js'
 import { localAssetNames, replaceLocalAssets } from './local-assets.js'
@@ -73,6 +73,36 @@ export class WorkspaceService {
     await mkdir(directory, { recursive: true })
     const target = await this.writeUnique(directory, fileName, await this.embedImages(wrapDocument(layout.title, layout.html)))
     return { path: target }
+  }
+
+  /** 导出可移植的结构化版式包，不包含本机图片路径或账号凭证。 */
+  async exportLayoutPreset(input: LayoutPresetPackage): Promise<LocalFileResult> {
+    const result = await dialog.showSaveDialog({
+      title: '导出公众号版式包',
+      defaultPath: '公众号固定版式.moliu-layout.json',
+      filters: [formatFilter('墨流版式包', ['json'])]
+    })
+    if (result.canceled || !result.filePath) return { path: null }
+    await writeFile(result.filePath, JSON.stringify(input, null, 2), 'utf8')
+    return { path: result.filePath }
+  }
+
+  /** 读取用户选定的版式 JSON；结构与主题合法性由 IPC schema 再校验。 */
+  async importLayoutPreset(): Promise<unknown | null> {
+    const result = await dialog.showOpenDialog({
+      title: '导入公众号版式包',
+      buttonLabel: '选择版式包',
+      properties: ['openFile'],
+      filters: [formatFilter('墨流版式包', ['json'])]
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    const filePath = result.filePaths[0]
+    if ((await stat(filePath)).size > 1024 * 1024) throw new Error('版式包不能超过 1 MB')
+    try {
+      return JSON.parse(await readFile(filePath, 'utf8')) as unknown
+    } catch {
+      throw new Error('版式包不是有效的 JSON 文件')
+    }
   }
 
   async createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }> {
