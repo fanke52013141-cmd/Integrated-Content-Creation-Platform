@@ -1,3 +1,4 @@
+import { registerVisualStudioIpc } from './ipc-visual-studio.js'
 import { buildMaterialContext, contextBudget } from './services/material-context.js'
 import { clipboard, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
@@ -267,6 +268,8 @@ export function registerIpc(options: {
   handle('app:backup-list', () => workspace.listBackupBundles())
   handle('app:backup-export-portable', () => workspace.exportPortableBackup())
   handle('app:backup-select-portable', () => workspace.selectPortableBackup())
+
+  registerVisualStudioIpc(database, gateway, visualAssets, dataPath)
 
   // ===== 生成任务：互斥、取消与历史台账 =====
   handle('generation:cancel', (_event, domain: string) => ({ cancelled: cancelGeneration(domain as GenerationDomain) }))

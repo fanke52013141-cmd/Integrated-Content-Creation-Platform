@@ -62,6 +62,7 @@ try {
 
   // F11 + F16：没有生图模型，也能逐张把本地图片导入到每个提示词位
   await page.getByRole('button', { name: '智能配图' }).click()
+  await page.getByRole('button', { name: '原有方案与图片', exact: true }).click()
   await page.locator('.visual-slot').first().waitFor()
   if (await page.locator('.visual-slot').count() !== 4) throw new Error('配图方案位数量不正确')
   await page.getByText('尚未配置生图模型').waitFor()

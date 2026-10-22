@@ -1115,6 +1115,7 @@ export interface MoliuApi {
     onStream(callback: (event: StreamEvent) => void): () => void
   }
   visuals: {
+    studio: import('./visual-studio.js').VisualStudioApi
     createManualPack(articleId: string): Promise<VisualPack>
     list(articleId?: string): Promise<VisualPack[]>
     generate(input: GenerateVisualPackInput): Promise<VisualPack>

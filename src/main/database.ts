@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
 import { copyFileSync, existsSync, rmSync, renameSync } from 'node:fs'
+import { VisualStudioRepository } from './repositories/visual-studio-repository.js'
 import { WorkflowRepository } from './repositories/workflow-repository.js'
 import { createHash } from 'node:crypto'
 import type {
@@ -312,6 +313,7 @@ export class AppDatabase {
   private db: DatabaseSync
   private transactionDepth = 0
   atomic<T>(operation: () => T): T { return this.transaction(operation) }
+  visualStudio: VisualStudioRepository
   workflow: WorkflowRepository
   private readonly location: string
 
@@ -320,7 +322,7 @@ export class AppDatabase {
     this.db = new DatabaseSync(path)
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db) } catch (error) { this.db.close(); throw error }
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db) } catch (error) { this.db.close(); throw error }
   }
 
   close(): void {
@@ -360,7 +362,7 @@ export class AppDatabase {
   private reopen(): void {
     this.db = new DatabaseSync(this.location)
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db) } catch (error) { this.db.close(); throw error }
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db) } catch (error) { this.db.close(); throw error }
   }
 
   /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */

@@ -220,6 +220,27 @@ const api: MoliuApi = {
     }
   },
   visuals: {
+    studio: {
+      styles: () => ipcRenderer.invoke('visual-studio:styles'),
+      saveStyle: input => ipcRenderer.invoke('visual-studio:save-style', input),
+      archiveStyle: (id, archived) => ipcRenderer.invoke('visual-studio:archive-style', { id, archived }),
+      styleHistory: id => ipcRenderer.invoke('visual-studio:style-history', id),
+      importReference: data => ipcRenderer.invoke('visual-studio:import-reference', data),
+      referenceFromAsset: id => ipcRenderer.invoke('visual-studio:reference-from-asset', id),
+      sampleStyle: input => ipcRenderer.invoke('visual-studio:sample-style', input),
+      analyzeReference: input => ipcRenderer.invoke('visual-studio:analyze-reference', input),
+      defaultStyle: id => ipcRenderer.invoke('visual-studio:default-style', id),
+      bindStyle: (accountId, styleId) => ipcRenderer.invoke('visual-studio:bind-style', { accountId, styleId }),
+      plans: id => ipcRenderer.invoke('visual-studio:plans', id),
+      plan: input => ipcRenderer.invoke('visual-studio:plan', input),
+      savePlan: input => ipcRenderer.invoke('visual-studio:save-plan', input),
+      prompts: input => ipcRenderer.invoke('visual-studio:prompts', input),
+      generate: input => ipcRenderer.invoke('visual-studio:generate', input),
+      select: input => ipcRenderer.invoke('visual-studio:select', input),
+      preview: id => ipcRenderer.invoke('visual-studio:preview', id),
+      apply: input => ipcRenderer.invoke('visual-studio:apply', input),
+      undo: input => ipcRenderer.invoke('visual-studio:undo', input)
+    },
     createManualPack: (id) => ipcRenderer.invoke('visuals:manual-pack', id),
     list: (articleId?: string) => ipcRenderer.invoke('visuals:list', articleId),
     generate: (input) => ipcRenderer.invoke('visuals:generate', input),

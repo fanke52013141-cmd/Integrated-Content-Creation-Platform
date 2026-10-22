@@ -495,6 +495,14 @@ function createMockBridge(): MoliuApi {
       onStream: () => () => undefined
     },
     visuals: {
+      studio: {
+        styles: () => emptyArray(), plans: () => emptyArray(), defaultStyle: () => Promise.resolve(null),
+        saveStyle: () => Promise.reject(new Error('请在桌面应用中保存风格')),
+        archiveStyle: () => void_(), styleHistory: () => emptyArray(),
+        importReference: () => void_(), referenceFromAsset: () => void_(), sampleStyle: () => void_(), analyzeReference: () => void_(),
+        bindStyle: () => void_(), plan: () => void_(), savePlan: () => void_(), prompts: () => void_(),
+        generate: () => void_(), select: () => void_(), preview: () => void_(), apply: () => void_(), undo: () => void_()
+      },
       createManualPack: () => Promise.reject(new Error('请在桌面应用中导入图片')),
       list: (articleId?: string) => fixtures ? Promise.resolve(fixtures.visualPacks.filter(pack => !articleId || pack.articleId === articleId)) : emptyArray(),
       generate: () => void_(),

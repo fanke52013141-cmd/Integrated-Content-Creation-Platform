@@ -1,3 +1,4 @@
+import { VisualStudio } from '../components/VisualStudio'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Copy, FileUp, Image as ImageIcon, ImagePlus, LayoutTemplate, LoaderCircle, Palette,
@@ -45,6 +46,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [packs, setPacks] = useState<VisualPack[]>([])
   const [articleId, setArticleId] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+  const [studioMode, setStudioMode] = useState(true)
   const [count, setCount] = useState(3)
   /** 透明背景：贴纸 / 图标类素材用，生成带 alpha 通道的 PNG */
   const [transparent, setTransparent] = useState(false)
@@ -65,7 +67,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   )
   const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
   const { article: selected, error: selectionError } = useSelectedArticle(articleId, articles)
-  const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId), [packs, articleId])
+  const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId && pack.rawXml !== '<visual-studio/>'), [packs, articleId])
 
   const workDraft = useWorkDraft(selected?.id ?? '', selected?.rawMarkdown ?? '', selected?.currentVersionId ?? '')
   const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
@@ -325,7 +327,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={selected} onSaved={refresh} onNavigate={onNavigate} />
 
-    {!articles.length ? (
+    <div className="studio-actions" style={{marginBottom:20}}><button className={studioMode ? 'button primary' : 'button secondary'} onClick={() => setStudioMode(true)}>内容配图工作台</button><button className={!studioMode ? 'button primary' : 'button secondary'} onClick={() => setStudioMode(false)}>原有方案与图片</button></div>
+    {studioMode ? <VisualStudio article={selected ?? null} articleId={articleId} onArticleChange={setArticleId} providers={providers} onApplied={refresh} /> : !articles.length ? (
       <EmptyState
         icon={ImageIcon}
         title="还没有可配图的文章"

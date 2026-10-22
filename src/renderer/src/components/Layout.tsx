@@ -285,10 +285,7 @@ export function Layout({
                 <span className="avatar">
                   {currentAccount?.name.slice(0, 1) || <CircleUserRound size={16} />}
                 </span>
-                <span>
-                  <small>当前账号</small>
                   <strong>{currentAccount?.name || '尚未创建'}</strong>
-                </span>
                 {currentAccount?.status === 'locked' && <LockKeyhole size={16} />}
               </button>
               {accountMenuOpen && accounts.length > 0 && (
