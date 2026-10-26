@@ -95,7 +95,7 @@ export function TaskCenterDialog({ open, onClose, onNavigate }: { open: boolean;
   }, [open])
 
   return (
-    <ModalBase open={open} onClose={onClose} titleId="task-center-title" className="task-center-dialog">
+    <ModalBase open={open} onClose={onClose} titleId="task-center-title" scrollBody className="task-center-dialog">
       <header><div><h2 id="task-center-title"><ListChecks size={16} /> 任务中心</h2><p>每次生成都会留痕：中断、失败与部分完成都按真实结果显示。</p></div><button className="icon-button" aria-label="关闭任务中心" onClick={onClose}><X size={20} /></button></header>
       {error && <p className="inline-alert">{error}</p>}
       {tasks.length ? (

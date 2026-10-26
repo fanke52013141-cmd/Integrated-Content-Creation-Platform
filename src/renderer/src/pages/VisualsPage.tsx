@@ -47,10 +47,11 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [articleId, setArticleId] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [studioMode, setStudioMode] = useState(true)
+  const [importedPlanId, setImportedPlanId] = useState('')
   const [count, setCount] = useState(3)
   /** 透明背景：贴纸 / 图标类素材用，生成带 alpha 通道的 PNG */
   const [transparent, setTransparent] = useState(false)
-  const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
+  const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers), undefined, 'visual.generate')
   const [assetsByPack, setAssetsByPack] = useState<Record<string, VisualAsset[]>>({})
   const [imageBusyKey, setImageBusyKey] = useState('')
   const [importTarget, setImportTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string } | null>(null)
@@ -328,7 +329,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     <SavedVersionGate article={selected} onSaved={refresh} onNavigate={onNavigate} />
 
     <div className="studio-actions" style={{marginBottom:20}}><button className={studioMode ? 'button primary' : 'button secondary'} onClick={() => setStudioMode(true)}>内容配图工作台</button><button className={!studioMode ? 'button primary' : 'button secondary'} onClick={() => setStudioMode(false)}>原有方案与图片</button></div>
-    {studioMode ? <VisualStudio article={selected ?? null} articleId={articleId} onArticleChange={setArticleId} providers={providers} onApplied={refresh} /> : !articles.length ? (
+    {studioMode ? <VisualStudio article={selected ?? null} articleId={articleId} importedPlanId={importedPlanId} onArticleChange={setArticleId} providers={providers} onApplied={refresh} /> : !articles.length ? (
       <EmptyState
         icon={ImageIcon}
         title="还没有可配图的文章"
@@ -449,9 +450,9 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     <ImportDialog
       open={importOpen}
       kind="visual-plan"
-      associations={{ articleId }}
+      associations={{ articleId, visualStudio: studioMode }}
       onClose={() => setImportOpen(false)}
-      onImported={() => { void refresh() }}
+      onImported={(result) => { if (studioMode && result.created[0]) setImportedPlanId(result.created[0].id); void refresh() }}
       showToast={showToast}
     />
   </div>

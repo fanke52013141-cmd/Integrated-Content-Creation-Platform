@@ -20,6 +20,10 @@
 .prompt-main .prompt-note { margin: 0; }
 .prompt-inspector { border-left: 1px solid var(--border-subtle); padding-left: 24px; }
 .prompt-inspector .prompt-vars { display: flex; flex-wrap: wrap; gap: 8px; align-content: start; }
+.prompt-advanced summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
+.prompt-advanced .micro-copy { margin: 12px 0; overflow-wrap: anywhere; }
+.prompt-inspector .version-panel-head { display: flex; align-items: center; gap: 8px; }
+.prompt-inspector .version-panel-head h4 { margin: 0; flex-basis: auto; }
 .prompt-inspector h4 { flex-basis: 100%; margin-bottom: 8px; font-size: 14px; }
 .prompt-inspector .var-chip { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .prompt-inspector .prompt-vars-empty { font-size: 13px; color: var(--text-secondary); }

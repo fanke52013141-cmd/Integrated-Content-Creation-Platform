@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Braces, Download, FileUp, History, RotateCcw, Save } from 'lucide-react'
-import type { PromptDefSummary, PromptVersionInfo } from '../../../shared/contracts'
+import type { PromptDefSummary, PromptVersionInfo, ProviderSummary } from '../../../shared/contracts'
+import { Select } from '../components/Select'
+import { availableModels, decodeModelTarget, encodeModelTarget } from '../lib/models'
 import type { ToastState } from '../components/Toast'
 import { ImportDialog } from '../components/ImportDialog'
 import { SourceBadge } from '../components/SourceBadge'
@@ -16,6 +18,9 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
   const [versions, setVersions] = useState<PromptVersionInfo[]>([])
   const [busy, setBusy] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [providers, setProviders] = useState<ProviderSummary[]>([])
+  const [bindingTarget, setBindingTarget] = useState('')
+  const models = availableModels(providers)
 
   const selected = useMemo(() => defs.find((d) => d.key === selectedKey), [defs, selectedKey])
   const variables = useMemo(() => {
@@ -23,7 +28,8 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
     draft.replace(/{{\s*([^}\s]+)\s*}}/g, (_m, name: string) => { found.add(name); return '' })
     return [...found]
   }, [draft])
-  const dirty = selected ? draft !== selected.activeContent : false
+  const savedTarget = selected?.modelBinding ? encodeModelTarget(selected.modelBinding.providerId, selected.modelBinding.modelId) : ''
+  const dirty = selected ? draft !== selected.activeContent || bindingTarget !== savedTarget : false
 
   /** 返回最新列表：调用方需要把它传给 loadSelected，避免读到本渲染闭包里的旧 defs */
   const loadDef = async (): Promise<PromptDefSummary[]> => {
@@ -36,6 +42,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
   const loadSelected = async (key: string, list?: PromptDefSummary[]): Promise<void> => {
     const d = (list ?? defs).find((x) => x.key === key)
     setDraft(d?.activeContent ?? '')
+    setBindingTarget(d?.modelBinding ? encodeModelTarget(d.modelBinding.providerId, d.modelBinding.modelId) : '')
     setNote('')
     try {
       setVersions(await window.moliu.prompts.listVersions(key))
@@ -47,6 +54,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
   useEffect(() => {
     void loadDef().catch((e) => showToast({ type: 'error', message: errorMessage(e) }))
+    void window.moliu.providers.list().then(setProviders).catch((e) => showToast({ type: 'error', message: errorMessage(e) }))
   }, [])
 
   useEffect(() => {
@@ -76,7 +84,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
     if (!selectedKey || !dirty) return
     setBusy(true)
     try {
-      await window.moliu.prompts.update({ key: selectedKey, content: draft, note: note.trim() || undefined })
+      await window.moliu.prompts.update({ key: selectedKey, content: draft, note: note.trim() || undefined, modelBinding: decodeModelTarget(bindingTarget) })
       await reload('提示词已保存为新版本')
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
@@ -118,7 +126,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
       <section className="page-intro">
         <div>
           <h1>提示词 <SourceBadge source={selected?.importSource} /></h1>
-          <p>集中管理各 AI 环节的自定义提示词，支持版本回溯。写入 <code>{'{'} {'{'}</code>变量<code>{'}'}{'}'}</code> 可注入动态上下文。</p>
+          <p>调整各环节的写作要求，保存后用于后续生成。可查看历史版本并恢复。</p>
         </div>
         <div className="page-intro-actions">
           <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入 JSON</button>
@@ -148,7 +156,6 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 <span className="prompt-card-copy">
                   <strong>{d.title}</strong>
                   <small>{d.description}</small>
-                  <code>{d.key}</code>
                 </span>
                 <span className="status-pill">v{d.activeVersion}</span>
               </button>
@@ -164,7 +171,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 <div className="editor-title">
                   <div>
                     <h2>{selected.title}</h2>
-                    <p className="prompt-meta">{selected.key} · 共 {selected.versionCount} 个版本 · 当前激活 v{selected.activeVersion}</p>
+                    <p className="prompt-meta">当前生效 v{selected.activeVersion} · 共 {selected.versionCount} 个版本</p>
                   </div>
                 </div>
                 <div className="editor-heading-actions">
@@ -176,8 +183,9 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
               <div className="prompt-edit-workspace">
               <div className="prompt-main">
+              <label className="field"><span>默认文本模型</span><Select ariaLabel="提示词默认模型" value={bindingTarget} onChange={setBindingTarget} options={[{ value: '', label: '沿用生成页面的模型' }, ...models.map(({provider, model}) => ({value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName})), ...(bindingTarget && !models.some(({provider, model}) => encodeModelTarget(provider.id, model.modelId) === bindingTarget) ? [{value: bindingTarget, label: '绑定的模型已不可用，请重新选择'}] : [])]} /><small>进入对应生成页面时优先选择此模型；本次手动选择可覆盖。模型与要求一起保存为版本。</small></label>
               <label className="field prompt-textarea">
-                <span>指令内容（整段编辑，自动追加到各环节的系统提示词）</span>
+                <span>生成要求</span>
                 <textarea
                   name="promptContent"
                   autoComplete="off"
@@ -194,12 +202,16 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
               </label>
               </div>
               <aside className="prompt-inspector">
+              <details className="prompt-advanced">
+                <summary>变量与接入信息</summary>
+                <p className="micro-copy">接入标识：<code>{selected.key}</code>。变量由对应生成环节提供，保留已有变量可确保上下文正常传入。</p>
               <div className="prompt-vars">
-                <h4>可用变量</h4>
+                <h4>当前使用的变量</h4>
                 {variables.length
                   ? variables.map((v) => <code key={v} className="preset-chip var-chip">{'{'}{'{'} {v} {'}'}{'}'}</code>)
                   : <span className="prompt-vars-empty">当前内容未使用变量</span>}
               </div>
+              </details>
 
               <div className="panel version-panel">
                 <div className="version-panel-head">

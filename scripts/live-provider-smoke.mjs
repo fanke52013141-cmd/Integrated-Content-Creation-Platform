@@ -2,7 +2,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 
 const apiKey = process.env.MOLIU_LIVE_API_KEY
 const baseUrl = process.env.MOLIU_LIVE_BASE_URL

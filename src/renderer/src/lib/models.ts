@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ProviderModel, ProviderSummary } from '../../../shared/contracts'
 
 export interface ModelOption {
@@ -54,10 +54,32 @@ function writeStored(key: string, value: string): void {
  * 2. 无记录或记录已失效时回落到供应商默认模型；
  * 3. 用户改动时写回 localStorage，让其他页面下次自动带出。
  */
-export function useModelTarget(models: ModelOption[], storageKey: string = DEFAULT_MODEL_KEY): [string, (value: string) => void] {
+export function useModelTarget(models: ModelOption[], storageKey: string = DEFAULT_MODEL_KEY, promptKey?: string): [string, (value: string) => void] {
   const [target, setTarget] = useState(() => readStored(storageKey))
+  const [bindingReady, setBindingReady] = useState(!promptKey)
+  const [boundTarget, setBoundTarget] = useState('')
+  const manuallySelected = useRef(false)
+  useEffect(() => {
+    if (!promptKey) return
+    let alive = true
+    manuallySelected.current = false
+    setBindingReady(false)
+    void window.moliu.prompts.list().then(defs => {
+      if (!alive) return
+      const binding = defs.find(def => def.key === promptKey)?.modelBinding
+      const value = binding ? encodeModelTarget(binding.providerId, binding.modelId) : ''
+      setBoundTarget(value)
+      if (value && !manuallySelected.current) setTarget(value)
+      setBindingReady(true)
+    }).catch(() => {
+      // Do not silently substitute a model if the saved routing could not be read.
+      if (alive) { setTarget(''); setBoundTarget('unavailable'); setBindingReady(true) }
+    })
+    return () => { alive = false }
+  }, [promptKey])
 
   useEffect(() => {
+    if (!bindingReady || (boundTarget && !manuallySelected.current)) return
     const pick = (): ModelOption | undefined => {
       const stored = decodeModelTarget(readStored(storageKey))
       const storedMatch = stored
@@ -70,12 +92,13 @@ export function useModelTarget(models: ModelOption[], storageKey: string = DEFAU
     if (exists) return
     const preferred = pick()
     setTarget(preferred ? encodeModelTarget(preferred.provider.id, preferred.model.modelId) : '')
-  }, [models, target, storageKey])
+  }, [models, target, storageKey, bindingReady, boundTarget])
 
   const update = useCallback((value: string): void => {
+    manuallySelected.current = true
     writeStored(storageKey, value)
     setTarget(value)
   }, [storageKey])
 
-  return [target, update]
+  return [bindingReady ? target : '', update]
 }

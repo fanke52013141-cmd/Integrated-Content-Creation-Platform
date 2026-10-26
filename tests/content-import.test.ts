@@ -164,6 +164,53 @@ describe('ContentImportService commit', () => {
     })
   })
 
+  it('preserves search result source, summary and publication date on direct hot-item import', async () => {
+    await withDatabase(async (database) => {
+      const service = new ContentImportService(database)
+      const preview = await service.preview({ kind: 'hot-item', format: 'json', content: JSON.stringify({ items: [{ title: 'AI 新闻', sourceUrl: 'https://example.com/news', sourceName: '原始发布方', summary: '已核验摘要', publishedAt: '2026-10-23T08:00:00+08:00' }] }) })
+      const result = await service.commit({ token: preview.token })
+      expect(result.failed).toEqual([])
+      expect(database.listHotFavorites()[0].hotItem).toMatchObject({ url: 'https://example.com/news', sourceTitle: '原始发布方', desc: '已核验摘要', updateTime: '2026-10-23T08:00:00+08:00' })
+    })
+  })
+
+  it('versions prompt model bindings, preserves them through imports and restores them', async () => {
+    await withDatabase(async (database) => {
+      const provider = database.saveProvider({ displayName: '文本模型', protocol: 'openai-compatible', baseUrl: 'http://127.0.0.1:1/v1', defaultModel: 'text-test', enabled: true, isRelay: false, capabilities: {chat:true,jsonMode:true,streaming:false,vision:false,image:false}, models:[{modelId:'text-test',displayName:'文本测试',enabled:true,isDefault:true,reasoningVariants:[]}] })
+      database.seedPrompts([{key:'topic.generate',title:'选题',description:'测试',template:'默认'}])
+      const service = new ContentImportService(database)
+      const binding = {providerId:provider.id,modelId:'text-test'}
+      const preview = await service.preview({kind:'prompt',format:'json',content:JSON.stringify({prompts:[{key:'topic.generate',content:'核实资讯后生成',modelBinding:binding}]})})
+      expect((await service.commit({token:preview.token})).failed).toEqual([])
+      expect(database.listPromptDefs()[0].modelBinding).toEqual(binding)
+      database.updatePrompt('topic.generate','继承模型','')
+      expect(database.getPromptModelBinding('topic.generate')).toEqual(binding)
+      database.updatePrompt('topic.generate','沿用流程','',null)
+      expect(database.getPromptModelBinding('topic.generate')).toBeNull()
+      database.restorePrompt('topic.generate',2)
+      expect(database.getPromptModelBinding('topic.generate')).toEqual(binding)
+      expect(database.listPromptVersions('topic.generate').find(v=>v.version===2)?.modelBinding).toEqual(binding)
+      expect(()=>database.updatePrompt('topic.generate','无效绑定','',{providerId:provider.id,modelId:'missing'})).toThrow('不存在或已停用')
+    })
+  })
+
+  it('retains prompt model routing after database restart', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'moliu-prompt-restart-'))
+    const path = join(dir, 'moliu.db')
+    let database = new AppDatabase(path)
+    try {
+      const provider = database.saveProvider({ displayName:'绑定模型',protocol:'openai-compatible',baseUrl:'http://127.0.0.1:1/v1',defaultModel:'model-a',enabled:true,isRelay:false,capabilities:{chat:true,jsonMode:true,streaming:false,vision:false,image:false},models:[{modelId:'model-a',displayName:'A',enabled:true,isDefault:true,reasoningVariants:[]}] })
+      database.seedPrompts([{key:'topic.generate',title:'选题',description:'测试',template:'初始内容'}])
+      const binding = {providerId:provider.id,modelId:'model-a'}
+      database.updatePrompt('topic.generate','已配置的要求','',binding)
+      database.close()
+      database = new AppDatabase(path)
+      expect(database.listPromptDefs()[0].modelBinding).toEqual(binding)
+      database.resetPrompt('topic.generate')
+      expect(database.getPromptModelBinding('topic.generate')).toBeNull()
+    } finally { database.close(); rmSync(dir,{recursive:true,force:true}) }
+  })
+
   it('imports a review report as a manual opinion', async () => {
     await withDatabase(async (database) => {
       const article = database.saveArticle({ materialIds: [], manualOutline: '', status: 'draft', rawMarkdown: '# 待评审\n\n正文', source: 'manual' })
@@ -192,6 +239,24 @@ describe('ContentImportService commit', () => {
       const packs = database.listVisualPacks(article.id)
       expect(packs).toHaveLength(1)
       expect(packs[0].inlineImages).toHaveLength(1)
+    })
+  })
+
+  it('imports external pictures into the four-stage studio without guessing ambiguous positions', async () => {
+    await withDatabase(async database => {
+      const article = database.saveArticle({materialIds:[],manualOutline:'',status:'draft',rawMarkdown:'# AI 资讯\n\n可精确匹配的正文。',source:'manual'})
+      const service = new ContentImportService(database)
+      const preview = await service.preview({kind:'visual-plan',format:'json',content:JSON.stringify({cover:{visual:'封面',prompt:'cover prompt',overlayText:''},inlineImages:[{location:'可精确匹配的正文。',purpose:'正文说明',ratio:'16:9',prompt:'inline prompt',alt:'说明图'},{location:'第二段',purpose:'待定位',ratio:'4:3',prompt:'another prompt',alt:''}],releaseImages:[]})})
+      const result = await service.commit({token:preview.token,associations:{articleId:article.id,visualStudio:true}})
+      expect(result.failed).toEqual([])
+      const plan = database.visualStudio.plans(article.id)[0]
+      expect(plan.id).toBe(result.created[0].id)
+      expect(plan.pictures).toHaveLength(3)
+      expect(new Set(plan.pictures.map(p=>p.slot)).size).toBe(3)
+      expect(plan.pictures[0]).toMatchObject({prompt:'cover prompt',promptLocked:true,promptStale:false})
+      expect(plan.pictures[1].anchor).toMatchObject({block:'可精确匹配的正文。',placement:'after'})
+      expect(plan.pictures[2].anchor.block).toContain('未确认外部位置')
+      expect(database.listVisualPacks(article.id)[0].rawXml).toBe('<visual-studio/>')
     })
   })
 

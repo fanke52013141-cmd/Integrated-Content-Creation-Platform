@@ -1,7 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
 const IMPORTED_BODY = '这个月把三篇拖了很久的稿子发完了，才发现卡住我的从来不是文笔，而是没有先想清楚要写给谁。'

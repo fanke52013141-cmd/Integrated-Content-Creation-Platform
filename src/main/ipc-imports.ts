@@ -8,6 +8,7 @@ const kind = z.enum(['account', 'hot-item', 'topic', 'framework', 'article', 're
 const format = z.enum(['json', 'markdown', 'csv', 'docx', 'html', 'text'])
 const id = z.string().uuid()
 const associations = z.object({
+  visualStudio: z.boolean().optional(),
   accountId: id.optional(),
   topicId: id.optional(),
   frameworkId: id.optional(),

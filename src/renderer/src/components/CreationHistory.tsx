@@ -42,7 +42,7 @@ export function CreationHistory({ requests, run, refresh, openArticle, showToast
         {request.results.some(item => item.status === 'failed' || item.status === 'pending') && <button className="button secondary compact" disabled={busy} onClick={() => void perform(() => generate(() => window.moliu.articles.retryRequest(request.id)))}>补生成失败候选</button>}
       </div>)}
     </details>}
-    <ModalBase open={Boolean(edit)} onClose={() => setEdit(undefined)} titleId="recover-content-title" className="import-draft-dialog">
+    <ModalBase open={Boolean(edit)} onClose={() => setEdit(undefined)} titleId="recover-content-title" scrollBody className="import-draft-dialog">
       <header><div><h2 id="recover-content-title">检查未完成内容</h2><p>补完并检查正文后，另存为新的手动草稿。原文章不会被修改。</p></div><button className="button ghost compact" onClick={() => setEdit(undefined)}>关闭</button></header>
       <textarea rows={15} value={edit?.content ?? ''} maxLength={190000} onChange={event => setEdit(edit ? { ...edit, content: event.target.value } : undefined)} aria-label="待恢复正文" />
       <footer><button className="button secondary" disabled={busy} onClick={() => setEdit(undefined)}>取消</button><button className="button primary" disabled={busy || !edit?.content.trim()} onClick={() => void perform(async () => {
@@ -51,7 +51,7 @@ export function CreationHistory({ requests, run, refresh, openArticle, showToast
         openArticle(article.id); setEdit(undefined)
       })}>已检查完整，另存为草稿</button></footer>
     </ModalBase>
-    <ModalBase open={Boolean(comparison)} onClose={() => setComparison(undefined)} titleId="candidate-compare-title" className="version-diff-dialog">
+    <ModalBase open={Boolean(comparison)} onClose={() => setComparison(undefined)} titleId="candidate-compare-title" scrollBody className="version-diff-dialog">
       <h2 id="candidate-compare-title">原文章与备选稿对比</h2>
       {comparison && <><p>原文章第 {comparison.original.versionCount} 版。绿色为备选稿新增，红色为删除；请检查事实、数字和引用。</p>
         <div className="version-comparison"><section><h3>原文章 · 第 {comparison.original.versionCount} 版</h3><pre>{comparison.original.rawMarkdown}</pre></section><section><h3>备选稿</h3><pre>{comparison.candidate.rawMarkdown}</pre></section></div>

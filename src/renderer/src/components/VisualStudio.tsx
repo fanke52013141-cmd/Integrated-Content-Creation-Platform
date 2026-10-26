@@ -19,8 +19,9 @@ function target(value: string): VisualModelTarget {
   return { providerId: decoded.providerId, model: decoded.modelId }
 }
 
-export function VisualStudio({ article, articleId, onArticleChange, providers, onApplied }: {
+export function VisualStudio({ article, articleId, importedPlanId, onArticleChange, providers, onApplied }: {
   article: Article | null; articleId: string; onArticleChange(id: string): void
+  importedPlanId?: string
   providers: ProviderSummary[]; onApplied(): Promise<void>
 }): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
@@ -47,7 +48,8 @@ export function VisualStudio({ article, articleId, onArticleChange, providers, o
   const stop = useRef(false), loadSequence = useRef(0), operationActive = useRef(false)
   const textModels = availableModels(providers)
   const imageModels = providers.filter(p => p.enabled && p.hasApiKey && p.capabilities.image).flatMap(provider => provider.models.filter(m => m.enabled).map(model => ({ provider, model })))
-  const [textTarget, setTextTarget] = useModelTarget(textModels)
+  const [textTarget, setTextTarget] = useModelTarget(textModels, undefined, 'visual-studio.plan')
+  const [promptTarget, setPromptTarget] = useModelTarget(textModels, 'moliu:visual-prompt-model', 'visual-studio.prompts')
   const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
   const run = async (name: string, action: () => Promise<void>): Promise<void> => {
     if (operationActive.current) return
@@ -124,6 +126,14 @@ export function VisualStudio({ article, articleId, onArticleChange, providers, o
     draftTimer.current=setTimeout(()=>{const snapshot=pendingEdit.current;if(snapshot)void persistDraft(snapshot).catch(()=>undefined)},400)
     try { sessionStorage.setItem(`visual-studio-draft:${articleId}`, JSON.stringify(next)) } catch { setNotice('本地缓存不可用，请保存方案后再离开') }
   }
+  useEffect(() => {
+    if (!importedPlanId) return
+    void run('载入外部方案', async () => {
+      setPlans(await api().plans(articleId))
+      if (await canDiscard()) { await reload(importedPlanId); setStage('plan') }
+      else setNotice('外部方案已保存，可在方案列表中切换；当前编辑已保留')
+    })
+  }, [importedPlanId])
   const editPicture = (id: string, patch: Partial<PictureBrief>) => { if (plan) change({ ...plan, pictures: plan.pictures.map(p => p.id === id ? { ...p, ...patch } : p) }) }
   const save = async () => {
     if(!plan)return
@@ -200,11 +210,12 @@ export function VisualStudio({ article, articleId, onArticleChange, providers, o
       <p>{plan.reasoning}</p><p className="form-hint">方案绑定文章版本。先编辑并保存内容清单，再生成提示词；每张图可单独修改和锁定提示词。</p>
       {article && article.currentVersionId !== plan.articleVersionId && <p className="form-hint">文章已有新版本，应用前请在预览中确认插图位置；无法匹配的位置会要求重新选择。</p>}
       <fieldset disabled={Boolean(busy)} className="studio-controls">
+        <label className="field studio-style-section"><span>提示词模型</span><Select ariaLabel="配图提示词模型" value={promptTarget} onChange={setPromptTarget} options={textModels.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName}))} /></label>
         <label className="field"><span>本篇配图风格{plan.style ? ` · V${plan.style.version}` : ''}</span><select aria-label="本篇配图风格" value={plan.style?.id ?? ''} onChange={e => change({ ...plan, style: styles.find(s => s.id === e.target.value) })}><option value="">简洁通用风格</option>{styles.filter(s => !s.archived || s.id === plan.style?.id).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         {plan.style && styles.some(s => s.id === plan.style!.id && s.versionId !== plan.style!.versionId) && <button className="button ghost" onClick={() => change({ ...plan, style: styles.find(s => s.id === plan.style!.id) })}>使用此风格的最新版本</button>}
         <label className="field"><span>参考方式</span><select value={referenceMode} onChange={e => setReferenceMode(e.target.value as typeof referenceMode)}><option value="image">图片参考（风格有参考图时）</option><option value="text">仅文字风格描述</option></select></label>
 
-        <button className="button secondary" disabled={dirty || !textTarget} onClick={() => void run('生成提示词', async () => { const next = await api().prompts({ ...target(textTarget), planId: plan.id, expectedRevision: plan.revision }); setPlan(next);setStage('images'); setNotice('提示词已生成，已锁定的提示词保持原内容') })}>生成／更新提示词</button>
+        <button className="button secondary" disabled={dirty || !promptTarget} onClick={() => void run('生成提示词', async () => { const next = await api().prompts({ ...target(promptTarget), planId: plan.id, expectedRevision: plan.revision }); setPlan(next);setStage('images'); setNotice('提示词已生成，已锁定的提示词保持原内容') })}>生成／更新提示词</button>
         <button className="button ghost" disabled={plan.pictures.length >= 12} onClick={() => { const slot = Math.max(plan.nextSlot,...plan.pictures.map(p => p.slot + 1),...assets.map(a => a.slot + 1)); change({ ...plan, pictures: [...plan.pictures, { id: crypto.randomUUID(), kind: 'inline', slot, subject: '新增配图', purpose: '', ratio: '16:9', alt: '', caption: '', priority: 'optional', anchor: { block: '', occurrence: 0, placement: 'top' }, prompt: '', promptLocked: false }] }) }}>新增正文图</button>
       </fieldset>
       {plan.promptsStale && <p className="form-hint">内容或风格调整后，请更新提示词再生成图片。</p>}

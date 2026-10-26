@@ -1,3 +1,4 @@
+import { PromptRegistry } from '../gateway/prompt-registry.js'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -95,7 +96,7 @@ export class VisualStudioService {
     const blocks = articleBlocks(article.rawMarkdown)
     const account = article.accountId ? this.database.getAccount(article.accountId) : null
     const result = z.object({ reasoning: z.string().max(3000), pictures: z.array(briefSchema).max(10) }).parse(await this.json(input,
-      '你是公众号配图编辑。先规划内容，不写生图提示词。返回 {reasoning,pictures:[{kind,subject,purpose,blockIndex,ratio,alt,priority}]}。kind 为 cover/header/inline。封面与正文顶部图按用户开关各生成一张。正文图数量按 count（auto 时按内容需要，可为零）和 maxInline 决定，精简/标准/丰富分别控制密度。已有图片的位置避免重复推荐。每张图必须解释作用，正文图插在对应 blockIndex 后。只推荐有内容价值的图片。不得编造文章未提供的数据。图内默认无文字。',
+      new PromptRegistry(this.database).render('visual-studio.plan'),
       { ...input, article: { title: blocks[0]?.text, blocks: blocks.map((block, index) => ({ index, content: block.text })) }, account: account?.fields }, signal))
     if (result.pictures.filter(p => p.kind === 'cover').length !== Number(input.cover) || result.pictures.filter(p => p.kind === 'header').length !== Number(input.header)) throw new Error('模型未按开关返回封面／顶部图，请重试')
     const inline = result.pictures.filter(p => p.kind === 'inline')
@@ -150,7 +151,7 @@ export class VisualStudioService {
     const unlocked = (stale.length ? stale : plan.pictures).filter(p => !p.promptLocked)
     if (!unlocked.length) return this.store.save({ ...plan,promptsStale:false,pictures:plan.pictures.map(p=>({...p,promptStale:false})) })
     const result = z.object({ pictures: z.array(z.object({ id: z.string().uuid(), prompt: z.string().trim().min(1).max(6000) })).max(12) }).parse(await this.json(input,
-      '为每个图片项写可直接生图的中文提示词。返回 {pictures:[{id,prompt}]}，id 必须与输入完全一致。内容明确主体、场景、构图，结合风格描述和比例，默认没有文字水印。参考图仅学习色彩、笔触、材质，不复制其人物和场景。不得增加无来源的数据。',
+      new PromptRegistry(this.database).render('visual-studio.prompts'),
       { title: plan.title, article: plan.sourceMarkdown, pictures: unlocked.map(p => ({ id: p.id, subject: p.subject, purpose: p.purpose, ratio: p.ratio, style: styleDescription(p.style ?? plan.style) })) }, signal))
     const prompts = new Map(result.pictures.map(p => [p.id, p.prompt]))
     if (prompts.size !== unlocked.length || unlocked.some(p => !prompts.has(p.id))) throw new Error('模型返回的提示词数量或标识不完整，请重试')

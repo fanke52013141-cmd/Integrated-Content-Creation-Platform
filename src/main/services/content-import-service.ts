@@ -19,6 +19,7 @@ import type {
   VisualPack
 } from '../../shared/contracts.js'
 import { createAccountFields } from '../../shared/domain.js'
+import { articleBlocks, type PictureBrief } from '../../shared/visual-studio.js'
 import type { AppDatabase } from '../database.js'
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024
@@ -35,7 +36,7 @@ export interface ParsedImportItem {
   reviewProblems?: Array<{ position: string; severity: ReviewSeverity; issue: string; suggestion: string }>
   visualPlan?: { cover: VisualPack['cover']; inlineImages: VisualPack['inlineImages']; releaseImages: VisualPack['releaseImages'] }
   layout?: { title: string; html: string; plainText: string }
-  prompt?: { key: string; content: string; note: string }
+  prompt?: { key: string; content: string; note: string; modelBinding?: import('../../shared/contracts.js').PromptModelBinding | null }
   warnings: string[]
   /** 同来源已存在的条目；导入时可选择新建版本 */
   existing?: { artifactId: string; title: string; versionId?: string }
@@ -374,17 +375,17 @@ function parseHotItemContent(content: string, format: ContentImportFormat): Pars
   const make = (raw: Record<string, string>, index: number): ParsedImportItem | null => {
     const title = (raw.title || raw['标题'] || '').trim()
     if (!title) return null
-    const url = (raw.url || raw['链接'] || '').trim()
-    const sourceTitle = (raw.sourceTitle || raw.source || raw['来源'] || '外部导入').trim()
+    const url = (raw.url || raw.sourceUrl || raw['链接'] || '').trim()
+    const sourceTitle = (raw.sourceTitle || raw.sourceName || raw.source || raw['来源'] || '外部导入').trim()
     const hotItem: HotItem = {
       id: `manual-${createHash('sha256').update(`${title}|${url}|${index}`).digest('hex').slice(0, 16)}`,
       title,
-      desc: (raw.desc || raw['摘要'] || '').trim(),
+      desc: (raw.desc || raw.summary || raw.snippet || raw['摘要'] || '').trim(),
       url,
       source: 'manual',
       sourceTitle,
       subtitle: (raw.subtitle || '').trim(),
-      updateTime: (raw.updateTime || now).trim(),
+      updateTime: (raw.updateTime || raw.publishedAt || now).trim(),
       hotValue: (raw.hotValue || raw['热度'] || '').trim() || undefined,
       rank: index + 1,
       rawJson: JSON.stringify(raw)
@@ -574,9 +575,11 @@ function parsePromptContent(content: string): ParsedImportItem[] {
     const key = String(record.key ?? record.id ?? '').trim()
     const text = String(record.content ?? record.prompt ?? record.template ?? '').trim()
     if (!key || !text) continue
+    const binding = record.modelBinding
+    if (binding !== undefined && binding !== null && (typeof binding !== 'object' || typeof (binding as Record<string,unknown>).providerId !== 'string' || typeof (binding as Record<string,unknown>).modelId !== 'string')) throw new Error('modelBinding 必须包含 providerId 和 modelId')
     items.push({
       title: String(record.title ?? key).trim(),
-      prompt: { key, content: text, note: String(record.note ?? '外部导入').slice(0, 200) },
+      prompt: { key, content: text, note: String(record.note ?? '外部导入').slice(0, 200), modelBinding: binding as import('../../shared/contracts.js').PromptModelBinding | null | undefined },
       warnings: []
     })
   }
@@ -907,17 +910,42 @@ export class ContentImportService {
         } else if (batch.kind === 'visual-plan') {
           if (!associations.articleId) throw new Error('导入配图方案前请先选择一篇文章')
           if (!item.visualPlan) throw new Error('没有可导入的配图方案')
+          const visualPlan = item.visualPlan
           const article = this.database.getArticle(associations.articleId)
           if (!article) throw new Error('目标文章不存在')
-          const saved = this.database.saveVisualPack({
-            kind: 'manual',
-            articleId: article.id,
-            articleVersionId: article.currentVersionId,
-            articleStatusSnapshot: article.status,
-            cover: item.visualPlan.cover,
-            inlineImages: item.visualPlan.inlineImages,
-            releaseImages: item.visualPlan.releaseImages,
-            rawXml: ''
+          const studioPictures: PictureBrief[] = []
+          if (associations.visualStudio) {
+            this.database.workflow.assertSaved(article.id)
+            const blocks = articleBlocks(article.rawMarkdown)
+            const source = item.visualPlan
+            const add = (kind: PictureBrief['kind'], visual: { prompt: string; ratio?: string; location?: string; purpose?: string; alt?: string; visual?: string; overlayText?: string }): void => {
+              if (typeof visual.prompt !== 'string' || visual.prompt.length > 6000) throw new Error('每张图需要有效提示词，最多6000字')
+              const ratio = visual.ratio || (kind === 'cover' ? '21:9' : '16:9')
+              if (!['21:9','16:9','4:3','3:4','1:1'].includes(ratio)) throw new Error(`当前工作台不支持比例 ${ratio}，请修改比例或从“原有方案与图片”导入`)
+              const location = visual.location?.trim() || ''
+              const matches = blocks.filter(block => block.text === location && !/```|~~~/.test(block.text))
+              const block = matches.length === 1 ? matches[0] : undefined
+              const subject = (visual.visual || visual.purpose || location || (kind === 'cover' ? '外部封面' : '外部配图')).slice(0,2000)
+              studioPictures.push({id:randomUUID(),kind,slot:studioPictures.length,subject,purpose:(visual.purpose||'外部导入，待人工确认').slice(0,1500),ratio,alt:(visual.alt||'').slice(0,500),caption:(visual.overlayText||'').slice(0,500),priority:kind==='cover'?'required':'optional',prompt:visual.prompt,promptLocked:Boolean(visual.prompt.trim()),promptStale:!visual.prompt.trim(),anchor:kind==='cover'?{block:'',occurrence:0,placement:'top'}:{versionId:article.currentVersionId,block:block?.text||`未确认外部位置：${location || subject}`,occurrence:block?.occurrence||0,placement:'after'}})
+            }
+            if (source.cover.prompt?.trim()) add('cover',source.cover)
+            source.inlineImages.forEach(image=>add('inline',image))
+            source.releaseImages.forEach(image=>add('release',image))
+            if (!studioPictures.length || studioPictures.length > 12) throw new Error('工作台方案需包含1至12张图片')
+          }
+          const saved = this.database.atomic(() => {
+            const pack = this.database.saveVisualPack({
+              kind: 'manual',
+              articleId: article.id,
+              articleVersionId: article.currentVersionId,
+              articleStatusSnapshot: article.status,
+              cover: visualPlan.cover,
+              inlineImages: visualPlan.inlineImages,
+              releaseImages: visualPlan.releaseImages,
+              rawXml: associations.visualStudio ? '<visual-studio/>' : ''
+            })
+            if (associations.visualStudio) this.database.visualStudio.create({id:pack.id,articleId:article.id,articleVersionId:article.currentVersionId,sourceMarkdown:article.rawMarkdown,revision:1,nextSlot:studioPictures.length,title:article.rawMarkdown.match(/^#\s+(.+)$/m)?.[1] || item.title,reasoning:'外部导入方案。提示词已保留；未精确匹配的正文插图位置需要人工确认后才能应用。',pictures:studioPictures,promptsStale:studioPictures.some(p=>p.promptStale),createdAt:new Date().toISOString()})
+            return pack
           })
           this.database.recordArtifactImport({
             artifactType: 'visual-pack', artifactId: saved.id, versionId: saved.articleVersionId,
@@ -950,7 +978,7 @@ export class ContentImportService {
           if (!item.prompt) throw new Error('没有可导入的提示词')
           const defs = this.database.listPromptDefs()
           if (!defs.some((def) => def.key === item.prompt?.key)) throw new Error(`提示词 ${item.prompt.key} 不存在，请先在页面中创建对应定义`)
-          const version = this.database.updatePrompt(item.prompt.key, item.prompt.content, item.prompt.note)
+          const version = this.database.updatePrompt(item.prompt.key, item.prompt.content, item.prompt.note, item.prompt.modelBinding)
           this.database.recordArtifactImport({
             artifactType: 'prompt', artifactId: item.prompt.key,
             tool: batch.source.tool, format: batch.source.format, fileName: batch.source.fileName, externalId: item.externalId,
@@ -1019,7 +1047,7 @@ export class ContentImportService {
       const defs = this.database.listPromptDefs().filter((def) => !ids || ids.has(def.key))
       if (!defs.length) throw new Error('没有可导出的提示词')
       fileName = '心流提示词'
-      content = JSON.stringify({ schemaVersion: 1, kind: 'prompt', exportedAt: new Date().toISOString(), prompts: defs.map((def) => ({ key: def.key, title: def.title, content: def.activeContent, version: def.activeVersion })) }, null, 2)
+      content = JSON.stringify({ schemaVersion: 1, kind: 'prompt', exportedAt: new Date().toISOString(), prompts: defs.map((def) => ({ key: def.key, title: def.title, content: def.activeContent, version: def.activeVersion, modelBinding: def.modelBinding })) }, null, 2)
     } else {
       throw new Error(`暂不支持导出${KIND_LABEL[input.kind]}`)
     }

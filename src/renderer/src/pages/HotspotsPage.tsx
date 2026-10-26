@@ -116,7 +116,7 @@ export function HotspotsPage({
   const initialAccount = lockedAccounts.find((account) => account.id === currentAccountId)
     ?? lockedAccounts[0]
   const stream = useGenerationStream('hotspots')
-  const [filterModelTarget, setFilterModelTarget] = useModelTarget(availableModels)
+  const [filterModelTarget, setFilterModelTarget] = useModelTarget(availableModels, undefined, 'hotspot.filter')
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
   const [filterScope, setFilterScope] = useState<'wall' | 'favorites'>('wall')
   const [filterAccountId, setFilterAccountId] = useState(initialAccount?.id ?? '')

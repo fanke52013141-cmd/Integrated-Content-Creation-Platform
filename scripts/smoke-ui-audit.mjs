@@ -2,7 +2,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 
 const artifactDir = resolve('artifacts', 'ui-audit')
 await mkdir(artifactDir, { recursive: true })

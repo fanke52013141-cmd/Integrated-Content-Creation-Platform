@@ -1,3 +1,4 @@
+import { useModelTarget } from '../lib/models'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
@@ -304,7 +305,7 @@ function AccountList({
 
 /** 首次使用三步引导：配模型 → 建账号 → 去热点；账号创建后整条消失 */
 function FirstRunGuide({ providers, onNavigate, onCreate }: { providers: ProviderSummary[]; onNavigate(route: RouteId): void; onCreate(): void }): React.JSX.Element {
-  const gatewayReady = providers.some((provider) => provider.enabled && provider.hasApiKey)
+    const gatewayReady = providers.some((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.chat && provider.verification.verified)
   const steps = [
     { icon: Settings2, title: '第一步 · 配置AI 服务', desc: gatewayReady ? '已配置，可以开始生成' : '填入任意 OpenAI 兼容服务的地址与密钥', done: gatewayReady, action: gatewayReady ? undefined : { label: '去配置', route: 'providers' as RouteId } },
     { icon: WandSparkles, title: '第二步 · 创建并锁定账号', desc: '完成向导后「保存并锁定」，作为创作基线', done: false, action: { label: '新建账号', route: undefined as RouteId | undefined } },
@@ -349,13 +350,12 @@ function AccountWizard({
   onSaved(account: AccountProfile): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
-  const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey)
+  const usableProviders = providers.filter((item) => item.enabled && item.hasApiKey && item.capabilities.chat)
   const availableModels = usableProviders.flatMap((provider) =>
     provider.models
       .filter((model) => model.enabled)
       .map((model) => ({ provider, model }))
   )
-  const initialModel = availableModels.find(({ model }) => model.isDefault) ?? availableModels[0]
   const [answers, setAnswers] = useState<WizardAnswer[]>(() => {
     const stored = localStorage.getItem('moliu:wizard-draft')
     if (stored) {
@@ -374,9 +374,7 @@ function AccountWizard({
   })
   const [step, setStep] = useState(0)
   const [extraContext, setExtraContext] = useState('')
-  const [modelTarget, setModelTarget] = useState(
-    initialModel ? encodeModelTarget(initialModel.provider.id, initialModel.model.modelId) : ''
-  )
+  const [modelTarget, setModelTarget] = useModelTarget(availableModels, undefined, 'account.generate')
   const [generating, setGenerating] = useState(false)
   const [generated, setGenerated] = useState<GenerateAccountResult>()
   const [fields, setFields] = useState<AccountField[]>([])

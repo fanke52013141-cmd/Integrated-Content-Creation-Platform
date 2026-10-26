@@ -109,7 +109,7 @@ export function TopicsPage({
 
   const lockedAccounts = accounts.filter((account) => account.status === 'locked')
   const models = useMemo(() => availableModels(providers), [providers])
-  const [modelTarget, setModelTarget] = useModelTarget(models)
+  const [modelTarget, setModelTarget] = useModelTarget(models, undefined, 'topic.generate')
 
   useEffect(() => {
     if (accountId && !lockedAccounts.some((account) => account.id === accountId)) {

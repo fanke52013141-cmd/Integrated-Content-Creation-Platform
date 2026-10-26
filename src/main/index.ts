@@ -42,6 +42,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 function createWindow(): void {
+  const backgroundSmoke = !app.isPackaged && process.env.MOLIU_SMOKE_BACKGROUND === '1'
   // 移除顶部 File/Edit/View/Window 等原生菜单栏（Windows/Linux）
   Menu.setApplicationMenu(null)
   const window = new BrowserWindow({
@@ -56,7 +57,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      offscreen: backgroundSmoke,
+      backgroundThrottling: !backgroundSmoke
     }
   })
 

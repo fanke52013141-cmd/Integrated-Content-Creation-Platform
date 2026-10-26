@@ -65,6 +65,18 @@ const KIND_LABEL: Record<ContentImportKind, string> = {
 
 const VERSIONABLE = new Set<ContentImportKind>(['account', 'topic', 'framework', 'article'])
 const MAPPABLE = new Set<ContentImportKind>(['account', 'topic', 'publish-form'])
+const IMPORT_EXAMPLES: Record<ContentImportKind, unknown> = {
+  account: { '账号名称': 'AI 资讯', '目标受众': '关注 AI 的职场人', '写作风格': '简洁、客观，注明来源' },
+  'hot-item': { items: [{ title: '新闻标题', url: 'https://example.com/news', sourceTitle: '原始发布方', desc: '新闻摘要', publishedAt: '2026-10-26T08:00:00+08:00' }] },
+  topic: { topics: [{ title: '选题标题', fields: { '核心观点': '要表达的观点', '读者价值': '读者能获得什么', '信息来源': 'https://example.com/news' } }] },
+  framework: { title: '框架标题', sections: [{ name: '开头', content: '交代背景和来源' }, { name: '正文', content: '展开观点与证据' }] },
+  article: { title: '文章标题', rawMarkdown: '# 文章标题\n\n正文内容。' },
+  review: { problems: [{ position: '第一段', severity: 'medium', issue: '缺少来源', suggestion: '补充原始链接' }] },
+  'visual-plan': { cover: { visual: '科技主题封面', prompt: '简洁科技插画，无文字水印', overlayText: '' }, inlineImages: [], releaseImages: [] },
+  layout: { title: '排版稿标题', html: '<section><p style="font-size:16px;line-height:1.8">正文内容</p></section>' },
+  'publish-form': { author: 'AI 资讯', digest: '文章摘要', contentSourceUrl: 'https://example.com/news' },
+  prompt: { prompts: [{ key: 'topic.generate', content: '保留现有输出格式要求，根据已核验来源生成选题。', note: '外部导入' }] }
+}
 
 interface ImportDialogProps {
   open: boolean
@@ -169,7 +181,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
         <div>
           <span className="eyebrow">外部内容</span>
           <h2 id="import-dialog-title">导入{KIND_LABEL[kind]}</h2>
-          <p>支持其他工具产出的文件或粘贴内容；导入后是新条目，不会覆盖现有内容。</p>
+          <p>从其他工具接入内容，先检查解析结果，再确认保存；同来源内容可按支持的类型更新为新版本。</p>
         </div>
         <button className="icon-button" aria-label="关闭导入" onClick={onClose}><X size={20} /></button>
       </header>
@@ -186,7 +198,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
               <Upload size={20} />
               <span>
                 <strong>{picked ? picked.name : `选择${KIND_LABEL[kind]}文件`}</strong>
-                <small>{picked ? `${Math.max(1, Math.round(picked.size / 1024))} KB · ${picked.format.toUpperCase()}` : 'JSON / Markdown / CSV / DOCX / HTML'}</small>
+                <small>{picked ? `${Math.max(1, Math.round(picked.size / 1024))} KB · ${picked.format.toUpperCase()}` : FORMAT_OPTIONS[kind].map(option => option.label).join(' / ') + (kind === 'article' ? ' / DOCX 文件' : '')}</small>
               </span>
             </button>
             {picked && <p className="micro-copy">文件路径只在主进程使用；这里只显示文件名与解析结果。</p>}
@@ -207,11 +219,13 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
                 rows={8}
                 value={content}
                 onChange={(event) => { setContent(event.target.value); setPreview(null); setError('') }}
-                placeholder={kind === 'article' ? '# 标题\n\n粘贴正文…' : kind === 'framework' ? '# 标题\n\n## 章节\n\n内容…' : '- 选题一\n- 选题二'}
+                placeholder={kind === 'article' ? '# 标题\n\n粘贴正文…' : kind === 'framework' ? '# 标题\n\n## 章节\n\n内容…' : `粘贴${KIND_LABEL[kind]}内容，或查看下方 JSON 格式示例`}
               />
             </label>
           </div>
         )}
+
+        <details className="import-format-help"><summary>查看{KIND_LABEL[kind]}导入格式示例</summary><p className="micro-copy">JSON 适合保留完整字段。确认真实内容后再导入；示例不会自动保存。{kind === 'prompt' ? '提示词 key 必须已存在；模型可用 modelBinding: { providerId, modelId } 指定，不含密钥。' : ''}</p><pre>{JSON.stringify(IMPORT_EXAMPLES[kind], null, 2)}</pre></details>
 
         {associations && Object.values(associations).some(Boolean) && (
           <p className="import-association-note">导入后会关联当前账号/选题/框架；可以在详情中随时修改。</p>

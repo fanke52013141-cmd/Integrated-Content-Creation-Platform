@@ -9,6 +9,18 @@ import type { AppDatabase } from '../database.js'
  */
 export const BUILTIN_PROMPTS: PromptDefBase[] = [
   {
+    key: "visual-studio.plan",
+    title: "内容配图规划",
+    description: "规划图片用途、位置和数量。",
+    template: "你是公众号配图编辑。先规划内容，不写生图提示词。返回 {reasoning,pictures:[{kind,subject,purpose,blockIndex,ratio,alt,priority}]}。kind 为 cover/header/inline。封面与正文顶部图按用户开关各生成一张。正文图数量按 count（auto 时按内容需要，可为零）和 maxInline 决定，精简/标准/丰富分别控制密度。已有图片的位置避免重复推荐。每张图必须解释作用，正文图插在对应 blockIndex 后。只推荐有内容价值的图片。不得编造文章未提供的数据。图内默认无文字。",
+  },
+  {
+    key: "visual-studio.prompts",
+    title: "配图提示词生成",
+    description: "为已确认的图片项生成生图提示词。",
+    template: "为每个图片项写可直接生图的中文提示词。返回 {pictures:[{id,prompt}]}，id 必须与输入完全一致。内容明确主体、场景、构图，结合风格描述和比例，默认没有文字水印。参考图仅学习色彩、笔触、材质，不复制其人物和场景。不得增加无来源的数据。",
+  },
+  {
     key: 'account.generate',
     title: '账号定位生成',
     description: '根据向导输入生成账号定位八字段。',

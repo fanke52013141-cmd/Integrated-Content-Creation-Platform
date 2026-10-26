@@ -75,19 +75,23 @@ export function Select({
     const rect = trigger.getBoundingClientRect()
     const POPOVER_MAX_HEIGHT = 320
     const GAP = 6
-    const spaceBelow = window.innerHeight - rect.bottom - GAP
-    const spaceAbove = rect.top - GAP
+    const EDGE = 8
+    const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - GAP - EDGE)
+    const spaceAbove = Math.max(0, rect.top - GAP - EDGE)
     const openBelow = spaceBelow >= Math.min(POPOVER_MAX_HEIGHT, spaceAbove) || spaceAbove < 160
-    const top = openBelow ? rect.bottom + GAP : rect.top - POPOVER_MAX_HEIGHT - GAP
     const maxHeight = openBelow
       ? Math.min(POPOVER_MAX_HEIGHT, spaceBelow)
       : Math.min(POPOVER_MAX_HEIGHT, spaceAbove)
+    const top = openBelow ? rect.bottom + GAP : rect.top - maxHeight - GAP
+    const width = Math.min(rect.width, window.innerWidth - EDGE * 2)
     setPopoverStyle({
       position: 'fixed',
-      left: rect.left,
-      top: Math.max(8, top),
-      minWidth: rect.width,
-      maxHeight: Math.max(160, maxHeight),
+      left: Math.max(EDGE, Math.min(rect.left, window.innerWidth - width - EDGE)),
+      right: 'auto',
+      top: Math.max(EDGE, top),
+      width,
+      minWidth: 0,
+      maxHeight: Math.max(0, maxHeight),
       // 必须高于模态遮罩(1100)与 toast(1200)，模态内下拉（如热点智能筛选）才能正常展开点选
       zIndex: 1300
     })
@@ -209,7 +213,7 @@ export function Select({
         onKeyDown={onTriggerKeydown}
       >
         <span className={`select-value ${selected ? '' : 'placeholder'}`}>
-          {selected ? selected.label : placeholder}
+          {selected ? selected.label : value ? '所选项已不可用，请重新选择' : placeholder}
         </span>
         <ChevronDown size={16} className={`select-chevron ${open ? 'up' : ''}`} />
       </button>

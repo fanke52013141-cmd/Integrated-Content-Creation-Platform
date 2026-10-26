@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { Children, Fragment, isValidElement, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 /**
@@ -22,6 +22,8 @@ export interface ModalBaseProps {
   className?: string
   closeOnOverlay?: boolean
   bare?: boolean
+  /** Keep the first header and final footer outside the scrolling content. */
+  scrollBody?: boolean
 }
 
 const FOCUSABLE_SELECTOR =
@@ -43,6 +45,10 @@ function focusableElements(dialog: HTMLElement): HTMLElement[] {
   )
 }
 
+function dialogParts(children: ReactNode): ReactNode[] {
+  return Children.toArray(children).flatMap(child => isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment ? dialogParts(child.props.children) : [child])
+}
+
 export function ModalBase({
   open,
   onClose,
@@ -52,7 +58,8 @@ export function ModalBase({
   describedBy,
   className,
   closeOnOverlay = true,
-  bare = false
+  bare = false,
+  scrollBody = false
 }: ModalBaseProps): React.JSX.Element | null {
   const dialogRef = useRef<HTMLElement>(null)
   // 输入引发重渲染时更新回调，不重建焦点锁。
@@ -134,6 +141,10 @@ export function ModalBase({
   }, [open])
 
   if (!open) return null
+  const parts = scrollBody ? dialogParts(children) : []
+  const last = parts.at(-1)
+  const first = parts[0]
+  const framed = scrollBody && isValidElement(first) && (first.type === 'header' || first.type === 'h2') && isValidElement<{ className?: string }>(last) && (last.type === 'footer' || last.props.className?.split(' ').includes('modal-actions'))
 
   // v1.1: 使用 createPortal 渲染到 body，避免 ModalBase 设置 main inert 时把对话框自身
   // （如 MaterialsPage 内嵌的 ManualMaterialDialog）一并拦截
@@ -147,7 +158,7 @@ export function ModalBase({
     >
       <section
         ref={dialogRef}
-        className={bare ? (className ?? '') : `modal ${className ?? ''}`}
+        className={`${bare ? (className ?? '') : `modal ${className ?? ''}`}${framed ? ' modal-scroll-frame' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy ?? titleId}
@@ -155,7 +166,7 @@ export function ModalBase({
         tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {children}
+        {framed ? <>{isValidElement(first) && first.type === 'header' ? first : <header>{first}</header>}<div className="modal-scroll-body">{parts.slice(1, -1)}</div>{isValidElement(last) && last.type === 'footer' ? last : <footer>{last}</footer>}</> : children}
       </section>
     </div>,
     document.body

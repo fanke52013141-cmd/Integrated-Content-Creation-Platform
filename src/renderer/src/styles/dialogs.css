@@ -54,6 +54,8 @@
 .import-dialog-body, .manual-topic-body { min-height: 0; overflow: auto; padding: 20px 24px; display: grid; gap: 18px; }
 .import-source-tabs { justify-self: start; }
 .import-source-panel { display: grid; gap: 14px; }
+.import-format-help summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.import-format-help pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: var(--surface-subtle); border-radius: 8px; font-size: 12px; }
 .import-file-picker { display: flex; align-items: center; gap: 16px; width: 100%; padding: 18px; text-align: left; border: 1px dashed var(--border-strong); border-radius: 8px; background: var(--surface-subtle); color: var(--text); }
 .import-file-picker:hover { border-color: var(--primary); background: var(--primary-wash); }
 .import-file-picker span { display: grid; gap: 4px; min-width: 0; }
@@ -86,3 +88,12 @@
 }
 
 @media (max-width: 800px) { .version-comparison, .shortcut-panel-body { grid-template-columns: minmax(0, 1fr); } .task-item { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; } .task-item-detail { grid-column: 1 / -1; } .version-diff-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Header, scroll viewport and actions occupy separate layout rows. */
+.modal-scroll-frame[role="dialog"] { display: flex; flex-direction: column; overflow: hidden; padding: 0; gap: 0; }
+.modal-scroll-frame[role="dialog"] > header { flex-shrink: 0; margin: 0; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.modal-scroll-frame > .modal-scroll-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+.modal-scroll-frame[role="dialog"] > footer { position: static; flex-shrink: 0; margin: 0; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--surface-solid); z-index: auto; }
+.modal-scroll-frame .modal-scroll-body > .field { margin: 0; }
+.modal-scroll-frame .modal-scroll-body textarea { max-width: 100%; }
+.modal-scroll-frame[role="dialog"] > footer .modal-actions { position: static; margin: 0; padding: 0; border: 0; }

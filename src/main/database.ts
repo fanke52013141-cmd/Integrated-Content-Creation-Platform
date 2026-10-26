@@ -763,6 +763,11 @@ export class AppDatabase {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_prompt_versions_one_default
         ON prompt_versions(prompt_key) WHERE version = 1;
+      CREATE TABLE IF NOT EXISTS prompt_model_bindings (
+        prompt_key TEXT NOT NULL, version INTEGER NOT NULL, provider_id TEXT NOT NULL, model_id TEXT NOT NULL,
+        PRIMARY KEY(prompt_key, version),
+        FOREIGN KEY(prompt_key, version) REFERENCES prompt_versions(prompt_key, version) ON DELETE CASCADE
+      );
 
       /* 外部导入来源台账。不修改已有版本表的 source CHECK：
          第一阶段版本仍以 manual 落库，真实来源在这里留痕，避免高风险表重建。 */
@@ -1181,6 +1186,7 @@ export class AppDatabase {
       title: row.title,
       description: row.description,
       activeContent: row.active_content ?? '',
+      modelBinding: this.getPromptModelBinding(row.key, row.active_version),
       activeVersion: row.active_version,
       versionCount: row.version_count,
       importSource: this.getArtifactImportSource('prompt', row.key),
@@ -1209,6 +1215,7 @@ export class AppDatabase {
     return rows.map((row) => ({
       id: row.id,
       version: row.version,
+      modelBinding: this.getPromptModelBinding(key, row.version),
       content: row.content,
       source: row.source,
       note: row.note,
@@ -1220,11 +1227,23 @@ export class AppDatabase {
    * 保存对提示词的编辑：将新内容写为 source=user 的新版本并设为当前生效版本。
    * 返回新的版本号。
    */
-  updatePrompt(key: string, content: string, note: string): number {
+  getPromptModelBinding(key: string, version?: number): import('../shared/contracts.js').PromptModelBinding | null {
+    const row = this.db.prepare(`SELECT b.provider_id, b.model_id FROM prompt_model_bindings b
+      JOIN prompt_defs d ON d.key = b.prompt_key WHERE b.prompt_key = ? AND b.version = COALESCE(?, d.active_version)`)
+      .get(key, version ?? null) as { provider_id: string; model_id: string } | undefined
+    return row ? { providerId: row.provider_id, modelId: row.model_id } : null
+  }
+
+  updatePrompt(key: string, content: string, note: string, modelBinding?: import('../shared/contracts.js').PromptModelBinding | null): number {
     const template = content.trim()
     if (!template) throw new Error('提示词内容不能为空')
     const def = this.db.prepare('SELECT key FROM prompt_defs WHERE key = ?').get(key) as { key: string } | undefined
     if (!def) throw new Error('提示词单元不存在')
+    const binding = modelBinding === undefined ? this.getPromptModelBinding(key) : modelBinding
+    if (binding) {
+      const provider = this.getProvider(binding.providerId)
+      if (!provider?.enabled || !provider.capabilities.chat || !provider.models.some(model => model.modelId === binding.modelId && model.enabled)) throw new Error('绑定的文本模型不存在或已停用，请重新选择')
+    }
 
     const now = new Date().toISOString()
     const nextVersion: number = this.transaction(() => {
@@ -1236,6 +1255,7 @@ export class AppDatabase {
         INSERT INTO prompt_versions (id, prompt_key, version, content, source, note, created_at)
         VALUES (?, ?, ?, ?, 'user', ?, ?)
       `).run(crypto.randomUUID(), key, nextVersion, template, note.trim(), now)
+      if (binding) this.db.prepare('INSERT INTO prompt_model_bindings (prompt_key, version, provider_id, model_id) VALUES (?, ?, ?, ?)').run(key, nextVersion, binding.providerId, binding.modelId)
       this.db.prepare('UPDATE prompt_defs SET active_version = ?, updated_at = ? WHERE key = ?')
         .run(nextVersion, now, key)
       return nextVersion
@@ -1249,7 +1269,7 @@ export class AppDatabase {
       SELECT content FROM prompt_versions WHERE prompt_key = ? AND version = ?
     `).get(key, version) as { content: string } | undefined
     if (!row) throw new Error('目标版本不存在')
-    return this.updatePrompt(key, row.content, `回滚自 v${version}`)
+    return this.updatePrompt(key, row.content, `回滚自 v${version}`, this.getPromptModelBinding(key, version))
   }
 
   /** 恢复到内置默认模板：以新 user 版本形式写入并设为当前生效版本。 */
@@ -1257,7 +1277,7 @@ export class AppDatabase {
     const def = this.db.prepare('SELECT default_template FROM prompt_defs WHERE key = ?')
       .get(key) as { default_template: string } | undefined
     if (!def) throw new Error('提示词单元不存在')
-    return this.updatePrompt(key, def.default_template, '恢复内置默认模板')
+    return this.updatePrompt(key, def.default_template, '恢复内置默认模板', null)
   }
 
   listProviderModels(providerId: string): ProviderModel[] {

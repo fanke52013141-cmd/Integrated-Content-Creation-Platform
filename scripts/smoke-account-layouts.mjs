@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
 const root = await mkdtemp(join(tmpdir(), 'moliu-account-layout-smoke-'))

@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
 // 本地 mock 模型服务：供应商保存前会先做连接测试（测试通过才允许保存），

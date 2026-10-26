@@ -10,7 +10,7 @@
 .providers-page .provider-card-copy strong { font-size: 14px; }
 .providers-page .provider-card-copy p { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .providers-page .provider-actions { width: 100%; display: flex; justify-content: flex-end; gap: 8px; }
-.providers-page .provider-editor { min-width: 0; margin: 0; padding: 28px; border: 0; border-radius: 0; box-shadow: none; max-height: calc(100dvh - 210px); overflow-y: auto; }
+.providers-page .provider-editor { min-width: 0; margin: 0; padding: 28px; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
 .providers-page .provider-editor > .section-heading { margin-bottom: 24px; }
 .provider-presets { padding: 16px; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
 .provider-presets > summary { cursor: pointer; font-size: 14px; color: var(--text-secondary); }

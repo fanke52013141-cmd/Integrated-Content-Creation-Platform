@@ -1,10 +1,12 @@
 export type ProviderProtocol = 'openai-compatible'
+export interface PromptModelBinding { providerId: string; modelId: string }
 
 export interface PromptDefSummary {
   key: string
   title: string
   description: string
   activeContent: string
+  modelBinding?: PromptModelBinding | null
   activeVersion: number
   versionCount: number
   importSource?: ContentImportSource
@@ -12,6 +14,7 @@ export interface PromptDefSummary {
 }
 
 export interface PromptVersionInfo {
+  modelBinding?: PromptModelBinding | null
   id: string
   version: number
   content: string
@@ -938,6 +941,8 @@ export interface ContentImportPreview {
 }
 
 export interface ContentImportAssociations {
+  /** Import an external visual pack into the current four-stage workbench. */
+  visualStudio?: boolean
   accountId?: string
   topicId?: string
   frameworkId?: string
@@ -1030,7 +1035,7 @@ export interface MoliuApi {
   prompts: {
     list(): Promise<PromptDefSummary[]>
     listVersions(key: string): Promise<PromptVersionInfo[]>
-    update(input: { key: string; content: string; note?: string }): Promise<number>
+    update(input: { key: string; content: string; note?: string; modelBinding?: PromptModelBinding | null }): Promise<number>
     restore(input: { key: string; version: number }): Promise<number>
     reset(key: string): Promise<number>
   }

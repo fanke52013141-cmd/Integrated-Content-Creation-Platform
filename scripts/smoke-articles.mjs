@@ -3,7 +3,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
 const DRAFT_MARKER = '未保存的本地草稿段落'
@@ -261,7 +261,10 @@ try {
   if (found.length !== 1 || !found[0].includes('批量作品 57')) throw new Error(`63 篇里搜不到「批量作品 57」，实际 ${JSON.stringify(found)}`)
   await listSearch.fill('')
   await window.locator('.article-list-status').getByRole('button', { name: '已锁定', exact: true }).click()
-  await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
+  await window.waitForFunction(() => {
+    const rows = [...document.querySelectorAll('.article-list-item')]
+    return rows.length === 1 && rows[0].textContent.includes('先搭框架，再写文章') && rows[0].textContent.includes('已锁定')
+  })
   const lockedOnly = await window.locator('.article-list-item').allInnerTexts()
   if (lockedOnly.length !== 1 || !lockedOnly[0].includes('先搭框架，再写文章')) throw new Error(`状态筛选没有只留下锁定稿，实际 ${JSON.stringify(lockedOnly)}`)
   await capture(window, { path: resolve(artifactDir, 'article-list-status-filter.png'), animations: 'disabled', timeout: 90_000 })
@@ -286,8 +289,8 @@ try {
   // 阶段 B 退出标准"失败任务可单项恢复"：一批里坏掉一篇时，UI 上只补那一篇
   await window.getByRole('button', { name: '文章创作' }).first().click()
   await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
-  await window.locator('.composer-toggle').click()
-  await window.locator('.article-composer .composer-advanced > summary').click()
+  await window.getByRole('button', { name: '新建草稿', exact: true }).click()
+  await window.locator('.article-composer-dialog .composer-advanced > summary').click()
   await window.getByRole('button', { name: '每批生成' }).click()
   await window.getByRole('option', { name: '2 篇' }).click()
   const articleCountBefore = Number(await window.locator('.article-list h3 small').innerText())

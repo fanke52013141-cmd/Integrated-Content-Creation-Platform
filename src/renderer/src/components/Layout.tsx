@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   FolderArchive,
@@ -105,6 +105,10 @@ export function Layout({
   onSwitchAccount,
   onShowTasks
 }: LayoutProps): React.JSX.Element {
+  const contentRef = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [route])
   const { work } = useActiveWork()
   const onNavigate = (next: RouteId, params?: Record<string, string>): void => {
     // 成稿之后的阶段默认携带当前作品；阶段集合来自 creation-flow 单一事实来源，不再手写副本
@@ -329,7 +333,7 @@ export function Layout({
         </header>
 
         <WorkBar accounts={accounts} onNavigate={onNavigate} />
-        <main id="main" className="content" tabIndex={-1}>{children}</main>
+        <main key={route} id="main" className="content" ref={contentRef} tabIndex={-1}>{children}</main>
       </section>
     </div>
   )

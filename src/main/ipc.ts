@@ -381,9 +381,10 @@ export function registerIpc(options: {
     const input = z.object({
       key: z.string().trim().min(1),
       content: z.string(),
-      note: z.string().max(200).optional()
+      note: z.string().max(200).optional(),
+      modelBinding: z.object({ providerId: z.string().min(1), modelId: z.string().min(1) }).nullable().optional()
     }).parse(raw)
-    return database.updatePrompt(input.key, input.content, input.note ?? '')
+    return database.updatePrompt(input.key, input.content, input.note ?? '', input.modelBinding)
   })
   handle('prompts:restore', (_event, raw: { key: string; version: number }) => {
     const input = z.object({ key: z.string().trim().min(1), version: z.number().int().positive() }).parse(raw)

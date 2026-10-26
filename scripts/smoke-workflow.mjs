@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 
 const root = await mkdtemp(join(tmpdir(), 'moliu-workflow-smoke-'))
 const screenshots = resolve('artifacts/workflow-smoke')

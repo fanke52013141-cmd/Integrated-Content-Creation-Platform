@@ -16,7 +16,7 @@ import { EmptyState } from '../components/EmptyState'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
-import { availableModels, encodeModelTarget, useModelTarget } from '../lib/models'
+import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, markdownTitle } from '../lib'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
@@ -378,7 +378,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       </div>
     )}
 
-    {roleDialogOpen && <RoleDialog roles={roles} onClose={() => setRoleDialogOpen(false)} onSaved={async () => { setRoleDialogOpen(false); await refresh() }} showToast={showToast} />}
+    {roleDialogOpen && <RoleDialog roles={roles} providers={providers} onClose={() => setRoleDialogOpen(false)} onSaved={async () => { setRoleDialogOpen(false); await refresh() }} showToast={showToast} />}
     {manualTaskId && (
       <ManualReviewProblemDialog
         taskId={manualTaskId}
@@ -400,29 +400,42 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   </div>
 }
 
-function RoleDialog({ roles, onClose, onSaved, showToast }: { roles: ReviewRole[]; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
+function RoleDialog({ roles, providers, onClose, onSaved, showToast }: { roles: ReviewRole[]; providers: ProviderSummary[]; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
   const [name, setName] = useState('')
   const [prompt, setPrompt] = useState('请评审文章，并返回一个 <评审意见> 区块。')
   const [saving, setSaving] = useState(false)
+  const [roleId, setRoleId] = useState('')
+  const [modelTarget, setModelTarget] = useState('')
+  const models = availableModels(providers)
+  const selectedRole = roles.find(role => role.id === roleId)
+  const selectRole = (id: string): void => {
+    const role = roles.find(item => item.id === id)
+    setRoleId(id); setName(role?.name ?? ''); setPrompt(role?.systemPrompt ?? '请评审文章，并返回一个 <评审意见> 区块。')
+    setModelTarget(role?.providerId && role.model ? encodeModelTarget(role.providerId, role.model) : '')
+  }
   return (
-    <ModalBase open onClose={onClose} titleId="role-dialog-title" bare className="review-role-dialog">
+    <ModalBase open onClose={onClose} titleId="role-dialog-title" scrollBody bare className="review-role-dialog">
       <header>
         <div>
-          <h2 id="role-dialog-title">新建评审角色</h2>
+          <h2 id="role-dialog-title">{selectedRole ? '编辑评审角色' : '新建评审角色'}</h2>
           <p>角色会以独立视角并行评审文章。</p>
         </div>
         <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
       </header>
+      <label className="field"><span>管理角色</span><Select ariaLabel="管理评审角色" value={roleId} onChange={selectRole} options={[{value:'',label:'新建角色'},...roles.map(role=>({value:role.id,label:role.name}))]} /></label>
       <label className="field"><span>名称</span><input name="roleName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：标题党猎人" /></label>
+      <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /><small>单独指定后，该角色使用自己的模型；选择沿用则使用评审页面的模型。</small></label>
       <label className="field"><span>角色指令</span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <footer>
         <span className="micro-copy">现有 {roles.length} 个角色</span>
         <span style={{ flex: 1 }} />
         <button className="button secondary" onClick={onClose}>取消</button>
-        <button className="button primary" disabled={saving || !name.trim()} onClick={async () => {
+        <button className="button primary" disabled={saving || !name.trim() || !prompt.trim()} onClick={async () => {
           setSaving(true)
           try {
-            await window.moliu.reviews.saveRole({ name, systemPrompt: prompt, extractionTag: '评审意见', extractionOccurrence: 'last', dimensions: [], sortOrder: roles.length })
+            const target = modelTarget ? decodeModelTarget(modelTarget) : null
+            if (modelTarget && (!target || !models.some(({provider,model}) => provider.id === target.providerId && model.modelId === target.modelId))) throw new Error('请选择可用的角色模型')
+            await window.moliu.reviews.saveRole({ id:selectedRole?.id, name, systemPrompt: prompt, providerId:target?.providerId, model:target?.modelId, extractionTag: selectedRole?.extractionTag ?? '评审意见', extractionOccurrence: selectedRole?.extractionOccurrence ?? 'last', dimensions: selectedRole?.dimensions ?? [], sortOrder: selectedRole?.sortOrder ?? roles.length })
             await onSaved()
             showToast({ type: 'success', message: '角色已保存' })
           } catch (error) {

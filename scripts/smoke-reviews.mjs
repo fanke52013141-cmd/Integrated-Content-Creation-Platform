@@ -3,7 +3,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, sep } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { _electron as electron } from 'playwright-core'
+import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
 const REVIEW_XML = '<评审意见>位置：开头｜严重程度：中｜问题：钩子偏弱｜建议：用反问强化冲突\n总体建议：强化开头。</评审意见>'

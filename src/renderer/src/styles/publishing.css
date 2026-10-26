@@ -1,8 +1,8 @@
 .publication-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
 .publication-main-column { display: grid; min-width: 0; gap: 24px; }
 .publishing-page .publish-channel, .publishing-page .publish-draft, .publishing-page .publication-log { min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
-.publishing-page .publish-draft { max-height: calc(100dvh - 210px); overflow-y: auto; }
-.publishing-page .publish-draft .publish-section-foot { position: sticky; bottom: 0; z-index: 2; background: var(--surface); }
+.publishing-page .publish-draft { overflow: visible; }
+.publishing-page .publish-draft .publish-section-foot { position: static; background: var(--surface); }
 .publish-channel .publish-section-head { flex-wrap: wrap; gap: 12px; }
 .publish-channel .publish-section-head > div { width: 100%; }
 .publish-section-head h3 { font-size: 18px; }
