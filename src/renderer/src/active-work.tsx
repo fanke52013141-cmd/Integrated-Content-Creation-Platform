@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { ArticleStatus } from '../../shared/contracts'
+import { ALL_ROUTE_IDS } from '../../shared/creation-flow'
 import type { RouteId } from './components/Layout'
 
 /**
@@ -20,6 +21,10 @@ export interface ActiveWork {
 
 const STORAGE_KEY = 'moliu:active-work'
 
+function isRouteId(value: unknown): value is RouteId {
+  return typeof value === 'string' && (ALL_ROUTE_IDS as readonly string[]).includes(value)
+}
+
 interface ActiveWorkValue {
   work: ActiveWork | null
   setWork(work: ActiveWork | null): void
@@ -39,7 +44,9 @@ function readStoredWork(): ActiveWork | null {
       accountId: parsed.accountId,
       versionCount: Number(parsed.versionCount) || 1,
       status: parsed.status === 'locked' ? 'locked' : 'draft',
-      stage: (parsed.stage ?? 'articles') as RouteId,
+      // 本地存储可能来自旧版本，或被手动修改。不要把未知阶段带回作品栏，
+      // 否则「下一步」会失去正常的流程定位。
+      stage: isRouteId(parsed.stage) ? parsed.stage : 'articles',
       dirty: Boolean(parsed.dirty)
     }
   } catch {

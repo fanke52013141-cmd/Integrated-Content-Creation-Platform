@@ -46,6 +46,7 @@ const api: MoliuApi = {
     createBackup: (input?: { targetDir?: string }) => ipcRenderer.invoke('app:backup-create', input),
     restoreBackup: (input: { bundleDir: string }) => ipcRenderer.invoke('app:backup-restore', input),
     listBackups: () => ipcRenderer.invoke('app:backup-list'),
+    inspectBackup: (input: { bundleDir: string }) => ipcRenderer.invoke('app:backup-inspect', input),
     exportPortableBackup: () => ipcRenderer.invoke('app:backup-export-portable'),
     selectPortableBackup: () => ipcRenderer.invoke('app:backup-select-portable')
   },
@@ -182,6 +183,8 @@ const api: MoliuApi = {
     getSummary: (id) => ipcRenderer.invoke('articles:summary', id),
     list: () => ipcRenderer.invoke('articles:list'),
     listSummaries: (query) => ipcRenderer.invoke('articles:summaries', query),
+    factContext: (id) => ipcRenderer.invoke('articles:fact-context', id),
+    confirmFact: (input) => ipcRenderer.invoke('articles:fact-confirm', input),
     get: (id: string) => ipcRenderer.invoke('articles:get', id),
     getDraft: (id) => ipcRenderer.invoke('articles:draft:get', id),
     saveDraft: (input) => ipcRenderer.invoke('articles:draft:save', input),

@@ -43,3 +43,32 @@ it('未继续输入时清除已提交草稿；AI 改稿期间的输入保留旧�
   expect(drafts.getRemote()?.baseVersionId).toBe('version-2')
   expect(drafts.getDraftState('article').content).toBe('AI 生成期间继续写')
 })
+
+it('连续输入合并待写内容，并在 flush 前持久化最后一次编辑', async () => {
+  let remote: WorkDraft | null = null
+  let release!: () => void
+  let started!: () => void
+  const firstStarted = new Promise<void>(resolve => { started = resolve })
+  const firstWrite = new Promise<void>(resolve => { release = resolve })
+  let writes = 0
+  const drafts = createWorkDraftStore({
+    getDraft: async () => remote,
+    saveDraft: async input => {
+      writes += 1
+      if (writes === 1) { started(); await firstWrite }
+      expect(input.expectedRevision).toBe(remote?.revision ?? 0)
+      remote = { ...input, revision: (remote?.revision ?? 0) + 1, updatedAt: 'now' }
+      return remote
+    },
+    discardDraft: async () => { remote = null }
+  })
+  await drafts.flushWorkDraft('article')
+  drafts.updateWorkDraft('article', 'version-1', 'first')
+  await firstStarted
+  for (let i = 0; i < 100; i += 1) drafts.updateWorkDraft('article', 'version-1', `正文 ${i}`)
+  release()
+  const saved = await drafts.flushWorkDraft('article')
+  expect(writes).toBe(2)
+  expect(saved?.content).toBe('正文 99')
+  expect(drafts.getDraftState('article').status).toBe('saved')
+})

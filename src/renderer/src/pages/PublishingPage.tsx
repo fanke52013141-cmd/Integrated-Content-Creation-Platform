@@ -50,6 +50,12 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const draft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
   const selectedCover = coverAssets.find(item => item.id === form.coverAssetId)
   const channelReady = Boolean(channel?.enabled && channel.hasAppSecret && channel.appId && channel.lastTestStatus === 'success')
+  // A previous delivery to a different公众号 must not mark this connection complete.
+  const currentPublications = publications.filter(item => item.articleId === article?.id && item.layoutId === layoutId && Boolean(channel?.appId) && item.snapshot?.appId === channel?.appId)
+  const hasDraftInWechat = currentPublications.some(item => item.status === 'draft' || item.status === 'published')
+  const hasPublishedLink = currentPublications.some(item => item.status === 'published' && Boolean(item.publishedUrl))
+  const deliveryBlocked = Boolean(currentPublications.some(item => item.status === 'unknown'))
+  const currentStep = !channelReady ? 'channel' : !selectedLayout || !check?.ready ? 'prepare' : !hasDraftInWechat ? 'push' : !hasPublishedLink ? 'publish' : 'done'
   const input = { articleId: article?.id ?? '', layoutId, appId: channel?.appId, coverAssetId: selectedCover?.id, thumbMediaId: selectedCover ? undefined : form.thumbMediaId.trim() || undefined,
     author: form.author.trim() || undefined, digest: form.digest.trim() || undefined, contentSourceUrl: form.contentSourceUrl.trim() || undefined }
   useReportWork(article ? { articleId: article.id, title: markdownTitle(article.rawMarkdown), accountId: article.accountId, versionCount: article.versionCount, status: article.status, savedMarkdown: article.rawMarkdown, currentVersionId: article.currentVersionId } : {}, 'publishing')
@@ -128,6 +134,10 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     setAssets(current => ({ ...current, items: current.items.map(asset => asset.id === updated.id ? updated : asset) }))
     showToast({ type: 'success', message: '封面已上传到当前公众号' })
   })
+  const focusPublishStep = (id: string): void => {
+    if (id === 'publish-channel') setChannelOpen(true)
+    window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 
   return <div className="page publishing-page">
     <PageHeader
@@ -137,10 +147,24 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       description="核对当前作品，推送公众号草稿箱，再记录正式发布链接"
       actions={article && selectedLayout ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入交付信息</button> : undefined}
     />
+    <nav className="publish-journey" aria-label="公众号交付步骤">
+      <button type="button" className={`publish-journey-step ${currentStep === 'channel' ? 'current' : ''} ${channelReady ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-channel')}>
+        <span className="publish-journey-number">1</span><span><strong>第一步 · 连接公众号</strong><small>{channelReady ? '已验证，可推送' : '填写凭证并验证'}</small></span>
+      </button>
+      <button type="button" className={`publish-journey-step ${currentStep === 'prepare' ? 'current' : ''} ${selectedLayout && check?.ready ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-preflight')}>
+        <span className="publish-journey-number">2</span><span><strong>第二步 · 准备交付</strong><small>{selectedLayout && check?.ready ? '内容检查通过' : checking ? '正在检查内容' : '选择排版稿并完成检查'}</small></span>
+      </button>
+      <button type="button" className={`publish-journey-step ${currentStep === 'push' ? 'current' : ''} ${hasDraftInWechat ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-preflight')}>
+        <span className="publish-journey-number">3</span><span><strong>第三步 · 推送草稿箱</strong><small>{deliveryBlocked ? '结果待确认，请先核对' : hasDraftInWechat ? '草稿已送达公众号' : '检查通过后再推送'}</small></span>
+      </button>
+      <button type="button" className={`publish-journey-step ${currentStep === 'publish' ? 'current' : ''} ${hasPublishedLink ? 'complete' : ''}`} onClick={() => focusPublishStep('publication-log')}>
+        <span className="publish-journey-number">4</span><span><strong>第四步 · 后台发布并回填链接</strong><small>{hasPublishedLink ? '已记录正式发布链接' : '请在公众号后台确认后完成'}</small></span>
+      </button>
+    </nav>
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
     <div className="publication-workspace"><div className="publication-main-column">
-    <section className="publish-draft">
+    <section id="publish-preflight" className="publish-draft">
       <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览 <SourceBadge source={form.importSource} /></h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
       <div className="publish-draft-grid">
         <label className="field"><span>排版稿</span><Select value={layoutId} disabled={busy} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map(item => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} /></label>
@@ -152,7 +176,8 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}
       <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
       {selectedLayout ? <div className="delivery-preview">
-        <div><strong>{selectedLayout.title}</strong><p className="micro-copy">正文第 {article?.versionCount} 版 · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
+        <div><strong>{selectedLayout.title}</strong><p className="micro-copy">{selectedLayout.articleVersionId === article?.currentVersionId ? `使用当前正文第 ${article.versionCount} 版` : '使用较早的正文版本'} · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
+          {article && selectedLayout.articleVersionId !== article.currentVersionId && <p className="inline-alert" role="status">正文已有第 {article.versionCount} 版，本排版稿不会自动更新。请核对下方预览，或<button className="text-button" onClick={() => onNavigate('layouts', { articleId: article.id })}>重新排版</button>。</p>}
           {selectedCover?.url && <img className="delivery-cover" src={selectedCover.url} alt="将要交付的封面" />}</div>
         <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html).replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>') }} /></details>
       </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" description="生成一份当前文章的微信公众号排版稿后继续。" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
@@ -164,7 +189,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}{busy ? '正在推送…' : '推送草稿箱'}</button>
       </footer>
     </section>
-    <section className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>推送到草稿箱与正式发布分别记录；结果待确认时请先核对公众号后台。</p></div></header>
+    <section id="publication-log" className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>草稿推送完成后，请到公众号后台预览并正式发布；再把正式文章链接回填到这里。</p></div></header>
       {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={true}
         onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
         onResolve={(decision, note, remoteId) => perform(async () => { await window.moliu.publishing.resolveUnknown({ id: item.id, decision, note, remoteId: remoteId || undefined, expectedUpdatedAt: item.updatedAt }); await refresh() })}
@@ -172,7 +197,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         : <EmptyState icon={Send} title="暂无交付记录" description="第一次推送后会保存完整交付快照。" />}
     </section>
     </div>
-    <section className="publish-channel">
+    <section id="publish-channel" className="publish-channel">
       <header className="publish-section-head"><div><h3><KeyRound size={16} />公众号连接</h3><p>{channelReady ? `当前目标：${channel?.appId}` : '连接验证成功后才能推送；也可以在排版页导出文件。'}</p></div>
         <span className={`status-pill ${channelReady ? 'success' : 'muted'}`}>{channelReady ? '验证通过' : channel?.lastTestStatus === 'failure' ? '验证失败' : channel?.hasAppSecret ? '待验证' : '未配置'}</span>
         <button className="text-button" onClick={() => setChannelOpen(value => !value)}>{channelOpen ? '收起配置' : '修改连接'}</button></header>

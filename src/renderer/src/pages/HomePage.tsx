@@ -9,6 +9,7 @@ import type { RouteId } from '../components/Layout'
 import { PageHeader } from '../components/PageHeader'
 import type { ToastState } from '../components/Toast'
 import { errorMessage, formatDate } from '../lib'
+import { WorkBoard } from '../components/WorkBoard'
 
 interface HomePageProps {
   accounts: AccountProfileSummary[]
@@ -28,35 +29,56 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
   const [tasks, setTasks] = useState<GenerationTask[]>([])
   const [pendingDrafts, setPendingDrafts] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [articleError, setArticleError] = useState('')
+  const [taskError, setTaskError] = useState('')
+  const [draftError, setDraftError] = useState('')
+  const [backupPaths, setBackupPaths] = useState<string[] | null>(null)
+  const [backupError, setBackupError] = useState('')
 
   const verified = providers.some((provider) => provider.enabled && provider.hasApiKey && provider.verification.verified)
   const configured = providers.some((provider) => provider.enabled && provider.hasApiKey)
 
   const load = useCallback(async (): Promise<void> => {
-    try {
-      const [nextArticles, nextTasks, dirtyArticles] = await Promise.all([window.moliu.articles.listSummaries({ limit: 30 }).then(result => result.items), window.moliu.generation.list(20), window.moliu.articles.listSummaries({ dirtyOnly: true, limit: 1 })])
-      setArticles(nextArticles)
-      setTasks(nextTasks)
+    setLoading(true)
+    setArticleError(''); setTaskError(''); setDraftError('')
+    const [articleResult, taskResult, draftResult] = await Promise.allSettled([
+      window.moliu.articles.listSummaries({ limit: 30 }),
+      window.moliu.generation.list(20),
+      window.moliu.articles.listSummaries({ dirtyOnly: true, limit: 1 })
+    ])
+    const failures: string[] = []
+    if (articleResult.status === 'fulfilled') setArticles(articleResult.value.items)
+    else { const message = errorMessage(articleResult.reason); setArticleError(message); failures.push(`作品：${message}`) }
+    if (taskResult.status === 'fulfilled') setTasks(taskResult.value)
+    else { const message = errorMessage(taskResult.reason); setTaskError(message); failures.push(`任务：${message}`) }
+    if (draftResult.status === 'fulfilled') {
       // 工作草稿存在本地而非库里，因此这里能直接告诉用户"有稿子还没保存回去"
-      setPendingDrafts(dirtyArticles.total)
-      setLoading(false)
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-      setLoading(false)
-    }
+      setPendingDrafts(draftResult.value.total)
+    } else { const message = errorMessage(draftResult.reason); setDraftError(message); failures.push(`本地修改：${message}`) }
+    setLoading(false)
+    if (failures.length) showToast({ type: 'error', message: `部分首页数据未能读取：${failures.join('；')}` })
   }, [showToast])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => { let alive = true; void window.moliu.app.listBackups().then(paths => { if (alive) setBackupPaths(paths) }).catch(reason => { if (alive) setBackupError(errorMessage(reason)) }); return () => { alive = false } }, [])
 
   // 上下文里的作品可能已被删除，这里以真实列表为准
   useEffect(() => {
-    if (work && !loading && !articles.some((article) => article.id === work.articleId)) { let alive = true; void window.moliu.articles.getSummary(work.articleId).then(article => { if (alive && !article) setWork(null); else if (alive && article) setArticles(current => [...current, { ...article, title: article.title }]) }); return () => { alive = false } }
-  }, [work, articles, loading, setWork])
+    if (work && !loading && !articleError && !articles.some((article) => article.id === work.articleId)) {
+      let alive = true
+      void window.moliu.articles.getSummary(work.articleId).then(article => {
+        if (alive && !article) setWork(null)
+        else if (alive && article) setArticles(current => [...current, { ...article, title: article.title }])
+      }).catch(error => { if (alive) showToast({ type: 'error', message: `无法核对上次作品：${errorMessage(error)}` }) })
+      return () => { alive = false }
+    }
+  }, [work, articles, loading, articleError, setWork, showToast])
 
   const resume = useMemo(() => articles.find((article) => article.id === work?.articleId), [articles, work])
   const recent = useMemo(() => articles.filter((article) => article.id !== work?.articleId).slice(0, 5), [articles, work])
   const stuckTasks = useMemo(() => tasks.filter((task) => task.status === 'failed' || task.status === 'partial' || task.status === 'interrupted'), [tasks])
   const unlockedDrafts = useMemo(() => articles.filter((article) => article.status === 'draft').length, [articles])
+  const latestBackup = useMemo(() => (backupPaths ?? []).map(path => path.split(/[\\/]/).pop()?.match(/^moliu-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-/)).filter((match): match is RegExpMatchArray => Boolean(match)).map(match => new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]), Number(match[6]))).filter(date => Number.isFinite(date.getTime())).sort((a, b) => b.getTime() - a.getTime())[0], [backupPaths])
 
   const entryPoints: Array<{ label: string; hint: string; icon: typeof PenLine; route: RouteId; params?: Record<string, string> }> = [
     { label: '从主题开始', hint: '已有明确主题，直接想框架再成稿', icon: Sparkles, route: 'frameworks' },
@@ -72,6 +94,8 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
       <div className="home-studio-grid">
         <div className="home-studio-main">
 
+          {articleError && <div className="inline-alert" role="alert"><AlertTriangle size={16} /> 作品未能读取：{articleError}<button className="text-button" onClick={() => void load()}>重试</button></div>}
+
           {!configured && (
             <section className="home-setup">
               <div>
@@ -84,7 +108,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
           <section className="home-resume">
             <header><h3><Layers size={16} /> 继续上次作品</h3></header>
-            {loading ? <p className="micro-copy">正在读取本地作品…</p> : resume ? (
+            {loading ? <p className="micro-copy">正在读取本地作品…</p> : articleError ? <p className="micro-copy">作品数据暂时不可用。重试成功后会显示最近作品。</p> : resume ? (
               <div className="home-resume-card">
                 <div className="home-resume-main">
                   <strong>{resume.title}</strong>
@@ -126,6 +150,8 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
             </div>
           </section>
 
+          <WorkBoard accounts={accounts} onNavigate={onNavigate} />
+
           {/* 「最近作品」改为可折叠（2026-10-06）
               它是回溯功能，而首页的职责是回答「下一步做什么」。
               默认收起、保留入口与数量提示：功能一点没少，只是不再占据主视线。
@@ -155,14 +181,15 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
           <header><h3><Clock3 size={16} />需要处理</h3>{stuckTasks.length > 0 && <button className="text-button" onClick={onShowTasks}>任务中心</button>}</header>
           <ul className="home-pending-list">
             {loading ? <li className="micro-copy">正在读取待处理事项…</li> : <>
-              {stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="home-pending-clear"><ListChecks size={20} /><strong>一切就绪</strong><span>没有卡住的任务或待保存修改。</span></li>}
-              {stuckTasks.length > 0 && <li><span><strong>{stuckTasks.length} 个任务需要检查</strong><small>生成结果未全部完成</small></span><button className="text-button" onClick={onShowTasks}>查看</button></li>}
-              {pendingDrafts > 0 && <li><span><strong>{pendingDrafts} 篇修改待保存</strong><small>本地修改尚未保存为版本</small></span><button className="text-button" onClick={() => onNavigate('articles', { dirty: '1' })}>查看</button></li>}
-              {unlockedDrafts > 0 && <li><span><strong>{unlockedDrafts} 篇草稿待完善</strong><small>继续打磨后再交付</small></span><button className="text-button" onClick={() => onNavigate('articles')}>打开</button></li>}
+              {!taskError && !draftError && !articleError && stuckTasks.length === 0 && unlockedDrafts === 0 && pendingDrafts === 0 && <li className="home-pending-clear"><ListChecks size={20} /><strong>一切就绪</strong><span>没有卡住的任务或待保存修改。</span></li>}
+              {taskError ? <li className="inline-alert" role="alert">任务未能读取：{taskError}<button className="text-button" onClick={() => void load()}>重试</button></li> : stuckTasks.length > 0 && <li><span><strong>{stuckTasks.length} 个任务需要检查</strong><small>生成结果未全部完成</small></span><button className="text-button" onClick={onShowTasks}>查看</button></li>}
+              {draftError ? <li className="inline-alert" role="alert">未保存修改未能读取：{draftError}<button className="text-button" onClick={() => void load()}>重试</button></li> : pendingDrafts > 0 && <li><span><strong>{pendingDrafts} 篇修改待保存</strong><small>本地修改尚未保存为版本</small></span><button className="text-button" onClick={() => onNavigate('articles', { dirty: '1' })}>查看</button></li>}
+              {!articleError && unlockedDrafts > 0 && <li><span><strong>{unlockedDrafts} 篇草稿待完善</strong><small>继续打磨后再交付</small></span><button className="text-button" onClick={() => onNavigate('articles')}>打开</button></li>}
             </>}
           </ul>
         </section>
         <section className="home-note"><Sparkles size={16} /><h3>按你的节奏创作</h3><p className="micro-copy">不必走完每个步骤。已有正文可以直接编辑、配图、排版和导出。</p></section>
+        <section className="home-note"><h3>数据备份</h3><p className="micro-copy">{backupError ? '备份列表暂时无法读取。' : !backupPaths ? '正在读取备份记录…' : latestBackup ? `最近本地备份：${formatDate(latestBackup.toISOString())}${Date.now() - latestBackup.getTime() > 7 * 86400000 ? '，建议检查并更新备份。' : '。'}` : backupPaths.length ? '有备份，但无法从名称判断时间，请进入备份页检查。' : '还没有本地备份，建议保存一份数据副本。'}</p><button className="button ghost compact" onClick={() => onNavigate('data')}>查看与检查备份</button></section>
       </aside>
       </div>
     </div>

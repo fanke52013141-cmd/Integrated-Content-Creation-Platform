@@ -30,6 +30,21 @@ function seedArticle(database: AppDatabase, title: string, materialIds: string[]
   return article.id
 }
 
+it('只读检查备份能发现图片损坏，且不替换当前数据', async () => {
+  const dataPath = tempDataDir('backup-inspect')
+  const database = new AppDatabase(join(dataPath, 'moliu.db'))
+  seedArticle(database, '保留的文章')
+  writeFileSync(join(dataPath, 'images', 'cover.png'), TINY_PNG)
+  const workspace = new WorkspaceService(database, dataPath)
+  const backup = await workspace.createBackup()
+  expect(await workspace.inspectBackup({ bundleDir: backup.path })).toMatchObject({ images: 1, articles: 1 })
+  writeFileSync(join(backup.path, 'images', 'cover.png'), '损坏')
+  await expect(workspace.inspectBackup({ bundleDir: backup.path })).rejects.toThrow('校验失败')
+  expect(database.workflow.listSummaries().items[0].title).toBe('保留的文章')
+  await expect(workspace.inspectBackup({ bundleDir: join(dataPath, '..', 'outside') })).rejects.toThrow('应用数据目录')
+  database.close()
+})
+
 describe('生成任务台账', () => {
   it('按真实结果记录 running / partial，并在重启时把残留任务标为中断', () => {
     const file = join(tempDataDir('ledger'), 'moliu.db')

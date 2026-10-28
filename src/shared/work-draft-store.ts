@@ -8,7 +8,7 @@ export interface DraftState {
   error?: string
   edits: number
 }
-interface Entry { state: DraftState; listeners: Set<() => void>; pending: Promise<void> }
+interface Entry { state: DraftState; listeners: Set<() => void>; pending: Promise<void>; writing: boolean }
 export function createWorkDraftStore(api: Pick<MoliuApi['articles'], 'getDraft' | 'saveDraft' | 'discardDraft'>) {
   const entries = new Map<string, Entry>()
   function publish(entry: Entry, patch: Partial<DraftState>): void {
@@ -18,7 +18,7 @@ export function createWorkDraftStore(api: Pick<MoliuApi['articles'], 'getDraft' 
   function entryFor(articleId: string): Entry {
     let entry = entries.get(articleId)
     if (entry) return entry
-    entry = { state: { value: null, status: articleId ? 'loading' : 'saved', edits: 0 }, listeners: new Set(), pending: Promise.resolve() }
+    entry = { state: { value: null, status: articleId ? 'loading' : 'saved', edits: 0 }, listeners: new Set(), pending: Promise.resolve(), writing: false }
     entries.set(articleId, entry)
     const current = entry
     current.pending = articleId ? api.getDraft(articleId).then(value => {
@@ -37,11 +37,20 @@ export function createWorkDraftStore(api: Pick<MoliuApi['articles'], 'getDraft' 
     const baseline = entry.state.baseVersionId ?? baseVersionId
     const edit = entry.state.edits + 1
     publish(entry, { content, baseVersionId: baseline, edits: edit, status: 'saving', error: undefined })
+    // Only the latest unsaved text needs to follow an in-flight write. Keeping
+    // every keystroke in the queue makes flush and shutdown unnecessarily slow.
+    if (entry.writing) return
+    entry.writing = true
     entry.pending = entry.pending.then(async () => {
       try {
-        const value = await api.saveDraft({ articleId, baseVersionId: baseline, content, expectedRevision: entry.state.value?.revision ?? 0 })
-        publish(entry, { value, ...(entry.state.edits === edit ? { status: 'saved' as const, error: undefined } : {}) })
+        while (true) {
+          const currentEdit = entry.state.edits
+          const value = await api.saveDraft({ articleId, baseVersionId: entry.state.baseVersionId ?? baseline, content: entry.state.content ?? content, expectedRevision: entry.state.value?.revision ?? 0 })
+          publish(entry, { value, ...(entry.state.edits === currentEdit ? { status: 'saved' as const, error: undefined } : {}) })
+          if (entry.state.edits === currentEdit) break
+        }
       } catch (reason) { publish(entry, { status: 'error', error: reason instanceof Error ? reason.message : '本地暂存失败' }) }
+      finally { entry.writing = false }
     })
   }
   async function flushWorkDraft(articleId: string): Promise<WorkDraft | null> {

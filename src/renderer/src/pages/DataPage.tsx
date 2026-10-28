@@ -9,6 +9,7 @@ export function DataPage({ showToast }: { showToast(toast: ToastState): void }):
   const [path, setPath] = useState('')
   const [bundles, setBundles] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [inspection, setInspection] = useState<{ bundle: string; message: string } | null>(null)
   const { confirm, ConfirmPortal } = useConfirm()
   const load = async (): Promise<void> => {
     const [directory, backups] = await Promise.all([window.moliu.app.getDataPath(), window.moliu.app.listBackups()])
@@ -45,12 +46,20 @@ export function DataPage({ showToast }: { showToast(toast: ToastState): void }):
     try { await window.moliu.app.restoreBackup({ bundleDir }); reloadAfterRestore() }
     catch (error) { showToast({ type: 'error', message: errorMessage(error) }); setBusy(false) }
   }
+  const inspect = async (bundleDir: string): Promise<void> => {
+    setBusy(true); setInspection(null)
+    try {
+      const result = await window.moliu.app.inspectBackup({ bundleDir })
+      setInspection({ bundle: bundleDir, message: `数据库与清单中的 ${result.images} 张图片校验通过；记录 ${result.articles ?? '未知'} 篇文章，${result.credentialsIncluded ? '包含本机加密凭证' : '不含密钥'}。未执行恢复演练。` })
+    } catch (error) { setInspection({ bundle: bundleDir, message: `检查未通过：${errorMessage(error)}。未修改当前数据。` }) }
+    finally { setBusy(false) }
+  }
   return <div className="page data-page">
     <PageHeader title="数据与备份" description="保存文章、工作草稿、发布信息和图片的完整副本。" actions={<button className="button primary" disabled={busy} onClick={() => void backup()}><Download size={16} />{busy ? '正在处理…' : '立即备份'}</button>} />
     <div className="data-workspace">
       <section className="panel data-history">
         <header className="data-section-heading"><div><h3>本地备份</h3><p>随时保留一份当前创作内容的副本。</p></div><span className="badge neutral">{bundles.length} 份</span></header>
-        {bundles.length ? <div className="data-backup-list">{bundles.map(bundle => <article key={bundle} className="data-backup-row"><span className="data-file-icon"><DatabaseBackup size={20} /></span><div><strong>{bundle.split(/[\\/]/).pop()}</strong><small>本地完整备份</small></div><button className="button secondary compact" disabled={busy} onClick={() => void restore(bundle)}><RotateCcw size={16} />恢复</button></article>)}</div> : <div className="data-empty"><DatabaseBackup size={32} /><h3>还没有备份</h3><p>创建第一份备份，保留当前文章、图片和配置。</p><button className="button secondary" disabled={busy} onClick={() => void backup()}>创建第一份备份</button></div>}
+        {bundles.length ? <div className="data-backup-list">{bundles.map(bundle => <article key={bundle} className="data-backup-row"><span className="data-file-icon"><DatabaseBackup size={20} /></span><div><strong>{bundle.split(/[\\/]/).pop()}</strong><small>本地备份{inspection?.bundle === bundle && <span role="status"> · {inspection.message}</span>}</small></div><button className="button ghost compact" disabled={busy} onClick={() => void inspect(bundle)}>检查</button><button className="button secondary compact" disabled={busy} onClick={() => void restore(bundle)}><RotateCcw size={16} />恢复</button></article>)}</div> : <div className="data-empty"><DatabaseBackup size={32} /><h3>还没有备份</h3><p>创建第一份备份，保留当前文章、图片和配置。</p><button className="button secondary" disabled={busy} onClick={() => void backup()}>创建第一份备份</button></div>}
       </section>
       <aside className="data-sidebar">
         <section className="panel data-storage"><h3><HardDrive size={20} />本地存储</h3><p>数据保存在这台设备的目录中。</p><code>{path || '正在读取…'}</code></section>

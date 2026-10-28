@@ -160,7 +160,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     const todo = plan.pictures.filter(p => !(p.promptStale ?? plan.promptsStale) && !assets.some(a => a.slot === p.slot && a.kind === (p.kind === 'header' ? 'inline' : p.kind) && (assetStates.find(s=>s.assetId===a.id)?.status==='current' || a.source==='imported' && p.selectedAssetId===a.id)))
     if (!todo.length) { setNotice(plan.pictures.some(p=>p.promptStale??plan.promptsStale)?'部分图片需要先更新提示词，再更新图片':'每个图片项已有符合当前方案的候选图，可单独重新生成'); return }
     const price = imageModels.find(m => m.provider.id === model.providerId && m.model.modelId === model.model)?.model.pricePerImage
-    if (!(await confirm({ title: `生成 ${todo.length} 张图片？`, message: price ? `按模型配置估算约 $${(price * todo.length).toFixed(3)}，实际费用以供应商账单为准。` : '当前模型未配置单张价格，无法估算费用。生成后逐张选择采用。', confirmLabel: '开始生成' }))) return
+    if (!(await confirm({ title: `生成 ${todo.length} 张图片？`, message: price !== undefined ? `按模型配置估算约 $${(price * todo.length).toFixed(3)}，实际费用以供应商账单为准。等待时间因供应商而异。` : '当前模型未配置单张价格，无法估算费用；等待时间因供应商而异。生成后逐张选择采用。', confirmLabel: '开始生成' }))) return
     stop.current = false
     const failed: string[] = []
     let done = 0
@@ -180,6 +180,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
   const updateStyle = (patch: Partial<VisualStyleInput>) => { if (styleEdit) { setStyleEdit({ ...styleEdit, ...patch }); setStyleDirty(true) } }
   const blocks = articleBlocks(article?.rawMarkdown ?? '')
   const unavailable = Boolean(busy || dirty)
+  const selectedImageModel = imageModels.find(m => encodeModelTarget(m.provider.id, m.model.modelId) === imageTarget)?.model
   return <section className="visual-studio-workflow" data-stage={stage} aria-label="内容配图工作台">
     <div className="studio-step-title"><strong>内容方案 → 风格与提示词 → 图片 → 应用文章</strong><button className="button secondary compact" disabled={Boolean(busy)} onClick={() => { setStyleEdit(newStyle()); setHistory([]); setStyleDirty(false) }}>创建配图风格</button></div>
     <nav className="studio-stages" aria-label="配图流程步骤">{([['plan','1. 确认内容方案'],['style','2. 风格与提示词'],['images','3. 生成与选图'],['apply','4. 应用文章']] as const).map(([id,title])=><button className={stage===id?'button primary':'button secondary'} disabled={(id==='images'||id==='apply')&&!plan} aria-current={stage===id?'step':undefined} key={id} onClick={()=>setStage(id)}>{title}</button>)}</nav>
@@ -189,11 +190,13 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     {plan&&<div className="studio-generation-options studio-image-section">
       <label className="field"><span>出图质量</span><select aria-label="出图质量" value={quality} onChange={e=>setQuality(e.target.value as ImageQuality)}><option value="low">低 · 快速样图</option><option value="medium">中 · 正文配图</option><option value="high">高 · 封面精修</option></select></label>
       <label className="field"><span>分辨率</span><select aria-label="生图分辨率" value={resolution} onChange={e=>setResolution(e.target.value as ImageResolution)}>{['1k','2k','4k'].map(r=><option value={r} key={r}>{r.toUpperCase()}</option>)}</select></label>
-      <p className="form-hint">模型需支持所选质量、尺寸与参考图上传／编辑接口。不支持时会显示错误；可显式选择仅文字模式。费用按供应商实际账单计算。</p>
+      <p className="form-hint">单张预计费用：{selectedImageModel?.pricePerImage !== undefined ? `$${selectedImageModel.pricePerImage.toFixed(3)}（按模型配置估算）` : '未知（模型未配置价格）'}；等待时间因供应商而异。质量、分辨率和参考图可能影响实际费用，以供应商账单为准。</p>
+      <p className="form-hint">模型需支持所选质量、尺寸与参考图上传／编辑接口。不支持时会显示错误；可显式选择仅文字模式。</p>
       <p>本方案已记录图片费用：${assets.reduce((sum,a)=>sum+(a.costUsd??0),0).toFixed(3)}{assets.some(a=>a.costEstimated)?'（含估算）':''}；{assets.filter(a=>a.source==='generated'&&a.costUsd===undefined).length} 张费用未知。</p>
     </div>}
     {jobs.length>0&&<details className="studio-jobs" open><summary>后台配图任务 · {jobs.filter(j=>j.status==='completed').length}/{jobs.length} 已完成</summary><p className="form-hint">切换页面后任务继续执行。重启会续查已提交任务；结果不明时先核对供应商后台，避免重复扣费。</p>{jobs.slice(-20).map(job=><div className="studio-job" key={job.id}><span>{plan?.pictures.find(p=>p.id===job.pictureId)?.subject??'已移除图片项'} · {{queued:'排队中',running:'生成中',recovering:'续查中',completed:'已完成',failed:'失败',paused:'已暂停',unknown:'结果待核对'}[job.status]}{job.error&&<small>{job.error}</small>}</span><div className="studio-actions">{(['queued','running','recovering'].includes(job.status)?['pause']:job.status==='paused'?['resume']:job.status==='failed'?['retry']:job.status==='unknown'?job.remoteTaskId?['check-result','confirm-not-submitted']:['confirm-not-submitted']:[]).map(action=><button className="button ghost compact" key={action} onClick={()=>void run('更新任务',async()=>{if(action==='confirm-not-submitted'&&!(await confirm({title:'已确认供应商没有可用生成结果？',message:'只有核对供应商后台，确认此次结果不可用后才重新提交。再次提交可能产生费用。',confirmLabel:'已核对，重新提交'})))return;await api().controlJob({id:job.id,action:action as 'pause'|'resume'|'retry'|'check-result'|'confirm-not-submitted'});if(plan)await refreshProgress(plan.id)})}>{{pause:'暂停',resume:'继续／续查',retry:'重试失败任务','check-result':'再查一次（不重新生图）','confirm-not-submitted':'核对后重试'}[action]}</button>)}</div></div>)}</details>}
     <fieldset disabled={Boolean(busy)} className="studio-controls studio-content-controls">
+      <div className="studio-wide studio-quick-start"><strong>快速开始</strong><p className="form-hint">选择文章和方案模型，使用推荐数量与标准密度生成方案；生成后仍可逐张调整。此步骤不生成图片。</p><button type="button" className="button secondary compact" onClick={() => { setCount('auto'); setDensity('standard'); setCover(true); setHeader(true); setNotice('已应用推荐设置，请确认文章与方案模型后生成方案') }}>使用推荐设置</button></div>
       <label className="field"><span>文章</span><ArticlePicker value={articleId} onChange={id => void (async () => { if (await canDiscard()) onArticleChange(id) })()} /></label>
       <label className="field"><span>方案模型</span><Select ariaLabel="配图方案模型" value={textTarget} onChange={setTextTarget} options={textModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
       <label className="field"><span>生图模型</span><Select ariaLabel="配图生图模型" value={imageTarget} onChange={setImageTarget} options={imageModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>

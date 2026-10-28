@@ -281,6 +281,7 @@ function createMockBridge(): MoliuApi {
         Promise.resolve({ path: '/demo/workspace/backups/moliu-backup-demo', checksum: 'demo' }),
       restoreBackup: (): Promise<{ restoredImages: number }> => Promise.resolve({ restoredImages: 0 }),
       listBackups: (): Promise<string[]> => Promise.resolve(fixtures?.backups ?? []),
+      inspectBackup: () => Promise.reject(new Error('演示模式无法检查本地备份')),
       exportPortableBackup: () => Promise.resolve({ path: null }),
       selectPortableBackup: () => Promise.resolve(null)
     },
@@ -470,6 +471,8 @@ function createMockBridge(): MoliuApi {
       adoptCandidate: () => Promise.reject(new Error('演示模式没有候选')),
       retryRequest: () => Promise.resolve({ articles: [], failed: [] }),
       listSummaries: (query = {}) => Promise.resolve(fixtures?.summaries(query) ?? { items: [], total: 0 }),
+      factContext: async (id: string) => ({ versionId: fixtures?.articles.find(item => item.id === id)?.currentVersionId ?? '', evidence: null, confirmed: [] }),
+      confirmFact: () => Promise.reject(new Error('演示模式不保存事实核对状态')),
       getDraft: () => Promise.resolve(null),
       saveDraft: (input: any) => Promise.resolve({ ...input, revision: (input.expectedRevision ?? 0) + 1, updatedAt: new Date().toISOString() }),
       discardDraft: () => void_(),

@@ -307,6 +307,7 @@ export function registerIpc(options: {
     return workspace.restoreBackup(input)
   })
   handle('app:backup-list', () => workspace.listBackupBundles())
+  handle('app:backup-inspect', (_event, raw: unknown) => workspace.inspectBackup(z.object({ bundleDir: z.string().min(1).max(4096) }).parse(raw)))
   handle('app:backup-export-portable', () => workspace.exportPortableBackup())
   handle('app:backup-select-portable', () => workspace.selectPortableBackup())
 
@@ -788,6 +789,17 @@ export function registerIpc(options: {
   const articleIdSchema = z.string().uuid()
   handle('articles:list', () => database.listArticles())
   handle('articles:get', (_event, id: string) => database.getArticle(requireId(id)))
+  handle('articles:fact-context', (_event, id: string) => {
+    const article = database.getArticle(requireId(id))
+    if (!article) throw new Error('文章不存在')
+    return { versionId: article.currentVersionId, evidence: database.workflow.getEvidence(article.currentVersionId), confirmed: database.workflow.factConfirmations(article.currentVersionId) }
+  })
+  handle('articles:fact-confirm', (_event, raw: unknown) => {
+    const input = z.object({ articleId: z.string().uuid(), versionId: z.string().uuid(), key: z.string().min(1).max(100), confirmed: z.boolean() }).parse(raw)
+    const article = database.getArticle(input.articleId)
+    if (!article || article.currentVersionId !== input.versionId) throw new Error('文章版本已变化，请重新读取后核对')
+    database.workflow.setFactConfirmation(input.versionId, input.key, input.confirmed)
+  })
   handle('articles:generate', (event, raw: GenerateArticlesInput) => {
     const input = z.object({
       frameworkId: articleIdSchema.optional(), accountId: articleIdSchema.optional(),

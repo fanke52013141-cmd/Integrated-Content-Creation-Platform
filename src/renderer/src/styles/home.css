@@ -63,3 +63,13 @@
   .home-studio-main > section, .home-pending { padding: var(--space-base); }
   .home-resume-main strong { font-size: 20px; }
 }
+.home-work-board { display: grid; gap: 14px; padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); min-width: 0; }
+.home-work-board > header, .home-board-pages { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.home-board-filters { display: flex; gap: 10px; flex-wrap: wrap; }
+.home-board-filters input, .home-board-filters select { max-width: 100%; padding: 8px 10px; color: inherit; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+.home-board-list { display: grid; }
+.home-board-list > article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); min-width: 0; }
+.home-board-list > article > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.home-board-list p { margin: 5px 0 0; }
+.home-board-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+@media (max-width: 900px) { .home-board-list > article { align-items: flex-start; flex-direction: column; } }

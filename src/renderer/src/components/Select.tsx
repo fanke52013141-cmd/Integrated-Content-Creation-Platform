@@ -109,7 +109,8 @@ export function Select({
     }
   }, [open, positionPopover])
 
-  // 打开时定位到选中项；带搜索框时直接把焦点交给它，打字即可收窄
+  // 打开时定位到选中项；带搜索框时直接把焦点交给它，打字即可收窄。
+  // 短列表也必须把焦点移进 listbox，否则方向键仍会落在触发按钮上。
   useEffect(() => {
     if (!open) return
     setQuery('')
@@ -119,8 +120,10 @@ export function Select({
       requestAnimationFrame(() => searchRef.current?.focus())
       return
     }
-    const item = listRef.current?.querySelector<HTMLLIElement>(`[data-index="${index}"]`)
-    requestAnimationFrame(() => item?.scrollIntoView({ block: 'nearest' }))
+    requestAnimationFrame(() => {
+      listRef.current?.focus()
+      listRef.current?.querySelector<HTMLLIElement>(`[data-index="${index}"]`)?.scrollIntoView({ block: 'nearest' })
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
@@ -154,7 +157,7 @@ export function Select({
   }, [onChange])
 
   const onTriggerKeydown = (event: React.KeyboardEvent): void => {
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       setOpen(true)
     }
@@ -237,13 +240,22 @@ export function Select({
                 />
               )}
               {visible.length ? (
-                <ul ref={listRef} id={listId} role="listbox" className="select-list">
+                <ul
+                  ref={listRef}
+                  id={listId}
+                  role="listbox"
+                  tabIndex={-1}
+                  aria-label={ariaLabel}
+                  aria-activedescendant={`${listId}-option-${activeIndex}`}
+                  className="select-list"
+                >
                   {visible.map((option, index) => {
                     const isSelected = option.value === value
                     const isActive = index === activeIndex
                     return (
                       <li
                         key={`${option.value}:${index}`}
+                        id={`${listId}-option-${index}`}
                         data-index={index}
                         role="option"
                         aria-selected={isSelected}

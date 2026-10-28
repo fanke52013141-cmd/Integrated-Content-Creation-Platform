@@ -129,6 +129,7 @@ export function Layout({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
   const accountTriggerRef = useRef<HTMLButtonElement>(null)
+  const accountMenuPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!accountMenuOpen) return
@@ -138,6 +139,35 @@ export function Layout({
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [accountMenuOpen])
+
+  useEffect(() => {
+    if (!accountMenuOpen) return
+    requestAnimationFrame(() => {
+      const panel = accountMenuPanelRef.current
+      const selected = panel?.querySelector<HTMLButtonElement>('[aria-checked="true"]')
+      ;(selected ?? panel?.querySelector<HTMLButtonElement>('button'))?.focus()
+    })
+  }, [accountMenuOpen])
+
+  const onAccountMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    const panel = accountMenuPanelRef.current
+    if (!panel) return
+    const items = Array.from(panel.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]'))
+    const index = items.indexOf(document.activeElement as HTMLButtonElement)
+    if (event.key === 'Tab') {
+      setAccountMenuOpen(false)
+      return
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      if (!items.length) return
+      const nextIndex = event.key === 'Home' ? 0
+        : event.key === 'End' ? items.length - 1
+          : event.key === 'ArrowDown' ? (index + 1 + items.length) % items.length
+            : (index - 1 + items.length) % items.length
+      items[nextIndex]?.focus()
+    }
+  }
 
   useEffect(() => {
     if (!accountMenuOpen) return
@@ -282,7 +312,7 @@ export function Layout({
                   else onNavigate('accounts')
                 }}
                 title={accounts.length ? '切换当前账号' : '创建第一个账号'}
-                aria-haspopup={accounts.length ? 'dialog' : undefined}
+                aria-haspopup={accounts.length ? 'menu' : undefined}
                 aria-expanded={accounts.length ? accountMenuOpen : undefined}
                 aria-controls={accounts.length ? 'account-switcher' : undefined}
               >
@@ -293,15 +323,18 @@ export function Layout({
                 {currentAccount?.status === 'locked' && <LockKeyhole size={16} />}
               </button>
               {accountMenuOpen && accounts.length > 0 && (
-                <div className="account-menu-popover" id="account-switcher" role="dialog" aria-label="切换当前账号">
+                <div ref={accountMenuPanelRef} className="account-menu-popover" id="account-switcher" role="menu" aria-label="切换当前账号" onKeyDown={onAccountMenuKeyDown}>
                   <div className="account-menu-head">切换账号</div>
                   {accounts.map((account) => (
                     <button
                       key={account.id}
                       className={`account-menu-item ${account.isCurrent ? 'selected' : ''}`}
+                      role="menuitemradio"
+                      aria-checked={account.isCurrent}
                       onClick={() => {
                         setAccountMenuOpen(false)
                         if (!account.isCurrent) onSwitchAccount(account.id)
+                        requestAnimationFrame(() => accountTriggerRef.current?.focus())
                       }}
                     >
                       <span className="avatar">{account.name.slice(0, 1)}</span>
@@ -315,6 +348,7 @@ export function Layout({
                   ))}
                   <button
                     className="account-menu-item manage"
+                    role="menuitem"
                     onClick={() => {
                       setAccountMenuOpen(false)
                       onNavigate('accounts')

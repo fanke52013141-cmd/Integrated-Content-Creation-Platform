@@ -464,6 +464,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                     <span className={`badge ${selected.platform === 'wechat' ? 'success' : 'neutral'}`}>{platformNames[selected.platform]}</span>
                     <h3>{selected.title}</h3>
                     <p>来自《{articles.find((item) => item.id === selected.articleId)?.title ?? '文章'}》 · {selected.articleStatusSnapshot === 'draft' ? '草稿版本' : '已锁定版本'} · {formatDate(selected.createdAt)}</p>
+                    {article && selected.articleVersionId !== article.currentVersionId && <p className="inline-alert" role="status">此排版稿基于较早正文；当前正文已更新至第 {article.versionCount} 版。可继续查看旧稿，或重新生成排版稿。</p>}
                     <div className="layout-counters">
                       <span className={`badge ${titleLimits[selected.platform] && selected.title.length > titleLimits[selected.platform] ? 'danger' : 'neutral'}`}>
                         标题 {selected.title.length}{titleLimits[selected.platform] ? `/${titleLimits[selected.platform]}` : ''} 字

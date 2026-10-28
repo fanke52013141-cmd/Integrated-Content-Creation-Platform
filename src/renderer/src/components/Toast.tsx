@@ -26,12 +26,19 @@ const toastConfig = {
 export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id: number): void }): React.JSX.Element | null {
   if (!toasts.length) return null
   return createPortal(
-    <div className="toast-stack" aria-live="polite">
+    <div className="toast-stack">
       {toasts.map((toast) => {
         const config = toastConfig[toast.type]
         const Icon = config.icon
         return (
-          <div key={toast.id} className={`toast ${toast.type}`} role="status" aria-label={config.label}>
+          <div
+            key={toast.id}
+            className={`toast ${toast.type}`}
+            role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
+            aria-live={toast.type === 'error' || toast.type === 'warning' ? 'assertive' : 'polite'}
+            aria-atomic="true"
+            aria-label={`${config.label}：${toast.message}`}
+          >
             <Icon size={20} />
             <span className="toast-body">{toast.message}</span>
             {toast.action && (

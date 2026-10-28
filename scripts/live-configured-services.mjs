@@ -9,7 +9,7 @@ import { electron } from './lib/electron-test.mjs'
 
 // Read configuration only. Never copy user content or decrypt secrets in Node.
 const root = await mkdtemp(resolve(tmpdir(), 'moliu-live-configured-'))
-const report = { at: new Date().toISOString(), checks: [], skipped: ['真实生图：用户要求跳过', '公众号真实推送：用户要求跳过'] }
+const report = { at: new Date().toISOString(), checks: [], skipped: ['真实生图：此脚本不覆盖', '公众号真实推送：此脚本不覆盖'] }
 let app
 async function check(name, run) {
   try { const details = await run(); report.checks.push({ name, passed: true, details }); console.log(`${name}: PASS`); return details }

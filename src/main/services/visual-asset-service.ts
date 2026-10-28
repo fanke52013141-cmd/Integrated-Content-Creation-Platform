@@ -5,7 +5,14 @@ import type { ImportVisualAssetInput, GenerateVisualAssetInput, EditVisualAssetI
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 import { pixelSizeForRatio } from '../gateway/image-sizing.js'
-import { isCancelledError } from '../gateway/types.js'
+import { GatewayError, isCancelledError } from '../gateway/types.js'
+
+/** A restart must never turn an inconclusive provider lookup into permission to pay again. */
+function isConfirmedResumeFailure(error: unknown): boolean {
+  // An authentication, configuration, parse, or HTTP error describes the lookup,
+  // not the remote job. Only an explicit provider task failure is conclusive.
+  return error instanceof GatewayError && error.kind === 'ProviderError' && error.message.startsWith('生图任务失败：')
+}
 
 /** 从二进制头部嗅探图片扩展名（生图接口可能返回 png 或 jpeg） */
 function sniffImageExt(bytes: Uint8Array): string {
@@ -252,7 +259,9 @@ export class VisualAssetService {
         }, { ...result, providerId: task.providerId, model: task.model })
         restored += 1
       } catch (error) {
-        this.database.failImageTask(task.id, error instanceof Error ? error.message : '续查失败')
+        // Connectivity, rate limiting and unexpected provider responses leave the task pending.
+        // It can then be queried again without creating a second paid image request.
+        if (isConfirmedResumeFailure(error)) this.database.failImageTask(task.id, error instanceof Error ? error.message : '供应商明确拒绝续查')
       }
     }
     return restored

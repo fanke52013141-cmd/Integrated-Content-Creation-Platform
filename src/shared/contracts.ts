@@ -999,6 +999,7 @@ export interface MoliuApi {
     createBackup(input?: { targetDir?: string }): Promise<{ path: string; checksum: string }>
     restoreBackup(input: { bundleDir: string }): Promise<{ restoredImages: number }>
     listBackups(): Promise<string[]>
+    inspectBackup(input: { bundleDir: string }): Promise<{ createdAt?: string; articles?: number; images: number; credentialsIncluded: boolean }>
     exportPortableBackup(): Promise<LocalFileResult>
     selectPortableBackup(): Promise<{ bundleDir: string; summary: string } | null>
   }
@@ -1114,6 +1115,8 @@ export interface MoliuApi {
     list(): Promise<Article[]>
     listSummaries(query?: ArticleListQuery): Promise<ArticleListResult>
     getSummary(id: string): Promise<ArticleSummary | null>
+    factContext(id: string): Promise<{ versionId: string; evidence: MaterialContext | null; confirmed: string[] }>
+    confirmFact(input: { articleId: string; versionId: string; key: string; confirmed: boolean }): Promise<void>
     get(id: string): Promise<Article | null>
     getDraft(articleId: string): Promise<WorkDraft | null>
     saveDraft(input: SaveWorkDraftInput): Promise<WorkDraft>

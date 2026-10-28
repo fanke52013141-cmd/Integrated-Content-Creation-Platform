@@ -186,6 +186,20 @@ export class WorkspaceService {
     } catch (error) { await rm(this.insideData(stage), { recursive: true, force: true }); throw error }
   }
 
+  /** Read-only integrity check; this does not restore or modify user data. */
+  async inspectBackup(input: { bundleDir: string }): Promise<{ createdAt?: string; articles?: number; images: number; credentialsIncluded: boolean }> {
+    const bundle = this.insideData(input.bundleDir)
+    const manifest = JSON.parse(await readFile(join(bundle, 'manifest.json'), 'utf8')) as { app?: string; formatVersion?: number; createdAt?: string; checksum?: string; imageChecksums?: Record<string, string>; credentialsIncluded?: boolean; counts?: { articles?: number } }
+    if (manifest.app !== 'moliu' || manifest.formatVersion !== 2 || typeof manifest.checksum !== 'string' || !manifest.imageChecksums || typeof manifest.imageChecksums !== 'object' || Array.isArray(manifest.imageChecksums)) throw new Error('备份清单不完整或格式不支持')
+    const dbFile = join(bundle, 'moliu.db')
+    if (await sha256(dbFile) !== manifest.checksum || !this.database.isDatabaseFile(dbFile)) throw new Error('备份数据库校验失败或版本不兼容')
+    for (const [name, expected] of Object.entries(manifest.imageChecksums)) {
+      if (name !== basename(name) || !/\.(png|jpe?g|webp|gif)$/i.test(name) || typeof expected !== 'string') throw new Error('备份图片清单无效')
+      if (await sha256(join(bundle, 'images', name)) !== expected) throw new Error(`备份图片“${name}”校验失败`)
+    }
+    return { createdAt: manifest.createdAt, articles: manifest.counts?.articles, images: Object.keys(manifest.imageChecksums).length, credentialsIncluded: manifest.credentialsIncluded !== false }
+  }
+
   /** 从备份目录恢复整库与图片；恢复前数据库层会自动留存 pre-restore 副本 */
   async restoreBackup(input: { bundleDir: string }): Promise<{ restoredImages: number }> {
     const bundle = this.insideData(input.bundleDir)

@@ -36,10 +36,22 @@ export class VisualStudioQueue {
         this.store.saveJob({ ...job, status: 'completed', assetId: task.assetId, error: undefined })
         this.database.finishGenerationTask(job.id,'succeeded','续查恢复图片')
         this.emit(job,'done','succeeded','已续查恢复配图')
+      } else if (task?.status === 'completed') {
+        // The provider says it completed, but the local asset disappeared or could not be persisted.
+        // Do not leave this job endlessly recovering, and never silently submit a paid replacement.
+        this.store.saveJob({ ...job, status: 'unknown', error: '供应商任务已完成，但本地图片尚未恢复；请先核对供应商结果，勿直接重复提交' })
+        this.database.finishGenerationTask(job.id,'interrupted','供应商已完成，本地图片待恢复')
+        this.emit(job,'failed','interrupted','供应商已完成，但本地图片待恢复，请勿直接重复提交')
       } else if (!task || task.status === 'failed') {
         this.store.saveJob({ ...job, status: 'unknown', error: task?.error ?? '任务结果尚未确认，请在供应商后台核对' })
         this.database.finishGenerationTask(job.id,'interrupted','供应商结果待核对')
         this.emit(job,'failed','interrupted','供应商结果待核对，请勿直接重复提交')
+      } else {
+        // The lookup finished without a definitive result, for example because
+        // the network was unavailable. Make another lookup accessible to users.
+        this.store.saveJob({ ...job, status: 'unknown', error: '暂时无法确认供应商结果，可再查一次，不会重新生图' })
+        this.database.finishGenerationTask(job.id,'interrupted','供应商结果待核对')
+        this.emit(job,'failed','interrupted','供应商结果待核对，可再次续查')
       }
     }
   }

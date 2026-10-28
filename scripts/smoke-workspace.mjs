@@ -4,7 +4,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { electron } from './lib/electron-test.mjs'
 import { capture } from './lib/evidence.mjs'
 
-const IMPORTED_BODY = '这个月把三篇拖了很久的稿子发完了，才发现卡住我的从来不是文笔，而是没有先想清楚要写给谁。'
+const IMPORTED_BODY = '这个月把三篇拖了很久的稿子发完了，才发现卡住我的从来不是文笔，而是没有先想清楚要写给谁。2025 年完成 12 篇文章。'
 const NOTE = '本地交付与工作台验收'
 const TASK_LABEL = { running: '进行中', succeeded: '已完成', partial: '部分完成', failed: '失败', cancelled: '已取消', interrupted: '中断' }
 const userDataDir = resolve(resolve(tmpdir(), 'moliu-workspace-smoke'), String(Date.now()))
@@ -48,6 +48,14 @@ try {
   await window.getByRole('button', { name: /导入粘贴内容/ }).click()
   await window.getByText('粘贴稿已保存为本地草稿').waitFor({ timeout: 15_000 })
   await window.getByRole('button', { name: NOTE }).first().waitFor()
+  await window.locator('.fact-check-panel > summary').click()
+  const fact = window.locator('.fact-check-list article').filter({hasText:'2025 年'}).first()
+  const confirmed = fact.getByRole('checkbox', {name:'我已人工核对'})
+  await confirmed.click()
+  await window.waitForFunction(() => document.querySelector('.fact-check-list input[type="checkbox"]')?.checked === true)
+  await fact.getByRole('button', {name:'定位正文'}).click()
+  const selectedText = await window.locator('.article-markdown-editor').evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))
+  if (selectedText !== '2025 年') throw new Error(`事实线索定位错误：${selectedText}`)
 
   // F10：作品条把这篇文章带到后续阶段，切阶段仍是同一篇
   await window.locator('.work-bar').waitFor()
@@ -63,6 +71,12 @@ try {
 
   const articleId = await window.evaluate(async () => (await window.moliu.articles.list())[0]?.id)
   if (!articleId) throw new Error('导入的成稿未出现在列表里')
+  const factCheck = await window.evaluate(async id => {
+    const context = await window.moliu.articles.factContext(id)
+    await window.moliu.articles.confirmFact({articleId:id,versionId:context.versionId,key:'test:fact',confirmed:true})
+    return await window.moliu.articles.factContext(id)
+  }, articleId)
+  if (!factCheck.confirmed.includes('test:fact')) throw new Error('事实核对状态未通过 IPC 保存')
 
   // F12：导出落在数据目录内，越界目录必须被拒绝（原生目录框的取消路径由单元测试覆盖，这里不弹真框）
   const exported = await window.evaluate(async ({ dir, outside, id }) => {
@@ -83,15 +97,18 @@ try {
   // F18：一键备份 → 继续写 → 恢复回到备份时点
   const backup = await window.evaluate(async () => {
     const created = await window.moliu.app.createBackup()
+    const inspection = await window.moliu.app.inspectBackup({ bundleDir: created.path })
     await window.moliu.articles.save({ materialIds: [], manualOutline: '', status: 'draft', rawMarkdown: '# 备份之后新增的稿子\n\n内容', source: 'manual' })
     const before = (await window.moliu.articles.list()).length
     const restored = await window.moliu.app.restoreBackup({ bundleDir: created.path })
-    return { path: created.path, before, after: (await window.moliu.articles.list()).length, restored: restored.restoredImages, bundles: await window.moliu.app.listBackups() }
+    return { path: created.path, inspection, before, after: (await window.moliu.articles.list()).length, restored: restored.restoredImages, bundles: await window.moliu.app.listBackups() }
   })
   if (!inside(userDataDir, backup.path)) throw new Error('备份写到了数据目录之外')
   backupBundle = backup.path
   if (backup.before !== 2 || backup.after !== 1) throw new Error(`恢复未回到备份时点：${backup.before} → ${backup.after}`)
   if (!backup.bundles.includes(backup.path)) throw new Error('备份列表里没有刚创建的备份包')
+  if (backup.inspection.articles !== 1) throw new Error('只读备份检查未返回正确的文章数量')
+  if (!(await window.evaluate(async id => (await window.moliu.articles.factContext(id)).confirmed.includes('test:fact'), articleId))) throw new Error('恢复备份后事实核对状态丢失')
   if (!(await readFile(resolve(backup.path, 'manifest.json'), 'utf8')).includes('"checksum"')) throw new Error('备份缺少校验清单')
 
   // F15/F20：没有模型可用时生成必须记入任务台账并如实显示，而不是静默无响应

@@ -64,6 +64,12 @@ html[data-writing-focus="true"] .article-library-dialog { display: flex; }
 .article-supplement-tools .markdown-formatting { margin: 0; padding: 0; }
 .article-tools-end { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .article-tools-end .select { width: 180px; }
+.basic-rich-editor { display: grid; gap: 10px; min-height: 420px; }
+.basic-rich-editor-bar { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }
+.basic-rich-editor > .micro-copy { margin: 0; }
+.basic-rich-editor-surface { min-height: 360px; padding: 20px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; outline: none; background: var(--surface-solid); }
+.basic-rich-editor-surface:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.basic-rich-editor-surface img { max-width: 100%; height: auto; }
 .articles-page .article-export-actions { background: transparent; }
 .articles-page .article-rail .article-history > div { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .articles-page .article-history-actions { flex-wrap: wrap; justify-content: flex-start; }
@@ -104,3 +110,10 @@ html[data-writing-focus="true"] .articles-page .article-editor.layout-desk.two-c
   .article-composer-heading, .article-composer-body { padding: 20px; }
   .article-composer-footer { padding: 16px 20px; }
 }
+.fact-check-panel { margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.fact-check-panel > summary { cursor: pointer; font-weight: 600; }
+.fact-check-list { display: grid; gap: 10px; }
+.fact-check-list > article { min-width: 0; padding: 10px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.fact-check-list p { margin: 6px 0; }
+.fact-check-source { padding: 8px; margin: 8px 0; background: var(--surface-muted, #f5f6f8); border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.fact-check-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

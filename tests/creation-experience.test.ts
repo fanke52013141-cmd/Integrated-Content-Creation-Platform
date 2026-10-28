@@ -9,10 +9,20 @@ import type { ModelGateway } from '../src/main/gateway/model-gateway.js'
 import { disambiguateOptions, resolveAccountSelection, isReviewBaselineStale, resolveLayoutSelection } from '../src/shared/creation-state.js'
 import { isDraftDirty, readWorkDraft, writeWorkDraft } from '../src/shared/creation-state.js'
 import { makePromptRegistryStub } from './helpers/prompt-registry-stub.js'
+import { hasCompletedFirstCreationGuide } from '../src/shared/first-creation-guide.js'
 
 const PROVIDER_ID = 'p1'
 const MODEL_ID = 'mock-model'
 const prompts = makePromptRegistryStub()
+
+describe('首次创作引导状态', () => {
+  it('只把明确完成的本地标记视为已完成，损坏或旧值仍可显示引导', () => {
+    const storage = { getItem: () => 'done' } as Pick<Storage, 'getItem'>
+    expect(hasCompletedFirstCreationGuide(storage)).toBe(true)
+    expect(hasCompletedFirstCreationGuide({ getItem: () => 'dismissed' } as Pick<Storage, 'getItem'>)).toBe(false)
+    expect(hasCompletedFirstCreationGuide({ getItem: () => null } as Pick<Storage, 'getItem'>)).toBe(false)
+  })
+})
 
 function ensureProvider(database: AppDatabase): void {
   database.saveProvider({

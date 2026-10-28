@@ -54,6 +54,11 @@ export class WorkflowRepository {
       CREATE TABLE IF NOT EXISTS content_evidence (
         version_id TEXT PRIMARY KEY, data_json TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS fact_confirmations (
+        version_id TEXT NOT NULL REFERENCES article_versions(id) ON DELETE CASCADE,
+        fact_key TEXT NOT NULL, confirmed_at TEXT NOT NULL,
+        PRIMARY KEY(version_id, fact_key)
+      );
     `)
     for (const row of this.db.prepare("SELECT request_id,data_json FROM creation_results WHERE json_extract(data_json,'$.status')='running'").all()) {
       const result = JSON.parse(String(row.data_json)) as CreationResult
@@ -77,6 +82,15 @@ export class WorkflowRepository {
   getEvidence<T>(versionId: string): T | null {
     const row = this.db.prepare('SELECT data_json FROM content_evidence WHERE version_id=?').get(versionId)
     return row ? JSON.parse(String(row.data_json)) as T : null
+  }
+
+  factConfirmations(versionId: string): string[] {
+    return this.db.prepare('SELECT fact_key FROM fact_confirmations WHERE version_id=?').all(versionId).map(row => String(row.fact_key))
+  }
+
+  setFactConfirmation(versionId: string, key: string, confirmed: boolean): void {
+    if (confirmed) this.db.prepare('INSERT OR REPLACE INTO fact_confirmations VALUES(?,?,?)').run(versionId, key, new Date().toISOString())
+    else this.db.prepare('DELETE FROM fact_confirmations WHERE version_id=? AND fact_key=?').run(versionId, key)
   }
 
   getResolution(id: string): import('../../shared/contracts.js').PublicationResolution | undefined {

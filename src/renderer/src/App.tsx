@@ -17,6 +17,8 @@ import { Toast, type ToastItem, type ToastState } from './components/Toast'
 import { useAutoAriaHidden } from './components/Icon'
 import { useKeyboardShortcuts } from './components/useKeyboardShortcuts'
 import { ShortcutPanel } from './components/ShortcutPanel'
+import { FirstCreationGuide } from './components/FirstCreationGuide'
+import { hasCompletedFirstCreationGuide } from '../../shared/first-creation-guide'
 import { errorMessage } from './lib'
 
 const DataPage = lazy(() => import('./pages/DataPage').then(m => ({ default: m.DataPage })))
@@ -76,6 +78,7 @@ function AppShell(): React.JSX.Element {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const [shortcutPanelOpen, setShortcutPanelOpen] = useState(false)
   const [taskCenterOpen, setTaskCenterOpen] = useState(false)
+  const [firstCreationGuideOpen, setFirstCreationGuideOpen] = useState(false)
   const openWork = useOpenWork()
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -93,6 +96,17 @@ function AppShell(): React.JSX.Element {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // 新工作区只在首页询问一次起点。已有作品的用户不会被打断，且读取失败时不把
+  // 「无法判断」误当作「没有文章」。
+  useEffect(() => {
+    if (loading || fatalError || route !== 'home' || hasCompletedFirstCreationGuide(localStorage)) return
+    let alive = true
+    void window.moliu.articles.listSummaries({ limit: 1 })
+      .then(result => { if (alive && result.total === 0) setFirstCreationGuideOpen(true) })
+      .catch(() => undefined)
+    return () => { alive = false }
+  }, [loading, fatalError, route])
 
   // 带作品参数进入（从首页、任务中心或其他页面的「去某阶段」）→ 立即成为当前作品
   useEffect(() => {
@@ -314,6 +328,7 @@ function AppShell(): React.JSX.Element {
         </ErrorBoundary>
       </Layout>
       <TaskCenterDialog open={taskCenterOpen} onClose={() => setTaskCenterOpen(false)} onNavigate={navigate} />
+      <FirstCreationGuide open={firstCreationGuideOpen} providers={data.providers} onClose={() => setFirstCreationGuideOpen(false)} onNavigate={navigate} />
       <Toast toasts={toasts} onDismiss={dismissToast} />
       <ShortcutPanel open={shortcutPanelOpen} onClose={() => setShortcutPanelOpen(false)} />
     </>
