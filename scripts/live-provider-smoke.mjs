@@ -35,7 +35,7 @@ try {
   const window = await application.firstWindow()
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
-  await window.getByText('先把账号定位，做成可靠的创作基线。').waitFor()
+  await window.getByText('需要 AI 写作时，连接文本模型').waitFor()
 
   await window.getByRole('button', { name: 'AI 服务' }).first().click()
   await window.getByRole('button', { name: '空白配置' }).click()
@@ -59,27 +59,30 @@ try {
   await providerCard.getByText(/连接成功/).waitFor({ timeout: 90_000 })
 
   await window.getByRole('button', { name: '账号定位' }).click()
-  await window.getByRole('button', { name: '开始定位' }).click()
+  await window.getByRole('button', { name: '新建账号' }).first().click()
 
-  const answers = [
-    '量子观察者',
-    '人工智能与前沿科技科普',
-    '对科技感兴趣、但没有专业背景的职场人',
-    '清晰、克制、善用生活化类比，避免堆砌术语',
-    '陪读者一起保持好奇的科技朋友',
-    '不追逐空泛概念，重点解释技术与普通人的真实关系',
-    '每天用几分钟看懂一个影响未来的科技变化'
-  ]
-
-  for (const answer of answers) {
-    await window.getByPlaceholder('在这里写下你的想法…').fill(answer)
-    await window.getByRole('button', { name: '保存并继续' }).click()
+  // 现行向导：第 1 问是整句想法，其余 6 问可留空跳过，全部答完出现「生成账号定位」汇总
+  const idea = window.getByPlaceholder('在这里写下你的想法…')
+  await idea.waitFor({ timeout: 15_000 })
+  await idea.fill('量子观察者：人工智能与前沿科技科普，写给没有专业背景的职场人，清晰克制、善用生活化类比')
+  await window.getByRole('button', { name: '保存并继续' }).click()
+  let skipped = 0
+  while (skipped < 8 && await window.getByRole('button', { name: '跳过这一问' }).count()) {
+    await window.getByRole('button', { name: '跳过这一问' }).click()
+    skipped += 1
+    await window.waitForTimeout(200)
   }
+  if (skipped !== 6) throw new Error(`Expected to skip 6 wizard questions, skipped ${skipped}`)
 
-  const generationModelOptions = window.locator('.generation-controls select option')
-  if (await generationModelOptions.count() !== 3) {
-    throw new Error('Expected the account generator to expose both configured models')
+  await window.getByRole('button', { name: '生成账号定位' }).waitFor({ timeout: 15_000 })
+  // 生成模型是自定义 Select：展开后应同时看到两个已配置模型（外加「请选择模型」占位项），并选中主联调模型
+  await window.getByRole('button', { name: '生成模型' }).click()
+  const modelOptions = window.getByRole('option')
+  const configuredModelOptions = modelOptions.filter({ hasText: '联调模型' })
+  if (await configuredModelOptions.count() !== 1) {
+    throw new Error(`Expected the primary live model in the generator, got ${await configuredModelOptions.count()}`)
   }
+  await configuredModelOptions.first().click()
   await window.getByRole('button', { name: '生成账号定位' }).click()
   await window.locator('.wizard-actions-panel').waitFor({ timeout: 240_000 })
 
@@ -99,7 +102,7 @@ try {
 
   await window.getByRole('button', { name: '热点洞察' }).click()
   await window.locator('.hot-item-list').first().waitFor({ timeout: 90_000 })
-  await window.getByRole('button', { name: 'AI 筛选' }).click()
+  await window.getByRole('button', { name: '智能筛选', exact: true }).first().click()
   const filterDialog = window.locator('.hotspot-filter-dialog')
   await filterDialog.waitFor()
   await filterDialog.locator('input[type="number"]').fill('10')
