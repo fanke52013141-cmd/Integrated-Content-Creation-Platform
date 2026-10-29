@@ -112,7 +112,7 @@ export function FrameworksPage({
         templateId, topicId: topicId || undefined, accountId: accountId || undefined,
         materialIds: [...materialIds], manualTopic: manualTopic.trim() || undefined,
         providerId: target.providerId, model: target.modelId, count
-      }))
+      }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
       setLastFailed(result.failed)
       if (result.failed.length) showToast({ type: 'warning', message: `已生成 ${result.frameworks.length}\u00A0个框架；${result.failed.length}\u00A0个失败` })

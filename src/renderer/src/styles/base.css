@@ -687,6 +687,8 @@ input[type="checkbox"], input[type="radio"] {
 .confirm-dialog h2 { font-size: 21px; padding-right: 24px; }
 .confirm-dialog > p { font-size: 14px; line-height: 1.8; }
 .confirm-dialog .modal-symbol { border-radius: 8px; }
+.confirm-dialog .confirm-suppress { display: flex; align-items: center; gap: 8px; margin-top: -8px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; cursor: pointer; }
+.confirm-dialog .confirm-suppress input { width: 15px; height: 15px; flex-shrink: 0; }
 .confirm-dialog .modal-actions { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
 .modal fieldset { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
 

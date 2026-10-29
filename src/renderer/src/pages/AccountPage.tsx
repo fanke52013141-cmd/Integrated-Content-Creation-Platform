@@ -1383,6 +1383,10 @@ function GeneratedFields({
                 : '可稍后补充'}
               aria-label={`${field.name || `字段 ${index + 1}`}内容`}
             />
+            {/* 账号名常被整句想法占位：锁定前就地提醒精简，避免后续到处显示一长串 */}
+            {field.name.trim() === '账号名称' && !locked && field.value.trim().length > 20 && (
+              <p className="field-name-hint" role="note">账号名较长，建议精简成好记的名字再锁定，它会显示在创作和发布各处。</p>
+            )}
           </div>
           {!locked && (
             <button className="icon-button field-remove" onClick={() => onRemove(field.id)} title="删除字段" aria-label="删除字段">

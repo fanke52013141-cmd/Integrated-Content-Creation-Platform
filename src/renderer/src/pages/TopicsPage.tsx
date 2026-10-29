@@ -176,6 +176,8 @@ export function TopicsPage({
     const target = decodeModelTarget(modelTarget)
     if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
     if (!seedKeyword.trim()) return showToast({ type: 'error', message: '请填写热点关键词或主题' })
+    // 生成开始就切到草稿视图：候选逐个入库、逐个点亮，用户不必等整批结束
+    setView('drafts')
     try {
       const result = await stream.run(() => window.moliu.topics.generate({
         accountId: accountId || undefined,
@@ -184,9 +186,8 @@ export function TopicsPage({
         seedKeyword: seedKeyword.trim(),
         relatedHotFavoriteIds: [...favoriteIds],
         count
-      }))
+      }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
-      setView('drafts')
       setLastFailed(result.failed)
       if (result.failed.length) {
         showToast({ type: 'warning', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可再次生成补齐` })

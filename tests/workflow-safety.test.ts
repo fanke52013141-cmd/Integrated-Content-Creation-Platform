@@ -143,8 +143,8 @@ describe('备份、导出与任务状态', () => {
   })
   it('独占恢复拒绝活动操作，并在失败后释放门闩', async () => {
     const gate = new OperationGate(); let release!: () => void
-    const active = gate.run(() => new Promise<void>(resolve => { release = resolve }))
-    await expect(gate.run(() => {}, true)).rejects.toThrow('还有操作')
+    const active = gate.run(() => new Promise<void>(resolve => { release = resolve }), false, 'articles:generate')
+    await expect(gate.run(() => {}, true)).rejects.toThrow('还有 1 个操作进行中（文章生成）')
     release(); await active
     await expect(gate.run(() => { throw new Error('失败') }, true)).rejects.toThrow('失败')
     expect(await gate.run(() => 1, true)).toBe(1)

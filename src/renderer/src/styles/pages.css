@@ -554,6 +554,8 @@
   min-width: 0;
 }
 
+.field-name-hint { margin: 6px 0 0; color: var(--amber-600, #b45309); font-size: 12px; line-height: 1.5; }
+
 .generated-field textarea {
   width: 100%;
   min-height: 52px;
@@ -3890,6 +3892,7 @@
 .first-creation-option small { color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 .first-creation-option-tag { display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding: 3px 6px; border-radius: var(--radius-full); background: var(--amber-50); color: var(--amber-600); font-size: 11px; }
 .first-creation-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; color: var(--text-tertiary); font-size: 12px; }
+.first-creation-footer-actions { display: inline-flex; align-items: center; gap: 8px; }
 
 @media (max-width: 1100px) {
   .first-run-steps { grid-template-columns: 1fr; }

@@ -32,7 +32,7 @@ export function useGenerationStream(domain: StreamDomain): {
   active: boolean
   content: string
   progress: string
-  run<T>(task: () => Promise<T>): Promise<T>
+  run<T>(task: () => Promise<T>, options?: { onCandidateComplete?: () => void }): Promise<T>
   cancel(): void
   isCancelled(): boolean
 } {
@@ -46,7 +46,7 @@ export function useGenerationStream(domain: StreamDomain): {
   const finished = useRef(new Set<number>())
   useEffect(() => { if (!active) return; const timer = setInterval(() => setSeconds(Math.floor((Date.now() - started.current) / 1000)), 1000); return () => clearInterval(timer) }, [active])
 
-  const run = useCallback(async <T,>(task: () => Promise<T>): Promise<T> => {
+  const run = useCallback(async <T,>(task: () => Promise<T>, options?: { onCandidateComplete?: () => void }): Promise<T> => {
     // 防重入：按钮 disabled 挡得住鼠标，挡不住 Ctrl+Enter 等快捷键的连发；
     // 并发生成会让先结束的一方在 finally 里提前收掉对方的订阅与状态
     if (running.current) throw new Error('已有一个生成任务在进行中，请等它结束或先取消')
@@ -55,12 +55,23 @@ export function useGenerationStream(domain: StreamDomain): {
     setActive(true)
     setContent('')
     setCounts({ total: 0, completed: 0, failed: 0 }); setSeconds(0); started.current = Date.now(); finished.current.clear()
+    // 每个候选完成即通知页面做增量刷新（节流），列表逐个点亮而不是等整批结束
+    const onCandidateComplete = options?.onCandidateComplete
+    let lastNotify = 0
+    const notifyCandidate = (): void => {
+      if (!onCandidateComplete) return
+      const now = Date.now()
+      if (now - lastNotify < 600) return
+      lastNotify = now
+      onCandidateComplete()
+    }
     const unsubscribeStatus = window.moliu.generation.events(event => { if (event.domain === CANCEL_DOMAIN[domain] && event.outcome === 'cancelled') cancelled.current = true })
     const unsubscribe = STREAM_SUBSCRIBERS[domain]((event) => {
       setCounts(current => ({ ...current, total: event.total }))
       if ((event.phase === 'complete' || event.phase === 'error') && !finished.current.has(event.index)) {
         finished.current.add(event.index)
         setCounts(current => ({ ...current, completed: current.completed + (event.phase === 'complete' ? 1 : 0), failed: current.failed + (event.phase === 'error' ? 1 : 0) }))
+        if (event.phase === 'complete') notifyCandidate()
       }
       if (event.phase === 'start' && event.index === 0) setContent('')
       else if (event.phase === 'delta' && event.index === 0) setContent((prev) => prev + (event.delta ?? ''))

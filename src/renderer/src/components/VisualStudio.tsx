@@ -13,6 +13,8 @@ import '../styles/visual-studio.css'
 const api = () => window.moliu.visuals.studio
 const newStyle = (): VisualStyleInput => ({ name: '', description: '', colors: '', medium: '', composition: '', avoid: '随机文字、水印、杂乱背景', references: [] })
 const label = { cover: '公众号封面', header: '正文顶部图', inline: '正文配图', release: '发布图' }
+// 批量生图的费用确认只在会话内可被跳过：应用重启后重新确认，避免静默扣费成为默认
+let batchCostConfirmSuppressed = false
 function target(value: string): VisualModelTarget {
   const decoded = decodeModelTarget(value)
   if (!decoded) throw new Error('请先选择模型')
@@ -46,6 +48,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
   const pendingEdit = useRef<VisualPlan | null>(null), draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const viewPlanId=useRef('')
   const stop = useRef(false), loadSequence = useRef(0), operationActive = useRef(false)
+  const lastRun = useRef<{ name: string; action: () => Promise<void> } | null>(null)
   const textModels = availableModels(providers)
   const imageModels = providers.filter(p => p.enabled && p.hasApiKey && p.capabilities.image).flatMap(provider => provider.models.filter(m => m.enabled).map(model => ({ provider, model })))
   const [textTarget, setTextTarget] = useModelTarget(textModels, undefined, 'visual-studio.plan')
@@ -55,7 +58,14 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     if (operationActive.current) return
     operationActive.current = true
     setBusy(name); setError(''); setNotice('')
-    try { await action() } catch (e) { setError(errorMessage(e)) } finally { setBusy(''); operationActive.current = false }
+    try {
+      await action()
+      lastRun.current = null
+    } catch (e) {
+      // 记住失败的操作，错误提示旁提供一键重试，用户不必找回原按钮
+      lastRun.current = { name, action }
+      setError(errorMessage(e))
+    } finally { setBusy(''); operationActive.current = false }
   }
   const persistDraft = (snapshot: VisualPlan) => {
     draftChain.current = draftChain.current.catch(()=>undefined).then(async()=>{
@@ -160,7 +170,13 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     const todo = plan.pictures.filter(p => !(p.promptStale ?? plan.promptsStale) && !assets.some(a => a.slot === p.slot && a.kind === (p.kind === 'header' ? 'inline' : p.kind) && (assetStates.find(s=>s.assetId===a.id)?.status==='current' || a.source==='imported' && p.selectedAssetId===a.id)))
     if (!todo.length) { setNotice(plan.pictures.some(p=>p.promptStale??plan.promptsStale)?'部分图片需要先更新提示词，再更新图片':'每个图片项已有符合当前方案的候选图，可单独重新生成'); return }
     const price = imageModels.find(m => m.provider.id === model.providerId && m.model.modelId === model.model)?.model.pricePerImage
-    if (!(await confirm({ title: `生成 ${todo.length} 张图片？`, message: price !== undefined ? `按模型配置估算约 $${(price * todo.length).toFixed(3)}，实际费用以供应商账单为准。等待时间因供应商而异。` : '当前模型未配置单张价格，无法估算费用；等待时间因供应商而异。生成后逐张选择采用。', confirmLabel: '开始生成' }))) return
+    if (!batchCostConfirmSuppressed && !(await confirm({
+      title: `生成 ${todo.length} 张图片？`,
+      message: price !== undefined ? `按模型配置估算约 $${(price * todo.length).toFixed(3)}，实际费用以供应商账单为准。等待时间因供应商而异。` : '当前模型未配置单张价格，无法估算费用；等待时间因供应商而异。生成后逐张选择采用。',
+      confirmLabel: '开始生成',
+      suppressLabel: '本次会话不再提示（重启应用后会再次确认）',
+      onSuppress: () => { batchCostConfirmSuppressed = true }
+    }))) return
     stop.current = false
     const failed: string[] = []
     let done = 0
@@ -186,7 +202,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     <nav className="studio-stages" aria-label="配图流程步骤">{([['plan','1. 确认内容方案'],['style','2. 风格与提示词'],['images','3. 生成与选图'],['apply','4. 应用文章']] as const).map(([id,title])=><button className={stage===id?'button primary':'button secondary'} disabled={(id==='images'||id==='apply')&&!plan} aria-current={stage===id?'step':undefined} key={id} onClick={()=>setStage(id)}>{title}</button>)}</nav>
     {dirty&&<div className="studio-actions"><span role="status">{draftStatus}</span><button className="button secondary" disabled={Boolean(busy)} onClick={()=>void run('保存方案',save)}>保存方案修改</button></div>}
     {conflictDraft?.plan&&<details className="studio-draft-conflict"><summary>发现旧版本草稿，查看与当前方案的差异</summary><div className="studio-diff"><pre>当前方案：{JSON.stringify(plan?.pictures.map(p=>({内容:p.subject,提示词:p.prompt})),null,2)}</pre><pre>保留的草稿：{JSON.stringify(conflictDraft.plan.pictures.map(p=>({内容:p.subject,提示词:p.prompt})),null,2)}</pre></div><button className="button secondary" onClick={()=>{if(plan&&conflictDraft.plan){const original=conflictDraft.plan;let nextSlot=plan.nextSlot;change({...plan,style:original.style,pictures:original.pictures.map(p=>{const current=plan.pictures.find(i=>i.id===p.id);return {...p,slot:current?.slot??(p.kind==='cover'?0:nextSlot++),selectedAssetId:current?.selectedAssetId,approvedAssetSignature:current?.approvedAssetSignature}})});setConflictDraft(null)}}}>将草稿内容载入当前方案检查</button></details>}
-    {error && <p className="inline-alert" role="alert">{error}</p>}{notice && <p role="status" className="form-hint">{notice}</p>}
+    {error && <p className="inline-alert" role="alert">{error}{lastRun.current && !busy && <button className="text-button" onClick={() => { const last = lastRun.current; if (last) void run(last.name, last.action) }}>重试「{lastRun.current.name}」</button>}</p>}{notice && <p role="status" className="form-hint">{notice}</p>}
     {plan&&<div className="studio-generation-options studio-image-section">
       <label className="field"><span>出图质量</span><select aria-label="出图质量" value={quality} onChange={e=>setQuality(e.target.value as ImageQuality)}><option value="low">低 · 快速样图</option><option value="medium">中 · 正文配图</option><option value="high">高 · 封面精修</option></select></label>
       <label className="field"><span>分辨率</span><select aria-label="生图分辨率" value={resolution} onChange={e=>setResolution(e.target.value as ImageResolution)}>{['1k','2k','4k'].map(r=><option value={r} key={r}>{r.toUpperCase()}</option>)}</select></label>
@@ -199,7 +215,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
       <div className="studio-wide studio-quick-start"><strong>快速开始</strong><p className="form-hint">选择文章和方案模型，使用推荐数量与标准密度生成方案；生成后仍可逐张调整。此步骤不生成图片。</p><button type="button" className="button secondary compact" onClick={() => { setCount('auto'); setDensity('standard'); setCover(true); setHeader(true); setNotice('已应用推荐设置，请确认文章与方案模型后生成方案') }}>使用推荐设置</button></div>
       <label className="field"><span>文章</span><ArticlePicker value={articleId} onChange={id => void (async () => { if (await canDiscard()) onArticleChange(id) })()} /></label>
       <label className="field"><span>方案模型</span><Select ariaLabel="配图方案模型" value={textTarget} onChange={setTextTarget} options={textModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
-      <label className="field"><span>生图模型</span><Select ariaLabel="配图生图模型" value={imageTarget} onChange={setImageTarget} options={imageModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
+      <label className="field"><span>生图模型</span><Select ariaLabel="配图生图模型" value={imageTarget} onChange={setImageTarget} emptyText="还没有可用的生图模型：到「AI 服务」给供应商勾选「图片生成」能力后，模型会出现在这里" options={imageModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
       <label className="field"><span>正文图数量</span><select value={count} onChange={e => setCount(e.target.value)}><option value="auto">AI 推荐（0—8 张）</option>{[0,1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n} 张</option>)}</select></label>
       <label className="field"><span>配图密度</span><select value={density} onChange={e => setDensity(e.target.value as typeof density)}><option value="minimal">精简</option><option value="standard">标准</option><option value="rich">丰富</option></select></label>
       <label><input type="checkbox" checked={cover} onChange={e => setCover(e.target.checked)} />公众号封面</label>
@@ -242,6 +258,8 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
           <div className="studio-candidates">{candidates.map(asset => <figure key={asset.id}><img src={asset.url} alt={picture.alt || picture.subject} /><figcaption><small>{assetStates.find(s=>s.assetId===asset.id)?.status==='outdated'?'基于旧内容／旧风格，需要更新':assetStates.find(s=>s.assetId===asset.id)?.status==='current'?'符合当前方案':'导入或历史图片，请核对效果'}</small><button className="button secondary compact" disabled={unavailable || picture.selectedAssetId===asset.id&&(assetStates.find(s=>s.assetId===asset.id)?.status==='current'||picture.approvedAssetSignature===pictureSignature(plan,picture))} onClick={() => void run('采用图片',async () => { const state=assetStates.find(s=>s.assetId===asset.id)?.status;const outdated=state==='outdated'||state==='unverified'&&asset.source==='generated';if(outdated&&!(await confirm({title:'沿用旧内容或旧风格的图片？',message:'这张图的生成参数与当前方案不同。确认后会沿用此图；也可以重新生成。',confirmLabel:'确认沿用'})))return;setPlan(await api().select({planId:plan.id,pictureId:picture.id,assetId:asset.id,expectedRevision:plan.revision,allowOutdated:outdated})) })}>{picture.selectedAssetId===asset.id ? assetStates.find(s=>s.assetId===asset.id)?.status==='outdated'&&picture.approvedAssetSignature!==pictureSignature(plan,picture)?'确认沿用旧图':'已采用' : '采用此图'}</button><button className="button ghost compact" disabled={Boolean(busy)} onClick={() => void run('创建风格',async () => { const ref = await api().referenceFromAsset(asset.id); setStyleEdit({...newStyle(),name:'新配图风格',references:[ref]});setStyleDirty(true) })}>存为风格</button></figcaption></figure>)}</div>
         </article>
       })}
+      {/* 批量按钮在未选生图模型时会被禁用：就近解释原因，并给一键回第 1 步的路径 */}
+      {!imageTarget && <p className="inline-alert studio-image-section" role="status">还没有选择生图模型，批量生成暂不可用。<button className="text-button" onClick={() => setStage('plan')}>回到第 1 步选择生图模型</button>，选好后这里可以一键生成全部候选图。</p>}
       <div className="studio-actions"><button className="button primary studio-image-section" disabled={unavailable || !imageTarget || plan.pictures.every(p=>p.promptStale ?? plan.promptsStale)} onClick={() => void run('批量生成',generateBatch)}>生成剩余图片／更新旧图</button><button className="button secondary" disabled={unavailable} onClick={() => void run('预览配图',async () => { setStage('apply');const next = await api().preview(plan.id); const layout = await window.moliu.layouts.renderPreview({articleId:plan.articleId,markdown:next.markdown,platform:'wechat'});setPreview(next);setPreviewHtml(layout.html) })}>预览并应用文章</button><button className="button ghost" disabled={unavailable || !lastAppliedVersion} onClick={() => void run('撤销应用',async () => {await api().undo({planId:plan.id,expectedVersionId:lastAppliedVersion});setLastAppliedVersion('');await onApplied();setNotice('已撤销本次配图，文章保留历史版本') })}>撤销本次应用</button></div>
       <p className="form-hint">建议先生成一张样图，采用满意的效果后再批量生成。参考图主要约束色彩和质感，实际一致性取决于所选模型；不支持参考图时可显式切换文字模式。</p>
     </>}

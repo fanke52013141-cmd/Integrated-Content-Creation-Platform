@@ -970,7 +970,7 @@ function handle(
   channel: string,
   listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown
 ): void {
-  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), ['app:backup-create', 'app:backup-restore', 'app:backup-export-portable', 'app:backup-select-portable'].includes(channel)))
+  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), ['app:backup-create', 'app:backup-restore', 'app:backup-export-portable', 'app:backup-select-portable'].includes(channel), channel))
 }
 
 function requireId(value: string): string {

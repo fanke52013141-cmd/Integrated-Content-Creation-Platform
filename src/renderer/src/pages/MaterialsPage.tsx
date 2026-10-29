@@ -241,7 +241,8 @@ export function MaterialsPage({
             <div className="material-search-disabled">
               <Search size={24} />
               <div><strong>搜索服务未配置</strong></div>
-              <button className="button primary compact" onClick={() => onNavigate('providers')}>去配置</button>
+              <p className="form-hint">配置豆包搜索密钥后，可以联网搜索网页与图片素材，并一键加入素材库供写作引用。</p>
+              <button className="button primary compact" onClick={() => onNavigate('providers')}>去配置搜索密钥</button>
             </div>
           ) : (
             <>

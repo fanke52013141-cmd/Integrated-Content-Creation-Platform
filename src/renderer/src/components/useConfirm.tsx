@@ -18,6 +18,9 @@ interface ConfirmOptions {
   message: string
   confirmLabel?: string
   danger?: boolean
+  /** 提供后显示「不再提示」勾选；用户勾选并确认时回调（例如记住本次会话跳过该确认） */
+  suppressLabel?: string
+  onSuppress?(): void
 }
 
 interface PendingState extends ConfirmOptions {
@@ -53,6 +56,8 @@ export function useConfirm(): {
       message={pending.message}
       confirmLabel={pending.confirmLabel}
       danger={pending.danger}
+      suppressLabel={pending.suppressLabel}
+      onSuppress={pending.onSuppress}
       onCancel={handleClose}
       onConfirm={handleConfirm}
     />

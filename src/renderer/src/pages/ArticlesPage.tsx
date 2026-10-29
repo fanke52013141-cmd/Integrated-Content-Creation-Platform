@@ -81,6 +81,9 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const listLoading = loadedListKey !== listKey || listQuery !== query
   // F19：写作参数是「一次性」的，进入编辑后默认收起，避免常驻在正文上方抢走注意力
   const [composerOpen, setComposerOpen] = useState(false)
+  // 必填校验内联提示：跟随缺失字段就近展示，而不是只靠一闪而过的 toast
+  const [composeError, setComposeError] = useState<{ field: 'outline' | 'model'; message: string }>()
+  const outlineInputRef = useRef<HTMLTextAreaElement>(null)
   const [focused, setFocused] = useState(false)
   useEffect(() => { document.documentElement.dataset.writingFocus = focused ? 'true' : 'false'; return () => { delete document.documentElement.dataset.writingFocus } }, [focused])
   const [importOpen, setImportOpen] = useState(Boolean(importMode))
@@ -165,8 +168,17 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
 
   async function generate(candidateCount: number = count): Promise<void> {
     const target = decodeModelTarget(modelTarget)
-    if (!frameworkId && !manualOutline.trim()) return showToast({ type: 'error', message: '请选择内容框架，或粘贴手动框架' })
-    if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
+    if (!frameworkId && !manualOutline.trim()) {
+      setComposeError({ field: 'outline', message: '还差写作基线：选择内容框架，或粘贴手动框架，二选一即可开始。' })
+      outlineInputRef.current?.focus()
+      outlineInputRef.current?.scrollIntoView({ block: 'nearest' })
+      return
+    }
+    if (!target) {
+      setComposeError({ field: 'model', message: '请选择可用模型后再生成。' })
+      return
+    }
+    setComposeError(undefined)
     try {
       const request: GenerateArticlesInput = { frameworkId: frameworkId || undefined, accountId: accountId || undefined, accountSelection: accountId ? { mode: 'specific', accountId } : { mode: 'none' }, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count: candidateCount }
       failedRequest.current = { kind: 'generate', input: request }
@@ -341,11 +353,12 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
         </>}
       </>}
     />
-    <ModalBase open={composerOpen} onClose={() => { if (!stream.active) setComposerOpen(false) }} titleId="article-composer-title" className="article-composer-dialog" closeOnOverlay={!stream.active}>
-      <header className="article-composer-heading"><div><h2 id="article-composer-title">新建草稿</h2><p>选择写作基线，补充框架和参考资料。</p></div><button className="icon-button" aria-label="关闭新建草稿" disabled={stream.active} onClick={() => setComposerOpen(false)}><X size={20} /></button></header>
+    <ModalBase open={composerOpen} onClose={() => { if (!stream.active) { setComposerOpen(false); setComposeError(undefined) } }} titleId="article-composer-title" className="article-composer-dialog" closeOnOverlay={!stream.active}>
+      <header className="article-composer-heading"><div><h2 id="article-composer-title">新建草稿</h2><p>选择写作基线，补充框架和参考资料。</p></div><button className="icon-button" aria-label="关闭新建草稿" disabled={stream.active} onClick={() => { setComposerOpen(false); setComposeError(undefined) }}><X size={20} /></button></header>
       <div className="article-composer-body">
-      <div className="article-compose-grid"><label className="field"><span>内容框架</span><Select value={frameworkId} onChange={setFrameworkId} placeholder="不关联框架" ariaLabel="内容框架" options={[{ value: '', label: '不关联框架' }, ...frameworks.map((framework) => ({ value: framework.id, label: framework.manualTopic || `框架 · ${framework.sections.length} 个章节`, hint: `V${framework.versionCount}` }))]} /></label><label className="field"><span>账号定位</span><Select value={accountId} onChange={setAccountId} placeholder="不使用账号定位" ariaLabel="账号定位" options={[{ value: '', label: '不使用账号定位' }, ...accounts.map((account) => ({ value: account.id, label: account.name, hint: account.status === 'draft' ? '草稿' : undefined }))]} /></label><label className="field"><span>模型</span><Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" ariaLabel="模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} /></label></div>
-      <label className="field article-outline-field"><span>手动框架</span><textarea name="manualOutline" autoComplete="off" rows={3} value={manualOutline} maxLength={30000} onChange={(event) => setManualOutline(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void generate() } }} placeholder="输入文章结构（Ctrl+Enter 直接生成）" /></label>
+      <div className="article-compose-grid"><label className="field"><span>内容框架</span><Select value={frameworkId} onChange={(value) => { setComposeError(undefined); setFrameworkId(value) }} placeholder="不关联框架" ariaLabel="内容框架" options={[{ value: '', label: '不关联框架' }, ...frameworks.map((framework) => ({ value: framework.id, label: framework.manualTopic || `框架 · ${framework.sections.length} 个章节`, hint: `V${framework.versionCount}` }))]} /></label><label className="field"><span>账号定位</span><Select value={accountId} onChange={setAccountId} placeholder="不使用账号定位" ariaLabel="账号定位" options={[{ value: '', label: '不使用账号定位' }, ...accounts.map((account) => ({ value: account.id, label: account.name, hint: account.status === 'draft' ? '草稿' : undefined }))]} /></label><label className="field"><span>模型</span><Select value={modelTarget} onChange={(value) => { setComposeError(undefined); setModelTarget(value) }} placeholder="选择模型" ariaLabel="模型" options={[{ value: '', label: '选择模型' }, ...models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))]} /></label></div>
+      <label className="field article-outline-field"><span>手动框架</span><textarea ref={outlineInputRef} name="manualOutline" aria-invalid={composeError?.field === 'outline' || undefined} autoComplete="off" rows={3} value={manualOutline} maxLength={30000} onChange={(event) => { setComposeError(undefined); setManualOutline(event.target.value) }} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void generate() } }} placeholder="输入文章结构（Ctrl+Enter 直接生成）" /></label>
+      {composeError && <p className="inline-alert" role="alert">{composeError.message}</p>}
       <details className="editorial-input-summary"><summary>核对本次写作基线：{accounts.find(account => account.id === accountId)?.name ?? '通用创作'} · {materialIds.size} 条资料</summary><p>主题与框架：{selectedFramework?.manualTopic || '使用所选框架章节或手动框架'}</p>{selectedFramework?.sections.map(section => <p key={section.name}><strong>{section.name}</strong>：{section.content}</p>)}<p>资料：{materials.filter(material => materialIds.has(material.id)).map(material => material.title).join('、') || '尚未提供资料，事实与数字需要人工核对'}</p></details>
       {inheritedMaterials && <p className="inline-alert">已沿用所选框架的 {materialIds.size} 条素材，可在下方调整。</p>}
       {frameworkAccountHint && <p className="inline-alert">所选框架使用账号「{accounts.find((account) => account.id === frameworkAccountHint)?.name ?? '已删除'}」定位，当前写作账号不同。<button className="text-button" onClick={() => { setAccountId(frameworkAccountHint); setFrameworkAccountHint('') }}>改用框架账号</button><button className="text-button" onClick={() => setFrameworkAccountHint('')}>保持当前</button></p>}
@@ -355,7 +368,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在写作…" />}
       </div>
       <footer className="article-composer-footer">
-        <button className="button secondary" disabled={stream.active} onClick={() => setComposerOpen(false)}>取消</button>
+        <button className="button secondary" disabled={stream.active} onClick={() => { setComposerOpen(false); setComposeError(undefined) }}>取消</button>
         {stream.active
           ? <button className="button danger" onClick={stream.cancel}><X size={16} />取消生成</button>
           : <button

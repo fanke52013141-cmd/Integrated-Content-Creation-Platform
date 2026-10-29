@@ -50,7 +50,10 @@ export function FirstCreationGuide({
       </div>
       <footer className="first-creation-footer">
         <span>没有配置 AI 也能先导入或手动写草稿。</span>
-        <button className="button secondary compact" onClick={() => finish('articles', { import: '1' })}>直接写草稿</button>
+        <span className="first-creation-footer-actions">
+          <button className="button ghost compact" onClick={() => finish()}>先随便看看</button>
+          <button className="button secondary compact" onClick={() => finish('articles', { import: '1' })}>直接写草稿</button>
+        </span>
       </footer>
     </ModalBase>
   )

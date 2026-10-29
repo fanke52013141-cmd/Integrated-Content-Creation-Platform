@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { ModalBase } from './ModalBase'
 
@@ -7,6 +8,8 @@ interface ConfirmDialogProps {
   message: string
   confirmLabel?: string
   danger?: boolean
+  suppressLabel?: string
+  onSuppress?(): void
   onCancel(): void
   onConfirm(): void
 }
@@ -17,9 +20,13 @@ export function ConfirmDialog({
   message,
   confirmLabel = '确认',
   danger = false,
+  suppressLabel,
+  onSuppress,
   onCancel,
   onConfirm
 }: ConfirmDialogProps): React.JSX.Element | null {
+  // 「不再提示」勾选状态随弹窗重建自动复位，勾选 + 确认才触发 onSuppress
+  const [suppress, setSuppress] = useState(false)
   // P1-6: 使用 ModalBase 统一处理 focus trap / Escape / inert 背景
   return (
     <ModalBase open={open} onClose={onCancel} titleId="confirm-title" describedBy="confirm-message" className="confirm-dialog">
@@ -31,9 +38,15 @@ export function ConfirmDialog({
       </span>
       <h2 id="confirm-title">{title}</h2>
       <p id="confirm-message">{message}</p>
+      {suppressLabel && onSuppress && (
+        <label className="confirm-suppress">
+          <input type="checkbox" checked={suppress} onChange={event => setSuppress(event.target.checked)} />
+          {suppressLabel}
+        </label>
+      )}
       <div className="modal-actions">
         <button className="button secondary" data-autofocus onClick={onCancel}>取消</button>
-        <button className={`button ${danger ? 'danger' : 'primary'}`} onClick={onConfirm}>
+        <button className={`button ${danger ? 'danger' : 'primary'}`} onClick={() => { if (suppress && onSuppress) onSuppress(); onConfirm() }}>
           {confirmLabel}
         </button>
       </div>

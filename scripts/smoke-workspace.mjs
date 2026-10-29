@@ -49,11 +49,17 @@ try {
   await window.getByText('粘贴稿已保存为本地草稿').waitFor({ timeout: 15_000 })
   await window.getByRole('button', { name: NOTE }).first().waitFor()
   await window.locator('.fact-check-panel > summary').click()
-  const fact = window.locator('.fact-check-list article').filter({hasText:'2025 年'}).first()
+  // 卡片的上下文摘要也可能包含「2025 年」，必须按线索 token 本身锁定到对应卡片
+  const fact = window.locator('.fact-check-list article').filter({ has: window.locator('strong', { hasText: '2025 年' }) }).first()
   const confirmed = fact.getByRole('checkbox', {name:'我已人工核对'})
   await confirmed.click()
   await window.waitForFunction(() => document.querySelector('.fact-check-list input[type="checkbox"]')?.checked === true)
   await fact.getByRole('button', {name:'定位正文'}).click()
+  // 定位在 requestAnimationFrame 中设置选区，这里等选区真正出现再断言，避免读到空的中间态
+  await window.waitForFunction(() => {
+    const el = document.querySelector('.article-markdown-editor')
+    return !!el && el.selectionStart !== el.selectionEnd
+  }, undefined, { timeout: 5_000 })
   const selectedText = await window.locator('.article-markdown-editor').evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))
   if (selectedText !== '2025 年') throw new Error(`事实线索定位错误：${selectedText}`)
 
