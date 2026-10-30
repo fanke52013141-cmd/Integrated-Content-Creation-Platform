@@ -30,9 +30,11 @@ async function expectText(text, label) {
   }
 }
 
-// 1. 首启三步引导
-await expectText('三步开始第一篇文章', 'P2-2 首启三步引导条')
-await expectText('第一步 · 配置AI 服务', '引导步骤一')
+// 1. 空账号页直接提供创建与导入入口。
+const firstGuide = window.getByRole('button', { name: '先随便看看' })
+if (await firstGuide.isVisible().catch(() => false)) await firstGuide.click()
+await window.getByRole('button', { name: '账号定位', exact: true }).first().click()
+await expectText('还没有账号定位', '账号空状态')
 await window.screenshot({ path: resolve(artifactDir, 'ux-accounts-guide.png') })
 
 // 2. 离线创建并锁定账号（走手动向导，无 LLM）

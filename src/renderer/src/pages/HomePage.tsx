@@ -128,8 +128,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
               <div className="home-empty-card">
                 <span className="home-empty-icon" aria-hidden="true"><PenLine size={24} /></span>
                 <strong>{work ? '上次打开的作品已被删除。' : '下一篇好内容，从这里开始'}</strong>
-                <p className="micro-copy">选择下方入口开始创作，或导入一篇现成稿子。</p>
-                {!verified && <p className="inline-alert"><AlertTriangle size={16} /> AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。</p>}
+                {configured && !verified && <p className="inline-alert"><AlertTriangle size={16} /> AI 服务尚未验证连通。<button className="text-button" onClick={() => onNavigate('providers')}>去验证</button></p>}
               </div>
             )}
           </section>
@@ -188,7 +187,6 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
             </>}
           </ul>
         </section>
-        <section className="home-note"><Sparkles size={16} /><h3>按你的节奏创作</h3><p className="micro-copy">不必走完每个步骤。已有正文可以直接编辑、配图、排版和导出。</p></section>
         <section className="home-note"><h3>数据备份</h3><p className="micro-copy">{backupError ? '备份列表暂时无法读取。' : !backupPaths ? '正在读取备份记录…' : latestBackup ? `最近本地备份：${formatDate(latestBackup.toISOString())}${Date.now() - latestBackup.getTime() > 7 * 86400000 ? '，建议检查并更新备份。' : '。'}` : backupPaths.length ? '有备份，但无法从名称判断时间，请进入备份页检查。' : '还没有本地备份，建议保存一份数据副本。'}</p><button className="button ghost compact" onClick={() => onNavigate('data')}>查看与检查备份</button></section>
       </aside>
       </div>

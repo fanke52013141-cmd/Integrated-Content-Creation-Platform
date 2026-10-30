@@ -473,8 +473,8 @@ export function ProvidersPage({
               <article
                 key={provider.id}
                 className={`provider-card ${selectedId === provider.id ? 'selected' : ''}`}
-                onClick={() => chooseProvider(provider)}
               >
+                <button type="button" className="provider-select" aria-pressed={selectedId === provider.id} onClick={() => chooseProvider(provider)}>
                 <span className="provider-logo"><Server size={20} /></span>
                 <div className="provider-card-copy">
                   <div>
@@ -486,6 +486,7 @@ export function ProvidersPage({
                   <p>{provider.defaultModel} · {provider.models.length} 个模型</p>
                   <small>{testStatus[provider.id] || providerState(provider).note}</small>
                 </div>
+                </button>
                 <div className="provider-actions">
                   <button
                     className="icon-button"

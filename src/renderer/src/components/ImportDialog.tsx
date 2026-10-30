@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/contracts'
 import { errorMessage } from '../lib'
 import { ModalBase } from './ModalBase'
+import { Select } from './Select'
 import type { ToastState } from './Toast'
 
 const FORMAT_OPTIONS: Record<ContentImportKind, Array<{ value: ContentImportFormat; label: string }>> = {
@@ -174,6 +175,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
   }
 
   const canImport = Boolean(preview && preview.items.length && !preview.errors.length)
+  const associationLabels = associations ? ([['accountId', '账号'], ['topicId', '选题'], ['frameworkId', '框架'], ['articleId', '文章'], ['layoutId', '排版稿']] as const).filter(([key]) => associations[key]).map(([, label]) => label) : []
 
   return (
     <ModalBase open={open} onClose={onClose} titleId="import-dialog-title" className="import-dialog">
@@ -181,7 +183,6 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
         <div>
           <span className="eyebrow">外部内容</span>
           <h2 id="import-dialog-title">导入{KIND_LABEL[kind]}</h2>
-          <p>从其他工具接入内容，先检查解析结果，再确认保存；同来源内容可按支持的类型更新为新版本。</p>
         </div>
         <button className="icon-button" aria-label="关闭导入" onClick={onClose}><X size={20} /></button>
       </header>
@@ -201,15 +202,12 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
                 <small>{picked ? `${Math.max(1, Math.round(picked.size / 1024))} KB · ${picked.format.toUpperCase()}` : FORMAT_OPTIONS[kind].map(option => option.label).join(' / ') + (kind === 'article' ? ' / DOCX 文件' : '')}</small>
               </span>
             </button>
-            {picked && <p className="micro-copy">文件路径只在主进程使用；这里只显示文件名与解析结果。</p>}
           </div>
         ) : (
           <div className="import-source-panel">
             <label className="field">
               <span>内容格式</span>
-              <select value={format} onChange={(event) => setFormat(event.target.value as ContentImportFormat)} aria-label="内容格式">
-                {FORMAT_OPTIONS[kind].map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <Select ariaLabel="内容格式" value={format} onChange={(value) => setFormat(value as ContentImportFormat)} options={FORMAT_OPTIONS[kind]} />
             </label>
             <label className="field">
               <span>粘贴内容</span>
@@ -227,9 +225,8 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
 
         <details className="import-format-help"><summary>查看{KIND_LABEL[kind]}导入格式示例</summary><p className="micro-copy">JSON 适合保留完整字段。确认真实内容后再导入；示例不会自动保存。{kind === 'prompt' ? '提示词 key 必须已存在；模型可用 modelBinding: { providerId, modelId } 指定，不含密钥。' : ''}</p><pre>{JSON.stringify(IMPORT_EXAMPLES[kind], null, 2)}</pre></details>
 
-        {associations && Object.values(associations).some(Boolean) && (
-          <p className="import-association-note">导入后会关联当前账号/选题/框架；可以在详情中随时修改。</p>
-        )}
+        {associationLabels.length > 0 && <p className="import-association-note">将关联当前{associationLabels.join('、')}。</p>}
+
 
         {error && <p className="inline-alert" role="alert"><AlertTriangle size={16} />{error}</p>}
 
@@ -257,10 +254,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
                     return (
                       <label key={field}>
                         <span>{field}</span>
-                        <select aria-label={`${field} 映射到`} value={mapping[field] ?? field} onChange={(event) => setMapping((current) => ({ ...current, [field]: event.target.value }))}>
-                          <option value="不导入">不导入</option>
-                          {options.map((option) => <option key={option} value={option}>{option}</option>)}
-                        </select>
+                        <Select ariaLabel={`${field} 映射到`} value={mapping[field] ?? field} onChange={(value) => setMapping((current) => ({ ...current, [field]: value }))} options={[{value:'不导入',label:'不导入'}, ...options.map((option) => ({value:option,label:option}))]} />
                       </label>
                     )
                   })}
@@ -290,7 +284,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
       </div>
 
       <footer>
-        <span className="micro-copy">导入内容默认为草稿，不会自动锁定或发布。</span>
+        <span />
         <div>
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           {mode === 'paste' && !preview && (
@@ -298,13 +292,8 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
               {busy ? <LoaderCircle size={16} className="spin" /> : <FileUp size={16} />}解析预览
             </button>
           )}
-          {mode === 'file' && !preview && (
-            <button className="button secondary" onClick={() => void chooseFile()} disabled={busy}>
-              {busy ? <LoaderCircle size={16} className="spin" /> : <FileUp size={16} />}选择并解析
-            </button>
-          )}
           <button className="button primary" onClick={() => void commit()} disabled={busy || !canImport}>
-            {busy ? <LoaderCircle size={16} className="spin" /> : <Upload size={16} />}导入 {preview?.items.length ?? 0} 条
+            {busy ? <LoaderCircle size={16} className="spin" /> : <Upload size={16} />}导入{preview ? ` ${preview.items.length} 条` : ''}
           </button>
         </div>
       </footer>

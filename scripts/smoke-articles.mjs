@@ -65,7 +65,7 @@ try {
   await capture(window, { path: resolve(artifactDir, 'provider-verified.png'), animations: 'disabled', timeout: 90_000 })
 
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '新建草稿', exact: true }).click()
   await window.getByLabel('手动框架').fill('标题：先搭框架，再写文章\n开头：创作者动笔前的混乱\n论点：结构决定叙述推进\n结尾：给出行动建议')
   await window.getByRole('button', { name: '生成草稿' }).click()
@@ -81,7 +81,7 @@ try {
   // F10：切到别的页面，作品条依然跟着这篇稿子，并如实标出有未保存修改
   await window.locator('.work-bar').getByText('已本地暂存 · 待保存版本').waitFor()
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '源码编辑' }).click()
   const restored = await window.locator(editorSelector).inputValue()
   if (!restored.includes(DRAFT_MARKER)) throw new Error('切换到其他页面后，未保存的本地草稿丢失')
@@ -134,7 +134,7 @@ try {
   await window.reload()
   await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   if (await window.locator('.article-history').count() === 0) {
     await window.locator('.article-list-item', { hasText: namedArticleTitle }).first().click()
   }
@@ -213,7 +213,7 @@ try {
   await window.reload()
   await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   if (await window.locator('.article-list-item').count() !== 3) throw new Error('文章列表未按全部账号展示 3 篇')
   await window.getByRole('group', { name: '账号筛选' }).getByRole('button', { name: '当前账号', exact: true }).click()
   let scoped = await window.locator('.article-list-item').allInnerTexts()
@@ -225,7 +225,7 @@ try {
   await window.reload()
   await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('group', { name: '账号筛选' }).getByRole('button', { name: '当前账号', exact: true }).click()
   scoped = await window.locator('.article-list-item').allInnerTexts()
   if (scoped.length !== 1 || !scoped[0].includes('乙号的文章')) throw new Error('切换当前账号后列表没有跟上')
@@ -243,7 +243,7 @@ try {
   await window.reload()
   await window.waitForLoadState('domcontentloaded')
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   if (!(await window.locator('.article-list h3 small').innerText()).includes('63')) throw new Error('文章列表没有加载到 63 篇')
   const renderedRows = await window.locator('.article-list-item').count()
   if (renderedRows >= 63) throw new Error(`长列表没有走虚拟滚动（一次渲染 ${renderedRows} 行）`)
@@ -271,7 +271,7 @@ try {
 
   // 阶段 D 退出标准：几十篇作品时，别的页面里那个"选文章"的下拉框也要能一击命中
   await window.getByRole('button', { name: '文章排版' }).first().click()
-  await window.getByText('把成稿渲染为平台格式，直接推送公众号草稿箱').waitFor()
+  await window.locator('.layouts-page h1').waitFor()
   const articleTrigger = window.locator('.layout-composer .select-trigger').first()
   const pickerSearch = window.getByLabel('搜索可选文章')
   await pickerSearch.fill('批量作品 57')
@@ -288,7 +288,7 @@ try {
 
   // 阶段 B 退出标准"失败任务可单项恢复"：一批里坏掉一篇时，UI 上只补那一篇
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '新建草稿', exact: true }).click()
   await window.locator('.article-composer-dialog .composer-advanced > summary').click()
   await window.getByRole('button', { name: '每批生成' }).click()

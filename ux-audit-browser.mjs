@@ -66,6 +66,9 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message))
 await page.goto(baseURL, { waitUntil: 'domcontentloaded' })
 await page.waitForSelector('.boot-screen', { state: 'detached', timeout: 20_000 }).catch(() => {})
 await page.waitForTimeout(1200)
+// The first-run guide otherwise obscures every route in the screenshots.
+const dismissGuide = page.getByRole('button', { name: '先随便看看' })
+if (await dismissGuide.isVisible().catch(() => false)) await dismissGuide.click()
 
 for (const [route, label] of PAGES) {
   const ok = await page.evaluate((l) => {

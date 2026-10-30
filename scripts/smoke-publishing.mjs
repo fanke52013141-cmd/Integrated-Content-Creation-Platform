@@ -1,10 +1,12 @@
 import { createServer } from 'node:http'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { electron } from './lib/electron-test.mjs'
+import { capture } from './lib/evidence.mjs'
 
-const server=createServer(async(req,res)=>{if(req.url?.startsWith('/cgi-bin/token'))return res.end(JSON.stringify({access_token:'smoke-token'}));if(req.url?.startsWith('/cgi-bin/draft/add')){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);if(data.articles?.[0]?.thumb_media_id!=='thumb-smoke')return res.end(JSON.stringify({errcode:40007,errmsg:'invalid media'}));return res.end(JSON.stringify({media_id:'draft-smoke'}))}res.statusCode=404;res.end()});await new Promise(done=>server.listen(0,'127.0.0.1',done));const port=server.address().port;const root=await mkdtemp(join(tmpdir(),'moliu-publishing-smoke-'));const executablePath=process.env.MOLIU_EXECUTABLE?resolve(process.env.MOLIU_EXECUTABLE):resolve('node_modules/electron/dist/electron.exe');const app=await electron.launch({executablePath,args:process.env.MOLIU_EXECUTABLE?[]:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root,MOLIU_WECHAT_API_BASE:`http://127.0.0.1:${port}`}})
+let dropDraft=false
+const server=createServer(async(req,res)=>{if(req.url?.startsWith('/cgi-bin/token'))return res.end(JSON.stringify({access_token:'smoke-token'}));if(req.url?.startsWith('/cgi-bin/draft/add')){if(dropDraft){req.socket.destroy();return}let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);if(data.articles?.[0]?.thumb_media_id!=='thumb-smoke')return res.end(JSON.stringify({errcode:40007,errmsg:'invalid media'}));return res.end(JSON.stringify({media_id:'draft-smoke'}))}res.statusCode=404;res.end()});await new Promise(done=>server.listen(0,'127.0.0.1',done));const port=server.address().port;const root=await mkdtemp(join(tmpdir(),'moliu-publishing-smoke-'));const executablePath=process.env.MOLIU_EXECUTABLE?resolve(process.env.MOLIU_EXECUTABLE):resolve('node_modules/electron/dist/electron.exe');const app=await electron.launch({executablePath,args:process.env.MOLIU_EXECUTABLE?[]:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root,MOLIU_WECHAT_API_BASE:`http://127.0.0.1:${port}`}})
 try{const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');const data=await page.evaluate(async()=>{const channel=await window.moliu.publishing.saveWechatChannel({appId:'wx-smoke',appSecret:'secret-smoke',enabled:true});await window.moliu.publishing.testWechatChannel();const account=await window.moliu.accounts.save({fields:[{id:crypto.randomUUID(),name:'账号名称',value:'复盘验收号',isDefault:true}],wizardAnswers:[],status:'locked',source:'manual'});const article=await window.moliu.articles.save({accountId:account.id,materialIds:[],manualOutline:'',status:'locked',rawMarkdown:'# 发布测试\n\n正文',source:'manual'});const layout=await window.moliu.layouts.create({articleId:article.id,platform:'wechat'});const draft=await window.moliu.publishing.pushWechatDraft({articleId:article.id,layoutId:layout.id,thumbMediaId:'thumb-smoke'});const published=await window.moliu.publishing.update({id:draft.id,status:'published',publishedUrl:'https://mp.weixin.qq.com/s/smoke'});return {secret:channel.hasAppSecret,draft:draft.externalDraftId,status:published.status,url:published.publishedUrl,accountId:account.id}});if(!data.secret||data.draft!=='draft-smoke'||data.status!=='published'||!data.url?.includes('smoke'))throw new Error('Publishing workflow failed')
 // 发布复盘：目标/结果/经验落库 → 重启后仍在 → 经验一键写入账号记忆
 await page.getByRole('button',{name:'发布管理'}).click();const retro=page.locator('.publication-retro');await retro.waitFor();await retro.locator('summary').click();
@@ -16,4 +18,15 @@ const restored=page.locator('.publication-retro');await restored.waitFor();
 if(await restored.locator('input[name="retroGoal"]').inputValue()!=='验证这个选题判断是否成立')throw new Error('发布复盘未持久化');
 const memories=await page.evaluate((id)=>window.moliu.accounts.listMemories(id),data.accountId);
 if(!memories.some((item)=>item.insight==='标题带具体数字，打开率更高'&&item.source==='发布复盘'))throw new Error('发布经验未写入账号记忆');
+dropDraft=true
+const uncertain=await page.evaluate(async()=>{const article=await window.moliu.articles.save({materialIds:[],manualOutline:'',status:'locked',rawMarkdown:'# 待核对推送\n\n正文',source:'manual'});const layout=await window.moliu.layouts.create({articleId:article.id,platform:'wechat'});return window.moliu.publishing.pushWechatDraft({articleId:article.id,layoutId:layout.id,thumbMediaId:'thumb-smoke'})})
+if(uncertain.status!=='unknown')throw new Error('模拟断线未产生待确认状态')
+await page.reload();await page.getByRole('button',{name:'发布管理'}).click()
+const unknown=page.locator('.publication-row').filter({hasText:'待核对推送'});await unknown.waitFor()
+await unknown.scrollIntoViewIfNeeded();await mkdir(resolve('artifacts/publishing-audit'),{recursive:true});await capture(page,{path:resolve('artifacts/publishing-audit/unknown.png')})
+await unknown.getByRole('button',{name:'核对结果',exact:true}).click();await capture(page,{path:resolve('artifacts/publishing-audit/decision-menu.png')})
+await page.getByRole('option',{name:'确认已收到',exact:true}).click()
+await unknown.getByLabel('远端草稿标识').waitFor()
+await unknown.getByRole('button',{name:'核对结果',exact:true}).click();await page.getByRole('option',{name:'确认未收到，允许重推',exact:true}).click()
+if(await unknown.getByLabel('远端草稿标识').count())throw new Error('未收到时不应显示远端草稿标识')
 console.log('Publishing smoke passed: wechat draft, publish link, retro persistence, lesson written into account memory')}finally{await app.close();await new Promise(done=>server.close(done));await rm(root,{recursive:true,force:true})}

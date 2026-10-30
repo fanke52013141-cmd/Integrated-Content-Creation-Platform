@@ -45,7 +45,7 @@ try {
   await window.getByText('供应商配置已加密保存').waitFor()
 
   await window.getByRole('button', { name: '内容框架' }).first().click()
-  await window.getByText('把选题拆成结构化章节，锁定后作为写作基线').waitFor()
+  await window.locator('.frameworks-page h1').waitFor()
   await window.getByLabel('补充主题（未选选题时必填）').fill('AI 创作者为什么需要内容框架')
   await window.getByRole('button', { name: '生成框架' }).click()
   await window.getByText('已生成 3 个可编辑框架').waitFor({ timeout: 30_000 })

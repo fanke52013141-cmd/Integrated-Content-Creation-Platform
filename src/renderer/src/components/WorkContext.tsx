@@ -33,11 +33,11 @@ const TASK_STATE: Record<GenerationTask['status'], { label: string; badge: strin
   interrupted: { label: '中断', badge: 'warning' }
 }
 
-/** 统一作品页头：不管在哪一页，都能看见正在写的到底是哪篇、什么状态、下一步去哪 */
-export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSummary[]; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
+/** Only show the stage actions when the visible page has reported this work. */
+export function WorkBar({ route, accounts, onNavigate }: { route: RouteId; accounts: AccountProfileSummary[]; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element | null {
   const { work, setWork } = useActiveWork()
   const local = useWorkDraft(work?.articleId ?? '', work?.savedMarkdown ?? '', work?.currentVersionId ?? '')
-  if (!work) return null
+  if (!work || work.stage !== route) return null
   const account = accounts.find((item) => item.id === work.accountId)
   // 当前阶段与下一步：完整阶段列表在侧边栏，这里只回答「走到哪了、接下来做什么」
   const currentIndex = STAGES.findIndex((stage) => stage.id === work.stage)
@@ -56,7 +56,7 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
           用户想「写文章」要在两处找不同叫法（文章创作 / 正文），是重复导航的根源。
           保留本栏的独有价值：当前作品走到哪了、下一步做什么、点了直接跳。
           完整阶段列表交给侧边栏，这里只回答「接下来做什么」。 */}
-      <div className="work-bar-stages" role="group" aria-label="当前阶段与下一步">
+      <div className="work-bar-actions"><div className="work-bar-stages" role="group" aria-label="当前阶段与下一步">
         <span className="work-bar-stage-now">
           第 {currentIndex + 1}/{STAGES.length} 步 · {currentLabel}
         </span>
@@ -71,7 +71,7 @@ export function WorkBar({ accounts, onNavigate }: { accounts: AccountProfileSumm
           </button>
         )}
       </div>
-      <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={16} /></button>
+      <button className="icon-button" title="收起作品栏" aria-label="收起作品栏" onClick={() => setWork(null)}><X size={16} /></button></div>
     </div>
   )
 }

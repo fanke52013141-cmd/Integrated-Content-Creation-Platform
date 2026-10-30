@@ -260,10 +260,10 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
       </div>
       {item.status === 'unknown' ? <div className="publication-actions">
         <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>打开草稿箱核对</button>
-        <label className="field"><span>核对结果</span><select value={decision} onChange={event => setDecision(event.target.value as typeof decision)}><option value="unresolved">仍不确定，禁止重推</option><option value="received">确认已收到</option><option value="not-received">确认未收到，允许重推</option></select></label>
+        <label className="field"><span>核对结果</span><Select ariaLabel="核对结果" value={decision} onChange={value => setDecision(value as typeof decision)} options={[{value:'unresolved',label:'仍不确定，禁止重推'},{value:'received',label:'确认已收到'},{value:'not-received',label:'确认未收到，允许重推'}]} /></label>
         <input aria-label="核对说明" value={resolutionNote} onChange={event => setResolutionNote(event.target.value)} placeholder="核对时间、公众号及判断依据" maxLength={2000} />
-        <input aria-label="远端草稿标识" value={remoteId} onChange={event => setRemoteId(event.target.value)} placeholder="已收到的草稿标识（选填）" maxLength={200} />
-        <button className="button secondary compact" disabled={busy || !resolutionNote.trim()} onClick={() => void onResolve(decision, resolutionNote, remoteId)}>保存核对结果</button>
+        {decision === 'received' && <input aria-label="远端草稿标识" value={remoteId} onChange={event => setRemoteId(event.target.value)} placeholder="已收到的草稿标识（选填）" maxLength={200} />}
+        <button className="button secondary compact" disabled={busy || !resolutionNote.trim()} onClick={() => void onResolve(decision, resolutionNote, decision === 'received' ? remoteId : '')}>保存核对结果</button>
       </div> : item.status === 'draft' ? (
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />

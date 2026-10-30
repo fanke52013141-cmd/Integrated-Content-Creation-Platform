@@ -20,10 +20,20 @@ interface SelectProps {
   emptyText?: string
   /** 覆盖"多少个选项起启用搜索框"，一般不传 */
   searchable?: boolean
+  autoFocus?: boolean
 }
 
 // 超过这个数量，滚动找选项就比重打一遍标题更累（作品多起来后下拉尤其明显）
 const SEARCH_THRESHOLD = 12
+
+function revealOption(list: HTMLUListElement | null, index: number): void {
+  const item = list?.querySelector<HTMLLIElement>(`[data-index="${index}"]`)
+  if (!list || !item) return
+  const bounds = list.getBoundingClientRect()
+  const option = item.getBoundingClientRect()
+  if (option.top < bounds.top) list.scrollTop -= bounds.top - option.top
+  else if (option.bottom > bounds.bottom) list.scrollTop += option.bottom - bounds.bottom
+}
 
 /**
  * Apple 风格自定义下拉。
@@ -41,7 +51,8 @@ export function Select({
   disabled = false,
   ariaLabel,
   emptyText = '暂无选项',
-  searchable
+  searchable,
+  autoFocus = false
 }: SelectProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -82,13 +93,15 @@ export function Select({
     const maxHeight = openBelow
       ? Math.min(POPOVER_MAX_HEIGHT, spaceBelow)
       : Math.min(POPOVER_MAX_HEIGHT, spaceAbove)
-    const top = openBelow ? rect.bottom + GAP : rect.top - maxHeight - GAP
     const width = Math.min(rect.width, window.innerWidth - EDGE * 2)
     setPopoverStyle({
       position: 'fixed',
       left: Math.max(EDGE, Math.min(rect.left, window.innerWidth - width - EDGE)),
       right: 'auto',
-      top: Math.max(EDGE, top),
+      // Anchor the bottom edge when opening upwards so short and dynamically
+      // filtered lists stay adjacent to the trigger without measuring height.
+      top: openBelow ? rect.bottom + GAP : 'auto',
+      bottom: openBelow ? 'auto' : window.innerHeight - rect.top + GAP,
       width,
       minWidth: 0,
       maxHeight: Math.max(0, maxHeight),
@@ -117,12 +130,12 @@ export function Select({
     const index = Math.max(0, visible.findIndex((option) => option.value === value))
     setActiveIndex(index)
     if (allowSearch) {
-      requestAnimationFrame(() => searchRef.current?.focus())
+      requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }))
       return
     }
     requestAnimationFrame(() => {
-      listRef.current?.focus()
-      listRef.current?.querySelector<HTMLLIElement>(`[data-index="${index}"]`)?.scrollIntoView({ block: 'nearest' })
+      listRef.current?.focus({ preventScroll: true })
+      revealOption(listRef.current, index)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -164,6 +177,13 @@ export function Select({
   }
 
   const onListKeydown = (event: React.KeyboardEvent): void => {
+    if (event.key === 'Tab') {
+      // The list lives in a portal outside the dialog. Return focus to the
+      // trigger before the browser / dialog advances to the next control.
+      setOpen(false)
+      triggerRef.current?.focus()
+      return
+    }
     // 正在搜索框里打字时，Home/End 属于光标移动，不能被列表抢走
     const typing = event.target instanceof HTMLInputElement
     if (event.key === 'ArrowDown') {
@@ -197,8 +217,7 @@ export function Select({
   // 滚动时保持 active 项可见
   useEffect(() => {
     if (!open) return
-    const item = listRef.current?.querySelector<HTMLLIElement>(`[data-index="${activeIndex}"]`)
-    item?.scrollIntoView({ block: 'nearest' })
+    revealOption(listRef.current, activeIndex)
   }, [activeIndex, open])
 
   return (
@@ -212,6 +231,7 @@ export function Select({
         aria-expanded={open}
         aria-label={ariaLabel}
         aria-controls={open ? listId : undefined}
+        data-autofocus={autoFocus ? '' : undefined}
         onClick={() => setOpen((current) => !current)}
         onKeyDown={onTriggerKeydown}
       >

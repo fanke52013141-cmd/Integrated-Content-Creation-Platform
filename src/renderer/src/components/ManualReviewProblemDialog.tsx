@@ -3,6 +3,7 @@ import { LoaderCircle, Plus, X } from 'lucide-react'
 import type { ReviewSeverity } from '../../../shared/contracts'
 import { errorMessage } from '../lib'
 import { ModalBase } from './ModalBase'
+import { Select } from './Select'
 import type { ToastState } from './Toast'
 
 interface ManualReviewProblemDialogProps {
@@ -50,11 +51,7 @@ export function ManualReviewProblemDialog({ taskId, onClose, onSaved, showToast 
         <div className="manual-topic-fields">
           <label className="field"><span>位置（可选）</span><input name="manualReviewPosition" autoComplete="off" value={position} maxLength={200} onChange={(event) => setPosition(event.target.value)} placeholder="例如：第二段 / 全文" /></label>
           <label className="field"><span>严重度</span>
-            <select name="manualReviewSeverity" value={severity} onChange={(event) => setSeverity(event.target.value as ReviewSeverity)}>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
+            <Select ariaLabel="严重度" value={severity} onChange={(value) => setSeverity(value as ReviewSeverity)} options={[{value:'high',label:'高'},{value:'medium',label:'中'},{value:'low',label:'低'}]} />
           </label>
           <label className="field"><span>问题</span><textarea data-autofocus name="manualReviewIssue" autoComplete="off" rows={3} value={issue} maxLength={5000} onChange={(event) => setIssue(event.target.value)} placeholder="具体哪里有问题、读者会怎么误解…" /></label>
           <label className="field"><span>建议（可选）</span><textarea name="manualReviewSuggestion" autoComplete="off" rows={3} value={suggestion} maxLength={5000} onChange={(event) => setSuggestion(event.target.value)} placeholder="希望怎么改；留空时使用通用建议" /></label>

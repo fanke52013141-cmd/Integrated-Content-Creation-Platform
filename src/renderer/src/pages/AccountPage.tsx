@@ -11,7 +11,6 @@ import {
   Copy,
   FileClock,
   FileUp,
-  Flame,
   GitCompare,
   Globe,
   KeyRound,
@@ -48,7 +47,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
 import { ImportDialog } from '../components/ImportDialog'
 import { ModalBase } from '../components/ModalBase'
-import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { PageHeader } from '../components/PageHeader'
 import { SourceBadge } from '../components/SourceBadge'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
@@ -153,7 +152,6 @@ export function AccountPage({
   return (
     <AccountList
       accounts={accounts}
-      providers={providers}
       selectedId={selectedId}
       onCreate={() => setMode('wizard')}
       onOpen={(id) => void openAccount(id)}
@@ -166,7 +164,6 @@ export function AccountPage({
 
 function AccountList({
   accounts,
-  providers,
   selectedId,
   onCreate,
   onOpen,
@@ -175,7 +172,6 @@ function AccountList({
   showToast
 }: {
   accounts: AccountProfileSummary[]
-  providers: ProviderSummary[]
   selectedId?: string
   onCreate(): void
   onOpen(id: string): void
@@ -241,9 +237,9 @@ function AccountList({
                       </span>
                       <span
                         className={`badge ${account.completeness >= 80 ? 'success' : 'neutral'}`}
-                        title="默认九个定位字段的非空占比"
+                        title={`默认九个定位字段的非空占比：${completenessHint(account.completeness)}`}
                       >
-                        完整度 {account.completeness}% · {completenessHint(account.completeness)}
+                        完整度 {account.completeness}%
                       </span>
                     </div>
                   </div>
@@ -263,15 +259,6 @@ function AccountList({
           {!filtered.length && (
             <div className="center-empty"><Search size={24} /><strong>没有匹配的账号</strong></div>
           )}
-          {/* 链路起点：定位建好后明确指向下一阶段，避免用户停在原地 */}
-          {accounts.length > 0 && (
-            <NextStepBar
-              text="账号定位是后续选题与成稿的基准，改完定位后去看今天有什么可写的热点。"
-              actionLabel="去看热点"
-              icon={<Flame size={16} />}
-              onAction={() => onNavigate('hotspots')}
-            />
-          )}
         </>
       ) : (
         <>
@@ -288,7 +275,6 @@ function AccountList({
               </button>
             </div>
           </section>
-          <FirstRunGuide providers={providers} onNavigate={onNavigate} onCreate={onCreate} />
         </>
       )}
       <ImportDialog
@@ -300,40 +286,6 @@ function AccountList({
         showToast={showToast}
       />
     </div>
-  )
-}
-
-/** 首次使用三步引导：配模型 → 建账号 → 去热点；账号创建后整条消失 */
-function FirstRunGuide({ providers, onNavigate, onCreate }: { providers: ProviderSummary[]; onNavigate(route: RouteId): void; onCreate(): void }): React.JSX.Element {
-    const gatewayReady = providers.some((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.chat && provider.verification.verified)
-  const steps = [
-    { icon: Settings2, title: '第一步 · 配置AI 服务', desc: gatewayReady ? '已配置，可以开始生成' : '填入任意 OpenAI 兼容服务的地址与密钥', done: gatewayReady, action: gatewayReady ? undefined : { label: '去配置', route: 'providers' as RouteId } },
-    { icon: WandSparkles, title: '第二步 · 创建并锁定账号', desc: '完成向导后「保存并锁定」，作为创作基线', done: false, action: { label: '新建账号', route: undefined as RouteId | undefined } },
-    { icon: Flame, title: '第三步 · 去热点挑选题', desc: '收藏感兴趣的热点，一键带去生成选题', done: false, action: { label: '去热点', route: 'hotspots' as RouteId } }
-  ]
-  return (
-    <section className="first-run-guide" aria-label="新手引导">
-      <header><Sparkles size={16} />三步开始第一篇文章</header>
-      <div className="first-run-steps">
-        {steps.map((step) => (
-          <div className={`first-run-step ${step.done ? 'done' : ''}`} key={step.title}>
-            <span className="first-run-icon">{step.done ? <Check size={16} /> : <step.icon size={16} />}</span>
-            <div>
-              <strong>{step.title}</strong>
-              <small>{step.desc}</small>
-            </div>
-            {step.action && (
-              <button
-                className="button ghost compact"
-                onClick={() => step.action?.route ? onNavigate(step.action.route) : onCreate()}
-              >
-                {step.action.label}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
   )
 }
 

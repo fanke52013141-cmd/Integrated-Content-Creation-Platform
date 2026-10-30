@@ -1121,7 +1121,7 @@ export function HotspotsPage({
       )}
 
       {filterDialogOpen && (
-        <ModalBase open onClose={() => { if (!filtering) setFilterDialogOpen(false) }} titleId="hotspot-filter-title" bare className="hotspot-filter-dialog">
+        <ModalBase open onClose={() => { if (!filtering) setFilterDialogOpen(false) }} titleId="hotspot-filter-title" bare scrollBody className="hotspot-filter-dialog">
             <header>
               <div>
                 <span className="eyebrow">AI HOTSPOT SCREENING</span>
@@ -1148,6 +1148,7 @@ export function HotspotsPage({
                   value={filterAccountId}
                   onChange={setFilterAccountId}
                   ariaLabel="已锁定账号"
+                  autoFocus
                   options={lockedAccounts.map((account) => ({ value: account.id, label: account.name }))}
                 />
               </label>

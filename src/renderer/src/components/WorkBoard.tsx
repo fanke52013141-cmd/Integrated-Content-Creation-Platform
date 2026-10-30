@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AccountProfileSummary, ArticleSummary } from '../../../shared/contracts'
 import type { RouteId } from './Layout'
 import { errorMessage, formatDate } from '../lib'
+import { Select } from './Select'
 
 /** Results are paged by the database; never infer workflow stages that are not recorded. */
 export function WorkBoard({ accounts, onNavigate }: { accounts: AccountProfileSummary[]; onNavigate(route: RouteId, params?: Record<string, string>): void }): React.JSX.Element {
@@ -25,8 +26,8 @@ export function WorkBoard({ accounts, onNavigate }: { accounts: AccountProfileSu
     return () => { alive = false }
   }, [page, search, accountId, retry])
   return <section className="home-work-board" aria-labelledby="work-board-title">
-    <header><div><h3 id="work-board-title">作品管理</h3><p className="micro-copy">查看已保存状态，继续写作或进入后续环节。</p></div><span className="micro-copy">{total} 篇</span></header>
-    <div className="home-board-filters"><input type="search" aria-label="搜索作品" value={query} placeholder="搜索标题或正文" onChange={event => setQuery(event.target.value)} /><select aria-label="筛选作品账号" value={accountId} onChange={event => { setAccountId(event.target.value); setPage(0) }}><option value="">全部账号</option>{accounts.map(account => <option value={account.id} key={account.id}>{account.name}</option>)}</select></div>
+    <header><h3 id="work-board-title">作品管理</h3><span className="micro-copy">{total} 篇</span></header>
+    <div className="home-board-filters"><input type="search" aria-label="搜索作品" value={query} placeholder="搜索标题或正文" onChange={event => setQuery(event.target.value)} /><Select ariaLabel="筛选作品账号" value={accountId} onChange={value => { setAccountId(value); setPage(0) }} options={[{ value: '', label: '全部账号' }, ...accounts.map(account => ({ value: account.id, label: account.name }))]} /></div>
     {loading ? <p className="micro-copy">正在读取作品…</p> : error ? <p className="inline-alert" role="alert">作品读取失败：{error} <button className="text-button" onClick={() => setRetry(value => value + 1)}>重试</button></p> : items.length ? <div className="home-board-list">{items.map(item => <article key={item.id}>
       <div><strong>{item.title}</strong><p className="micro-copy">{accounts.find(account => account.id === item.accountId)?.name ?? '未绑定账号'} · 正文第 {item.versionCount} 版 · {item.status === 'locked' ? '已锁定' : '草稿'} · {formatDate(item.updatedAt)}</p><p className="micro-copy">{item.hasWorkDraft ? '有本地修改待保存 · ' : ''}{item.layoutStale ? '排版稿需检查 · ' : ''}{item.publicationStatus === 'published' ? '已记录发布' : item.publicationStatus === 'draft' ? '已推送草稿箱' : item.publicationStatus === 'unknown' ? '交付结果待核对' : item.publicationStatus === 'failed' ? '交付失败' : '尚无交付记录'}</p></div>
       <div className="home-board-actions"><button className="button secondary compact" onClick={() => onNavigate('articles', { articleId: item.id })}>继续写作</button><button className="button ghost compact" onClick={() => onNavigate('reviews', { articleId: item.id })}>评审</button><button className="button ghost compact" onClick={() => onNavigate('layouts', { articleId: item.id })}>排版</button></div>

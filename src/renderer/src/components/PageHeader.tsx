@@ -22,14 +22,13 @@ interface PageHeaderProps {
   onNavigate?(route: RouteId, params?: Record<string, string>): void
 }
 
-export function PageHeader({ route, showPipeline = false, title, description, actions, onNavigate }: PageHeaderProps): React.JSX.Element {
+export function PageHeader({ route, showPipeline = false, title, actions, onNavigate }: PageHeaderProps): React.JSX.Element {
   return (
     <>
       {showPipeline && route && onNavigate && <PipelineSteps current={route} onNavigate={onNavigate} />}
       <section className="page-intro">
         <div>
           <h1>{title}</h1>
-          {description && <p className="micro-copy">{description}</p>}
         </div>
         {actions && <div className="page-intro-actions">{actions}</div>}
       </section>

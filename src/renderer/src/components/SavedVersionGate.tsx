@@ -32,9 +32,9 @@ export function SavedVersionGate({ article, onSaved, onNavigate }: { article?: A
     finally { setBusy(false) }
   }
   const needsSavedVersion = draft.dirty || draft.status === 'error'
+  if (!needsSavedVersion) return null
   return <>
-    <section className={`saved-version-gate ${needsSavedVersion ? '' : 'saved-version-context'}`} role="status">
-      {needsSavedVersion ? <>
+    <section className="saved-version-gate" role="status">
         <strong>{draft.conflict ? '本地修改基于旧版本，请回正文对比或另存。' : '这篇文章有本地修改，保存为版本后才能继续。'}</strong>
         <p className="micro-copy">{draft.error || '自动暂存只保护当前编辑；评审、配图、排版和交付都使用已保存版本。'}{error && ` ${error}`}</p>
         <div className="page-intro-actions">
@@ -42,10 +42,6 @@ export function SavedVersionGate({ article, onSaved, onNavigate }: { article?: A
           <button className="button secondary compact" onClick={() => onNavigate('articles', { articleId: article.id })}>返回正文</button>
           <button className="button ghost compact" disabled={busy} onClick={() => void discard()}>放弃修改，使用已保存版本</button>
         </div>
-      </> : <>
-        <strong>当前使用正文第 {article.versionCount} 版{article.status === 'locked' ? '，已锁定成稿' : '，仍可继续编辑'}。</strong>
-        <p className="micro-copy">保存会创建新版本；锁定用于确认当前成稿。新生成的结果使用已保存正文，已有评审、配图或排版可能基于旧版本，请检查各结果的版本提示。</p>
-      </>}
     </section>
     {ConfirmPortal}
   </>

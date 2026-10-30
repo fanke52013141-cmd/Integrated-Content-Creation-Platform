@@ -36,7 +36,7 @@ try {
   // F09 创作台：未配置模型时先教「连一个文本模型」，且导入不依赖模型
   await window.getByRole('button', { name: '创作台' }).first().click()
   await window.getByText('需要 AI 写作时，连接文本模型').waitFor()
-  await window.getByText('AI 服务尚未验证连通，智能生成会不可用；导入与排版仍可正常使用。').waitFor()
+  if (await window.getByText('AI 服务尚未验证连通').count()) throw new Error('未配置模型时不应重复显示验证提示')
   await capture(window, { path: resolve(artifactDir, 'home-setup.png'), animations: 'disabled', timeout: 90_000 })
 
   // F16：导入 .md 文件即成本地草稿，缺标题时自动补出可辨认的名字
@@ -116,6 +116,41 @@ try {
   if (backup.inspection.articles !== 1) throw new Error('只读备份检查未返回正确的文章数量')
   if (!(await window.evaluate(async id => (await window.moliu.articles.factContext(id)).confirmed.includes('test:fact'), articleId))) throw new Error('恢复备份后事实核对状态丢失')
   if (!(await readFile(resolve(backup.path, 'manifest.json'), 'utf8')).includes('"checksum"')) throw new Error('备份缺少校验清单')
+  // Inspect the real backup UI in this isolated profile; cancel the confirmation.
+  await window.getByRole('button', { name: '数据与备份', exact: true }).click()
+  const backupRow = window.locator('.data-backup-row').first()
+  await backupRow.getByRole('button', {name:'检查',exact:true}).click()
+  await backupRow.getByRole('status').waitFor()
+  await mkdir(resolve(artifactDir,'backup-audit'),{recursive:true})
+  await capture(window,{path:resolve(artifactDir,'backup-audit/inspection.png')})
+  await window.setViewportSize({width:900,height:700})
+  await capture(window,{path:resolve(artifactDir,'backup-audit/inspection-narrow.png')})
+  await backupRow.getByRole('button', {name:'恢复',exact:true}).click()
+  const restoreDialog = window.getByRole('dialog', {name:'恢复这份备份？'})
+  await restoreDialog.waitFor()
+  await capture(window,{path:resolve(artifactDir,'backup-audit/restore-confirm.png')})
+  const restoreBounds = await restoreDialog.evaluate(el => {const box=el.getBoundingClientRect();return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight}})
+  if (restoreBounds.left<0 || restoreBounds.top<0 || restoreBounds.right>restoreBounds.width || restoreBounds.bottom>restoreBounds.height) throw new Error(`恢复确认弹窗超出窗口：${JSON.stringify(restoreBounds)}`)
+  await restoreDialog.getByRole('button',{name:'取消'}).click()
+  await window.setViewportSize({width:1440,height:900})
+
+  // Exercise the real parser and the mapping controls without committing data.
+  await window.getByRole('button',{name:'选题生成',exact:true}).click()
+  await window.locator('.page-intro').getByRole('button',{name:'导入',exact:true}).click()
+  const topicImport = window.getByRole('dialog',{name:'导入选题'})
+  await topicImport.getByRole('tab',{name:'粘贴内容'}).click()
+  await topicImport.locator('textarea[name="importContent"]').fill(JSON.stringify({topics:[{title:'测试选题',fields:{'选题主题':'测试选题','核心观点':'测试观点','读者价值':'测试价值'}}]}))
+  await topicImport.getByRole('button',{name:'解析预览'}).click()
+  await topicImport.locator('.import-mapping summary').click()
+  const mappingSelect=topicImport.getByRole('button',{name:'核心观点 映射到',exact:true})
+  await mappingSelect.click()
+  await capture(window,{path:resolve(artifactDir,'backup-audit/import-mapping-menu.png')})
+  await window.getByRole('option',{name:'不导入',exact:true}).click()
+  if (!(await mappingSelect.innerText()).includes('不导入')) throw new Error('字段映射选择没有生效')
+  await topicImport.getByRole('button',{name:'导入 1 条'}).click()
+  await topicImport.waitFor({state:'hidden'})
+  const importedTopic = await window.evaluate(async () => (await window.moliu.topics.list()).find(topic => topic.fields['选题主题'] === '测试选题'))
+  if (!importedTopic || importedTopic.fields['核心观点']) throw new Error('选择不导入后，源字段仍被写入')
 
   // F15/F20：没有模型可用时生成必须记入任务台账并如实显示，而不是静默无响应
   const attempt = await window.evaluate(async () => {

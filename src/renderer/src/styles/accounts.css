@@ -4,10 +4,12 @@
 .account-list-page .account-card { width: 100%; padding: 24px; box-shadow: none; border-radius: 12px; }
 .account-list-page .account-card:hover { transform: none; box-shadow: none; border-color: var(--primary); }
 .account-list-page .account-card.selected { box-shadow: none; }
-.account-list-page .account-card-head { gap: 16px; }
-.account-list-page .account-badges { max-width: 230px; gap: 8px; }
+.account-list-page .account-card-head { gap: 16px; min-width: 0; }
+.account-list-page .account-badges { max-width: 230px; min-width: 0; gap: 8px; }
+.account-list-page .account-badges .badge { max-width: 100%; white-space: normal; }
 .account-list-page .account-card h3 { margin-top: 20px; font-size: 19px; }
 .account-list-page .account-card > p { margin-top: 10px; }
+.account-list-page .account-card-domain { justify-self: start; max-width: 100%; border-radius: 8px; white-space: normal; overflow-wrap: anywhere; }
 .account-list-page .account-card footer { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 16px; margin-top: 20px; border-top: 1px solid var(--border-subtle); }
 .account-edit-link { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--text); font-weight: 600; }
 

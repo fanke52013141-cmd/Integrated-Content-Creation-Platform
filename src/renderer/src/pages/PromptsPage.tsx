@@ -126,7 +126,6 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
       <section className="page-intro">
         <div>
           <h1>提示词 <SourceBadge source={selected?.importSource} /></h1>
-          <p>调整各环节的写作要求，保存后用于后续生成。可查看历史版本并恢复。</p>
         </div>
         <div className="page-intro-actions">
           <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入 JSON</button>

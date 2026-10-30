@@ -366,7 +366,7 @@ export function Layout({
           </div>
         </header>
 
-        <WorkBar accounts={accounts} onNavigate={onNavigate} />
+        <WorkBar route={route} accounts={accounts} onNavigate={onNavigate} />
         <main key={route} id="main" className="content" ref={contentRef} tabIndex={-1}>{children}</main>
       </section>
     </div>

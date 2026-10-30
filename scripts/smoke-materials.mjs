@@ -108,7 +108,7 @@ try {
     }
   })
   await window.getByRole('button', { name: '文章创作' }).first().click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '开始写作' }).click()
   const picker = window.locator('.material-picker')
   const pickerSearch = picker.locator('input[name="materialPickerQuery"]')
@@ -149,7 +149,7 @@ try {
   }
 
   await window.getByRole('button', { name: '文章创作', exact: true }).click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '开始写作' }).click()
   if (await outlineField.inputValue() !== OUTLINE) throw new Error('去素材库转一圈，手动框架丢了')
   await picker.getByText('引用素材（已选 3）').waitFor()
@@ -169,7 +169,7 @@ try {
   if (await window.getByRole('button', { name: '关闭新建草稿', exact: true }).isVisible()) await window.getByRole('button', { name: '关闭新建草稿', exact: true }).click()
   await window.getByRole('button', { name: '素材库', exact: true }).click()
   await window.getByRole('button', { name: '文章创作', exact: true }).click()
-  await window.getByText('按框架扩写成稿，改稿打磨后锁定进入评审与发布').waitFor()
+  await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '开始写作' }).click()
   await picker.getByText('引用素材（已选 2）').waitFor()
   console.log('Material smoke test passed: encrypted search service, web/image snapshot and manual text import, long-list search, selection kept across a trip to the library, deleted material dropped from the selection')

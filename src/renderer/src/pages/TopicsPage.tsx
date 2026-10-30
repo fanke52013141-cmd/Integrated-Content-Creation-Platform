@@ -529,7 +529,9 @@ function TopicCard({
     const known = schema.map((field) => field.name).filter((name) => name in topic.fields)
     return [...known, ...Object.keys(topic.fields).filter((name) => !known.includes(name))]
   }, [schema, topic.fields])
-  const visibleFields = expanded ? orderedFields : orderedFields.slice(0, 4)
+  const titleField = topic.fields['选题主题'] ? '选题主题' : Object.keys(topic.fields)[0]
+  const detailFields = orderedFields.filter((name) => name !== titleField)
+  const visibleFields = expanded ? detailFields : detailFields.slice(0, 4)
   const draftReference = topic.references.find((reference) => reference.sourceStatusSnapshot === 'draft')
   return (
     <article className="topic-card">
@@ -566,10 +568,10 @@ function TopicCard({
         ))}
       </dl>
       {topic.status === 'locked' && <button className="button primary topic-next-step" onClick={() => onNavigate('frameworks', { topicId: topic.id })}><Sparkles size={16} />生成框架→</button>}
-      {orderedFields.length > 4 && (
+      {detailFields.length > 4 && (
         <button className="topic-expand" onClick={() => setExpanded((value) => !value)}>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          {expanded ? '收起字段' : `展开其余 ${orderedFields.length - 4}\u00A0个字段`}
+          {expanded ? '收起字段' : `展开其余 ${detailFields.length - 4}\u00A0个字段`}
         </button>
       )}
       <footer>
@@ -621,13 +623,13 @@ function SchemaDialog({
     }
   }
   return (
-    <ModalBase open onClose={onClose} titleId="topic-schema-title" bare className="topic-schema-dialog">
+    <ModalBase open onClose={onClose} titleId="topic-schema-title" bare scrollBody className="topic-schema-dialog">
         <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">
               <strong>{index + 1}</strong>
-              <input name="schemaFieldName" autoComplete="off" value={field.name} maxLength={50} onChange={(event) => update(index, { name: event.target.value })} />
+              <input name="schemaFieldName" aria-label={`第 ${index + 1} 个字段名称`} autoComplete="off" value={field.name} maxLength={50} onChange={(event) => update(index, { name: event.target.value })} />
               <label><input type="checkbox" name="fieldRequired" autoComplete="off" checked={field.required} onChange={(event) => update(index, { required: event.target.checked })} />必填</label>
               <button className="icon-button" aria-label="上移" disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button>
               <button className="icon-button" aria-label="下移" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button>

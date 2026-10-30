@@ -4,6 +4,7 @@ import { DEFAULT_STYLE_CONFIG, normalizeStyleConfig, sameStyleConfig } from '../
 import { errorMessage, formatFullDate, markdownTitle } from '../../lib'
 import type { ToastState } from '../Toast'
 import { useConfirm } from '../useConfirm'
+import { Select } from '../Select'
 import { LayoutStyleFields } from './LayoutStyleFields'
 import { layoutPreviewDocument } from './preview-document'
 
@@ -231,7 +232,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
     {recovery && <div className="account-layout-notice"><span>本窗口有一份未保存编辑，与已保存草稿版本不同。</span><button className="button secondary compact" disabled={busy} onClick={() => { applyEditing(recovery); setRecovery(null) }}>恢复本窗口编辑</button></div>}
     <div className="account-layout-designer">
       <div className="panel account-layout-controls">
-        <label className="field"><span>基础主题</span><select value={themeId} disabled={busy} onChange={(event) => setThemeId(event.target.value)}>{themeId === 'custom' && <option value="custom">已有高级 CSS 主题</option>}{themes.map((theme) => <option value={theme.id} key={theme.id}>{theme.name}</option>)}</select></label>
+        <label className="field"><span>基础主题</span><Select ariaLabel="基础主题" value={themeId} disabled={busy} onChange={setThemeId} options={[...(themeId === 'custom' ? [{value:'custom',label:'已有高级 CSS 主题'}] : []), ...themes.map(theme => ({value:theme.id,label:theme.name}))]} /></label>
         {customCss && <p className="micro-copy">已保留此版本的高级 CSS；结构化版式包暂不包含这部分规则。</p>}
         <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={busy} platform="wechat" themes={themes} themeId={themeId} />
         <div className="layout-style-actions"><button className="button ghost compact" disabled={busy} onClick={() => void importPreset()}>导入版式包</button><button className="button ghost compact" disabled={busy || Boolean(customCss) || themeId === 'custom'} title={customCss ? '当前含高级 CSS，暂不支持完整导出' : undefined} onClick={() => void exportPreset()}>导出当前参数</button></div>
@@ -240,8 +241,8 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
       </div>
       <div className="panel account-layout-preview">
         <div className="account-layout-preview-options">
-          <label className="field"><span>预览内容</span><select value={previewSource} onChange={(event) => setPreviewSource(event.target.value)}><option value="sample">标准组件样稿</option>{articles.map((article) => <option value={article.id} key={article.id}>{markdownTitle(article.rawMarkdown)}</option>)}</select></label>
-          <label className="field"><span>近似设备宽度</span><select value={deviceWidth} onChange={(event) => setDeviceWidth(Number(event.target.value))}><option value={320}>窄屏 320px</option><option value={375}>标准 375px</option><option value={430}>宽屏 430px</option></select></label>
+          <label className="field"><span>预览内容</span><Select ariaLabel="预览内容" value={previewSource} onChange={setPreviewSource} options={[{value:'sample',label:'标准组件样稿'},...articles.map(article => ({value:article.id,label:markdownTitle(article.rawMarkdown)}))]} /></label>
+          <label className="field"><span>近似设备宽度</span><Select ariaLabel="近似设备宽度" value={String(deviceWidth)} onChange={value => setDeviceWidth(Number(value))} options={[{value:'320',label:'窄屏 320px'},{value:'375',label:'标准 375px'},{value:'430',label:'宽屏 430px'}]} /></label>
         </div>
         <p className="micro-copy" role="status">{previewLoading ? '正在更新预览…' : previewError ? '当前参数未能生成预览' : '预览不保存正式排版稿；实际微信效果仍需粘贴和实机验收。'}</p>
         {previewError && <p className="account-layout-error" role="alert">{previewError}</p>}

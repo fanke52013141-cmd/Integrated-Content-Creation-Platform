@@ -355,6 +355,7 @@
 }
 .work-bar-title:hover { color: var(--primary); }
 .work-bar-meta { color: var(--text-tertiary); font-size: 12px; }
+.work-bar-actions { display: flex; align-items: center; gap: var(--space-md); margin-left: auto; flex-shrink: 0; }
 /* 阶段区（2026-10-06 改）
    原为 5 个阶段按钮平铺（.segmented），形似第二条导航条。
    现改为「当前进度 + 下一步」：本栏只回答「走到哪了、接下来做什么」，
@@ -363,7 +364,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-left: auto;
 }
 /* 当前进度：纯文字，不做成可点元素——它是状态不是导航 */
 .work-bar-stage-now {

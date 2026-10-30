@@ -1,5 +1,5 @@
 // 目标审查取证：真实 Electron + 临时工作区 + 本地 mock 模型服务。
-// 覆盖：13 个页面空态 → 种子数据 → 有数据态 → 关键交互态 / 暗色 / 窄屏。
+// 覆盖：14 个页面空态 → 种子数据 → 有数据态 → 关键交互态 / 窄屏；有入口时另查暗色。
 // 用法：node scripts/goal-audit.mjs   （需先 npm run build）
 import { createServer } from 'node:http'
 import { mkdtemp, mkdir, rm } from 'node:fs/promises'
@@ -113,6 +113,14 @@ page.on('pageerror', (error) => console.log(`[pageerror] ${error.message}`))
 page.on('console', (m) => { if (m.type() === 'error') console.log(`[console.error] ${m.text().slice(0, 200)}`) })
 await page.waitForLoadState('domcontentloaded')
 await page.waitForTimeout(1500)
+// Keep an initial guide screenshot, then dismiss it so the page captures show
+// the actual page instead of the same modal over every route.
+await mkdir(outDir, { recursive: true })
+const guide = page.getByRole('button', { name: '先随便看看' })
+if (await guide.isVisible().catch(() => false)) {
+  await page.screenshot({path:join(outDir, 'A-first-guide.png'), animations:'disabled'})
+  await guide.click()
+}
 
 const ROUTES = [
   ['home', '创作台'],
@@ -127,7 +135,8 @@ const ROUTES = [
   ['publishing', '发布管理'],
   ['materials', '素材库'],
   ['providers', '模型网关'],
-  ['prompts', '提示词']
+  ['prompts', '提示词'],
+  ['data', '数据与备份']
 ]
 
 async function goto(hash) {
@@ -337,7 +346,7 @@ await shot('D-publishing-retro')
 
 await tryStep('打开模型网关编辑', async () => {
   await goto('#/providers')
-  await page.getByRole('button', { name: /编辑/ }).first().click()
+  await page.locator('.provider-card .provider-select').first().click({timeout:5000})
   await page.waitForTimeout(600)
 })
 await shot('D-providers-edit')
@@ -362,15 +371,16 @@ for (const width of [944, 787]) {
 await page.setViewportSize({ width: 1440, height: 900 })
 
 // 暗色模式抽检
-await tryStep('切换暗色主题', async () => {
+if (await page.locator('.theme-toggle').count()) {
   await page.locator('.theme-toggle').click()
-  await page.waitForTimeout(500)
-})
-for (const hash of ['#/home', `#/articles?articleId=${seed.articleId}`, `#/layouts?articleId=${seed.articleId}`, '#/publishing', '#/providers']) {
-  await goto(hash)
-  await shot(`D-dark-${hash.replace(/^#\/|\?.*/g, '').replace('/', '-')}`)
+  for (const hash of ['#/home', `#/articles?articleId=${seed.articleId}`, `#/layouts?articleId=${seed.articleId}`, '#/publishing', '#/providers']) {
+    await goto(hash)
+    await shot(`D-dark-${hash.replace(/^#\/|\?.*/g, '').replace('/', '-')}`)
+  }
+  await page.locator('.theme-toggle').click()
+} else {
+  console.log('· 未提供主题切换入口，跳过暗色截图')
 }
-await tryStep('切回亮色', async () => { await page.locator('.theme-toggle').click() })
 
 await app.close()
 await rm(root, { recursive: true, force: true }).catch(() => {})

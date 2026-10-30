@@ -32,6 +32,7 @@
 .publication-row { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 16px; }
 .publication-title strong { font-size: 16px; }
 .publication-actions { flex-wrap: wrap; gap: 10px; }
+.publication-actions > .field { flex: 1 1 220px; min-width: min(100%, 220px); }
 .publication-actions input { flex: 1 1 240px; min-width: 0; width: auto; }
 .publication-retro { padding-top: 16px; border-top-style: solid; }
 .publication-retro .field textarea { min-height: 100px; }
