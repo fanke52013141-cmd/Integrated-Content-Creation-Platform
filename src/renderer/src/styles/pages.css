@@ -3096,7 +3096,7 @@
 /* ── 排版页 ── */
 .layout-composer {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, auto);
   gap: var(--space-md);
   align-items: end;
   background: var(--surface);
@@ -3359,7 +3359,7 @@
 .publish-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); }
 .publish-section-head h3 { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; }
 .publish-section-head p { font-size: 12.5px; color: var(--text-tertiary); margin-top: 3px; }
-.publish-fields { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--space-md); align-items: end; }
+.publish-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-md); align-items: end; }
 .publish-enabled { display: inline-flex; align-items: center; gap: var(--space-sm); font-size: 13px; padding-bottom: var(--space-sm); }
 .publish-section-foot { display: flex; align-items: center; gap: var(--space-sm); }
 .publish-draft-grid {
@@ -3409,7 +3409,7 @@
 }
 
 @media (max-width: 1200px) {
-  .review-composer, .visual-composer, .layout-composer, .publish-fields { grid-template-columns: 1fr 1fr; }
+  .review-composer, .visual-composer, .layout-composer, .publish-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .layout-composer > .button { grid-column: 1 / -1; justify-self: start; }
   .layout-workbench { grid-template-columns: 1fr; }
   .publish-draft-grid { grid-template-columns: 1fr; }

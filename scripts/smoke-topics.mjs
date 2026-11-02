@@ -83,8 +83,8 @@ try {
   await window.getByRole('button', { name: '选题生成' }).first().click()
   await window.locator('.topics-page h1').waitFor()
   await window.locator('textarea[name="seedKeyword"]').fill('AI Agent 工作流落地')
-  await window.getByLabel('数量').click()
-  await window.getByRole('option', { name: '2 条' }).click()
+  // 2026-11-03 数量改为分段直选控件
+  await window.getByRole('group', { name: '数量' }).getByRole('button', { name: '2 条', exact: true }).click()
   await window.getByRole('button', { name: '生成 2 条选题' }).click()
   // 提示语必须精确到 toast：页面本身就有"…生成多条选题草稿"的说明，用局部文本会一直命中它而形同没断言
   await window.getByText('已生成 2 条选题草稿').waitFor({ timeout: 30_000 })

@@ -83,7 +83,7 @@ try {
     await page.keyboard.press('Escape')
   }
   await page.goto('http://127.0.0.1:5176/?ui-fixtures=1#/articles')
-  await page.locator('.article-history > summary').click()
+  // 2026-11-03 版本历史面板常开，无需展开
   await page.locator('.article-history').getByRole('button', {name:'对比',exact:true}).first().click()
   const comparison = page.getByRole('dialog')
   assert.equal(await comparison.locator('.modal-scroll-body').count(), 1, 'Fragment-based version comparison uses scroll body')
@@ -245,7 +245,8 @@ try {
   await model.getByText('演示模型', {exact:true}).waitFor()
   await page.keyboard.press('Escape')
   await page.goto('http://127.0.0.1:5176/?ui-fixtures=1#/topics')
-  const countSelect = page.getByRole('button', {name:'数量',exact:true})
+  // 2026-11-03 数量改为分段直选控件，向上展开行为改用同页「模型」下拉验证
+  const countSelect = page.getByRole('button', {name:'模型',exact:true})
   await countSelect.waitFor()
   await countSelect.evaluate(el => {
     // Pin the real trigger near the viewport edge to exercise the upward case

@@ -19,7 +19,6 @@ import {
   Search,
   Sparkles,
   Trash2,
-  WandSparkles,
   X
 } from 'lucide-react'
 import type {
@@ -34,9 +33,10 @@ import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
 import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
+import { Segmented } from '../components/Segmented'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
-import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { PageHeader } from '../components/PageHeader'
 import { ExportMenu } from '../components/ExportMenu'
 import { ImportDialog } from '../components/ImportDialog'
 import { ManualTopicDialog } from '../components/ManualTopicDialog'
@@ -322,10 +322,10 @@ export function TopicsPage({
                   <span>模型</span>
                   <Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} ariaLabel="模型" />
                 </label>
-                <label className="field topic-count-field">
-                  <span>数量</span>
-                  <Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 条` }))} ariaLabel="数量" />
-                </label>
+                <div className="field topic-count-field">
+                  <span className="field-label">数量</span>
+                  <Segmented ariaLabel="数量" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 条` }))} />
+                </div>
                 <div className="topic-template-summary">
                   <span>输出模板</span>
                   <strong>{schema.length} 个字段</strong>
@@ -348,12 +348,6 @@ export function TopicsPage({
                   <Sparkles size={16} />
                   {`生成 ${count} 条选题`}
                 </button>
-              )}
-              {/* 禁用原因就近说明；账号未锁定的情况页面顶部已有阻塞提示，此处只补模型缺失 */}
-              {!stream.active && !models.length && (
-                <p className="form-hint" role="note">
-                  还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>AI 服务</button> 配置。
-                </p>
               )}
             </footer>
           </>
@@ -435,9 +429,9 @@ export function TopicsPage({
             <p className="micro-copy">
               {listQuery
                 ? '换个关键词试试，或清空搜索条件。'
-                : view === 'drafts'
-                  ? '可以让 AI 生成一批，也可以自己写一条，或从其他工具导入；生成后可以把选中的选题送进内容框架。'
-                  : '把草稿中的选题加入选题库后，热点刷新时才会拿它做定向筛选。'}
+                : view === 'library'
+                  ? '把草稿加入选题库后，热点刷新时才会拿它做定向筛选。'
+                  : ''}
             </p>
             {!listQuery && view === 'drafts' && (
               <div className="article-empty-actions">
@@ -452,22 +446,6 @@ export function TopicsPage({
 
       </div>
       </div>
-      {/* 有选题时始终给出明确去向，避免生成完不知道下一步做什么 */}
-      {displayedTopics.length > 0 && (
-        <NextStepBar
-          text={`当前 ${displayedTopics.length} 条选题。已锁定的选题会直接带进内容框架。`}
-          actionLabel="去内容框架"
-          icon={<WandSparkles size={16} />}
-          onAction={() => {
-            const target = topics.find((topic) => topic.status === 'locked') ?? displayedTopics[0]
-            if (!target) {
-              showToast({ type: 'info', message: '先创建或锁定一条选题，再带着它去内容框架' })
-              return
-            }
-            onNavigate('frameworks', { topicId: target.id })
-          }}
-        />
-      )}
 
       {schemaOpen && (
         <SchemaDialog schema={schema} onClose={() => setSchemaOpen(false)} onSave={saveSchema} showToast={showToast} />

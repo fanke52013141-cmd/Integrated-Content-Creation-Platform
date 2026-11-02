@@ -379,13 +379,6 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
               <Sparkles size={16} />生成方案
             </button>
           )}
-          {/* 禁用原因就近说明，避免用户猜测按钮为何点不动 */}
-          {!articleId && (
-            <p className="form-hint" role="note">请先在上方选择要配图的文章</p>
-          )}
-          {articleId && !modelTarget && (
-            <p className="form-hint" role="note">请先在上方选择一个方案模型</p>
-          )}
         </section>
 
         <div className="visual-output">
@@ -398,7 +391,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
         {selected?.status === 'draft' && <p className="visual-warning">当前文章为草稿版本，锁定后配图会绑定固定版本。</p>}
 
         {currentPacks.length > 0 && (
-          <NextStepBar text="封面图就绪后即可排版并推送草稿箱。" actionLabel="去排版" onAction={() => onNavigate('layouts', { articleId })} />
+          <NextStepBar text="封面图就绪" actionLabel="去排版" onAction={() => onNavigate('layouts', { articleId })} />
         )}
 
         <section className="visual-results">

@@ -124,19 +124,19 @@ export function Select({
 
   // 打开时定位到选中项；带搜索框时直接把焦点交给它，打字即可收窄。
   // 短列表也必须把焦点移进 listbox，否则方向键仍会落在触发按钮上。
+  // 焦点转移必须同步完成：React 提交后 DOM 已就绪，rAF 会让焦点晚一帧，
+  // 自动化断言和快速键盘操作都可能跑在它前面。
   useEffect(() => {
     if (!open) return
     setQuery('')
     const index = Math.max(0, visible.findIndex((option) => option.value === value))
     setActiveIndex(index)
     if (allowSearch) {
-      requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }))
+      searchRef.current?.focus({ preventScroll: true })
       return
     }
-    requestAnimationFrame(() => {
-      listRef.current?.focus({ preventScroll: true })
-      revealOption(listRef.current, index)
-    })
+    listRef.current?.focus({ preventScroll: true })
+    revealOption(listRef.current, index)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 

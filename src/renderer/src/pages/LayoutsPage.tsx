@@ -6,6 +6,7 @@ import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
 import { Select } from '../components/Select'
+import { Segmented } from '../components/Segmented'
 import { ImportDialog } from '../components/ImportDialog'
 import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { SourceBadge } from '../components/SourceBadge'
@@ -113,7 +114,6 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   }, [])
 
   /** 当前主题的完整信息，用于展示"为什么推荐它" */
-  const selectedTheme = themes.find((theme) => theme.id === themeId)
   useEffect(() => {
     if (!showingSamplePreview) {
       setSamplePreviewLoading(false)
@@ -311,8 +311,8 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       <EmptyState
         icon={FileText}
         title="还没有可排版的文章"
-        description="先在「文章创作」中生成文章，再来一键排版。"
-        actionLabel="去写文章"
+        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
     ) : (
@@ -321,11 +321,11 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           <label className="field"><span>文章</span>
             <ArticlePicker value={articleId} onChange={selectArticle} />
           </label>
-          <label className="field"><span>平台</span>
-            <Select value={platform} onChange={(value) => { setShowingSamplePreview(false); setPlatform(value as LayoutPlatform) }} ariaLabel="平台" options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], hint: platformHints[key] }))} />
-          </label>
-          <label className="field"><span>文章类型<em>用于推荐主题</em></span>
-            <Select
+          <div className="field"><span className="field-label">平台</span>
+            <Segmented ariaLabel="平台" value={platform} onChange={(value) => { setShowingSamplePreview(false); setPlatform(value) }} options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], title: platformHints[key] }))} />
+          </div>
+          <div className="field"><span className="field-label">文章类型<em>用于推荐主题</em></span>
+            <Segmented
               value={genre}
               onChange={(value) => {
                 const next = value as ArticleGenre
@@ -335,10 +335,9 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                 if (matched) setThemeId(matched.id)
               }}
               ariaLabel="文章类型"
-              placeholder="选择文章类型"
-              options={genres.map((item) => ({ value: item.id, label: item.label, hint: item.hint }))}
+              options={genres.map((item) => ({ value: item.id, label: item.label, title: item.hint }))}
             />
-          </label>
+          </div>
           <label className="field"><span>主题<em>{platform === 'xiaohongshu' ? '（纯文本不适用）' : ''}</em></span>
             <Select
               value={themeId}
@@ -353,14 +352,6 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               }))}
             />
           </label>
-          {/* 当前主题的适配说明：把"为什么推荐它"讲清楚，而不是让用户猜 */}
-          {platform !== 'xiaohongshu' && selectedTheme && (
-            <p className="form-hint" role="note">
-              {genre && selectedTheme.suitedFor.includes(genre)
-                ? `已按「${genreLabels[genre] ?? genre}」推荐此主题：${selectedTheme.personality}`
-                : `此主题${selectedTheme.suitedFor.length ? `适合${selectedTheme.suitedFor.map((g) => genreLabels[g] ?? g).join('、')}` : ''}：${selectedTheme.personality}`}
-            </p>
-          )}
           <button
             className="button primary"
             disabled={busy || !articleId || needsSavedVersion || accountLayoutLoading}
@@ -369,22 +360,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           >
             <FileText size={16} />{busy ? '正在排版…' : '生成排版稿'}
           </button>
-          {article?.accountId && platform !== 'xiaohongshu' && (
-            <div className="layout-account-default">
-              <span>{accountLayout
-                ? `当前默认：${accountName ?? '此账号'} · ${themes.find((theme) => theme.id === accountLayout.themeId)?.name ?? accountLayout.themeId} · V${accountLayout.versionNumber}`
-                : `${accountName ?? '此账号'}尚未设置公众号默认版式`}</span>
-              <button className="button ghost compact" disabled={busy || accountLayoutLoading || (accountLayout?.themeId === themeId && (accountLayout.customCss ?? '') === customCss && sameStyleConfig(accountLayout.styleConfig, styleConfig))} onClick={() => void saveAccountDefault()}>
-                <Save size={14} />{accountLayout ? '将当前设置设为新版式' : `设为${platformNames[platform]}默认版式`}
-              </button>
-            </div>
-          )}
           {platform !== 'xiaohongshu' && (
             <details className="layout-style-editor">
               <summary>固定版式设计<span>正文、标题、引用、图片、品牌首尾组件</span></summary>
               <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={accountLayoutLoading || busy} platform={platform} themes={themes} themeId={themeId} />
               <div className="layout-style-toolbar">
-                <p className="micro-copy">调整后自动刷新组件样稿。JSON 版式包只含内置主题和结构化参数，不含账号凭证或本机图片资产；导入后检查样稿，再保存为账号新版式。</p>
+                <p className="micro-copy">{article?.accountId && accountLayout ? `当前默认：${themes.find((theme) => theme.id === accountLayout.themeId)?.name ?? accountLayout.themeId} · V${accountLayout.versionNumber}` : ''}</p>
                 <div className="layout-style-actions">
                   <button className="button ghost compact" disabled={busy || accountLayoutLoading} onClick={() => void importLayoutPreset()}>导入版式包</button>
                   <button className="button ghost compact" disabled={busy || accountLayoutLoading || Boolean(customCss) || themeId === 'custom'} title={customCss ? '当前含高级 CSS，暂不支持完整导出' : undefined} onClick={() => void exportLayoutPreset()}>导出当前参数</button>
@@ -392,6 +373,9 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   if (showingSamplePreview) setShowingSamplePreview(false)
                   else { setSamplePreview(null); setShowingSamplePreview(true) }
                   }}>{samplePreviewLoading ? '正在更新样稿…' : showingSamplePreview ? '返回文章预览' : '预览完整组件样稿'}</button>
+                  {article?.accountId && <button className="button ghost compact" disabled={busy || accountLayoutLoading || (accountLayout?.themeId === themeId && (accountLayout.customCss ?? '') === customCss && sameStyleConfig(accountLayout.styleConfig, styleConfig))} onClick={() => void saveAccountDefault()} title={`设为${accountName ?? '此账号'}的${platformNames[platform]}默认版式`}>
+                    <Save size={14} />{accountLayout ? '将当前设置设为新版式' : `设为默认版式`}
+                  </button>}
                 </div>
               </div>
             </details>
@@ -407,17 +391,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   </div>
                 ))}
               </div>
-              <p className="micro-copy">载入历史参数后，点击“将当前设置设为新版式”即可作为新版本启用；已生成的排版稿不会被改写。</p>
             </details>
           )}
         </section>
-        {/* 禁用原因就近说明。真实前置是「先选文章」，平台已有默认值，不需要用户额外操作 */}
-        {!busy && !articleId && (
-          <p className="form-hint" role="note">请先在上方选择要排版的文章</p>
-        )}
 
         {articleLayouts.length > 0 && platform === 'wechat' && (
-          <NextStepBar text="排版稿就绪，选好封面即可推送到公众号草稿箱。" actionLabel="去发布" onAction={() => onNavigate('publishing', { articleId })} />
+          <NextStepBar text="排版稿就绪" actionLabel="去发布" onAction={() => onNavigate('publishing', { articleId })} />
         )}
 
         <section className="layout-workbench">

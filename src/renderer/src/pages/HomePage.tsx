@@ -89,7 +89,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
 
   return (
     <div className="page home-page">
-      <PageHeader title="创作台" description="从一个想法，到一篇好作品。" actions={<button className="button primary" onClick={() => onNavigate('topics')}><PenLine size={16} />开始创作</button>} />
+      <PageHeader title="创作台" actions={<button className="button primary" onClick={() => onNavigate('topics')}><PenLine size={16} />开始创作</button>} />
 
       <div className="home-studio-grid">
         <div className="home-studio-main">
@@ -100,7 +100,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
             <section className="home-setup">
               <div>
                 <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
-                <p className="micro-copy">填一次接口地址和密钥，验证通过后就能写。搜索、生图、公众号推送都可以以后再配，不影响先把内容写出来。</p>
+                <p className="micro-copy">填一次接口地址和密钥即可开始写作。</p>
               </div>
               <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={16} />去AI 服务</button>
             </section>
@@ -134,7 +134,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
           </section>
 
           <section className="home-start">
-            <header><h3>开始新的创作</h3><span className="micro-copy">选一个适合你的起点</span></header>
+            <header><h3>开始新的创作</h3></header>
             <div className="home-entry-bar" role="group" aria-label="新建内容">
               {entryPoints.map((entry) => {
                 const Icon = entry.icon

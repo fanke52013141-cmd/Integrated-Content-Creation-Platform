@@ -24,9 +24,8 @@ if(uncertain.status!=='unknown')throw new Error('模拟断线未产生待确认�
 await page.reload();await page.getByRole('button',{name:'发布管理'}).click()
 const unknown=page.locator('.publication-row').filter({hasText:'待核对推送'});await unknown.waitFor()
 await unknown.scrollIntoViewIfNeeded();await mkdir(resolve('artifacts/publishing-audit'),{recursive:true});await capture(page,{path:resolve('artifacts/publishing-audit/unknown.png')})
-await unknown.getByRole('button',{name:'核对结果',exact:true}).click();await capture(page,{path:resolve('artifacts/publishing-audit/decision-menu.png')})
-await page.getByRole('option',{name:'确认已收到',exact:true}).click()
+await unknown.getByRole('group',{name:'核对结果'}).getByRole('button',{name:'确认已收到',exact:true}).click();await capture(page,{path:resolve('artifacts/publishing-audit/decision-menu.png')})
 await unknown.getByLabel('远端草稿标识').waitFor()
-await unknown.getByRole('button',{name:'核对结果',exact:true}).click();await page.getByRole('option',{name:'确认未收到，允许重推',exact:true}).click()
+await unknown.getByRole('group',{name:'核对结果'}).getByRole('button',{name:'确认未收到，允许重推',exact:true}).click()
 if(await unknown.getByLabel('远端草稿标识').count())throw new Error('未收到时不应显示远端草稿标识')
 console.log('Publishing smoke passed: wechat draft, publish link, retro persistence, lesson written into account memory')}finally{await app.close();await new Promise(done=>server.close(done));await rm(root,{recursive:true,force:true})}

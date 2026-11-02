@@ -89,7 +89,7 @@ try {
   await capture(window, { path: resolve(artifactDir, 'article-draft-kept.png'), animations: 'disabled', timeout: 90_000 })
 
   // F02：改稿必须以屏幕上的未保存草稿为原稿，而不是库里的旧版本
-  await window.locator('.article-revision > summary').click()
+  // 2026-11-03 起改稿面板常开（不再折叠），无需展开
   await window.getByPlaceholder('输入改稿要求（Ctrl+Enter 生成改稿）').fill('把开头改得更犀利一些')
   await window.getByRole('button', { name: '生成改稿' }).click()
   await window.getByText('改稿新版本已保存').waitFor({ timeout: 30_000 })
@@ -97,7 +97,6 @@ try {
   if (!reviseSawUnsavedDraft) throw new Error('改稿请求未携带屏幕上的未保存草稿')
 
   // §7.4：历史版本要能命名——版本堆多之后，光靠"第 N 版"认不出哪一版是什么
-  await window.locator('.article-history summary').click()
   const firstVersionRow = window.locator('.article-history div').filter({ hasText: '第 1 版' })
   await firstVersionRow.getByRole('button', { name: '命名' }).click()
   const nameInput = window.locator('input[name="versionName-1"]')
@@ -138,7 +137,6 @@ try {
   if (await window.locator('.article-history').count() === 0) {
     await window.locator('.article-list-item', { hasText: namedArticleTitle }).first().click()
   }
-  await window.locator('.article-history summary').click()
   if (!(await window.locator('.article-history').innerText()).includes('AI 初稿')) throw new Error('重开应用后版本名称没有留住')
   await window.locator('.article-history').scrollIntoViewIfNeeded()
   await capture(window, { path: resolve(artifactDir, 'article-version-named.png'), animations: 'disabled', timeout: 90_000 })
@@ -216,6 +214,8 @@ try {
   await window.locator('.articles-page h1').waitFor()
   if (await window.locator('.article-list-item').count() !== 3) throw new Error('文章列表未按全部账号展示 3 篇')
   await window.getByRole('group', { name: '账号筛选' }).getByRole('button', { name: '当前账号', exact: true }).click()
+  // 等筛选渲染完成再读列表，避免读到点击前的旧 DOM（大列表页面上紧时序会偶发）
+  await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
   let scoped = await window.locator('.article-list-item').allInnerTexts()
   if (scoped.length !== 1 || !scoped[0].includes('甲号的文章')) throw new Error('当前账号筛选串到了其他账号或无账号文章')
   await window.evaluate(async () => {
@@ -227,6 +227,7 @@ try {
   await window.getByRole('button', { name: '文章创作' }).first().click()
   await window.locator('.articles-page h1').waitFor()
   await window.getByRole('group', { name: '账号筛选' }).getByRole('button', { name: '当前账号', exact: true }).click()
+  await window.waitForFunction(() => document.querySelectorAll('.article-list-item').length === 1)
   scoped = await window.locator('.article-list-item').allInnerTexts()
   if (scoped.length !== 1 || !scoped[0].includes('乙号的文章')) throw new Error('切换当前账号后列表没有跟上')
   await capture(window, { path: resolve(artifactDir, 'article-account-scoped.png'), animations: 'disabled', timeout: 90_000 })
@@ -291,8 +292,8 @@ try {
   await window.locator('.articles-page h1').waitFor()
   await window.getByRole('button', { name: '新建草稿', exact: true }).click()
   await window.locator('.article-composer-dialog .composer-advanced > summary').click()
-  await window.getByRole('button', { name: '每批生成' }).click()
-  await window.getByRole('option', { name: '2 篇' }).click()
+  // 2026-11-03 每批生成改为分段直选控件
+  await window.getByRole('group', { name: '每批生成' }).getByRole('button', { name: '2 篇', exact: true }).click()
   const articleCountBefore = Number(await window.locator('.article-list h3 small').innerText())
   failSecondCandidate = true
   await window.getByRole('button', { name: '生成草稿' }).click()

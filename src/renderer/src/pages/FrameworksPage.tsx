@@ -14,9 +14,10 @@ import { ModalBase } from '../components/ModalBase'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
-import { PageHeader, NextStepBar } from '../components/PageHeader'
+import { PageHeader } from '../components/PageHeader'
 import { ExportMenu } from '../components/ExportMenu'
 import { ImportDialog } from '../components/ImportDialog'
+import { Segmented } from '../components/Segmented'
 import { SourceBadge } from '../components/SourceBadge'
 import { MaterialPicker } from '../components/MaterialPicker'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
@@ -188,7 +189,7 @@ export function FrameworksPage({
       />
       <MaterialContextPreview ids={materialIds} query={topics.find(topic => topic.id === topicId)?.seedKeyword ?? manualTopic} baseText={manualTopic} providerId={decodeModelTarget(modelTarget)?.providerId} model={decodeModelTarget(modelTarget)?.modelId} />
       <footer>
-        <label className="field framework-count"><span>数量</span><Select value={String(count)} onChange={(value) => setCount(Number(value))} placeholder="数量" options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} ariaLabel="生成数量" /></label>
+        <div className="field framework-count"><span className="field-label">数量</span><Segmented ariaLabel="生成数量" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></div>
         <button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={16} />新建模板</button>
         <button
           className="button primary"
@@ -199,20 +200,6 @@ export function FrameworksPage({
           {stream.active ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
           {stream.active ? '正在生成…' : '生成框架'}
         </button>
-        {/* 禁用原因就近说明，并给出去哪里配置 */}
-        {!stream.active && !models.length && (
-          <p className="form-hint" role="note">
-            还没有可用的文本模型，请先到 <button className="text-button" onClick={() => onNavigate('providers')}>AI 服务</button> 配置。
-          </p>
-        )}
-        {/* 其余前置条件（模板 / 主题）按钮本身可点，点击后由 toast 提示；
-            这里提前说明，避免用户反复试错 */}
-        {!stream.active && models.length > 0 && !templateId && (
-          <p className="form-hint" role="note">请先在上方选择一个框架模板</p>
-        )}
-        {!stream.active && models.length > 0 && templateId && !topicId && !manualTopic.trim() && (
-          <p className="form-hint" role="note">请先选择选题，或在上方填写框架主题</p>
-        )}
       </footer>
     </section>
 
@@ -240,9 +227,6 @@ export function FrameworksPage({
             <div className="large-empty">
               <WandSparkles size={34} />
               <h3>还没有内容框架</h3>
-              <p className="micro-copy">
-                框架是文章的结构骨架。可以先选一个选题让AI 拆解，也可以不关联选题直接手写结构。
-              </p>
               <div className="article-empty-actions">
                 <button className="button secondary" onClick={() => onNavigate('topics')}><Sparkles size={16} />先去选题</button>
                 <button className="button secondary" onClick={() => setManualCreating(true)}><PenLine size={16} />手动新建框架</button>
@@ -261,22 +245,7 @@ export function FrameworksPage({
           )
         }
         return (
-          <>
-            <div className="framework-card-grid"><VirtualList className="framework-cards" items={displayed} estimateSize={() => 320} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
-            <NextStepBar
-              text="已锁定的框架会直接带进文章新建弹窗。"
-              actionLabel="去文章创作"
-              icon={<PenLine size={16} />}
-              onAction={() => {
-                const target = displayed.find((framework) => framework.status === 'locked')
-                if (!target) {
-                  showToast({ type: 'info', message: '先锁定一个框架，再带着它去文章创作' })
-                  return
-                }
-                onNavigate('articles', { frameworkId: target.id })
-              }}
-            />
-          </>
+          <div className="framework-card-grid"><VirtualList className="framework-cards" items={displayed} estimateSize={() => 320} renderItem={(framework) => <FrameworkCard key={framework.id} framework={framework} onNavigate={onNavigate} onEdit={() => setEditing(framework)} onToggleLock={() => void toggleLocked(framework)} onRemove={() => void remove(framework)} />} /></div>
         )
       })()}
     </section>
@@ -319,7 +288,7 @@ function ManualFrameworkDialog({ templates, initialTemplateId, onClose, onCreate
   const cleaned = sections.map((item) => item.trim()).filter(Boolean)
   const valid = Boolean(topic.trim()) && cleaned.length > 0 && new Set(cleaned).size === cleaned.length
   async function save(): Promise<void> { setSaving(true); try { await onCreate(topic, cleaned) } finally { setSaving(false) } }
-  return <ModalBase open onClose={onClose} titleId="framework-manual-title" bare scrollBody className="framework-template-dialog"><header><div><h2 id="framework-manual-title">手动新建框架</h2><p>不依赖模型：先立章节骨架，内容稍后在编辑器里逐节填写。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><label className="field"><span>框架主题（会作为标题显示）</span><input name="manualFrameworkTopic" autoComplete="off" value={topic} maxLength={120} onChange={(event) => setTopic(event.target.value)} placeholder="例如：职场人必看的5个效率习惯…" /></label><label className="field"><span>起始模板</span><Select value={templateId} onChange={applyTemplate} placeholder="选择模板" options={templates.map((template) => ({ value: template.id, label: template.name, hint: template.isDefault ? '默认' : undefined }))} ariaLabel="起始模板" /></label><div className="framework-template-sections">{sections.map((section, index) => <div key={index}><strong>{index + 1}</strong><input aria-label={`第 ${index + 1} 章名称`} name="sectionName" autoComplete="off" value={section} maxLength={50} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button className="icon-button" aria-label={`上移第 ${index + 1} 章`} disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button><button className="icon-button" aria-label={`下移第 ${index + 1} 章`} disabled={index === sections.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button><button className="icon-button danger" aria-label={`删除第 ${index + 1} 章`} disabled={sections.length === 1} onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button></div>)}</div><button className="button ghost compact" disabled={sections.length >= 20} onClick={() => setSections((current) => [...current, ''])}><Plus size={16} />添加章节</button><footer><span>章节名称必填且不能重复</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !valid} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <PenLine size={16} />}创建空白框架</button></footer></ModalBase>
+  return <ModalBase open onClose={onClose} titleId="framework-manual-title" bare scrollBody className="framework-template-dialog"><header><div><h2 id="framework-manual-title">手动新建框架</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><label className="field"><span>框架主题（会作为标题显示）</span><input name="manualFrameworkTopic" autoComplete="off" value={topic} maxLength={120} onChange={(event) => setTopic(event.target.value)} placeholder="例如：职场人必看的5个效率习惯…" /></label><label className="field"><span>起始模板</span><Select value={templateId} onChange={applyTemplate} placeholder="选择模板" options={templates.map((template) => ({ value: template.id, label: template.name, hint: template.isDefault ? '默认' : undefined }))} ariaLabel="起始模板" /></label><div className="framework-template-sections">{sections.map((section, index) => <div key={index}><strong>{index + 1}</strong><input aria-label={`第 ${index + 1} 章名称`} name="sectionName" autoComplete="off" value={section} maxLength={50} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button className="icon-button" aria-label={`上移第 ${index + 1} 章`} disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button><button className="icon-button" aria-label={`下移第 ${index + 1} 章`} disabled={index === sections.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button><button className="icon-button danger" aria-label={`删除第 ${index + 1} 章`} disabled={sections.length === 1} onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button></div>)}</div><button className="button ghost compact" disabled={sections.length >= 20} onClick={() => setSections((current) => [...current, ''])}><Plus size={16} />添加章节</button><footer><span>章节名称必填且不能重复</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !valid} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <PenLine size={16} />}创建空白框架</button></footer></ModalBase>
 }
 
 function TemplateDialog({ template, templates, onClose, onSaved, showToast }: { template?: FrameworkTemplate; templates: FrameworkTemplate[]; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
@@ -329,13 +298,13 @@ function TemplateDialog({ template, templates, onClose, onSaved, showToast }: { 
   const [saving, setSaving] = useState(false)
   async function save(): Promise<void> { setSaving(true); try { await window.moliu.frameworks.saveTemplate({ id: template?.id, name, sections: sections.map((item) => item.trim()).filter(Boolean), isDefault }); await onSaved(); showToast({ type: 'success', message: '框架模板已保存' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setSaving(false) } }
   function move(index: number, direction: -1 | 1): void { const target = index + direction; if (target < 0 || target >= sections.length) return; setSections((current) => { const next = [...current]; const [item] = next.splice(index, 1); next.splice(target, 0, item); return next }) }
-  return <ModalBase open onClose={onClose} titleId="framework-template-title" bare scrollBody className="framework-template-dialog"><header><div><h2 id="framework-template-title">{template ? '编辑框架模板' : '新建框架模板'}</h2><p>章节顺序会成为模型输出与编辑卡片的固定结构。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><label className="field"><span>模板名称</span><input name="templateName" autoComplete="off" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="例如：故事型深度文章…" /></label><div className="framework-template-sections">{sections.map((section, index) => <div key={index}><strong>{index + 1}</strong><input aria-label={`第 ${index + 1} 章名称`} name="sectionName" autoComplete="off" value={section} maxLength={50} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button className="icon-button" aria-label={`上移第 ${index + 1} 章`} disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button><button className="icon-button" aria-label={`下移第 ${index + 1} 章`} disabled={index === sections.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button><button className="icon-button danger" aria-label={`删除第 ${index + 1} 章`} disabled={sections.length === 1} onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button></div>)}</div><button className="button ghost compact" disabled={sections.length >= 20} onClick={() => setSections((current) => [...current, ''])}><Plus size={16} />添加章节</button><footer><label><input type="checkbox" name="isDefault" autoComplete="off" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} />设为默认模板</label><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !name.trim() || !sections.some((section) => section.trim())} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}保存模板</button></footer></ModalBase>
+  return <ModalBase open onClose={onClose} titleId="framework-template-title" bare scrollBody className="framework-template-dialog"><header><div><h2 id="framework-template-title">{template ? '编辑框架模板' : '新建框架模板'}</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><label className="field"><span>模板名称</span><input name="templateName" autoComplete="off" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} placeholder="例如：故事型深度文章…" /></label><div className="framework-template-sections">{sections.map((section, index) => <div key={index}><strong>{index + 1}</strong><input aria-label={`第 ${index + 1} 章名称`} name="sectionName" autoComplete="off" value={section} maxLength={50} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button className="icon-button" aria-label={`上移第 ${index + 1} 章`} disabled={index === 0} onClick={() => move(index, -1)}><ChevronUp size={16} /></button><button className="icon-button" aria-label={`下移第 ${index + 1} 章`} disabled={index === sections.length - 1} onClick={() => move(index, 1)}><ChevronDown size={16} /></button><button className="icon-button danger" aria-label={`删除第 ${index + 1} 章`} disabled={sections.length === 1} onClick={() => setSections((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button></div>)}</div><button className="button ghost compact" disabled={sections.length >= 20} onClick={() => setSections((current) => [...current, ''])}><Plus size={16} />添加章节</button><footer><label><input type="checkbox" name="isDefault" autoComplete="off" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} />设为默认模板</label><span /><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || !name.trim() || !sections.some((section) => section.trim())} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <Save size={16} />}保存模板</button></footer></ModalBase>
 }
 
 function FrameworkEditor({ framework, onClose, onSaved, showToast }: { framework: Framework; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
   const [sections, setSections] = useState<FrameworkSection[]>(framework.sections)
   const [saving, setSaving] = useState(false)
   async function save(): Promise<void> { setSaving(true); try { await window.moliu.frameworks.save({ id: framework.id, topicId: framework.topicId, accountId: framework.accountId, materialIds: framework.materialIds, templateId: framework.templateId, manualTopic: framework.manualTopic, status: framework.status, sections, providerId: framework.providerId, model: framework.model }); await onSaved(); showToast({ type: 'success', message: '已保存为框架新版本' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setSaving(false) } }
-  return <ModalBase open onClose={onClose} titleId="framework-editor-title" bare scrollBody className="framework-editor-dialog"><header><div><h2 id="framework-editor-title">打磨内容框架</h2><p>保存会保留当前版本，并创建新的本地版本记录。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><div className="framework-editor-sections">{sections.map((section, index) => <label className="field" key={section.name}><span>{section.name}</span><textarea name="sectionContent" autoComplete="off" rows={4} value={section.content} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, content: event.target.value } : item))} /></label>)}</div><footer><span>{framework.materialIds.length} 条素材引用 · {framework.status === 'locked' ? '锁定状态下编辑会创建新版本' : '草稿可继续编辑'}</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || sections.some((section) => !section.content.trim())} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}保存新版本</button></footer></ModalBase>
+  return <ModalBase open onClose={onClose} titleId="framework-editor-title" bare scrollBody className="framework-editor-dialog"><header><div><h2 id="framework-editor-title">打磨内容框架</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header><div className="framework-editor-sections">{sections.map((section, index) => <label className="field" key={section.name}><span>{section.name}</span><textarea name="sectionContent" autoComplete="off" rows={4} value={section.content} onChange={(event) => setSections((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, content: event.target.value } : item))} /></label>)}</div><footer><span>{framework.materialIds.length} 条素材引用</span><button className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={saving || sections.some((section) => !section.content.trim())} onClick={() => void save()}>{saving ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}保存新版本</button></footer></ModalBase>
 }
 

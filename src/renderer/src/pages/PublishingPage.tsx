@@ -8,6 +8,7 @@ import { useSelectedArticle } from '../hooks/useSelectedArticle'
 import { ArticlePicker } from '../components/ArticlePicker'
 import { ImportDialog } from '../components/ImportDialog'
 import { Select } from '../components/Select'
+import { Segmented } from '../components/Segmented'
 import { SourceBadge } from '../components/SourceBadge'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState } from '../components/EmptyState'
@@ -165,7 +166,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     <SavedVersionGate article={article} onSaved={refresh} onNavigate={onNavigate} />
     <div className="publication-workspace"><div className="publication-main-column">
     <section id="publish-preflight" className="publish-draft">
-      <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览 <SourceBadge source={form.importSource} /></h3><p>每篇文章独立保存封面、作者和摘要，切换作品不会混用。</p></div></header>
+      <header className="publish-section-head"><div><h3><CloudUpload size={16} />交付预览 <SourceBadge source={form.importSource} /></h3></div></header>
       <div className="publish-draft-grid">
         <label className="field"><span>排版稿</span><Select value={layoutId} disabled={busy} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map(item => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} /></label>
         <label className="field"><span>封面图片</span><Select value={selectedCover?.id ?? ''} onChange={value => update({ coverAssetId: value, thumbMediaId: '' })} disabled={!loaded || busy} ariaLabel="封面图片" placeholder="选择当前文章的封面" options={coverAssets.map(asset => ({ value: asset.id, label: asset.prompt.slice(0, 40) || '封面图片' }))} /></label>
@@ -176,25 +177,25 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
       {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}
       <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
       {selectedLayout ? <div className="delivery-preview">
-        <div><strong>{selectedLayout.title}</strong><p className="micro-copy">{selectedLayout.articleVersionId === article?.currentVersionId ? `使用当前正文第 ${article.versionCount} 版` : '使用较早的正文版本'} · 目标公众号 {channel?.appId || '未配置'} · {check?.localImageCount ?? 0} 张本地正文图片将在推送时上传</p>
+        <div><strong>{selectedLayout.title}</strong><p className="micro-copy">{selectedLayout.articleVersionId === article?.currentVersionId ? `使用当前正文第 ${article.versionCount} 版` : '使用较早的正文版本'} · 推送时上传 {check?.localImageCount ?? 0} 张本地图片</p>
           {article && selectedLayout.articleVersionId !== article.currentVersionId && <p className="inline-alert" role="status">正文已有第 {article.versionCount} 版，本排版稿不会自动更新。请核对下方预览，或<button className="text-button" onClick={() => onNavigate('layouts', { articleId: article.id })}>重新排版</button>。</p>}
           {selectedCover?.url && <img className="delivery-cover" src={selectedCover.url} alt="将要交付的封面" />}</div>
         <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html).replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>') }} /></details>
-      </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" description="生成一份当前文章的微信公众号排版稿后继续。" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
+      </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
       {formError && <p className="inline-alert">{formError}</p>}
       {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
-      <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过，推送后还需在公众号后台正式发布。' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
+      <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
         {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}
         <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={16} />上传封面</button>
         <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}{busy ? '正在推送…' : '推送草稿箱'}</button>
       </footer>
     </section>
-    <section id="publication-log" className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3><p>草稿推送完成后，请到公众号后台预览并正式发布；再把正式文章链接回填到这里。</p></div></header>
+    <section id="publication-log" className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3></div></header>
       {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={true}
         onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
         onResolve={(decision, note, remoteId) => perform(async () => { await window.moliu.publishing.resolveUnknown({ id: item.id, decision, note, remoteId: remoteId || undefined, expectedUpdatedAt: item.updatedAt }); await refresh() })}
         onSaveRetro={retro => saveRetro(item, retro)} onRemember={lesson => rememberLesson(item, lesson)} busy={busy} />)
-        : <EmptyState icon={Send} title="暂无交付记录" description="第一次推送后会保存完整交付快照。" />}
+        : <EmptyState icon={Send} title="暂无交付记录" />}
     </section>
     </div>
     <section id="publish-channel" className="publish-channel">
@@ -208,7 +209,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
           <label className="field"><span>AppSecret {channel?.hasAppSecret && <em>同一公众号留空保留密钥</em>}</span><input type="password" name="appSecret" disabled={busy} autoComplete="new-password" value={secret} onChange={event => setSecret(event.target.value)} /></label>
           <label className="publish-enabled"><input type="checkbox" disabled={busy} checked={enabled} onChange={event => setEnabled(event.target.checked)} />启用连接</label>
         </div>
-        <footer className="publish-section-foot"><span className="micro-copy">测试使用当前表单；启用连接前会验证并加密保存。</span><span style={{ flex: 1 }} />
+        <footer className="publish-section-foot"><span style={{ flex: 1 }} />
           <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={16} />测试当前配置</button>
           <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={16} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
       </>}
@@ -260,7 +261,7 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
       </div>
       {item.status === 'unknown' ? <div className="publication-actions">
         <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>打开草稿箱核对</button>
-        <label className="field"><span>核对结果</span><Select ariaLabel="核对结果" value={decision} onChange={value => setDecision(value as typeof decision)} options={[{value:'unresolved',label:'仍不确定，禁止重推'},{value:'received',label:'确认已收到'},{value:'not-received',label:'确认未收到，允许重推'}]} /></label>
+        <label className="field"><span>核对结果</span><Segmented ariaLabel="核对结果" value={decision} onChange={value => setDecision(value)} options={[{value:'unresolved',label:'仍不确定'},{value:'received',label:'确认已收到'},{value:'not-received',label:'确认未收到，允许重推'}]} /></label>
         <input aria-label="核对说明" value={resolutionNote} onChange={event => setResolutionNote(event.target.value)} placeholder="核对时间、公众号及判断依据" maxLength={2000} />
         {decision === 'received' && <input aria-label="远端草稿标识" value={remoteId} onChange={event => setRemoteId(event.target.value)} placeholder="已收到的草稿标识（选填）" maxLength={200} />}
         <button className="button secondary compact" disabled={busy || !resolutionNote.trim()} onClick={() => void onResolve(decision, resolutionNote, decision === 'received' ? remoteId : '')}>保存核对结果</button>

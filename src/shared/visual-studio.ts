@@ -1,10 +1,14 @@
 import type { Article, VisualAsset, ImageQuality, ImageResolution } from './contracts.js'
 
 export interface StyleReference { id: string; fileName: string; url: string }
+/** 用户自定义的风格字段：名称 + 内容，会按顺序追加进风格描述 */
+export interface VisualStyleExtraField { id: string; name: string; value: string }
+
 export interface VisualStyleInput {
   id?: string; expectedVersionId?: string; name: string; description: string
   colors: string; medium: string; composition: string; avoid: string
   references: StyleReference[]
+  extra?: VisualStyleExtraField[]
 }
 export interface VisualStyle extends VisualStyleInput {
   id: string; versionId: string; version: number; archived: boolean; createdAt: string
@@ -129,5 +133,8 @@ export function articleBlocks(markdown: string): Array<{ text: string; start: nu
 }
 
 export function styleDescription(style?: VisualStyle): string {
-  return style ? `${style.name}。${style.description}。表现方式：${style.medium}。色彩：${style.colors}。构图：${style.composition}。避免：${style.avoid}` : '清晰、简洁、与文章主题一致'
+  if (!style) return '清晰、简洁、与文章主题一致'
+  const extras = (style.extra ?? []).filter((field) => field.name.trim() && field.value.trim())
+    .map((field) => `${field.name.trim()}：${field.value.trim()}`)
+  return `${style.name}。${style.description}。表现方式：${style.medium}。色彩：${style.colors}。构图：${style.composition}。避免：${style.avoid}${extras.length ? `。${extras.join('。')}` : ''}`
 }

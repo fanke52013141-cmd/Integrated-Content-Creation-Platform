@@ -189,7 +189,6 @@ export function Layout({
           <span className="brand-mark" aria-hidden="true"><PenLine size={20} /></span>
           <span>
             <strong>心流</strong>
-            <small>内容创作工作室</small>
           </span>
         </button>
 

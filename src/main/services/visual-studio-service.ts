@@ -52,7 +52,7 @@ export class VisualStudioService {
     this.store.saveSample(task);this.liveSamples.add(task.id)
     try {
       const result = await this.gateway.generateImage({ providerId: input.providerId, model: input.model,
-      prompt: `生成公众号插画风格样图。主题：书桌上的台灯、笔记本和一盆植物。风格：${style.name}，${style.description}。表现方式：${style.medium}。色彩：${style.colors}。构图：${style.composition}。避免：${style.avoid}。不含文字和水印。`,
+      prompt: `生成公众号插画风格样图。主题：书桌上的台灯、笔记本和一盆植物。风格：${style.name}，${style.description}。表现方式：${style.medium}。色彩：${style.colors}。构图：${style.composition}。避免：${style.avoid}${(style.extra ?? []).filter(f => f.name.trim() && f.value.trim()).map(f => `。${f.name.trim()}：${f.value.trim()}`).join('')}。不含文字和水印。`,
       ratio: '16:9', quality: 'low', resolution: '1k', signal,onTaskCreated:id=>{task={...task,remoteTaskId:id};this.store.saveSample(task)} })
       const reference=await this.importReference(Uint8Array.from(Buffer.from(result.base64,'base64')).buffer)
       this.store.saveSample({...task,status:'completed',reference});return reference

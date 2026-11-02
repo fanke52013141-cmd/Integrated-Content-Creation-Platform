@@ -59,9 +59,7 @@ export function ManualTopicDialog({ open, schema, accountId, onClose, onSaved, s
     <ModalBase open={open} onClose={onClose} titleId="manual-topic-title" className="manual-topic-dialog">
       <header>
         <div>
-          <span className="eyebrow">不依赖模型</span>
           <h2 id="manual-topic-title">手动新建选题</h2>
-          <p>只填你现在知道的字段也可以；保存后仍可编辑、锁定和送进框架。</p>
         </div>
         <button className="icon-button" aria-label="关闭手动新建选题" onClick={onClose}><X size={20} /></button>
       </header>
@@ -85,7 +83,7 @@ export function ManualTopicDialog({ open, schema, accountId, onClose, onSaved, s
         {error && <p className="inline-alert" role="alert">{error}</p>}
       </div>
       <footer>
-        <span className="micro-copy">保存为草稿，不会自动锁定或生成框架。</span>
+        <span />
         <div>
           <button className="button secondary" onClick={onClose} disabled={busy}>取消</button>
           <button className="button primary" onClick={() => void save()} disabled={busy}>

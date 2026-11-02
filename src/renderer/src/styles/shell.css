@@ -304,6 +304,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: clip; /* 内容超出视口宽度时隐藏横向滚动条，避免出现难看的横向滚动 */
   padding: 14px var(--space-2xl) 24px;
   display: flex;
   flex-direction: column;

@@ -181,7 +181,6 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
     <ModalBase open={open} onClose={onClose} titleId="import-dialog-title" className="import-dialog">
       <header>
         <div>
-          <span className="eyebrow">外部内容</span>
           <h2 id="import-dialog-title">导入{KIND_LABEL[kind]}</h2>
         </div>
         <button className="icon-button" aria-label="关闭导入" onClick={onClose}><X size={20} /></button>

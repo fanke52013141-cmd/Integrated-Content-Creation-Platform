@@ -1,4 +1,4 @@
-.layouts-page .layout-composer { grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(120px, 1fr)) auto; padding: 24px; gap: 20px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; }
+.layouts-page .layout-composer { grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(220px, 1.4fr) minmax(130px, 1fr) auto; padding: 24px; gap: 20px; border: 1px solid var(--border); border-radius: 8px; box-shadow: none; align-items: end; }
 .layout-composer > .form-hint { grid-column: 1 / -1; margin: 0; }
 .layouts-page .layout-workbench { min-height: 640px; margin-top: 24px; border-radius: 8px; }
 .layouts-page .layout-workbench > main { min-width: 0; }

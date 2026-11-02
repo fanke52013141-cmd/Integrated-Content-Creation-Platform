@@ -649,7 +649,7 @@ export function HotspotsPage({
       {/* 链路引导：收藏热点后可直接带着关键词去生成选题 */}
       {favorites.length > 0 && (
         <NextStepBar
-          text={`已收藏 ${favorites.length} 条热点，可以带着它们去生成选题。`}
+          text={`已收藏 ${favorites.length} 条热点`}
           actionLabel="去生成选题"
           icon={<Sparkles size={16} />}
           onAction={() => onNavigate('topics')}

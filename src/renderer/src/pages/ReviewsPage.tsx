@@ -245,8 +245,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       <EmptyState
         icon={FileText}
         title="还没有可评审的文章"
-        description="先在「文章创作」中生成或锁定一篇文章，再回到这里发起多角色评审。"
-        actionLabel="去写文章"
+        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
     ) : (
@@ -255,7 +255,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
           <label className="field"><span>文章</span>
             <ArticlePicker value={articleId} onChange={setArticleId} />
           </label>
-          <label className="field"><span>模型（角色未单独指定时使用）</span>
+          <label className="field"><span>模型<em>角色未指定时使用</em></span>
             <Select value={modelTarget} onChange={setModelTarget} ariaLabel="模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} />
           </label>
           <div className="review-role-options">
@@ -279,10 +279,6 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
               >
                 <Sparkles size={16} />{retrying ? '重跑失败角色中…' : '开始评审'}
               </button>
-              {/* 禁用原因就近说明：用户不必猜，也不必去别处找原因 */}
-              {!retrying && !selectedRoles.size && (
-                <p className="form-hint" role="note">勾选至少一个评审角色后即可开始</p>
-              )}
             </>
           )}
         </section>
@@ -295,7 +291,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
         )}
 
         {selectedArticle?.status === 'locked' && articleTasks.some((task) => task.status === 'completed') && (
-          <NextStepBar text="评审结果已就绪，采纳问题后应用改稿；也可以先给这篇文章配图。" actionLabel="去配图" onAction={() => onNavigate('visuals', { articleId: selectedArticle.id })} />
+          <NextStepBar text="评审完成，可继续配图" actionLabel="去配图" onAction={() => onNavigate('visuals', { articleId: selectedArticle.id })} />
         )}
 
         <section className="review-results">
@@ -303,7 +299,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
             <EmptyState
               icon={CircleCheckBig}
               title="这篇文章还没有评审记录"
-              description="勾选评审角色后点击「开始评审」，多角色会并行给出结构与表达意见。"
+              description="勾选角色后点击「开始评审」。"
             />
           ) : articleTasks.map((task) => {
             const status = reviewStatusOf(task, reviewRunning)
