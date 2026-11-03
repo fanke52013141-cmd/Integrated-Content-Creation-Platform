@@ -30,7 +30,7 @@ export function FirstCreationGuide({
     <ModalBase open={open} onClose={() => finish()} titleId="first-creation-guide-title" className="first-creation-modal" closeOnOverlay>
       <header className="first-creation-header">
         <span className="first-creation-mark"><Lightbulb size={22} /></span>
-        <div><h2 id="first-creation-guide-title">从哪里开始创作？</h2><p>先选你手头已有的内容；不必先完成全部设置。</p></div>
+        <div><h2 id="first-creation-guide-title">从哪里开始创作？</h2></div>
         <button className="icon-button" aria-label="稍后再说" title="稍后再说" onClick={() => finish()}><X size={18} /></button>
       </header>
       <div className="first-creation-options">
@@ -49,7 +49,6 @@ export function FirstCreationGuide({
         </button>
       </div>
       <footer className="first-creation-footer">
-        <span>没有配置 AI 也能先导入或手动写草稿。</span>
         <span className="first-creation-footer-actions">
           <button className="button ghost compact" onClick={() => finish()}>先随便看看</button>
           <button className="button secondary compact" onClick={() => finish('articles', { import: '1' })}>直接写草稿</button>

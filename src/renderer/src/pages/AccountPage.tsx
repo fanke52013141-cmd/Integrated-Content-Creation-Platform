@@ -580,7 +580,6 @@ function AccountWizard({
             <button className="button primary full" disabled={saving} onClick={() => void save('locked')}>
               <Lock size={16} />{saving ? '保存中…' : '保存并锁定'}
             </button>
-            <p className="micro-copy">锁定后内容只读，可随时解锁继续编辑。</p>
           </aside>
         )}
       </section>
@@ -920,7 +919,7 @@ function AccountEditor({
         {diffVersion && (
           <>
             <h2 id="version-diff-title">版本 {diffVersion.versionNumber} ↔ 当前版本对比</h2>
-            <p className="micro-copy">只对比定位字段；恢复操作不会丢失当前版本（会复制为新草稿版本）。</p>
+            <p className="micro-copy">恢复不会丢失当前版本，会另存为新草稿。</p>
             <div className="version-diff-table">
               {diffFieldRows(diffVersion, loadedAccount).map((row) => (
                 <div key={row.name} className={`version-diff-row ${row.status}`}>
@@ -1018,7 +1017,6 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
       <div className="section-heading">
         <div>
           <h3>偏好与红线</h3>
-          <p className="micro-copy">选题、框架、写稿、改稿都会把这里的规则注入给模型；发布前检查也会参考。</p>
         </div>
       </div>
       <div className="dimension-add-row">
@@ -1054,7 +1052,7 @@ function AccountRedlinesPanel({ account, onChanged, showToast }: {
             </button>
           </div>
         ))}
-        {!account.redlines.length && <p className="micro-copy">还没有红线。把“绝不做什么”写在这里，比在每次生成时反复叮嘱更可靠。</p>}
+        {!account.redlines.length && <p className="micro-copy">还没有红线</p>}
       </div>
       {ConfirmPortal}
     </section>
@@ -1106,7 +1104,6 @@ function AccountPlatformsPanel({ account, onChanged, showToast }: {
       <div className="section-heading">
         <div>
           <h3>平台身份</h3>
-          <p className="micro-copy">同一个账号画像可以运营多个平台；这里记录每个平台上的具体身份，发布时按此对应。</p>
         </div>
       </div>
       <div className="dimension-add-row">
@@ -1215,7 +1212,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
       <div className="section-heading">
         <div>
           <h3>长期记忆</h3>
-          <p className="micro-copy">只沉淀可复用的经验：受众反馈规律、验证有效的结构、踩过的坑。重复内容会自动去重。</p>
+          <p className="micro-copy">只记录可复用的经验，重复内容会自动去重。</p>
         </div>
       </div>
       <div className="dimension-add-column">
@@ -1268,7 +1265,7 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
             </button>
           </div>
         ))}
-        {!account.memories.length && <p className="micro-copy">还没有记忆。发布复盘后把有效经验记到这里，账号会越用越懂你。</p>}
+        {!account.memories.length && <p className="micro-copy">发布复盘的经验会记到这里</p>}
       </div>
       {ConfirmPortal}
     </section>

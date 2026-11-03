@@ -182,7 +182,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
               <div className="prompt-edit-workspace">
               <div className="prompt-main">
-              <label className="field"><span>默认文本模型</span><Select ariaLabel="提示词默认模型" value={bindingTarget} onChange={setBindingTarget} options={[{ value: '', label: '沿用生成页面的模型' }, ...models.map(({provider, model}) => ({value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName})), ...(bindingTarget && !models.some(({provider, model}) => encodeModelTarget(provider.id, model.modelId) === bindingTarget) ? [{value: bindingTarget, label: '绑定的模型已不可用，请重新选择'}] : [])]} /><small>进入对应生成页面时优先选择此模型；本次手动选择可覆盖。模型与要求一起保存为版本。</small></label>
+              <label className="field"><span>默认文本模型</span><Select ariaLabel="提示词默认模型" value={bindingTarget} onChange={setBindingTarget} options={[{ value: '', label: '沿用生成页面的模型' }, ...models.map(({provider, model}) => ({value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName})), ...(bindingTarget && !models.some(({provider, model}) => encodeModelTarget(provider.id, model.modelId) === bindingTarget) ? [{value: bindingTarget, label: '绑定的模型已不可用，请重新选择'}] : [])]} /><small>生成页默认使用此模型；可手动覆盖。</small></label>
               <label className="field prompt-textarea">
                 <span>生成要求</span>
                 <textarea

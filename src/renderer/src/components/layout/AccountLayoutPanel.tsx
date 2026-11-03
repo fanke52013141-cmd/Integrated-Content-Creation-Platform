@@ -236,7 +236,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
         {customCss && <p className="micro-copy">已保留此版本的高级 CSS；结构化版式包暂不包含这部分规则。</p>}
         <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={busy} platform="wechat" themes={themes} themeId={themeId} />
         <div className="layout-style-actions"><button className="button ghost compact" disabled={busy} onClick={() => void importPreset()}>导入版式包</button><button className="button ghost compact" disabled={busy || Boolean(customCss) || themeId === 'custom'} title={customCss ? '当前含高级 CSS，暂不支持完整导出' : undefined} onClick={() => void exportPreset()}>导出当前参数</button></div>
-        <p className="micro-copy">保存草稿可跨重启继续编辑；启用后仅影响新生成的排版稿。账号画像锁定与版式版本独立管理。</p>
+        <p className="micro-copy">启用后仅影响新生成的排版稿。</p>
         <details className="account-layout-history"><summary>已启用版本历史 · {versions.length}</summary>{versions.map((version) => <div className="layout-style-history-row" key={version.id}><span><strong>V{version.versionNumber}{version.id === active?.id ? ' · 当前启用' : ''}</strong><small>{formatFullDate(version.createdAt)}</small></span><button className="button ghost compact" disabled={busy} onClick={() => void loadVersion(version)}>载入参数</button></div>)}</details>
       </div>
       <div className="panel account-layout-preview">

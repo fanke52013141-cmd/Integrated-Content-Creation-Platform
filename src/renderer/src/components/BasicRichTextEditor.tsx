@@ -127,7 +127,6 @@ export const BasicRichTextEditor = forwardRef<BasicRichTextEditorHandle, { markd
       <button type="button" className="button ghost compact" disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={() => command('insertUnorderedList')}>列表</button>
       <button type="button" className="button ghost compact" disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={() => command('formatBlock', 'blockquote')}>引用</button>
     </div>
-    <p className="micro-copy">支持标题、段落、加粗、斜体、列表、引用、链接和图片。表格、嵌套列表、代码块或原始 HTML 请使用源码编辑。</p>
     {editWarning && <p className="inline-alert" role="alert">{editWarning}</p>}
     <div ref={editorRef} className="basic-rich-editor-surface article-markdown-preview" role="textbox" aria-label="可视化正文" aria-multiline="true" contentEditable={!disabled} suppressContentEditableWarning onInput={emit} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} onPaste={event => { event.preventDefault(); const text = event.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); emit() }} />
   </section>

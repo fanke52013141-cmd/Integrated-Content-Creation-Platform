@@ -976,8 +976,7 @@ export function HotspotsPage({
               <span className="eyebrow">WEIBO SESSION</span>
               <h2 id="weibo-login-title">微博登录</h2>
               <p>
-                微博热榜需要有效的登录状态。
-                点击下方按钮会打开微博官方登录窗口，支持二维码扫码或手机号登录，成功后系统自动获取并加密保存 Cookie，无需手动复制。
+                打开微博官方登录窗口，登录后 Cookie 自动加密保存。
               </p>
             </div>
             <button className="icon-button" aria-label="关闭" onClick={() => setWeiboDialogOpen(false)}>

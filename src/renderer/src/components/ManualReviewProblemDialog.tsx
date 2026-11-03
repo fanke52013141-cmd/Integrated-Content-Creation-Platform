@@ -41,9 +41,7 @@ export function ManualReviewProblemDialog({ taskId, onClose, onSaved, showToast 
     <ModalBase open onClose={onClose} titleId="manual-review-problem-title" className="manual-topic-dialog">
       <header>
         <div>
-          <span className="eyebrow">AI 之外</span>
           <h2 id="manual-review-problem-title">手动添加评审问题</h2>
-          <p>问题会和 AI 意见一样进入采纳与生成改稿流程。</p>
         </div>
         <button className="icon-button" aria-label="关闭手动添加问题" onClick={onClose}><X size={20} /></button>
       </header>

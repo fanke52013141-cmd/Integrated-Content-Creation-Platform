@@ -602,7 +602,7 @@ function SchemaDialog({
   }
   return (
     <ModalBase open onClose={onClose} titleId="topic-schema-title" bare scrollBody className="topic-schema-dialog">
-        <header><div><span className="eyebrow">GLOBAL TOPIC SCHEMA</span><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
+        <header><div><h2 id="topic-schema-title">配置选题字段</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
         <div className="topic-schema-list">
           {fields.map((field, index) => (
             <div key={field.id} className="topic-schema-row">
@@ -674,7 +674,7 @@ function TopicEditor({
   }
   return (
     <ModalBase open onClose={onClose} titleId="topic-editor-title" bare className="topic-editor-dialog">
-        <header><div><span className="eyebrow">EDIT TOPIC · V{topic.versionCount + 1}</span><h2 id="topic-editor-title">打磨选题草稿</h2><p>保存会创建新版本，旧版本仍保留在本地历史中。</p></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
+        <header><div><h2 id="topic-editor-title">打磨选题草稿</h2></div><button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button></header>
         <div className="topic-editor-fields">
           {Object.entries(fields).map(([name, value]) => (
             <label className="field" key={name}><span>{name}</span><textarea name="topicField" autoComplete="off" rows={name === '选题主题' ? 2 : 3} value={value} onChange={(event) => setFields((current) => ({ ...current, [name]: event.target.value }))} /></label>

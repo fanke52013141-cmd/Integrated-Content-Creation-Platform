@@ -50,9 +50,7 @@ export function ManualHotDialog({ open, onClose, onSave }: ManualHotDialogProps)
     <ModalBase open={open} onClose={onClose} titleId="manual-hot-title" className="manual-topic-dialog">
       <header>
         <div>
-          <span className="eyebrow">不依赖热榜源</span>
           <h2 id="manual-hot-title">手动添加热点</h2>
-          <p>可以只填标题；链接、来源和热度稍后再补。保存后进入收藏夹。</p>
         </div>
         <button className="icon-button" aria-label="关闭手动添加热点" onClick={onClose}><X size={20} /></button>
       </header>
