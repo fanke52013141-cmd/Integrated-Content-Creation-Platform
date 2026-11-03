@@ -48,6 +48,21 @@ interface ProvidersPageProps {
 
 type ProvidersPageReturnRoute = Extract<RouteId, 'accounts' | 'hotspots' | 'topics' | 'frameworks' | 'articles' | 'visuals' | 'reviews' | 'layouts' | 'publishing' | 'materials' | 'prompts'>
 
+/** 配置完成后 toast 上「继续去 XX」按钮的文案 */
+const RETURN_TO_ACTION_LABEL: Partial<Record<ProvidersPageReturnRoute, string>> = {
+  accounts: '继续去账号定位',
+  hotspots: '继续去看热点',
+  topics: '继续去生成选题',
+  frameworks: '继续去做框架',
+  articles: '继续去写文章',
+  visuals: '继续去配图',
+  reviews: '继续去评审',
+  layouts: '继续去排版',
+  publishing: '继续去发布',
+  materials: '继续去素材库',
+  prompts: '继续去提示词'
+}
+
 const emptyForm = (): SaveProviderInput => ({
   displayName: '',
   protocol: 'openai-compatible',
@@ -437,9 +452,17 @@ export function ProvidersPage({
       })
       loadProviderIntoForm(saved)
       await onRefresh().catch(error => showToast({ type: 'warning', message: `配置已保存，列表刷新失败：${errorMessage(error)}` }))
-      showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
-      if (returnTo && onNavigate && returnTo !== 'providers') {
-        onNavigate(returnTo as ProvidersPageReturnRoute)
+      // 保存后停留在本页：用户需要亲眼看到「已验证」状态确认配置生效；
+      // 带 returnTo 时改为 toast 上的「继续去 XX」按钮，由用户决定何时回去
+      const continueLabel = RETURN_TO_ACTION_LABEL[returnTo as ProvidersPageReturnRoute]
+      if (returnTo && onNavigate && returnTo !== 'providers' && continueLabel) {
+        showToast({
+          type: 'success',
+          message: '测试通过，供应商配置已加密保存',
+          action: { label: continueLabel, onClick: () => onNavigate(returnTo as ProvidersPageReturnRoute) }
+        })
+      } else {
+        showToast({ type: 'success', message: '测试通过，供应商配置已加密保存' })
       }
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })

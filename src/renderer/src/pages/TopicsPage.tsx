@@ -546,6 +546,14 @@ function TopicCard({
         ))}
       </dl>
       {topic.status === 'locked' && <button className="button primary topic-next-step" onClick={() => onNavigate('frameworks', { topicId: topic.id })}><Sparkles size={16} />生成框架→</button>}
+      {topic.status !== 'locked' && (
+        <button
+          className="button primary topic-next-step"
+          onClick={() => { onToggleLocked(); onNavigate('frameworks', { topicId: topic.id }) }}
+        >
+          <Lock size={16} />锁定并生成框架→
+        </button>
+      )}
       {detailFields.length > 4 && (
         <button className="topic-expand" onClick={() => setExpanded((value) => !value)}>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}

@@ -7,6 +7,7 @@ import type { VisualAssetService } from './services/visual-asset-service.js'
 import { VisualStudioQueue } from './services/visual-studio-queue.js'
 import { VisualStudioService } from './services/visual-studio-service.js'
 import { beginGenerationChild, endGenerationChild } from './services/generation-registry.js'
+import { friendlyIpcAction } from './ipc-errors.js'
 
 const id = z.string().uuid()
 const text = z.string().max(3000)
@@ -24,7 +25,7 @@ export function registerVisualStudioIpc(database: AppDatabase, gateway: ModelGat
     for(const window of BrowserWindow.getAllWindows()) if(!window.isDestroyed()) window.webContents.send('generation:events',event)
   })
   void queue.initialize().catch(error => console.error('[visual-queue] recovery', error))
-  const handle = (name: string, action: (raw: unknown) => unknown) => { ipcMain.handle(`visual-studio:${name}`, (_event, raw: unknown) => action(raw)) }
+  const handle = (name: string, action: (raw: unknown) => unknown) => { ipcMain.handle(`visual-studio:${name}`, (_event, raw: unknown) => friendlyIpcAction(action)(raw)) }
   const run = async <T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
     const controller = beginGenerationChild('visuals')
     try { return await operation(controller.signal) } finally { endGenerationChild('visuals', controller) }

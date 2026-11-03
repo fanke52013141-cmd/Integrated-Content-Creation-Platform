@@ -122,7 +122,7 @@ function AppShell(): React.JSX.Element {
     setToasts((current) => current.filter((entry) => entry.id !== id))
   }, [])
   const showToast = useCallback((toast: ToastState): void => {
-    const duration = toast.type === 'error' ? 8_000 : toast.type === 'warning' ? 6_000 : 4_500
+    const duration = toast.type === 'error' ? 8_000 : toast.type === 'warning' ? 6_000 : toast.action ? 10_000 : 4_500
     const item: ToastItem = { ...toast, id: Date.now() + Math.random() }
     if ((toast.type === 'error' || toast.type === 'warning') && !item.action && MODEL_REQUIRED_PATTERN.test(item.message)) {
       item.action = { label: '去配置', onClick: () => navigate('providers') }

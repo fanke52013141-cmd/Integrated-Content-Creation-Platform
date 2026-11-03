@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { AppDatabase } from './database.js'
 import type { ModelGateway } from './gateway/model-gateway.js'
 import { GatewayError } from './gateway/types.js'
+import { toFriendlyIpcError } from './ipc-errors.js'
 import { PROVIDER_PRESETS } from './gateway/presets.js'
 import { dreaminaLogin, dreaminaStatus } from './gateway/dreamina-cli.js'
 import type { PromptRegistry } from './gateway/prompt-registry.js'
@@ -1009,7 +1010,13 @@ function handle(
   channel: string,
   listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown
 ): void {
-  ipcMain.handle(channel, (event, ...args) => operationGate.run(() => listener(event, ...args), ['app:backup-create', 'app:backup-restore', 'app:backup-export-portable', 'app:backup-select-portable'].includes(channel), channel))
+  ipcMain.handle(channel, (event, ...args) => operationGate.run(async () => {
+    try {
+      return await listener(event, ...args)
+    } catch (error) {
+      throw toFriendlyIpcError(error)
+    }
+  }, ['app:backup-create', 'app:backup-restore', 'app:backup-export-portable', 'app:backup-select-portable'].includes(channel), channel))
 }
 
 function requireId(value: string): string {

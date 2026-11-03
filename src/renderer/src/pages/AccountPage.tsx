@@ -457,6 +457,7 @@ function AccountWizard({
             <div className="question-card">
               <span className="question-number">问题 {String(step + 1).padStart(2, '0')}</span>
               <h3>{currentQuestion.question}</h3>
+              {currentQuestion.hint && <p className="question-hint">{currentQuestion.hint}</p>}
               <label className="textarea-field">
                 <textarea
                   name="wizardAnswer"
@@ -464,7 +465,7 @@ function AccountWizard({
                   autoFocus
                   value={answers[step].answer}
                   onChange={(event) => updateAnswer(event.target.value)}
-                  placeholder="在这里写下你的想法…"
+                  placeholder={currentQuestion.hint ? `在这里写下你的想法…（${currentQuestion.hint}）` : '在这里写下你的想法…'}
                   maxLength={800}
                 />
                 <span>{answers[step].answer.length} / 800</span>

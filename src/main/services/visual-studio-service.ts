@@ -11,10 +11,13 @@ import type { ApplyVisualPreview, GeneratePictureInput, PictureBrief, PlanVisual
 import { articleBlocks, styleDescription, pictureSignature, blockSimilarity } from '../../shared/visual-studio.js'
 
 const briefSchema = z.object({
-  kind: z.enum(['cover', 'header', 'inline']), subject: z.string().trim().min(1).max(2000),
-  purpose: z.string().max(1500), blockIndex: z.number().int().min(0),
-  ratio: z.enum(['21:9', '16:9', '4:3', '3:4', '1:1']), alt: z.string().max(500),
-  priority: z.enum(['required', 'optional'])
+  // kind/ratio/priority/blockIndex 是模型容易写飘的字段：提示词已明确约束，这里再兜底
+  // 成安全默认值，避免模型输出一个别值就让整个配图方案失败（真实联调出现过）。
+  // blockIndex 兜底到 0 后仍会被「插图位置无效」校验和人工确认兜住。
+  kind: z.enum(['cover', 'header', 'inline']).catch('inline'), subject: z.string().trim().min(1).max(2000),
+  purpose: z.string().max(1500), blockIndex: z.number().int().min(0).catch(0),
+  ratio: z.enum(['21:9', '16:9', '4:3', '3:4', '1:1']).catch('16:9'), alt: z.string().max(500),
+  priority: z.enum(['required', 'optional']).catch('required')
 })
 
 export class VisualStudioService {

@@ -118,6 +118,7 @@ export function HotspotsPage({
   const stream = useGenerationStream('hotspots')
   const [filterModelTarget, setFilterModelTarget] = useModelTarget(availableModels, undefined, 'hotspot.filter')
   const [filterDialogOpen, setFilterDialogOpen] = useState(false)
+  const [filterError, setFilterError] = useState('')
   const [filterScope, setFilterScope] = useState<'wall' | 'favorites'>('wall')
   const [filterAccountId, setFilterAccountId] = useState(initialAccount?.id ?? '')
   const [filterSourceIds, setFilterSourceIds] = useState<Set<string>>(new Set())
@@ -508,6 +509,7 @@ export function HotspotsPage({
         ? favoritePlatforms.map((platform) => platform.id)
         : readySources.slice(0, 3).map((source) => source.id)
     ))
+    setFilterError('')
     setFilterDialogOpen(true)
   }
 
@@ -526,6 +528,7 @@ export function HotspotsPage({
       return
     }
 
+    setFilterError('')
     try {
       const result = await stream.run(() => window.moliu.hotspots.filter({
         accountId: filterAccountId,
@@ -543,6 +546,8 @@ export function HotspotsPage({
         message: `已完成 ${result.assessments.length}\u00A0条热点筛选 · ${result.latencyMs}ms`
       })
     } catch (error) {
+      // 对话框内直接显示错误：只靠 toast 的话 8 秒就消失，用户不知道为何失败
+      setFilterError(isCancelError(error) ? '已取消筛选' : errorMessage(error))
       showToast(isCancelError(error) ? { type: 'info', message: '已取消筛选' } : { type: 'error', message: errorMessage(error) })
     }
   }
@@ -1141,6 +1146,7 @@ export function HotspotsPage({
             </header>
 
             <div className="filter-dialog-grid">
+              {filterError && <p className="inline-alert filter-error-inline" role="alert" style={{ gridColumn: '1 / -1', margin: 0 }}><AlertTriangle size={16} />{filterError}</p>}
               <label className="field">
                 <span>已锁定账号</span>
                 <Select

@@ -12,7 +12,7 @@ export const BUILTIN_PROMPTS: PromptDefBase[] = [
     key: "visual-studio.plan",
     title: "内容配图规划",
     description: "规划图片用途、位置和数量。",
-    template: "你是公众号配图编辑。先规划内容，不写生图提示词。返回 {reasoning,pictures:[{kind,subject,purpose,blockIndex,ratio,alt,priority}]}。kind 为 cover/header/inline。封面与正文顶部图按用户开关各生成一张。正文图数量按 count（auto 时按内容需要，可为零）和 maxInline 决定，精简/标准/丰富分别控制密度。已有图片的位置避免重复推荐。每张图必须解释作用，正文图插在对应 blockIndex 后。只推荐有内容价值的图片。不得编造文章未提供的数据。图内默认无文字。",
+    template: "你是公众号配图编辑。先规划内容，不写生图提示词。返回 {reasoning,pictures:[{kind,subject,purpose,blockIndex,ratio,alt,priority}]}。kind 只能是 cover/header/inline；ratio 只能是 21:9/16:9/4:3/3:4/1:1；priority 只能是 required（封面、顶部图或正文必需图）或 optional（锦上添花图），不得使用其它取值。blockIndex 是正文段落的整数序号：从 0 开始、小于输入段落总数，正文图插在对应段落之后；封面/顶部图填 0。封面与正文顶部图按用户开关各生成一张。正文图数量按 count（auto 时按内容需要，可为零）和 maxInline 决定，精简/标准/丰富分别控制密度。已有图片的位置避免重复推荐。每张图必须解释作用。只推荐有内容价值的图片。不得编造文章未提供的数据。图内默认无文字。",
   },
   {
     key: "visual-studio.prompts",
