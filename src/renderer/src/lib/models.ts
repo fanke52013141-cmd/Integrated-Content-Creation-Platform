@@ -1,17 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ProviderModel, ProviderSummary } from '../../../shared/contracts'
 
-export interface ModelOption {
-  provider: ProviderSummary
-  model: ProviderModel
-}
-
-/** 可用文本模型：已启用 + 已配置密钥 + 开启文本能力（生图专用供应商不该出现在文本模型下拉里） */
-export function availableModels(providers: ProviderSummary[]): ModelOption[] {
-  return providers
-    .filter((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.chat)
-    .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model })))
-}
+// 下拉过滤与记忆键解析的纯函数放在 shared，主进程测试与渲染层共用同一份实现
+export { availableModels, availableImageModels } from '../../../shared/model-options'
+import { DEFAULT_MODEL_STORAGE_KEY, resolveStageStorageKey } from '../../../shared/model-options'
+import type { ModelOption } from '../../../shared/model-options'
 
 export function encodeModelTarget(providerId: string, modelId: string): string {
   return JSON.stringify([providerId, modelId])
@@ -26,10 +18,14 @@ export function decodeModelTarget(value: string): { providerId: string; modelId:
   }
 }
 
-/** 全局默认文本模型（任何页面改动即全局生效：最后使用 = 默认） */
-const DEFAULT_MODEL_KEY = 'moliu:default-model'
-/** 全局默认生图模型 */
+/** 全局默认文本模型（回落用：环节没有自己的记忆时才读它） */
+export const DEFAULT_MODEL_KEY = DEFAULT_MODEL_STORAGE_KEY
+/** 旧的全局生图默认：拆分前两个生图环节共用，仅作为回落读取 */
 export const DEFAULT_IMAGE_MODEL_KEY = 'moliu:default-image-model'
+/** 配图页（封面/文内/发布图生成）独立的生图默认——与智能配图互不影响 */
+export const VISUALS_IMAGE_MODEL_KEY = 'moliu:visuals-image-model'
+/** 智能配图独立的生图默认 */
+export const STUDIO_IMAGE_MODEL_KEY = 'moliu:studio-image-model'
 
 function readStored(key: string): string {
   try {
@@ -49,13 +45,25 @@ function writeStored(key: string, value: string): void {
 }
 
 /**
- * 模型下拉值（全局默认版）：
- * 1. 初始化优先取 localStorage 中上次使用的模型（跨页面/跨会话共享）；
- * 2. 无记录或记录已失效时回落到供应商默认模型；
- * 3. 用户改动时写回 localStorage，让其他页面下次自动带出。
+ * 模型下拉值（每环节独立记忆版）：
+ * 1. 有提示词绑定时绑定优先（「提示词」页为该环节定的默认厂商+模型）；
+ * 2. 无绑定则优先取本环节自己的「上次选择」（各环节互不牵连）；
+ * 3. 环节没有记忆时回落旧全局键 / legacyKeys（兼容升级前「最后使用」的连续性）；
+ * 4. 再回落到供应商默认模型；
+ * 5. 用户改动写回本环节的键，只影响该环节。
  */
-export function useModelTarget(models: ModelOption[], storageKey: string = DEFAULT_MODEL_KEY, promptKey?: string): [string, (value: string) => void] {
-  const [target, setTarget] = useState(() => readStored(storageKey))
+export function useModelTarget(
+  models: ModelOption[],
+  storageKey: string = DEFAULT_MODEL_KEY,
+  promptKey?: string,
+  legacyKeys: string[] = []
+): [string, (value: string) => void] {
+  // 调用方未显式指定键时，按环节自动切换为独立键：避免「选题页换模型，文章页跟着变」
+  const effectiveKey = resolveStageStorageKey(storageKey, promptKey)
+  const fallbackKeys = effectiveKey === DEFAULT_MODEL_KEY
+    ? legacyKeys
+    : [...legacyKeys, DEFAULT_MODEL_KEY]
+  const [target, setTarget] = useState(() => readStored(effectiveKey))
   const [bindingReady, setBindingReady] = useState(!promptKey)
   const [boundTarget, setBoundTarget] = useState('')
   const manuallySelected = useRef(false)
@@ -81,24 +89,27 @@ export function useModelTarget(models: ModelOption[], storageKey: string = DEFAU
   useEffect(() => {
     if (!bindingReady || (boundTarget && !manuallySelected.current)) return
     const pick = (): ModelOption | undefined => {
-      const stored = decodeModelTarget(readStored(storageKey))
-      const storedMatch = stored
-        ? models.find(({ provider, model }) => provider.id === stored.providerId && model.modelId === stored.modelId)
-        : undefined
-      return storedMatch ?? models.find(({ model }) => model.isDefault) ?? models[0]
+      for (const key of [effectiveKey, ...fallbackKeys]) {
+        const stored = decodeModelTarget(readStored(key))
+        const storedMatch = stored
+          ? models.find(({ provider, model }) => provider.id === stored.providerId && model.modelId === stored.modelId)
+          : undefined
+        if (storedMatch) return storedMatch
+      }
+      return models.find(({ model }) => model.isDefault) ?? models[0]
     }
     const current = decodeModelTarget(target)
     const exists = current && models.some(({ provider, model }) => provider.id === current.providerId && model.modelId === current.modelId)
     if (exists) return
     const preferred = pick()
     setTarget(preferred ? encodeModelTarget(preferred.provider.id, preferred.model.modelId) : '')
-  }, [models, target, storageKey, bindingReady, boundTarget])
+  }, [models, target, effectiveKey, bindingReady, boundTarget])
 
   const update = useCallback((value: string): void => {
     manuallySelected.current = true
-    writeStored(storageKey, value)
+    writeStored(effectiveKey, value)
     setTarget(value)
-  }, [storageKey])
+  }, [effectiveKey])
 
   return [bindingReady ? target : '', update]
 }

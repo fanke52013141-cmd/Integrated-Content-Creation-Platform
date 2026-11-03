@@ -51,13 +51,23 @@ export class MaterialSearchService {
   constructor(
     private readonly database: AppDatabase,
     private readonly keyStore: KeyStore,
-    private readonly endpoint = DOUBAO_SEARCH_ENDPOINT
+    private readonly fallbackEndpoint = DOUBAO_SEARCH_ENDPOINT
   ) {}
 
+  /** 解析生效的搜索供应商：启用的「搜索」类型模型所在供应商；密钥与端点都从它读取 */
+  resolveSearchProvider(): { providerId: string; endpoint: string } | null {
+    const provider = this.database.listProviders().find(
+      (item) => item.enabled && item.hasApiKey && (item.accessMode ?? 'api') === 'api'
+        && item.models.some((model) => model.enabled && (model.kind ?? 'text') === 'search')
+    )
+    if (!provider) return null
+    return { providerId: provider.id, endpoint: resolveSearchEndpoint(provider.baseUrl.trim(), this.fallbackEndpoint) }
+  }
+
   async search(input: MaterialSearchInput): Promise<MaterialSearchResult> {
-    const service = this.database.getSearchService()
-    if (!service.enabled) throw new Error('豆包搜索服务已停用，请在模型网关中启用')
-    const apiKey = this.keyStore.readSearchService()
+    const searchProvider = this.resolveSearchProvider()
+    if (!searchProvider) throw new Error('尚未配置搜索模型：到「AI 服务」添加「豆包搜索」供应商并保存密钥后可联网搜索素材')
+    const apiKey = this.keyStore.read(searchProvider.providerId)
     const count = input.type === 'web'
       ? Math.min(50, Math.max(1, input.count ?? 10))
       : Math.min(5, Math.max(1, input.count ?? 5))
@@ -81,7 +91,7 @@ export class MaterialSearchService {
           Count: count
         }
     const startedAt = performance.now()
-    const response = await this.request(apiKey, payload)
+    const response = await this.request(searchProvider.endpoint, apiKey, payload)
     const latencyMs = Math.round(performance.now() - startedAt)
     const metadata = response.ResponseMetadata
     if (metadata?.Error) throw searchError(metadata.Error.Code ?? String(metadata.Error.CodeN ?? ''), metadata.Error.Message)
@@ -136,7 +146,7 @@ export class MaterialSearchService {
     }
   }
 
-  private async request(apiKey: string, payload: Record<string, unknown>): Promise<DoubaoSearchResponse> {
+  private async request(endpoint: string, apiKey: string, payload: Record<string, unknown>): Promise<DoubaoSearchResponse> {
     const elapsed = Date.now() - this.lastRequestAt
     if (elapsed < 250) await delay(250 - elapsed)
     this.lastRequestAt = Date.now()
@@ -147,7 +157,7 @@ export class MaterialSearchService {
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 30_000)
         try {
-          const response = await fetch(this.endpoint, {
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -183,6 +193,24 @@ export class MaterialSearchService {
 }
 
 function searchError(code: string, message?: string): Error {
+  return new Error(doubaoSearchErrorMessage(code, message))
+}
+
+/**
+ * 搜索端点解析：供应商 baseUrl 允许两种填法——
+ * 纯站点根（https://open.feedcoopapi.com，预设与迁移都存这种）自动补 /search_api/web_search；
+ * 已含路径的（含旧完整端点）原样使用；空值回落内置端点。
+ */
+export function resolveSearchEndpoint(baseUrl: string, fallback: string = DOUBAO_SEARCH_ENDPOINT): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '')
+  if (!trimmed) return fallback
+  if (/\/search_api\/web_search$/i.test(trimmed)) return trimmed
+  if (/^https?:\/\/[^/]+$/i.test(trimmed)) return `${trimmed}/search_api/web_search`
+  return trimmed
+}
+
+/** 豆包搜索错误码 → 用户可读文案（保存前探测与搜索共用） */
+export function doubaoSearchErrorMessage(code: string, message?: string): string {
   const known: Record<string, string> = {
     '10400': '搜索参数无效，请检查搜索词和筛选条件',
     '10401': '豆包搜索 API Key 无效',
@@ -194,7 +222,7 @@ function searchError(code: string, message?: string): Error {
     '10412': '豆包搜索套餐额度不足',
     '700429': '豆包搜索请求过快，请稍后重试'
   }
-  return new Error(known[code] ?? message?.slice(0, 300) ?? '豆包搜索服务暂不可用')
+  return known[code] ?? message?.slice(0, 300) ?? '豆包搜索服务暂不可用'
 }
 
 function delay(milliseconds: number): Promise<void> {

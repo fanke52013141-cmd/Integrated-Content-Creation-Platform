@@ -52,7 +52,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     displayName: 'ToAPIs 生图',
     baseUrl: 'https://api.toapis.com/v1',
     defaultModel: 'gpt-image-2-vip',
-    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true }
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true },
+    modelKind: 'image'
   },
   {
     // VIP 版：按 token 结算，支持六档质量；同一把 key 即可
@@ -60,7 +61,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     displayName: 'ToAPIs 生图（VIP）',
     baseUrl: 'https://api.toapis.com/v1',
     defaultModel: 'gpt-image-2.5-flare-vip',
-    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true }
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true },
+    modelKind: 'image'
   },
   {
     id: 'wechat-ai',
@@ -68,6 +70,29 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: 'https://chatapi.weixin.qq.com/openai/v1',
     defaultModel: 'GLM-5.2',
     capabilities: commonCapabilities
+  },
+  {
+    // 搜索类型：联网素材搜索走独立端点与密钥，作为「搜索」类模型并入供应商体系
+    id: 'doubao-search',
+    displayName: '豆包搜索',
+    baseUrl: 'https://open.feedcoopapi.com',
+    defaultModel: 'web-search',
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: false },
+    modelKind: 'search'
+  },
+  {
+    // 即梦本机 CLI：无 Base URL / API Key，登录态由 CLI 持久化，按即梦会员额度计费。
+    // 只接入图片生成（5.0 / 5.0Pro）；视频（seedance/VIDU 等）明确不接入。
+    id: 'dreamina',
+    displayName: '即梦（本机 CLI）',
+    baseUrl: '',
+    defaultModel: '5.0',
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: true },
+    accessMode: 'dreamina-cli',
+    models: [
+      { modelId: '5.0', displayName: '即梦图片 5.0', kind: 'image', isDefault: true },
+      { modelId: '5.0Pro', displayName: '即梦图片 5.0 Pro', kind: 'image' }
+    ]
   },
   {
     id: 'relay',

@@ -8,7 +8,7 @@ import { ModalBase } from './ModalBase'
 import { Select } from './Select'
 import { Segmented } from './Segmented'
 import { useConfirm } from './useConfirm'
-import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget, DEFAULT_IMAGE_MODEL_KEY } from '../lib/models'
+import { availableModels, availableImageModels, decodeModelTarget, encodeModelTarget, useModelTarget, DEFAULT_IMAGE_MODEL_KEY, STUDIO_IMAGE_MODEL_KEY } from '../lib/models'
 import { errorMessage, sanitizeHtml } from '../lib'
 import '../styles/visual-studio.css'
 
@@ -52,10 +52,11 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
   const stop = useRef(false), loadSequence = useRef(0), operationActive = useRef(false)
   const lastRun = useRef<{ name: string; action: () => Promise<void> } | null>(null)
   const textModels = availableModels(providers)
-  const imageModels = providers.filter(p => p.enabled && p.hasApiKey && p.capabilities.image).flatMap(provider => provider.models.filter(m => m.enabled).map(model => ({ provider, model })))
+  const imageModels = availableImageModels(providers)
   const [textTarget, setTextTarget] = useModelTarget(textModels, undefined, 'visual-studio.plan')
   const [promptTarget, setPromptTarget] = useModelTarget(textModels, 'moliu:visual-prompt-model', 'visual-studio.prompts')
-  const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
+  // 智能配图的生图默认独立于配图页：两个生图环节可以各用各的厂商，旧全局键仅作回落
+  const [imageTarget, setImageTarget] = useModelTarget(imageModels, STUDIO_IMAGE_MODEL_KEY, undefined, [DEFAULT_IMAGE_MODEL_KEY])
   const run = async (name: string, action: () => Promise<void>): Promise<void> => {
     if (operationActive.current) return
     operationActive.current = true
@@ -215,7 +216,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     <fieldset disabled={Boolean(busy)} className="studio-controls studio-content-controls">
       <label className="field"><span>文章</span><ArticlePicker value={articleId} onChange={id => void (async () => { if (await canDiscard()) onArticleChange(id) })()} /></label>
       <label className="field"><span>方案模型</span><Select ariaLabel="配图方案模型" value={textTarget} onChange={setTextTarget} options={textModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
-      <label className="field"><span>生图模型</span><Select ariaLabel="配图生图模型" value={imageTarget} onChange={setImageTarget} emptyText="还没有可用的生图模型：到「AI 服务」给供应商勾选「图片生成」能力后，模型会出现在这里" options={imageModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
+      <label className="field"><span>生图模型</span><Select ariaLabel="配图生图模型" value={imageTarget} onChange={setImageTarget} emptyText="还没有可用的生图模型：到「AI 服务」把供应商的模型类型设为「生图」并启用后，模型会出现在这里" options={imageModels.map(m => ({ value: encodeModelTarget(m.provider.id,m.model.modelId), label: m.model.displayName, hint: m.provider.displayName }))} /></label>
       <div className="field"><span className="field-label">正文图数量</span><Segmented ariaLabel="正文图数量" value={count} onChange={setCount} options={[{value:'auto',label:'AI 推荐'},...[0,1,2,3,4,5,6,7,8].map(n => ({value:String(n),label:`${n}`}))]} /></div>
       <div className="field"><span className="field-label">配图密度</span><Segmented<'minimal'|'standard'|'rich'> ariaLabel="配图密度" value={density} onChange={value => setDensity(value)} options={[{value:'minimal',label:'精简'},{value:'standard',label:'标准'},{value:'rich',label:'丰富'}]} /></div>
       <label className="studio-checkbox"><input type="checkbox" checked={cover} onChange={e => setCover(e.target.checked)} />公众号封面</label>
@@ -281,7 +282,7 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
       </div>
       <label className="field"><span>主参考图（PNG／JPG／WebP，10MB 以内）</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => {const file=e.target.files?.[0];if(file) void run('保存参考图',async()=>{updateStyle({references:[await api().importReference(await file.arrayBuffer())]})})}} /></label>
       <button className="button secondary" disabled={!imageTarget || !styleEdit.name.trim()} onClick={() => void run('生成风格样图',async()=>{const ref=await api().sampleStyle({...target(imageTarget),style:styleEdit});updateStyle({references:[ref]})})}>按描述生成风格样图</button>
-      <small>样图使用所选生图模型，会产生一次生图费用。各风格使用同一书桌主题，便于比较效果。</small>
+      <small>按描述生成会产生一次生图费用。</small>
       {styleEdit.references[0] && <><img className="studio-reference" src={styleEdit.references[0].url} alt="风格参考图" /><div className="studio-actions"><button className="button ghost" disabled={!textTarget} onClick={() => void run('分析参考图',async()=>{updateStyle({description:await api().analyzeReference({...target(textTarget),referenceId:styleEdit.references[0].id})})})}>AI 提取风格描述</button><button className="button ghost" onClick={()=>updateStyle({references:[]})}>移除参考图</button></div></>}
 <details><summary>风格样图记录与恢复</summary>{samples.slice(0,10).map(task=><div className="studio-sample-record" key={task.id}><p>{task.style.name} · {{running:'生成中',completed:'已完成',unknown:'结果待核对',failed:'失败'}[task.status]}</p>{task.reference&&<><img className="studio-reference" src={task.reference.url} alt={task.style.name}/><button className="button ghost" onClick={()=>updateStyle({name:task.style.name,description:task.style.description,medium:task.style.medium,colors:task.style.colors,composition:task.style.composition,avoid:task.style.avoid,references:[task.reference!],extra:task.style.extra ?? []})}>载入这张样图及风格参数</button></>}{task.error&&<p className="form-hint">{task.error}</p>}</div>)}<button className="button secondary" onClick={()=>void run('续查样图',async()=>{await api().recheckSamples();setSamples(await api().samples())})}>续查已提交样图（不重新生图）</button></details>
       {styleEdit.id && <button className="button ghost" onClick={()=>void run('读取历史',async()=>setHistory(await api().styleHistory(styleEdit.id!)))}>查看历史版本</button>}

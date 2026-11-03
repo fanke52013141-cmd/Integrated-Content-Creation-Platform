@@ -1,4 +1,16 @@
 export type ProviderProtocol = 'openai-compatible'
+/**
+ * 模型类型：同一供应商可同时挂文本、生图与搜索模型（free-creation 策略）。
+ * 下拉按类型分流——文本环节只出现 text 模型，生图环节只出现 image 模型，
+ * 搜索（豆包联网搜索）由素材搜索按 search 模型解析；
+ * 缺省视为 text，兼容旧数据与旧调用方。
+ */
+export type ProviderModelKind = 'text' | 'image' | 'search'
+/**
+ * 接入方式：api = 常规 Base URL + API Key；dreamina-cli = 即梦本机 CLI
+ * （OAuth 登录态由 CLI 持久化，无 Base URL / Key，按即梦会员额度计费）。
+ */
+export type ProviderAccessMode = 'api' | 'dreamina-cli'
 export interface PromptModelBinding { providerId: string; modelId: string }
 
 export interface PromptDefSummary {
@@ -43,6 +55,8 @@ export interface ProviderModel {
   providerId: string
   modelId: string
   displayName: string
+  /** 模型类型；缺省视为 text（旧数据兼容） */
+  kind?: ProviderModelKind
   contextLimit?: number
   outputLimit?: number
   reasoningVariants: string[]
@@ -60,6 +74,8 @@ export interface SaveProviderModelInput {
   id?: string
   modelId: string
   displayName: string
+  /** 模型类型；缺省视为 text（旧调用方兼容） */
+  kind?: ProviderModelKind
   contextLimit?: number
   outputLimit?: number
   reasoningVariants: string[]
@@ -91,12 +107,15 @@ export interface ProviderSummary {
   id: string
   displayName: string
   protocol: ProviderProtocol
+  /** 接入方式；缺省视为 api（Base URL + Key）。CLI 型供应商无 baseUrl / 密钥 */
+  accessMode?: ProviderAccessMode
   baseUrl: string
   defaultModel: string
   enabled: boolean
   isRelay: boolean
   capabilities: CapabilityFlags
   models: ProviderModel[]
+  /** CLI 型供应商没有密钥，凭 CLI 自身的登录态；其余供应商表示已保存密钥 */
   hasApiKey: boolean
   verification: ProviderVerification
   createdAt: string
@@ -107,6 +126,7 @@ export interface SaveProviderInput {
   id?: string
   displayName: string
   protocol: ProviderProtocol
+  accessMode?: ProviderAccessMode
   baseUrl: string
   defaultModel: string
   enabled: boolean
@@ -125,6 +145,12 @@ export interface ProviderPreset {
   capabilities: CapabilityFlags
   /** 预设模型的默认请求参数（如豆包预设默认关闭思考） */
   modelParams?: Record<string, unknown>
+  /** 预设默认模型的类型；生图专用预填 image、搜索预填 search，其余缺省 text */
+  modelKind?: ProviderModelKind
+  /** 接入方式；即梦走本机 CLI（无 Base URL / Key） */
+  accessMode?: ProviderAccessMode
+  /** CLI 预设一次带出的多个模型（文本/生图等类型在条目上声明） */
+  models?: Array<{ modelId: string; displayName: string; kind: ProviderModelKind; isDefault?: boolean }>
 }
 
 export interface ProviderTestResult {
@@ -141,8 +167,40 @@ export interface ProviderDraftTestInput {
   baseUrl: string
   apiKey?: string
   model?: string
-  /** 探测通道：勾选「图片生成」能力的供应商用生图端点验证连通性（chat 探测会被纯生图模型拒绝） */
-  mode?: 'chat' | 'image'
+  /** 探测通道：文本对话 / 生图端点 / 豆包搜索 / 即梦 CLI 状态（登录态与额度，不消耗额度） */
+  mode?: 'chat' | 'image' | 'search' | 'cli'
+}
+
+/** 即梦 CLI 状态：不消耗额度，user_credit 同时用于登录态探测 */
+export interface DreaminaStatus {
+  /** 是否检测到 CLI 可执行文件 */
+  installed: boolean
+  /** 实际使用的 CLI 路径（找不到时为空） */
+  cliPath: string
+  /** 是否已登录（登录态由 CLI 持久化在本机） */
+  loggedIn?: boolean
+  /** 剩余额度 */
+  totalCredit?: number
+  /** 会员等级 */
+  vipLevel?: string
+  /** CLI 版本号 */
+  version?: string
+  /** 状态不可用时的说明（未安装 / 未登录等） */
+  message?: string
+}
+
+/** 即梦 headless 登录的授权信息：浏览器打开授权链接，轮询 DreaminaStatus 直到 loggedIn */
+export interface DreaminaLoginInfo {
+  authUrl: string
+  deviceCode?: string
+  userCode?: string
+}
+
+/** 提交即梦生图任务后返回的提交句柄（用于续查） */
+export interface DreaminaSubmitHandle {
+  providerId: string
+  model: string
+  submitId: string
 }
 
 /** 单条模型调用日志（含测试连接产生的记录） */
@@ -161,6 +219,10 @@ export interface ModelCallLog {
   createdAt: string
 }
 
+/**
+ * 搜索服务摘要：由「搜索类型」供应商派生（旧 search_services 单例已并入供应商体系），
+ * 供素材页横幅判断是否已配置；id 保留 'doubao-custom' 以兼容既有展示。
+ */
 export interface SearchServiceSummary {
   id: 'doubao-custom'
   displayName: string
@@ -171,17 +233,6 @@ export interface SearchServiceSummary {
   lastTestAt?: string
   lastTestError?: string
   updatedAt: string
-}
-
-export interface SaveSearchServiceInput {
-  apiKey?: string
-  enabled: boolean
-}
-
-export interface SearchServiceTestResult {
-  ok: boolean
-  latencyMs: number
-  message: string
 }
 
 export type AccountStatus = 'draft' | 'locked'
@@ -1028,10 +1079,12 @@ export interface MoliuApi {
     /** 查询模型调用日志；providerId 省略时返回全部 */
     logs(providerId?: string): Promise<ModelCallLog[]>
   }
-  searchService: {
-    get(): Promise<SearchServiceSummary>
-    save(input: SaveSearchServiceInput): Promise<SearchServiceSummary>
-    test(): Promise<SearchServiceTestResult>
+  /** 即梦本机 CLI：登录态与额度由 CLI 持久化，应用不接触 token */
+  dreamina: {
+    /** CLI 安装与登录状态；不消耗额度 */
+    status(): Promise<DreaminaStatus>
+    /** headless 登录：返回授权链接/设备码，之后轮询 status 直到 loggedIn */
+    login(): Promise<DreaminaLoginInfo>
   }
   prompts: {
     list(): Promise<PromptDefSummary[]>

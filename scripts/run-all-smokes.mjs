@@ -7,10 +7,13 @@ const suites = ['electron', 'hotspots', 'topics', 'materials', 'frameworks', 'ar
 const SUITE_TIMEOUT_MS = 5 * 60 * 1_000
 
 const failed = []
+// 源码检出的冒烟统一走后台模式：预置「首次创作引导」完成标记，避免引导弹窗挡住导航点击；
+// 打包产物验证（MOLIU_EXECUTABLE）不支持后台模式，维持原前台路径
+const childEnv = process.env.MOLIU_EXECUTABLE ? process.env : { ...process.env, MOLIU_SMOKE_BACKGROUND: '1' }
 for (const suite of suites) {
   console.log(`\n=== smoke:${suite} ===`)
   const code = await new Promise((done) => {
-    const child = spawn(process.execPath, [resolve('scripts', `smoke-${suite}.mjs`)], { stdio: 'inherit' })
+    const child = spawn(process.execPath, [resolve('scripts', `smoke-${suite}.mjs`)], { stdio: 'inherit', env: childEnv })
     const timer = setTimeout(() => {
       console.error(`TIMEOUT smoke:${suite} 超过 ${Math.round(SUITE_TIMEOUT_MS / 1000)}s 未结束`)
       child.kill('SIGTERM')

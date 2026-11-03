@@ -7,6 +7,7 @@ import type { AppDatabase } from './database.js'
 import type { ModelGateway } from './gateway/model-gateway.js'
 import { GatewayError } from './gateway/types.js'
 import { PROVIDER_PRESETS } from './gateway/presets.js'
+import { dreaminaLogin, dreaminaStatus } from './gateway/dreamina-cli.js'
 import type { PromptRegistry } from './gateway/prompt-registry.js'
 import type { KeyStore } from './security/key-store.js'
 import type { AccountGenerator } from './services/account-generator.js'
@@ -60,7 +61,6 @@ import type {
   AddSearchMaterialInput,
   MaterialSearchInput,
   SaveManualMaterialInput,
-  SaveSearchServiceInput,
   GenerateFrameworksInput,
   SaveFrameworkInput,
   SaveFrameworkTemplateInput,
@@ -86,7 +86,8 @@ const providerSchema = z.object({
   id: z.string().optional(),
   displayName: z.string().trim().min(1).max(80),
   protocol: z.literal('openai-compatible'),
-  baseUrl: z.string().trim().url(),
+  accessMode: z.enum(['api', 'dreamina-cli']).optional(),
+  baseUrl: z.string().trim().max(500),
   defaultModel: z.string().trim().min(1).max(160),
   enabled: z.boolean(),
   isRelay: z.boolean(),
@@ -101,6 +102,7 @@ const providerSchema = z.object({
     id: z.string().optional(),
     modelId: z.string().trim().min(1).max(160),
     displayName: z.string().trim().min(1).max(120),
+    kind: z.enum(['text', 'image', 'search']).optional(),
     contextLimit: z.number().int().positive().optional(),
     outputLimit: z.number().int().positive().optional(),
     reasoningVariants: z.array(z.string().trim().min(1).max(40)),
@@ -116,8 +118,17 @@ const providerSchema = z.object({
   if (!enabledModels.length) {
     context.addIssue({ code: 'custom', message: '至少需要启用一个模型', path: ['models'] })
   }
-  if (enabledModels.filter((model) => model.isDefault).length !== 1) {
-    context.addIssue({ code: 'custom', message: '必须且只能设置一个默认模型', path: ['models'] })
+  // 文本、生图、搜索模型各设一个默认：只对「该类型存在启用模型」的类型校验
+  for (const kind of ['text', 'image', 'search'] as const) {
+    const ofKind = enabledModels.filter((model) => (model.kind ?? 'text') === kind)
+    if (ofKind.length && ofKind.filter((model) => model.isDefault).length !== 1) {
+      const label = kind === 'text' ? '文本' : kind === 'image' ? '生图' : '搜索'
+      context.addIssue({ code: 'custom', message: `${label}模型必须且只能设置一个默认`, path: ['models'] })
+    }
+  }
+  // CLI 型供应商没有接口地址与密钥；api 型必须给有效 URL
+  if ((input.accessMode ?? 'api') === 'api' && !/^https?:\/\//i.test(input.baseUrl)) {
+    context.addIssue({ code: 'custom', message: '接口地址必须是有效的网址', path: ['baseUrl'] })
   }
   const modelIds = input.models.map((model) => model.modelId)
   if (new Set(modelIds).size !== modelIds.length) {
@@ -331,9 +342,35 @@ export function registerIpc(options: {
     const input = providerSchema.parse(raw)
     const revision = input.id ? database.getProvider(input.id)?.updatedAt : undefined
     if (input.expectedUpdatedAt && revision !== input.expectedUpdatedAt) throw new Error('连接配置已更新，请重新加载')
-    const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: input.defaultModel, mode: input.capabilities.image ? 'image' : 'chat' })
-    const encrypted = input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
-    return database.saveProvider({ ...input, expectedUpdatedAt: revision }, encrypted, result.model)
+    // 各通道分别探测：同一供应商挂几类模型就测几类，全部通过才保存，
+    // 避免「对话验证通过、生图端点其实是坏的」这类半可用配置混过保存。
+    const enabledModels = input.models.filter((model) => model.enabled)
+    const textModel = enabledModels.find((model) => (model.kind ?? 'text') === 'text' && model.isDefault)
+      ?? enabledModels.find((model) => (model.kind ?? 'text') === 'text')
+    const imageModel = enabledModels.find((model) => model.kind === 'image' && model.isDefault)
+      ?? enabledModels.find((model) => model.kind === 'image')
+    const searchModel = enabledModels.find((model) => model.kind === 'search' && model.isDefault)
+      ?? enabledModels.find((model) => model.kind === 'search')
+    let verifiedModel: string | undefined
+    if (input.accessMode === 'dreamina-cli') {
+      const result = await gateway.testDraft({ providerId: input.id, baseUrl: '', model: input.defaultModel, mode: 'cli' })
+      verifiedModel = result.model
+    }
+    if (textModel && input.accessMode !== 'dreamina-cli') {
+      const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: textModel.modelId, mode: 'chat' })
+      verifiedModel = result.model
+    }
+    if (imageModel && input.accessMode !== 'dreamina-cli') {
+      const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: imageModel.modelId, mode: 'image' })
+      verifiedModel ??= result.model
+    }
+    if (searchModel) {
+      const result = await gateway.testDraft({ providerId: input.id, baseUrl: input.baseUrl, apiKey: input.apiKey, model: searchModel.modelId, mode: 'search' })
+      verifiedModel ??= result.model
+    }
+    if (!verifiedModel) throw new Error('至少需要启用一个模型')
+    const encrypted = input.accessMode === 'dreamina-cli' ? undefined : input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
+    return database.saveProvider({ ...input, expectedUpdatedAt: revision }, encrypted, verifiedModel)
   })
   handle('providers:remove', (_event, id: string) => {
     database.removeProvider(requireId(id))
@@ -343,11 +380,12 @@ export function registerIpc(options: {
   handle('providers:test-draft', async (_event, raw: ProviderDraftTestInput) => {
     const input = z.object({
       id: z.string().optional(),
-      baseUrl: z.string().trim().url(),
+      baseUrl: z.string().trim().max(500),
       apiKey: z.string().trim().max(10_000).optional(),
       model: z.string().trim().max(160).optional(),
-      mode: z.enum(['chat', 'image']).optional()
+      mode: z.enum(['chat', 'image', 'search', 'cli']).optional()
     }).parse(raw)
+    if ((input.mode ?? 'chat') !== 'cli' && !/^https?:\/\//i.test(input.baseUrl)) throw new Error('请先填写接口地址')
     const result = await gateway.testDraft({
       providerId: input.id,
       baseUrl: input.baseUrl,
@@ -420,16 +458,30 @@ export function registerIpc(options: {
         message = `连接成功 · 模型 ${result.model} 正常响应`
         responseModel = result.model
       } catch (chatError) {
-        // 勾选了图片生成能力的供应商，默认模型可能只支持生图端点：回退到生图探测
-        if (!provider.capabilities.image) throw chatError
-        const fallback = await gateway.testDraft({
-          providerId,
-          baseUrl: provider.baseUrl,
-          model: provider.defaultModel,
-          mode: 'image'
-        })
-        message = fallback.message
-        responseModel = fallback.model
+        // 无对话端点的供应商按接入方式回退：CLI 状态 / 生图端点探测 / 搜索端点探测
+        if (provider.accessMode === 'dreamina-cli') {
+          const fallback = await gateway.testDraft({ providerId, baseUrl: '', model: provider.defaultModel, mode: 'cli' })
+          message = fallback.message
+          responseModel = fallback.model
+        } else if (provider.capabilities.image) {
+          const fallback = await gateway.testDraft({
+            providerId,
+            baseUrl: provider.baseUrl,
+            model: provider.defaultModel,
+            mode: 'image'
+          })
+          message = fallback.message
+          responseModel = fallback.model
+        } else if (provider.models.some((model) => model.enabled && (model.kind ?? 'text') === 'search')) {
+          const fallback = await gateway.testDraft({
+            providerId,
+            baseUrl: provider.baseUrl,
+            model: provider.defaultModel,
+            mode: 'search'
+          })
+          message = fallback.message
+          responseModel = fallback.model
+        } else throw chatError
       }
       const latencyMs = Math.round(performance.now() - startedAt)
       database.recordProviderTest(providerId, 'success')
@@ -452,25 +504,12 @@ export function registerIpc(options: {
     }
   })
 
-  handle('search-service:get', () => database.getSearchService())
-  handle('search-service:save', (_event, raw: SaveSearchServiceInput) => {
-    const input = z.object({
-      apiKey: z.string().trim().min(1).max(1_000).optional(),
-      enabled: z.boolean()
-    }).parse(raw)
-    const encryptedKey = input.apiKey ? keyStore.encrypt(input.apiKey) : undefined
-    return database.saveSearchService({ enabled: input.enabled }, encryptedKey)
-  })
-  handle('search-service:test', async () => {
-    const startedAt = performance.now()
-    try {
-      await materialSearchService.search({ query: '测试', type: 'web', count: 1 })
-      database.recordSearchServiceTest('success')
-      return { ok: true, latencyMs: Math.round(performance.now() - startedAt), message: '搜索服务连接成功（已消耗 1 次搜索额度）' }
-    } catch (error) {
-      database.recordSearchServiceTest('failure', error instanceof Error ? error.message : '搜索服务连接失败')
-      throw error
-    }
+  // 豆包搜索已并入供应商体系（「搜索」类型模型）：配置与测试都在 providers:* 通道完成
+  handle('dreamina:status', () => dreaminaStatus())
+  handle('dreamina:login', async () => {
+    const info = await dreaminaLogin()
+    await shell.openExternal(info.authUrl).catch(() => undefined)
+    return info
   })
 
   handle('accounts:list', () => database.listAccounts())

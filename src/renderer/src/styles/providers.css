@@ -23,6 +23,15 @@
 .providers-page .model-editor-list { gap: 20px; max-height: none; overflow: visible; padding: 0; margin-top: 20px; }
 .providers-page .model-editor-card { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
 .providers-page .model-primary-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.providers-page .model-kind-picker .segmented button { padding: 4px 12px; font-size: 12px; }
+.providers-page .capability-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.providers-page .capability-badges { display: flex; align-items: center; gap: 8px; }
+.providers-page .cli-access-panel { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
+.providers-page .cli-access-panel > svg { flex: none; margin-top: 2px; color: var(--primary); }
+.providers-page .cli-access-copy { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.providers-page .cli-access-copy strong { font-size: 13.5px; }
+.providers-page .cli-access-copy .micro-copy { margin: 0; overflow-wrap: anywhere; }
+.providers-page .cli-access-actions { display: flex; flex-direction: column; gap: 8px; flex: none; }
 .providers-page .model-limit-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 .providers-page .model-editor-card .field input { height: 40px; }
 .providers-page .model-enabled { font-size: 13px; }

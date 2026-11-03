@@ -18,7 +18,6 @@ import type {
   SaveTopicInput,
   SaveProviderInput,
   SaveManualMaterialInput,
-  SaveSearchServiceInput,
   GenerateFrameworksInput,
   SaveFrameworkInput,
   SaveFrameworkTemplateInput,
@@ -80,10 +79,9 @@ const api: MoliuApi = {
     testDraft: (input: ProviderDraftTestInput) => ipcRenderer.invoke('providers:test-draft', input),
     logs: (providerId?: string) => ipcRenderer.invoke('providers:logs', providerId)
   },
-  searchService: {
-    get: () => ipcRenderer.invoke('search-service:get'),
-    save: (input: SaveSearchServiceInput) => ipcRenderer.invoke('search-service:save', input),
-    test: () => ipcRenderer.invoke('search-service:test')
+  dreamina: {
+    status: () => ipcRenderer.invoke('dreamina:status'),
+    login: () => ipcRenderer.invoke('dreamina:login')
   },
   prompts: {
     list: () => ipcRenderer.invoke('prompts:list'),

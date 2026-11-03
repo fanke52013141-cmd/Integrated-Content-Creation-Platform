@@ -693,3 +693,48 @@ describe('本地图片上传', () => {
     expect(uploaded!.type).toBe('image/png')
   })
 })
+
+describe('模型类型分流（kind: text / image）', () => {
+  it('对话默认模型只回落到文本模型：生图默认不会被拿去跑对话', async () => {
+    const provider = makeProvider({
+      capabilities: { chat: true, jsonMode: true, streaming: false, vision: false, image: true },
+      models: [
+        {
+          id: 'model-img', providerId: 'provider-1', modelId: 'gpt-image-2',
+          displayName: '生图模型', kind: 'image', reasoningVariants: [], isDefault: true, enabled: true,
+          createdAt: '', updatedAt: ''
+        },
+        {
+          id: 'model-text', providerId: 'provider-1', modelId: 'glm-5.3',
+          displayName: '文本模型', kind: 'text', reasoningVariants: [], isDefault: false, enabled: true,
+          createdAt: '', updatedAt: ''
+        }
+      ]
+    })
+    const { gateway } = makeGateway(provider)
+    vi.stubGlobal('fetch', vi.fn(async () => okResponse('text-ok', 'glm-5.3')))
+
+    const result = await gateway.chat({ providerId: 'provider-1', messages: [{ role: 'user', content: 'hi' }] })
+
+    expect(result.model).toBe('glm-5.3')
+  })
+
+  it('只有生图模型的供应商，对话请求给出明确错误而不是误用生图模型', async () => {
+    const provider = makeProvider({
+      capabilities: { chat: true, jsonMode: true, streaming: false, vision: false, image: true },
+      defaultModel: 'gpt-image-2',
+      models: [
+        {
+          id: 'model-img', providerId: 'provider-1', modelId: 'gpt-image-2',
+          displayName: '生图模型', kind: 'image', reasoningVariants: [], isDefault: true, enabled: true,
+          createdAt: '', updatedAt: ''
+        }
+      ]
+    })
+    const { gateway } = makeGateway(provider)
+    vi.stubGlobal('fetch', vi.fn())
+
+    await expect(gateway.chat({ providerId: 'provider-1', messages: [{ role: 'user', content: 'hi' }] }))
+      .rejects.toMatchObject({ kind: 'ProviderConfigError', message: expect.stringContaining('默认文本模型') })
+  })
+})

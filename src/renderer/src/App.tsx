@@ -262,7 +262,6 @@ function AppShell(): React.JSX.Element {
           {route === 'providers' && (
             <ProvidersPage
               providers={data.providers as ProviderSummary[]}
-              searchService={data.searchService}
               onRefresh={refresh}
               onNavigate={navigate}
               returnTo={returnTo}

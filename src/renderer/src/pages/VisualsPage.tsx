@@ -21,7 +21,7 @@ import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
-import { availableModels, DEFAULT_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
+import { availableModels, availableImageModels, DEFAULT_IMAGE_MODEL_KEY, VISUALS_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
 import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
 import { disambiguateOptions } from '../../../shared/creation-state'
 
@@ -61,12 +61,11 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const [editTarget, setEditTarget] = useState<{ packId: string; kind: VisualAssetKind; slot: number; prompt: string; imageUrl: string; assetId?: string; transparent?: boolean } | null>(null)
 
   const imageModels = useMemo(
-    () => providers
-      .filter((provider) => provider.enabled && provider.hasApiKey && provider.capabilities.image)
-      .flatMap((provider) => provider.models.filter((model) => model.enabled).map((model) => ({ provider, model }))),
+    () => availableImageModels(providers),
     [providers]
   )
-  const [imageTarget, setImageTarget] = useModelTarget(imageModels, DEFAULT_IMAGE_MODEL_KEY)
+  // 配图页与智能配图各自记住生图默认：两个环节可以用不同厂商，旧全局键仅作回落
+  const [imageTarget, setImageTarget] = useModelTarget(imageModels, VISUALS_IMAGE_MODEL_KEY, undefined, [DEFAULT_IMAGE_MODEL_KEY])
   const { article: selected, error: selectionError } = useSelectedArticle(articleId, articles)
   const currentPacks = useMemo(() => packs.filter((pack) => pack.articleId === articleId && pack.rawXml !== '<visual-studio/>'), [packs, articleId])
 
@@ -333,8 +332,8 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       <EmptyState
         icon={ImageIcon}
         title="还没有可配图的文章"
-        description="先在「文章创作」中完成一篇文章，这里会为它设计封面与配图方案。"
-        actionLabel="去写文章"
+        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
     ) : (
@@ -383,7 +382,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
 
         <div className="visual-output">
         {!imageModels.length && (
-          <p className="inline-alert"><Palette size={16} />尚未配置生图模型：在「AI 服务」中为供应商勾选「图片生成」能力并添加生图模型后，即可一键出图；也可以逐张导入本地图片。</p>
+          <p className="inline-alert"><Palette size={16} />尚未配置生图模型：在「AI 服务」中把供应商的模型类型设为「生图」并启用后，即可一键出图；也可以逐张导入本地图片。</p>
         )}
 
         {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在设计配图方案…" />}
@@ -420,7 +419,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
             <EmptyState
               icon={ImageIcon}
               title="暂无配图方案"
-              description="点击「生成方案」，AI 会为这篇文章设计 1 张封面、若干文内配图与发布配图。"
+              description="可直接导入封面与正文图，也可用 AI 生成配图方案。"
             />
           )}
         </section>

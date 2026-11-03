@@ -33,6 +33,7 @@ import type {
   MaterialOrigin,
   ModelCallLog,
   ProviderModel,
+  ProviderModelKind,
   ProviderSummary,
   ProviderVerification,
   SaveAccountInput,
@@ -74,6 +75,7 @@ interface ProviderRow {
   id: string
   display_name: string
   protocol: 'openai-compatible'
+  access_mode: string
   base_url: string
   default_model: string
   enabled: number
@@ -92,6 +94,7 @@ interface ProviderModelRow {
   provider_id: string
   model_id: string
   display_name: string
+  kind: string
   context_limit: number | null
   output_limit: number | null
   reasoning_variants_json: string
@@ -403,6 +406,7 @@ export class AppDatabase {
         id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
         protocol TEXT NOT NULL CHECK (protocol IN ('openai-compatible')),
+        access_mode TEXT NOT NULL DEFAULT 'api' CHECK (access_mode IN ('api','dreamina-cli')),
         base_url TEXT NOT NULL,
         default_model TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 1,
@@ -426,6 +430,7 @@ export class AppDatabase {
         provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
         model_id TEXT NOT NULL,
         display_name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text','image','search')),
         context_limit INTEGER,
         output_limit INTEGER,
         reasoning_variants_json TEXT NOT NULL DEFAULT '[]',
@@ -439,17 +444,19 @@ export class AppDatabase {
       );
 
       INSERT OR IGNORE INTO provider_models (
-        id, provider_id, model_id, display_name, reasoning_variants_json,
+        id, provider_id, model_id, display_name, kind, reasoning_variants_json,
         is_default, enabled, created_at, updated_at
       )
       SELECT
-        lower(hex(randomblob(16))), id, default_model, default_model, '[]',
+        lower(hex(randomblob(16))), id, default_model, default_model, 'text', '[]',
         1, 1, created_at, updated_at
       FROM providers
       WHERE default_model <> '';
 
+      -- 每种类型（文本/生图）各允许一个默认模型：同一供应商可同时挂两类模型。
+      -- 旧库的同名单默认索引由 ensureProviderModelKind() 重建为该定义。
       CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_models_one_default
-        ON provider_models(provider_id) WHERE is_default = 1;
+        ON provider_models(provider_id, kind) WHERE is_default = 1;
 
       CREATE TABLE IF NOT EXISTS account_profiles (
         id TEXT PRIMARY KEY,
@@ -837,6 +844,8 @@ export class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
     `)
     this.ensureAddedColumns()
+    this.ensureProviderModelKind()
+    this.migrateSearchServiceToProvider()
     this.upgradeVisualPacks()
     this.ensureTopicSchema()
     this.ensureSearchService()
@@ -857,12 +866,14 @@ export class AppDatabase {
       ['providers', 'last_test_status', 'TEXT'],
       ['providers', 'last_test_at', 'TEXT'],
       ['providers', 'last_test_error', 'TEXT'],
+      ['providers', 'access_mode', "TEXT NOT NULL DEFAULT 'api'"],
       ['providers', 'connection_revision', 'INTEGER NOT NULL DEFAULT 0'],
       ['providers', 'tested_revision', 'INTEGER'],
       ['providers', 'tested_model', 'TEXT'],
       ['model_calls', 'error_message', 'TEXT'],
       ['provider_models', 'params_json', "TEXT NOT NULL DEFAULT '{}'"],
       ['provider_models', 'price_per_image', 'REAL'],
+      ['provider_models', 'kind', "TEXT NOT NULL DEFAULT 'text'"],
       ['model_calls', 'cost_usd', 'REAL'],
       ['model_calls', 'task_id', 'TEXT'],
       ['visual_assets', 'cost_usd', 'REAL'],
@@ -888,6 +899,102 @@ export class AppDatabase {
       if (!columns.length || columns.some((item) => item.name === column)) continue
       this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
     }
+  }
+
+  /**
+   * 模型类型化迁移（kind 列 + 每类一个默认）：
+   * 1. 纯生图供应商（capabilities：chat=false 且 image=true）的模型全部标为 image；
+   * 2. 双能力供应商按「已填单张成本」与常见生图模型名推断 image，其余保持 text，
+   *    推断只用于初始归类，用户可随时在「AI 服务」里改模型类型；
+   * 3. 每种类型存在启用模型但没有默认时，补一个默认，保证 resolveModel 的默认回落可用；
+   * 4. 把「每供应商一个默认」的旧唯一索引重建为「每类型一个默认」。
+   * 顺序要求：先删旧索引再补默认，否则旧索引会把第二个默认（另一类型）误判为冲突。
+   */
+  private ensureProviderModelKind(): void {
+    this.db.exec('DROP INDEX IF EXISTS idx_provider_models_one_default')
+    const providers = this.db.prepare('SELECT id, capabilities_json FROM providers').all() as unknown as Array<{ id: string; capabilities_json: string }>
+    const imageOnly = new Set<string>()
+    const mixed = new Set<string>()
+    for (const row of providers) {
+      const caps = parseJson<CapabilityFlags>(row.capabilities_json, { chat: true, jsonMode: false, streaming: false, vision: false, image: false })
+      if (!caps.chat && caps.image) imageOnly.add(row.id)
+      else if (caps.chat && caps.image) mixed.add(row.id)
+    }
+    if (imageOnly.size) {
+      this.db.prepare(`UPDATE provider_models SET kind = 'image' WHERE kind = 'text' AND provider_id IN (${placeholders(imageOnly.size)})`).run(...imageOnly)
+    }
+    if (mixed.size) {
+      // 已填单张成本的一定是生图模型；再按常见生图模型名兜底推断（其余保持 text）
+      const imageNamePatterns = ['image', 'dall-e', 'seedream', 'seedance', 'flux', 'cogview', 'kolors', 'irag', 'midjourney', 'mj-', 'banana', 'sdxl', 'stable-diffusion', 'sd3']
+      const patternSql = imageNamePatterns.map(() => "lower(model_id) LIKE ?").join(' OR ')
+      this.db.prepare(`UPDATE provider_models SET kind = 'image'
+        WHERE kind = 'text' AND provider_id IN (${placeholders(mixed.size)}) AND (
+          price_per_image IS NOT NULL OR ${patternSql}
+        )`).run(...mixed, ...imageNamePatterns.map((name) => `%${name}%`))
+    }
+    // 每类补默认：该类有启用模型但没有任何默认时，把第一个启用模型设为默认
+    const modelRows = this.db.prepare('SELECT rowid, provider_id, kind, is_default, enabled FROM provider_models ORDER BY created_at ASC').all() as unknown as Array<{ rowid: number; provider_id: string; kind: string; is_default: number; enabled: number }>
+    const missingDefault = new Map<string, number>()
+    const hasDefault = new Set<string>()
+    for (const row of modelRows) {
+      const key = `${row.provider_id}\u0000${row.kind}`
+      if (row.is_default) hasDefault.add(key)
+    }
+    for (const row of modelRows) {
+      const key = `${row.provider_id}\u0000${row.kind}`
+      if (!hasDefault.has(key) && row.enabled && !missingDefault.has(key)) missingDefault.set(key, row.rowid)
+    }
+    const promote = this.db.prepare('UPDATE provider_models SET is_default = 1 WHERE rowid = ?')
+    for (const rowid of missingDefault.values()) promote.run(rowid)
+    this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_models_one_default ON provider_models(provider_id, kind) WHERE is_default = 1')
+  }
+
+  /**
+   * 搜索服务并入供应商体系：豆包搜索不再是独立单例配置，而是「搜索」类型的供应商+模型。
+   * 旧库已配置过密钥时，把密钥与验证结论一次性搬进 providers / provider_models / provider_secrets；
+   * 从未配置过的库保持空白，用户按需从预设添加。旧表保留不读（备份兼容）。
+   */
+  private migrateSearchServiceToProvider(): void {
+    const hasSearchProvider = this.db.prepare(`
+      SELECT 1 FROM provider_models pm
+      JOIN providers p ON p.id = pm.provider_id
+      WHERE pm.kind = 'search' LIMIT 1
+    `).get()
+    if (hasSearchProvider) return
+    const legacy = this.db.prepare(`
+      SELECT s.enabled, s.last_test_status, s.last_test_at, s.last_test_error,
+        (SELECT ss.encrypted_key FROM search_service_secrets ss WHERE ss.service_id = s.id) AS encrypted_key
+      FROM search_services s WHERE s.id = 'doubao-custom'
+    `).get() as { enabled: number; last_test_status: string | null; last_test_at: string | null; last_test_error: string | null; encrypted_key: Buffer | null } | undefined
+    if (!legacy || !legacy.encrypted_key) return
+    const now = new Date().toISOString()
+    this.transaction(() => {
+      this.db.prepare(`
+        INSERT INTO providers (
+          id, display_name, protocol, access_mode, base_url, default_model, enabled, is_relay,
+          capabilities_json, last_test_status, last_test_at, last_test_error, connection_revision, created_at, updated_at
+        ) VALUES ('doubao-search', '豆包搜索', 'openai-compatible', 'api', 'https://open.feedcoopapi.com', 'web-search', ?, 0, ?, ?, ?, ?, 0, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
+      `).run(
+        legacy.enabled ? 1 : 0,
+        JSON.stringify({ chat: false, jsonMode: false, streaming: false, vision: false, image: false }),
+        legacy.last_test_status,
+        legacy.last_test_at,
+        legacy.last_test_error,
+        now,
+        now
+      )
+      this.db.prepare(`
+        INSERT OR IGNORE INTO provider_models (
+          id, provider_id, model_id, display_name, kind, reasoning_variants_json, params_json, is_default, enabled, created_at, updated_at
+        ) VALUES ('doubao-search-model', 'doubao-search', 'web-search', '豆包搜索', 'search', '[]', '{}', 1, 1, ?, ?)
+      `).run(now, now)
+      this.db.prepare(`
+        INSERT INTO provider_secrets(provider_id, encrypted_key, updated_at)
+        VALUES ('doubao-search', ?, ?)
+        ON CONFLICT(provider_id) DO UPDATE SET encrypted_key = excluded.encrypted_key, updated_at = excluded.updated_at
+      `).run(legacy.encrypted_key, now)
+    })
   }
 
   private upgradeVisualPacks(): void {
@@ -1042,21 +1149,26 @@ export class AppDatabase {
     const existing = this.getProvider(id)
     const now = new Date(Math.max(Date.now(), (existing ? Date.parse(existing.updatedAt) : 0) + 1)).toISOString()
     if (input.expectedUpdatedAt && existing?.updatedAt !== input.expectedUpdatedAt) throw new Error('连接配置已更新，请重新加载后保存')
-    const capabilitiesJson = JSON.stringify(input.capabilities)
     const models = normalizeProviderModels(input.models, input.defaultModel)
-    const defaultModel = models.find((model) => model.isDefault)?.modelId
+    // chat/image 能力由模型类型派生：有什么类型的启用模型，就开放什么能力，杜绝「勾了能力但没有对应模型」的矛盾配置
+    const capabilities = deriveProviderCapabilities(input.capabilities, models)
+    const capabilitiesJson = JSON.stringify(capabilities)
+    // providers.default_model 记文本默认；纯生图供应商记生图默认（卡片展示用）
+    const defaultModel = models.find((model) => model.isDefault && model.kind === 'text')?.modelId
+      ?? models.find((model) => model.isDefault)?.modelId
     if (!defaultModel) throw new Error('至少需要一个默认模型')
     const connectionChanged = !existing || Boolean(encryptedKey) || existing.baseUrl !== normalizeBaseUrl(input.baseUrl) || existing.defaultModel !== defaultModel || JSON.stringify(existing.capabilities) !== capabilitiesJson
 
     this.transaction(() => {
       this.db.prepare(`
         INSERT INTO providers (
-          id, display_name, protocol, base_url, default_model, enabled,
+          id, display_name, protocol, access_mode, base_url, default_model, enabled,
           is_relay, capabilities_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           display_name = excluded.display_name,
           protocol = excluded.protocol,
+          access_mode = excluded.access_mode,
           base_url = excluded.base_url,
           default_model = excluded.default_model,
           enabled = excluded.enabled,
@@ -1067,7 +1179,8 @@ export class AppDatabase {
         id,
         input.displayName.trim(),
         input.protocol,
-        normalizeBaseUrl(input.baseUrl),
+        input.accessMode === 'dreamina-cli' ? 'dreamina-cli' : 'api',
+        input.accessMode === 'dreamina-cli' ? '' : normalizeBaseUrl(input.baseUrl),
         defaultModel,
         input.enabled ? 1 : 0,
         input.isRelay ? 1 : 0,
@@ -1089,9 +1202,9 @@ export class AppDatabase {
       this.db.prepare('DELETE FROM provider_models WHERE provider_id = ?').run(id)
       const insertModel = this.db.prepare(`
         INSERT INTO provider_models (
-          id, provider_id, model_id, display_name, context_limit, output_limit,
+          id, provider_id, model_id, display_name, kind, context_limit, output_limit,
           reasoning_variants_json, params_json, price_per_image, is_default, enabled, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       for (const model of models) {
         insertModel.run(
@@ -1099,6 +1212,7 @@ export class AppDatabase {
           id,
           model.modelId,
           model.displayName,
+          model.kind,
           model.contextLimit ?? null,
           model.outputLimit ?? null,
           JSON.stringify(model.reasoningVariants),
@@ -1242,7 +1356,7 @@ export class AppDatabase {
     const binding = modelBinding === undefined ? this.getPromptModelBinding(key) : modelBinding
     if (binding) {
       const provider = this.getProvider(binding.providerId)
-      if (!provider?.enabled || !provider.capabilities.chat || !provider.models.some(model => model.modelId === binding.modelId && model.enabled)) throw new Error('绑定的文本模型不存在或已停用，请重新选择')
+      if (!provider?.enabled || !provider.capabilities.chat || !provider.models.some(model => model.modelId === binding.modelId && model.enabled && (model.kind ?? 'text') === 'text')) throw new Error('绑定的文本模型不存在或已停用，请重新选择')
     }
 
     const now = new Date().toISOString()
@@ -1291,6 +1405,7 @@ export class AppDatabase {
       providerId: row.provider_id,
       modelId: row.model_id,
       displayName: row.display_name,
+      kind: row.kind === 'image' ? 'image' as const : row.kind === 'search' ? 'search' as const : 'text' as const,
       contextLimit: row.context_limit ?? undefined,
       outputLimit: row.output_limit ?? undefined,
       reasoningVariants: parseJson<string[]>(row.reasoning_variants_json, []),
@@ -1850,54 +1965,33 @@ export class AppDatabase {
     this.db.prepare('DELETE FROM topics WHERE id = ?').run(id)
   }
 
+  /** 搜索服务摘要：由「搜索」类型的供应商派生（旧 search_services 单例只用于一次性迁移） */
   getSearchService(): SearchServiceSummary {
-    const row = this.db.prepare(`
-      SELECT s.id, s.display_name, s.enabled, s.updated_at,
-        s.last_test_status, s.last_test_at, s.last_test_error,
-        EXISTS(SELECT 1 FROM search_service_secrets ss WHERE ss.service_id = s.id) AS has_api_key
-      FROM search_services s WHERE s.id = 'doubao-custom'
-    `).get() as SearchServiceRow | undefined
-    if (!row) throw new Error('搜索服务配置不存在')
-    return {
-      id: row.id,
-      displayName: row.display_name,
-      enabled: Boolean(row.enabled),
-      hasApiKey: Boolean(row.has_api_key),
-      lastTestStatus: row.last_test_status === 'success' || row.last_test_status === 'failure'
-        ? row.last_test_status
-        : undefined,
-      lastTestAt: row.last_test_at ?? undefined,
-      lastTestError: row.last_test_error ?? undefined,
-      updatedAt: row.updated_at
-    }
-  }
-
-  saveSearchService(input: { enabled: boolean }, encryptedKey?: Buffer): SearchServiceSummary {
-    const now = new Date().toISOString()
-    this.transaction(() => {
-      // 换密钥等于换配置：旧的验证结论立即失效，不能让「已保存」冒充「已验证」
-      this.db.prepare(`
-        UPDATE search_services
-        SET enabled = ?, updated_at = ?${encryptedKey ? ', last_test_status = NULL, last_test_at = NULL, last_test_error = NULL' : ''}
-        WHERE id = 'doubao-custom'
-      `).run(input.enabled ? 1 : 0, now)
-      if (encryptedKey) {
-        this.db.prepare(`
-          INSERT INTO search_service_secrets(service_id, encrypted_key, updated_at)
-          VALUES ('doubao-custom', ?, ?)
-          ON CONFLICT(service_id) DO UPDATE SET encrypted_key = excluded.encrypted_key, updated_at = excluded.updated_at
-        `).run(encryptedKey, now)
+    const provider = this.listProviders().find(
+      (item) => item.models.some((model) => (model.kind ?? 'text') === 'search')
+    )
+    if (!provider) {
+      return {
+        id: 'doubao-custom',
+        displayName: '豆包搜索',
+        enabled: false,
+        hasApiKey: false,
+        lastTestStatus: undefined,
+        lastTestAt: undefined,
+        lastTestError: undefined,
+        updatedAt: new Date(0).toISOString()
       }
-    })
-    return this.getSearchService()
-  }
-
-  /** 记录一次搜索连接测试的结果，供界面区分「已验证 / 验证失败 / 额度不足」 */
-  recordSearchServiceTest(status: 'success' | 'failure', error?: string): void {
-    this.db.prepare(`
-      UPDATE search_services SET last_test_status = ?, last_test_at = ?, last_test_error = ?
-      WHERE id = 'doubao-custom'
-    `).run(status, new Date().toISOString(), status === 'failure' ? (error?.slice(0, 500) ?? '连接不可用') : null)
+    }
+    return {
+      id: 'doubao-custom',
+      displayName: provider.displayName,
+      enabled: provider.enabled && provider.hasApiKey,
+      hasApiKey: provider.hasApiKey,
+      lastTestStatus: provider.verification.lastTestStatus,
+      lastTestAt: provider.verification.lastTestAt,
+      lastTestError: provider.verification.lastTestError,
+      updatedAt: provider.updatedAt
+    }
   }
 
   getEncryptedSearchServiceKey(): Buffer | null {
@@ -2625,6 +2719,7 @@ function mapProvider(row: ProviderRow, models: ProviderModel[]): ProviderSummary
     id: row.id,
     displayName: row.display_name,
     protocol: row.protocol,
+    accessMode: row.access_mode === 'dreamina-cli' ? 'dreamina-cli' as const : 'api' as const,
     baseUrl: row.base_url,
     defaultModel: row.default_model,
     enabled: Boolean(row.enabled),
@@ -2726,7 +2821,7 @@ function normalizeBaseUrl(value: string): string {
 function normalizeProviderModels(
   inputModels: SaveProviderModelInput[] | undefined,
   fallbackModel: string
-): SaveProviderModelInput[] {
+): Array<SaveProviderModelInput & { kind: ProviderModelKind }> {
   const source = inputModels?.length
     ? inputModels
     : [{
@@ -2740,19 +2835,39 @@ function normalizeProviderModels(
     ...model,
     modelId: model.modelId.trim(),
     displayName: model.displayName.trim() || model.modelId.trim(),
+    kind: model.kind === 'image' ? 'image' as const : model.kind === 'search' ? 'search' as const : 'text' as const,
     contextLimit: positiveIntegerOrUndefined(model.contextLimit),
     outputLimit: positiveIntegerOrUndefined(model.outputLimit),
     reasoningVariants: [...new Set(model.reasoningVariants.map((item) => item.trim()).filter(Boolean))],
     params: isPlainObject(model.params) ? model.params : undefined,
     pricePerImage: positiveNumberOrUndefined(model.pricePerImage)
   }))
-  const defaultIndex = normalized.findIndex((model) => model.isDefault && model.enabled)
-  const fallbackIndex = normalized.findIndex((model) => model.enabled)
-  if (defaultIndex < 0 && fallbackIndex >= 0) normalized[fallbackIndex].isDefault = true
-  normalized.forEach((model, index) => {
-    model.isDefault = index === (defaultIndex >= 0 ? defaultIndex : fallbackIndex)
-  })
+  // 每种类型各自保证至多/至少一个默认：同类型里优先用原有默认，没有则提升第一个启用模型
+  for (const kind of ['text', 'image'] as const) {
+    const indexes = normalized.map((model, index) => ({ model, index })).filter(({ model }) => model.kind === kind)
+    if (!indexes.length) continue
+    const defaultIndex = indexes.find(({ model }) => model.isDefault && model.enabled)?.index
+    const fallbackIndex = indexes.find(({ model }) => model.enabled)?.index
+    const chosen = defaultIndex ?? fallbackIndex
+    for (const { model, index } of indexes) model.isDefault = index === chosen
+  }
   return normalized
+}
+
+/** chat/image 能力从启用模型的类型派生：有文本模型才开对话，有生图模型才开生图 */
+function deriveProviderCapabilities(
+  base: CapabilityFlags,
+  models: Array<{ kind: ProviderModelKind; enabled: boolean }>
+): CapabilityFlags {
+  return {
+    ...base,
+    chat: models.some((model) => model.enabled && model.kind === 'text'),
+    image: models.some((model) => model.enabled && model.kind === 'image')
+  }
+}
+
+function placeholders(count: number): string {
+  return Array.from({ length: count }, () => '?').join(', ')
 }
 
 function positiveIntegerOrUndefined(value: number | undefined): number | undefined {

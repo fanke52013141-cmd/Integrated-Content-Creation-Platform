@@ -284,9 +284,15 @@ describe('AppDatabase', () => {
   it('stores a separate encrypted-search configuration record and deduplicates material snapshots', () => {
     const database = new AppDatabase(':memory:')
     expect(database.getSearchService()).toMatchObject({ id: 'doubao-custom', hasApiKey: false })
-    database.saveSearchService({ enabled: true }, Buffer.from('encrypted-search-key'))
+    const searchProvider = database.saveProvider({
+      id: 'search-provider', displayName: '豆包搜索', protocol: 'openai-compatible',
+      baseUrl: 'https://open.feedcoopapi.com', defaultModel: 'web-search', enabled: true, isRelay: false,
+      capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: false },
+      models: [{ modelId: 'web-search', displayName: '豆包搜索', kind: 'search', reasoningVariants: [], isDefault: true, enabled: true }]
+    }, Buffer.from('encrypted-search-key'))
+    expect(searchProvider.capabilities.chat).toBe(false)
     expect(database.getSearchService()).toMatchObject({ enabled: true, hasApiKey: true })
-    expect(database.getEncryptedSearchServiceKey()).toEqual(Buffer.from('encrypted-search-key'))
+    expect(database.getEncryptedProviderKey('search-provider')).toEqual(Buffer.from('encrypted-search-key'))
 
     const first = database.addSearchMaterial({
       kind: 'web', origin: 'doubao_web', externalId: 'web-1', title: '网页素材', summary: '给 AI 的摘要',

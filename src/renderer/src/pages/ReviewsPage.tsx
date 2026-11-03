@@ -67,7 +67,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   const [tasks, setTasks] = useState<ReviewTask[]>([])
   const [articleId, setArticleId] = useState('')
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set())
-  const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers))
+    // 评审页面级模型独立记忆：不再跟随其它环节的「最后使用」；角色仍可单独绑定
+  const [modelTarget, setModelTarget] = useModelTarget(availableModels(providers), 'moliu:stage-model:review')
   const [lastFailed, setLastFailed] = useState<ReviewFailure[]>([])
   const [roleDialogOpen, setRoleDialogOpen] = useState(false)
   const [manualTaskId, setManualTaskId] = useState('')
@@ -414,13 +415,12 @@ function RoleDialog({ roles, providers, onClose, onSaved, showToast }: { roles: 
       <header>
         <div>
           <h2 id="role-dialog-title">{selectedRole ? '编辑评审角色' : '新建评审角色'}</h2>
-          <p>角色会以独立视角并行评审文章。</p>
         </div>
         <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
       </header>
       <label className="field"><span>管理角色</span><Select ariaLabel="管理评审角色" value={roleId} onChange={selectRole} options={[{value:'',label:'新建角色'},...roles.map(role=>({value:role.id,label:role.name}))]} /></label>
       <label className="field"><span>名称</span><input name="roleName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：标题党猎人" /></label>
-      <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /><small>单独指定后，该角色使用自己的模型；选择沿用则使用评审页面的模型。</small></label>
+      <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /><small>不指定则使用本次评审的模型。</small></label>
       <label className="field"><span>角色指令</span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <footer>
         <span className="micro-copy">现有 {roles.length} 个角色</span>

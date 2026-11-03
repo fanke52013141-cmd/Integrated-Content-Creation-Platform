@@ -29,7 +29,12 @@ try {
       target.saveProvider({id:row.id,displayName:row.display_name,protocol:row.protocol,baseUrl:row.base_url,defaultModel:row.default_model,enabled:true,isRelay:!!row.is_relay,capabilities:JSON.parse(row.capabilities_json),models}, Buffer.from(row.encrypted_key))
     }
     const search = source.prepare("SELECT encrypted_key FROM search_service_secrets WHERE service_id='doubao-custom'").get()
-    if (search) target.saveSearchService({enabled:true},Buffer.from(search.encrypted_key))
+    if (search) target.saveProvider({
+      id: 'doubao-search', displayName: '豆包搜索', protocol: 'openai-compatible',
+      baseUrl: 'https://open.feedcoopapi.com', defaultModel: 'web-search', enabled: true, isRelay: false,
+      capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: false },
+      models: [{ modelId: 'web-search', displayName: '豆包搜索', kind: 'search', reasoningVariants: [], isDefault: true, enabled: true }]
+    }, Buffer.from(search.encrypted_key))
   } finally { source.close(); target.close() }
   // Chromium's encrypted profile key is required to read copied safeStorage blobs.
   await copyFile(resolve(dirname(sourcePath), 'Local State'),resolve(root,'Local State'))
@@ -37,7 +42,13 @@ try {
   const page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
   await page.waitForFunction(()=>!!window.moliu)
-  if (process.env.MOLIU_LIVE_SEARCH_KEY) await page.evaluate(apiKey=>window.moliu.searchService.save({enabled:true,apiKey}),process.env.MOLIU_LIVE_SEARCH_KEY)
+  if (process.env.MOLIU_LIVE_SEARCH_KEY) await page.evaluate(apiKey=>window.moliu.providers.save({
+    id: 'doubao-search', displayName: '豆包搜索', protocol: 'openai-compatible',
+    baseUrl: 'https://open.feedcoopapi.com', defaultModel: 'web-search', enabled: true, isRelay: false,
+    capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: false },
+    models: [{ modelId: 'web-search', displayName: '豆包搜索', kind: 'search', reasoningVariants: [], isDefault: true, enabled: true }],
+    apiKey
+  }), process.env.MOLIU_LIVE_SEARCH_KEY)
   const provider = await page.evaluate(async()=> (await window.moliu.providers.list()).find(p=>p.enabled&&p.capabilities.chat&&p.hasApiKey))
   const connection = await check('现有文本服务连接', async()=> {
     assert.ok(provider,'没有已配置的文本服务')

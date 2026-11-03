@@ -40,7 +40,8 @@ try{
   await page.waitForLoadState('domcontentloaded')
   const rendererErrors=[];page.on('pageerror',e=>rendererErrors.push(e.message))
   const ids=await page.evaluate(async port=>{
-    const provider=await window.moliu.providers.save({displayName:'配图验收模型',protocol:'openai-compatible',baseUrl:`http://127.0.0.1:${port}/v1`,defaultModel:'studio-smoke',enabled:true,isRelay:false,capabilities:{chat:true,jsonMode:true,streaming:false,vision:true,image:true},models:[{modelId:'studio-smoke',displayName:'配图验收模型',reasoningVariants:[],isDefault:true,enabled:true,pricePerImage:0.01}],apiKey:'local-test'})
+    // 模型按类型分流：文本模型跑规划/提示词，生图模型单独一个标识（各自是本类型的默认）
+    const provider=await window.moliu.providers.save({displayName:'配图验收模型',protocol:'openai-compatible',baseUrl:`http://127.0.0.1:${port}/v1`,defaultModel:'studio-smoke',enabled:true,isRelay:false,capabilities:{chat:true,jsonMode:true,streaming:false,vision:true,image:true},models:[{modelId:'studio-smoke',displayName:'配图文本模型',kind:'text',reasoningVariants:[],isDefault:true,enabled:true},{modelId:'studio-smoke-image',displayName:'配图生图模型',kind:'image',reasoningVariants:[],isDefault:true,enabled:true,pricePerImage:0.01}],apiKey:'local-test'})
     const account=await window.moliu.accounts.save({status:'draft',source:'manual',fields:[{id:crypto.randomUUID(),name:'账号名称',value:'配图验收账号',isDefault:true}],wizardAnswers:[]})
     const article=await window.moliu.articles.save({accountId:account.id,materialIds:[],manualOutline:'',status:'draft',source:'manual',rawMarkdown:'# 配图验收文章\n\n第一段说明注意力分散的问题。\n\n## 调整方式\n\n第二段给出具体方法。'})
     return{providerId:provider.id,accountId:account.id,articleId:article.id,markdown:article.rawMarkdown}

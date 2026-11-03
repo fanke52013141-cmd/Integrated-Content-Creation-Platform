@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2,
   ChevronRight,
@@ -20,14 +20,18 @@ import {
 } from 'lucide-react'
 import type {
   ModelCallLog,
+  ProviderModelKind,
   ProviderPreset,
   SaveProviderModelInput,
   ProviderSummary,
   SaveProviderInput,
-  SearchServiceSummary
+  ProviderAccessMode,
+  DreaminaLoginInfo,
+  DreaminaStatus
 } from '../../../shared/contracts'
 import type { ToastState } from '../components/Toast'
 import { useConfirm } from '../components/useConfirm'
+import { Segmented } from '../components/Segmented'
 import { ModalBase } from '../components/ModalBase'
 import { FieldError, useFormErrors } from '../components/useFormErrors'
 import type { RouteId } from '../components/Layout'
@@ -35,7 +39,6 @@ import { errorMessage, formatDate, formatFullDate, isSafeUrl } from '../lib'
 
 interface ProvidersPageProps {
   providers: ProviderSummary[]
-  searchService: SearchServiceSummary
   onRefresh(): Promise<void>
   /** 从网关提示横幅跳来时携带的来源页面，配置成功后一键返回 */
   returnTo?: string
@@ -48,6 +51,7 @@ type ProvidersPageReturnRoute = Extract<RouteId, 'accounts' | 'hotspots' | 'topi
 const emptyForm = (): SaveProviderInput => ({
   displayName: '',
   protocol: 'openai-compatible',
+  accessMode: 'api',
   baseUrl: '',
   defaultModel: '',
   enabled: true,
@@ -77,35 +81,20 @@ function providerState(provider: ProviderSummary): { label: string; tone: string
   return { label: '未验证', tone: 'warning', note: `配置已保存但尚未验证连接 · ${formatDate(provider.updatedAt)} 更新` }
 }
 
-/** 搜索服务状态：区分「已保存 / 已验证 / 验证失败 / 额度不足」，不拿配置冒充可用 */
-function searchServiceState(service: SearchServiceSummary): { label: string; tone: string; note: string } {
-  if (!service.enabled) return { label: '已停用', tone: 'muted', note: '启用后才能用于素材搜索。' }
-  if (!service.hasApiKey) return { label: '未配置密钥', tone: 'muted', note: '保存访问密钥后再测试连接。' }
-  if (service.lastTestStatus === 'failure') {
-    const error = service.lastTestError ?? '连接不可用'
-    const testedAt = service.lastTestAt ? `${formatFullDate(service.lastTestAt)} · ` : ''
-    return /额度/.test(error)
-      ? { label: '额度不足', tone: 'danger', note: `${testedAt}${error}` }
-      : { label: '验证失败', tone: 'danger', note: `${testedAt}${error}` }
-  }
-  if (service.lastTestStatus === 'success') {
-    return {
-      label: '已验证',
-      tone: 'success',
-      note: service.lastTestAt ? `${formatFullDate(service.lastTestAt)} 测试通过（消耗 1 次额度）` : '测试通过'
-    }
-  }
-  return { label: '未验证', tone: 'warning', note: '密钥已保存，但还没有测过连接。' }
-}
-
-function newModel(isDefault = false): SaveProviderModelInput {
+function newModel(isDefault = false, kind: ProviderModelKind = 'text'): SaveProviderModelInput {
   return {
     modelId: '',
     displayName: '',
+    kind,
     reasoningVariants: [],
     isDefault,
     enabled: true
   }
+}
+
+/** 模型归一化类型：缺省视为文本（旧数据兼容） */
+function modelKindOf(model: { kind?: ProviderModelKind }): ProviderModelKind {
+  return model.kind === 'image' ? 'image' : model.kind === 'search' ? 'search' : 'text'
 }
 
 /** 备份包只展示目录名，完整路径留在 title 里供核对 */
@@ -116,7 +105,6 @@ function bundleName(path: string): string {
 
 export function ProvidersPage({
   providers,
-  searchService,
   onRefresh,
   returnTo,
   onNavigate,
@@ -130,7 +118,6 @@ export function ProvidersPage({
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<string>()
   const [testStatus, setTestStatus] = useState<Record<string, string>>({})
-  const [view, setView] = useState<'models' | 'search'>('models')
   const [draftTesting, setDraftTesting] = useState(false)
   const [draftStatus, setDraftStatus] = useState<{ ok: boolean; message: string }>()
   const [logsOpen, setLogsOpen] = useState(false)
@@ -139,6 +126,12 @@ export function ProvidersPage({
   const [logsLoading, setLogsLoading] = useState(false)
   /** 模型请求参数的编辑草稿（按模型下标）；保存时才解析成对象，允许中途是半截 JSON */
   const [paramsDrafts, setParamsDrafts] = useState<Record<number, string>>({})
+  /** 即梦 CLI：接入状态与 headless 登录（应用不接触 token，登录态由 CLI 持久化） */
+  const isCli = form.accessMode === 'dreamina-cli'
+  const [cliStatus, setCliStatus] = useState<DreaminaStatus | null>(null)
+  const [cliChecking, setCliChecking] = useState(false)
+  const [cliLoginInfo, setCliLoginInfo] = useState<DreaminaLoginInfo | null>(null)
+  const [cliLoggingIn, setCliLoggingIn] = useState(false)
 
   const paramsTextFor = (index: number, model: SaveProviderModelInput): string => {
     if (paramsDrafts[index] !== undefined) return paramsDrafts[index]
@@ -158,6 +151,40 @@ export function ProvidersPage({
   useEffect(() => {
     void window.moliu.providers.presets().then(setPresets)
   }, [])
+
+  const refreshCliStatus = useCallback(async (): Promise<void> => {
+    setCliChecking(true)
+    try {
+      setCliStatus(await window.moliu.dreamina.status())
+    } catch (error) {
+      showToast({ type: 'warning', message: `即梦 CLI 状态获取失败：${errorMessage(error)}` })
+    } finally {
+      setCliChecking(false)
+    }
+  }, [showToast])
+
+  // 选中即梦供应商时自动检测；登录发起后每 2.5s 轮询直到拿到登录态
+  useEffect(() => {
+    if (isCli) void refreshCliStatus()
+  }, [isCli, refreshCliStatus])
+  useEffect(() => {
+    if (!isCli || !cliLoginInfo || cliStatus?.loggedIn) return
+    const timer = setInterval(() => {
+      void window.moliu.dreamina.status().then(setCliStatus).catch(() => undefined)
+    }, 2_500)
+    return () => clearInterval(timer)
+  }, [isCli, cliLoginInfo, cliStatus?.loggedIn])
+
+  async function startCliLogin(): Promise<void> {
+    setCliLoggingIn(true)
+    try {
+      setCliLoginInfo(await window.moliu.dreamina.login())
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setCliLoggingIn(false)
+    }
+  }
 
   const selected = useMemo(
     () => providers.find((provider) => provider.id === selectedId),
@@ -179,6 +206,7 @@ export function ProvidersPage({
       id: provider.id,
       displayName: provider.displayName,
       protocol: provider.protocol,
+      accessMode: provider.accessMode === 'dreamina-cli' ? 'dreamina-cli' : 'api',
       baseUrl: provider.baseUrl,
       defaultModel: provider.defaultModel,
       enabled: provider.enabled,
@@ -188,6 +216,7 @@ export function ProvidersPage({
         id: model.id,
         modelId: model.modelId,
         displayName: model.displayName,
+        kind: modelKindOf(model),
         contextLimit: model.contextLimit,
         outputLimit: model.outputLimit,
         reasoningVariants: model.reasoningVariants,
@@ -212,25 +241,56 @@ export function ProvidersPage({
     const next: SaveProviderInput = {
       ...emptyForm(),
       displayName: preset.displayName,
+      accessMode: preset.accessMode ?? 'api',
       baseUrl: preset.baseUrl,
       defaultModel: preset.defaultModel,
       isRelay: preset.id === 'relay',
       capabilities: preset.capabilities,
-      models: [{
-        modelId: preset.defaultModel,
-        displayName: preset.defaultModel,
-        reasoningVariants: [],
-        params: preset.modelParams,
-        isDefault: true,
-        enabled: true
-      }]
+      models: preset.models?.length
+        ? preset.models.map((model, index) => ({
+          modelId: model.modelId,
+          displayName: model.displayName,
+          kind: model.kind,
+          reasoningVariants: [],
+          isDefault: model.isDefault ?? index === 0,
+          enabled: true
+        }))
+        : [{
+          modelId: preset.defaultModel,
+          displayName: preset.defaultModel,
+          kind: preset.modelKind ?? 'text',
+          reasoningVariants: [],
+          params: preset.modelParams,
+          isDefault: true,
+          enabled: true
+        }]
     }
     setForm(next)
     formBaseline.current = JSON.stringify(next)
   }
 
-  /** 保存前先测试：用表单里的接口地址/密钥/默认模型发一次最小请求 */
+  /** 保存前先测试：文本 / 生图 / 搜索端点与即梦 CLI 各自探测（挂了哪类就测哪类） */
   async function testDraft(): Promise<boolean> {
+    if (isCli) {
+      setDraftTesting(true)
+      setDraftStatus({ ok: true, message: '正在检测即梦 CLI…' })
+      try {
+        const result = await window.moliu.providers.testDraft({
+          id: form.id,
+          baseUrl: '',
+          model: form.models.find((model) => model.isDefault && model.modelId.trim())?.modelId,
+          mode: 'cli'
+        })
+        setDraftStatus({ ok: true, message: `${result.message} · ${result.latencyMs}ms` })
+        void refreshCliStatus()
+        return true
+      } catch (error) {
+        setDraftStatus({ ok: false, message: errorMessage(error) })
+        return false
+      } finally {
+        setDraftTesting(false)
+      }
+    }
     if (!form.baseUrl.trim()) {
       setDraftStatus({ ok: false, message: '请先填写接口地址' })
       return false
@@ -239,18 +299,52 @@ export function ProvidersPage({
       setDraftStatus({ ok: false, message: '请先填写访问密钥' })
       return false
     }
-    const defaultModel = form.models.find((model) => model.enabled && model.isDefault && model.modelId.trim())
+    const enabled = form.models.filter((model) => model.enabled && model.modelId.trim())
+    const textModel = enabled.find((model) => modelKindOf(model) === 'text' && model.isDefault)
+      ?? enabled.find((model) => modelKindOf(model) === 'text')
+    const imageModel = enabled.find((model) => modelKindOf(model) === 'image' && model.isDefault)
+      ?? enabled.find((model) => modelKindOf(model) === 'image')
+    const searchModel = enabled.find((model) => modelKindOf(model) === 'search' && model.isDefault)
+      ?? enabled.find((model) => modelKindOf(model) === 'search')
+    if (!textModel && !imageModel && !searchModel) {
+      setDraftStatus({ ok: false, message: '请至少填写一个模型标识' })
+      return false
+    }
     setDraftTesting(true)
     setDraftStatus({ ok: true, message: '正在测试连接…' })
     try {
-      const result = await window.moliu.providers.testDraft({
-        id: form.id,
-        baseUrl: form.baseUrl.trim(),
-        apiKey: form.apiKey?.trim() || undefined,
-        model: defaultModel?.modelId.trim(),
-        mode: form.capabilities.image ? 'image' : 'chat'
-      })
-      setDraftStatus({ ok: true, message: `${result.message} · ${result.latencyMs}ms` })
+      const notes: string[] = []
+      if (textModel) {
+        const result = await window.moliu.providers.testDraft({
+          id: form.id,
+          baseUrl: form.baseUrl.trim(),
+          apiKey: form.apiKey?.trim() || undefined,
+          model: textModel.modelId.trim(),
+          mode: 'chat'
+        })
+        notes.push(`文本 ${result.model} · ${result.latencyMs}ms`)
+      }
+      if (imageModel) {
+        const result = await window.moliu.providers.testDraft({
+          id: form.id,
+          baseUrl: form.baseUrl.trim(),
+          apiKey: form.apiKey?.trim() || undefined,
+          model: imageModel.modelId.trim(),
+          mode: 'image'
+        })
+        notes.push(`生图端点可达 · ${result.latencyMs}ms`)
+      }
+      if (searchModel) {
+        const result = await window.moliu.providers.testDraft({
+          id: form.id,
+          baseUrl: form.baseUrl.trim(),
+          apiKey: form.apiKey?.trim() || undefined,
+          model: searchModel.modelId.trim(),
+          mode: 'search'
+        })
+        notes.push(`搜索端点可用 · ${result.latencyMs}ms`)
+      }
+      setDraftStatus({ ok: true, message: `连接成功 · ${notes.join('；')}` })
       return true
     } catch (error) {
       setDraftStatus({ ok: false, message: errorMessage(error) })
@@ -287,13 +381,15 @@ export function ProvidersPage({
       return
     }
     const enabledModels = models.filter((model) => model.enabled)
-    const defaultModel = enabledModels.find((model) => model.isDefault)
+    const textDefault = enabledModels.find((model) => modelKindOf(model) === 'text' && model.isDefault)
+    const imageDefault = enabledModels.find((model) => modelKindOf(model) === 'image' && model.isDefault)
+    const searchDefault = enabledModels.find((model) => modelKindOf(model) === 'search' && model.isDefault)
     const valid = validate(
       { displayName: form.displayName, baseUrl: form.baseUrl, apiKey: form.apiKey ?? '' },
       {
         displayName: (value) => value.trim() ? null : '请填写连接显示名称',
-        baseUrl: (value) => !value.trim() ? '请填写接口地址' : isSafeUrl(value) ? null : '接口地址必须是有效的网址',
-        apiKey: (value) => !form.id && !value.trim() ? '首次创建时需要填写密钥' : null
+        baseUrl: (value) => isCli ? null : !value.trim() ? '请填写接口地址' : isSafeUrl(value) ? null : '接口地址必须是有效的网址',
+        apiKey: (value) => !form.id && !value.trim() && !isCli ? '首次创建时需要填写密钥' : null
       }
     )
     if (!valid) return
@@ -301,8 +397,21 @@ export function ProvidersPage({
       showToast({ type: 'error', message: '每个模型都需要填写别名和模型标识' })
       return
     }
-    if (!defaultModel) {
-      showToast({ type: 'error', message: '请启用并指定一个默认模型' })
+    if (!enabledModels.length) {
+      showToast({ type: 'error', message: '请至少启用一个模型' })
+      return
+    }
+    // 每类模型各自需要默认：纯生图（无文本模型）或纯文本供应商都合法
+    if (enabledModels.some((model) => modelKindOf(model) === 'text') && !textDefault) {
+      showToast({ type: 'error', message: '请为文本模型指定一个默认' })
+      return
+    }
+    if (enabledModels.some((model) => modelKindOf(model) === 'image') && !imageDefault) {
+      showToast({ type: 'error', message: '请为生图模型指定一个默认' })
+      return
+    }
+    if (enabledModels.some((model) => modelKindOf(model) === 'search') && !searchDefault) {
+      showToast({ type: 'error', message: '请为搜索模型指定一个默认' })
       return
     }
     if (new Set(models.map((model) => model.modelId)).size !== models.length) {
@@ -316,8 +425,15 @@ export function ProvidersPage({
       const saved = await window.moliu.providers.testAndSave({
         ...form,
         models,
-        defaultModel: defaultModel.modelId,
-        apiKey: form.apiKey?.trim() || undefined
+        defaultModel: (textDefault ?? imageDefault ?? searchDefault)!.modelId,
+        // chat/image 能力由模型类型派生，避免「勾了能力但没有对应类型模型」的矛盾配置
+        capabilities: {
+          ...form.capabilities,
+          chat: Boolean(textDefault),
+          image: Boolean(imageDefault)
+        },
+        accessMode: isCli ? 'dreamina-cli' : 'api',
+        apiKey: isCli ? undefined : form.apiKey?.trim() || undefined
       })
       loadProviderIntoForm(saved)
       await onRefresh().catch(error => showToast({ type: 'warning', message: `配置已保存，列表刷新失败：${errorMessage(error)}` }))
@@ -390,18 +506,37 @@ export function ProvidersPage({
     }
   }
 
+  /**
+   * 更新单个模型。默认互斥只作用于同类型模型；切换类型时修复两类的默认：
+   * 同类出现两个默认保留被操作的那个，某类失去默认则提升该类第一个启用模型。
+   */
   function updateModel(index: number, patch: Partial<SaveProviderModelInput>): void {
     setForm((current) => {
-      const models = current.models.map((model, modelIndex) => {
-        if (modelIndex !== index) {
-          return patch.isDefault ? { ...model, isDefault: false } : model
+      const target = current.models[index]
+      if (!target) return current
+      const oldKind = modelKindOf(target)
+      const nextKind = patch.kind ? modelKindOf(patch) : oldKind
+      const models = current.models.map((model, modelIndex) => modelIndex === index
+        ? { ...model, ...patch, ...(patch.isDefault ? { enabled: true } : {}) }
+        : model)
+      if (patch.isDefault || nextKind !== oldKind) {
+        for (const kind of ['text', 'image', 'search'] as const) {
+          const defaults = models
+            .map((model, modelIndex) => ({ model, modelIndex }))
+            .filter(({ model }) => modelKindOf(model) === kind && model.isDefault)
+          if (defaults.length > 1) {
+            const keep = defaults.find(({ modelIndex }) => modelIndex === index) ?? defaults[0]
+            for (const entry of defaults) {
+              if (entry.modelIndex !== keep.modelIndex) models[entry.modelIndex] = { ...entry.model, isDefault: false }
+            }
+          } else if (defaults.length === 0) {
+            const candidate = models
+              .map((model, modelIndex) => ({ model, modelIndex }))
+              .find(({ model, modelIndex }) => modelKindOf(model) === kind && model.enabled && modelIndex !== index)
+            if (candidate) models[candidate.modelIndex] = { ...candidate.model, isDefault: true }
+          }
         }
-        return {
-          ...model,
-          ...patch,
-          ...(patch.isDefault ? { enabled: true } : {})
-        }
-      })
+      }
       const defaultModel = models.find((model) => model.isDefault)?.modelId ?? ''
       return { ...current, models, defaultModel }
     })
@@ -411,9 +546,15 @@ export function ProvidersPage({
     setParamsDrafts({})
     setForm((current) => {
       if (current.models.length === 1) return current
-      const removedWasDefault = current.models[index]?.isDefault
+      const removed = current.models[index]
+      const removedWasDefault = removed?.isDefault
+      const removedKind = removed ? modelKindOf(removed) : 'text'
       const models = current.models.filter((_, modelIndex) => modelIndex !== index)
-      if (removedWasDefault) models[0] = { ...models[0], isDefault: true, enabled: true }
+      // 默认被删后由同类型的第一个启用模型接任，不影响另一类的默认
+      if (removedWasDefault) {
+        const successorIndex = models.findIndex((model) => modelKindOf(model) === removedKind && model.enabled)
+        if (successorIndex >= 0) models[successorIndex] = { ...models[successorIndex], isDefault: true }
+      }
       return {
         ...current,
         models,
@@ -428,7 +569,7 @@ export function ProvidersPage({
         <div>
           <h1>AI 服务</h1>
         </div>
-        {view === 'models' && <button
+        <button
           className="button secondary"
           onClick={() => void (async () => {
             if (!(await guardUnsavedForm('新建空白配置'))) return
@@ -440,19 +581,10 @@ export function ProvidersPage({
           })()}
         >
           <Plus size={16} />空白配置
-        </button>}
-      </section>
-
-      <section className="provider-tabs">
-        <button className={view === 'models' ? 'active' : ''} onClick={() => setView('models')}>
-          模型服务
-        </button>
-        <button className={view === 'search' ? 'active' : ''} onClick={() => setView('search')}>
-          素材搜索
         </button>
       </section>
 
-      {view === 'models' ? <section className="provider-layout">
+      <section className="provider-layout">
         <div className="provider-list-column">
           <div className="section-heading">
             <div><h3>已配置供应商</h3></div>
@@ -483,7 +615,7 @@ export function ProvidersPage({
                       {providerState(provider).label}
                     </span>
                   </div>
-                  <p>{provider.defaultModel} · {provider.models.length} 个模型</p>
+                  <p>{provider.defaultModel} · {provider.models.length} 个模型{provider.accessMode === 'dreamina-cli' ? ' · 本机 CLI' : ''}</p>
                   <small>{testStatus[provider.id] || providerState(provider).note}</small>
                 </div>
                 </button>
@@ -519,7 +651,7 @@ export function ProvidersPage({
               <div className="provider-empty">
                 <Unplug size={24} />
                 <strong>暂无供应商</strong>
-                <p className="micro-copy">在右侧选一个预设（OpenAI / DeepSeek / 智谱 GLM…）填入密钥即可，或点右上「空白配置」从零开始。</p>
+                <p className="micro-copy">从右侧预设选择供应商并填入密钥，或使用「空白配置」。</p>
               </div>
             )}
           </div>
@@ -567,39 +699,76 @@ export function ProvidersPage({
               />
               <FieldError message={errorOf('displayName')} />
             </label>
-            <label className={`field full ${errorOf('baseUrl') ? 'has-error' : ''}`}>
-              <span>接口地址</span>
-              <input
-                type="url"
-                inputMode="url"
-                name="baseUrl"
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                ref={setErrorRef('baseUrl')}
-                value={form.baseUrl}
-                onChange={(event) => { setForm({ ...form, baseUrl: event.target.value }); clearError('baseUrl') }}
-                placeholder="https://api.example.com/v1…"
-              />
-              <FieldError message={errorOf('baseUrl')} />
-            </label>
-            <label className={`field full ${errorOf('apiKey') ? 'has-error' : ''}`}>
-              <span>访问密钥 {form.id && <em>留空表示不修改</em>}</span>
-              <input
-                type="password"
-                name="apiKey"
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                ref={setErrorRef('apiKey')}
-                value={form.apiKey ?? ''}
-                onChange={(event) => { setForm({ ...form, apiKey: event.target.value }); clearError('apiKey') }}
-                placeholder={form.id && selected?.hasApiKey ? '••••••••••••••••' : 'sk-…'}
-              />
-              <FieldError message={errorOf('apiKey')} />
-            </label>
+            {isCli ? (
+              <div className="cli-access-panel">
+                <KeyRound size={18} />
+                <div className="cli-access-copy">
+                  <strong>即梦本机 CLI 接入</strong>
+                  <p className="micro-copy">
+                    {cliStatus?.installed
+                      ? `已检测到 CLI：${cliStatus.cliPath}`
+                      : (cliStatus?.message ?? (cliChecking ? '正在检测 CLI…' : '尚未检测'))}
+                  </p>
+                  {cliStatus?.loggedIn && (
+                    <p className="micro-copy">
+                      已登录
+                      {cliStatus.totalCredit !== undefined ? ` · 剩余额度 ${cliStatus.totalCredit}` : ''}
+                      {cliStatus.vipLevel ? ` · ${cliStatus.vipLevel}` : ''}
+                    </p>
+                  )}
+                  {cliLoginInfo && !cliStatus?.loggedIn && (
+                    <p className="micro-copy">
+                      已打开浏览器授权（设备码 {cliLoginInfo.userCode ?? cliLoginInfo.deviceCode ?? '—'}），完成后此处自动更新；浏览器没弹出时可手动访问 {cliLoginInfo.authUrl}
+                    </p>
+                  )}
+                  <p className="micro-copy">登录态由即梦 CLI 持久化在本机，应用不接触 token；生图按即梦会员额度计费，仅开放图片 5.0 / 5.0Pro。</p>
+                </div>
+                <div className="cli-access-actions">
+                  <button className="button secondary compact" disabled={cliChecking} onClick={() => void refreshCliStatus()}>
+                    {cliChecking ? '检测中' : '重新检测'}
+                  </button>
+                  <button className="button primary compact" disabled={cliLoggingIn || cliStatus?.loggedIn} onClick={() => void startCliLogin()}>
+                    {cliStatus?.loggedIn ? '已登录' : '登录即梦'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <label className={`field full ${errorOf('baseUrl') ? 'has-error' : ''}`}>
+                  <span>接口地址</span>
+                  <input
+                    type="url"
+                    inputMode="url"
+                    name="baseUrl"
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    ref={setErrorRef('baseUrl')}
+                    value={form.baseUrl}
+                    onChange={(event) => { setForm({ ...form, baseUrl: event.target.value }); clearError('baseUrl') }}
+                    placeholder="https://api.example.com/v1…"
+                  />
+                  <FieldError message={errorOf('baseUrl')} />
+                </label>
+                <label className={`field full ${errorOf('apiKey') ? 'has-error' : ''}`}>
+                  <span>访问密钥 {form.id && <em>留空表示不修改</em>}</span>
+                  <input
+                    type="password"
+                    name="apiKey"
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    ref={setErrorRef('apiKey')}
+                    value={form.apiKey ?? ''}
+                    onChange={(event) => { setForm({ ...form, apiKey: event.target.value }); clearError('apiKey') }}
+                    placeholder={form.id && selected?.hasApiKey ? '••••••••••••••••' : 'sk-…'}
+                  />
+                  <FieldError message={errorOf('apiKey')} />
+                </label>
+              </>
+            )}
           </div>
 
           <section className="model-catalog">
@@ -625,13 +794,25 @@ export function ProvidersPage({
                     <label className="default-model-radio">
                       <input
                         type="radio"
-                        name="default-model"
+                        name={`default-model-${modelKindOf(model)}`}
                         autoComplete="off"
                         checked={model.isDefault}
                         onChange={() => updateModel(index, { isDefault: true })}
                       />
-                      <span>{model.isDefault ? '默认模型' : '设为默认'}</span>
+                      <span>{model.isDefault ? (modelKindOf(model) === 'text' ? '文本默认' : modelKindOf(model) === 'image' ? '生图默认' : '搜索默认') : '设为默认'}</span>
                     </label>
+                    <div className="model-kind-picker" title="文本模型用于各生成环节；生图模型只出现在配图与智能配图的生图下拉。同一供应商可同时挂两类模型。">
+                      <Segmented
+                        ariaLabel={`第 ${index + 1} 个模型的类型`}
+                        value={modelKindOf(model)}
+                        onChange={(kind) => updateModel(index, { kind })}
+                        options={[
+                          { value: 'text', label: '文本' },
+                          { value: 'image', label: '生图' },
+                          { value: 'search', label: '搜索', title: '搜索模型用于素材库的联网搜索（豆包）' }
+                        ]}
+                      />
+                    </div>
                     <label className="model-enabled">
                       <input
                         type="checkbox"
@@ -783,19 +964,14 @@ export function ProvidersPage({
               />
               <span><strong>结构化输出</strong></span>
             </label>
-            <label className="switch-row" title="勾选后该供应商下的模型可出现在智能配图的生图模型列表">
-              <input
-                type="checkbox"
-                name="imageCapability"
-                autoComplete="off"
-                checked={form.capabilities.image}
-                onChange={(event) => setForm({
-                  ...form,
-                  capabilities: { ...form.capabilities, image: event.target.checked }
-                })}
-              />
-              <span><strong>图片生成</strong></span>
-            </label>
+            <div
+              className="capability-badges"
+              title="文本/生图能力由模型类型自动决定：存在对应类型的启用模型即开放对应能力，保存时自动更新"
+            >
+              <span className={`status-pill ${form.models.some((model) => model.enabled && modelKindOf(model) === 'text') ? 'success' : 'muted'}`}>文本对话</span>
+              <span className={`status-pill ${form.models.some((model) => model.enabled && modelKindOf(model) === 'image') ? 'success' : 'muted'}`}>图片生成</span>
+              <span className={`status-pill ${form.models.some((model) => model.enabled && modelKindOf(model) === 'search') ? 'success' : 'muted'}`}>联网搜索</span>
+            </div>
             <label className="switch-row">
               <input
                 type="checkbox"
@@ -838,11 +1014,7 @@ export function ProvidersPage({
             </div>
           </div>
         </fieldset>
-      </section> : <SearchServicePanel
-        service={searchService}
-        onRefresh={onRefresh}
-        showToast={showToast}
-      />}
+      </section>
 
       {logsOpen && (
         <ModalBase open onClose={() => setLogsOpen(false)} titleId="provider-logs-title" bare className="source-manager-dialog provider-logs-dialog">
@@ -901,84 +1073,6 @@ function errorKindLabel(kind: string): string {
     ProviderConfigError: '配置错误'
   }
   return labels[kind] ?? kind
-}
-
-function SearchServicePanel({
-  service,
-  onRefresh,
-  showToast
-}: {
-  service: SearchServiceSummary
-  onRefresh(): Promise<void>
-  showToast(toast: ToastState): void
-}): React.JSX.Element {
-  const [apiKey, setApiKey] = useState('')
-  const [enabled, setEnabled] = useState(service.enabled)
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [status, setStatus] = useState('')
-
-  useEffect(() => setEnabled(service.enabled), [service.enabled])
-
-  async function save(): Promise<void> {
-    if (!service.hasApiKey && !apiKey.trim()) {
-      showToast({ type: 'error', message: '首次配置豆包搜索需要访问密钥' })
-      return
-    }
-    setSaving(true)
-    try {
-      await window.moliu.searchService.save({ apiKey: apiKey.trim() || undefined, enabled })
-      setApiKey('')
-      await onRefresh()
-      showToast({ type: 'success', message: '豆包搜索密钥已加密保存' })
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function test(): Promise<void> {
-    setTesting(true)
-    setStatus('正在执行一次最小搜索…')
-    try {
-      const result = await window.moliu.searchService.test()
-      setStatus(`${result.message} · ${result.latencyMs}ms`)
-      await onRefresh()
-    } catch (error) {
-      setStatus(errorMessage(error))
-      await onRefresh().catch(() => undefined)
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  const state = searchServiceState(service)
-
-  return (
-    <section className="search-service-panel panel">
-      <div className="section-heading">
-        <div><h3>豆包搜索</h3></div>
-        <span className={`status-pill ${state.tone}`}>{state.label}</span>
-      </div>
-      <p className="micro-copy">{state.note}</p>
-      <div className="search-service-fields">
-        <label className="field">
-          <span>访问密钥 {service.hasApiKey && <em>留空表示不修改</em>}</span>
-          <input type="password" name="searchApiKey" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={service.hasApiKey ? '••••••••••••••••' : '粘贴豆包搜索密钥'} />
-        </label>
-        <label className="switch-row">
-          <input type="checkbox" name="searchEnabled" autoComplete="off" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-          <span><strong>启用搜索服务</strong></span>
-        </label>
-      </div>
-      <footer>
-        <span>{status}</span>
-        <button className="button secondary" disabled={!service.hasApiKey || testing} onClick={() => void test()}>{testing ? <span className="spinner tiny" /> : <Zap size={16} />}测试连接</button>
-        <button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? <span className="spinner tiny" /> : <ShieldCheck size={16} />}加密保存</button>
-      </footer>
-    </section>
-  )
 }
 
 function normalizeOptionalNumber(value: number | undefined): number | undefined {

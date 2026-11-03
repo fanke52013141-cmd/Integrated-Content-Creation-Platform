@@ -68,6 +68,7 @@ const DEMO_BOOTSTRAP: AppBootstrap = {
           providerId: 'demo-provider',
           modelId: 'demo-model',
           displayName: '演示模型',
+          kind: 'text',
           contextLimit: 128000,
           outputLimit: 4096,
           reasoningVariants: [],
@@ -85,9 +86,9 @@ const DEMO_BOOTSTRAP: AppBootstrap = {
   ],
   searchService: {
     id: 'doubao-custom',
-    displayName: '豆包搜索 Custom 版',
+    displayName: '豆包搜索',
     enabled: true,
-    hasApiKey: false,
+    hasApiKey: true,
     updatedAt: '2025-01-01T00:00:00.000Z'
   },
   accounts: [
@@ -308,10 +309,9 @@ function createMockBridge(): MoliuApi {
       testDraft: () => Promise.resolve({ latencyMs: 42, model: 'demo-model', message: '演示连接成功' }),
       logs: () => emptyArray()
     },
-    searchService: {
-      get: () => Promise.resolve(DEMO_BOOTSTRAP.searchService),
-      save: (input: unknown) => Promise.resolve(input),
-      test: () => Promise.resolve({ ok: true, latencyMs: 38, message: '演示连接成功' })
+    dreamina: {
+      status: () => Promise.resolve({ installed: true, cliPath: 'C:\Users\demo\bin\dreamina.exe', loggedIn: true, totalCredit: 66, vipLevel: 'VIP' }),
+      login: () => Promise.resolve({ authUrl: 'https://jimeng.jianying.com/auth/device', deviceCode: 'demo-device', userCode: 'ABCD-EFGH' })
     },
     prompts: {
       list: () => Promise.resolve(DEMO_PROMPT_DEFS),

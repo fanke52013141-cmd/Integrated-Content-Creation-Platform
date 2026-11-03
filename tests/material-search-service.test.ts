@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MaterialSearchService } from '../src/main/services/material-search-service.js'
 
+// 搜索配置来自「搜索」类型的供应商：端点为空时回落构造参数里的端点（测试注入用）
 const database = {
-  getSearchService: () => ({ enabled: true })
+  listProviders: () => [{
+    id: 'search-provider',
+    enabled: true,
+    hasApiKey: true,
+    accessMode: 'api',
+    baseUrl: '',
+    models: [{ enabled: true, kind: 'search' }]
+  }]
 }
-const keyStore = { readSearchService: () => 'test-key' }
+const keyStore = { read: () => 'test-key' }
 
 describe('MaterialSearchService', () => {
   afterEach(() => vi.unstubAllGlobals())

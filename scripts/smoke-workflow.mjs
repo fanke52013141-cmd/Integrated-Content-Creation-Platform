@@ -15,6 +15,9 @@ async function launch() {
   page.on('pageerror', error => errors.push(error.message))
   await page.waitForLoadState('domcontentloaded')
   await page.getByRole('heading', { name: '创作台', exact: true }).waitFor()
+  // 全新工作区首次启动会弹「从哪里开始创作」引导，先按真实用户路径关掉再继续
+  const guideDismiss = page.getByRole('button', { name: '先随便看看', exact: true })
+  if (await guideDismiss.isVisible().catch(() => false)) await guideDismiss.click()
   return page
 }
 try {

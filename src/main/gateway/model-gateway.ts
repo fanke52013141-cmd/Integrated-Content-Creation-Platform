@@ -1,6 +1,8 @@
 import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
 import type { ImageQuality, ImageResolution } from '../../shared/contracts.js'
+import { dreaminaGenerateImage, dreaminaStatus, downloadReferenceImage } from './dreamina-cli.js'
+import { doubaoSearchErrorMessage, resolveSearchEndpoint } from '../services/material-search-service.js'
 import { extractTaggedBlock } from './extract-block.js'
 import {
   GatewayError,
@@ -104,9 +106,13 @@ export class ModelGateway {
     baseUrl: string
     apiKey?: string
     model?: string
-    mode?: 'chat' | 'image'
+    mode?: 'chat' | 'image' | 'search' | 'cli'
     onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void
   }): Promise<{ latencyMs: number; model: string; message: string }> {
+    const model = input.model?.trim() || '默认模型'
+    // 即梦 CLI 凭自身登录态，不涉及密钥；其余通道需要表单密钥或已保存密钥
+    if (input.mode === 'cli') return this.testCliDraft(input, model)
+
     const apiKey = input.apiKey?.trim()
       ? input.apiKey.trim()
       : input.providerId
@@ -114,8 +120,8 @@ export class ModelGateway {
         : ''
     if (!apiKey) throw new GatewayError('ProviderConfigError', '请先填写访问密钥，或使用已保存密钥的连接')
 
-    const model = input.model?.trim() || '默认模型'
     if (input.mode === 'image') return this.testImageDraft(input, apiKey, model)
+    if (input.mode === 'search') return this.testSearchDraft(input, apiKey, model)
 
     const endpoint = buildChatEndpoint(input.baseUrl)
     const startedAt = performance.now()
@@ -196,6 +202,71 @@ export class ModelGateway {
     } catch (error) {
       const latencyMs = Math.round(performance.now() - startedAt)
       const normalized = normalizeError(error, endpoint)
+      input.onLog?.({ success: false, latencyMs, model, errorKind: normalized.kind, errorMessage: normalized.message })
+      throw normalized
+    }
+  }
+
+  /**
+   * 搜索端点连通性探测：用表单里的密钥做一次最小 web 搜索（消耗 1 次额度）。
+   * 豆包搜索的错误放在 200 响应体的 ResponseMetadata.Error 里，必须解析后才算通过。
+   */
+  private async testSearchDraft(
+    input: { baseUrl: string; onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void },
+    apiKey: string,
+    model: string
+  ): Promise<{ latencyMs: number; model: string; message: string }> {
+    const endpoint = resolveSearchEndpoint(input.baseUrl)
+    const startedAt = performance.now()
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Query: '测试', SearchType: 'web', Count: 1, Filter: { NeedContent: false, NeedUrl: true } }),
+        signal: AbortSignal.timeout(30_000)
+      })
+      const text = await response.text()
+      let body: { ResponseMetadata?: { Error?: { Code?: string; CodeN?: number; Message?: string } } }
+      try {
+        body = JSON.parse(text) as { ResponseMetadata?: { Error?: { Code?: string; CodeN?: number; Message?: string } } }
+      } catch {
+        throw new GatewayError('ParseError', `搜索端点返回了无法解析的响应（HTTP ${response.status}）`, response.status)
+      }
+      const error = body.ResponseMetadata?.Error
+      if (error) {
+        throw new GatewayError('AuthError', doubaoSearchErrorMessage(error.Code ?? String(error.CodeN ?? ''), error.Message))
+      }
+      const latencyMs = Math.round(performance.now() - startedAt)
+      input.onLog?.({ success: true, latencyMs, model })
+      return { latencyMs, model, message: `连接成功 · 搜索端点可用（已消耗 1 次搜索额度）` }
+    } catch (error) {
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const normalized = normalizeError(error, endpoint)
+      input.onLog?.({ success: false, latencyMs, model, errorKind: normalized.kind, errorMessage: normalized.message })
+      throw normalized
+    }
+  }
+
+  /** 即梦 CLI 探测：检查安装与登录态（user_credit 不消耗生图额度） */
+  private async testCliDraft(
+    input: { onLog?: (entry: { success: boolean; latencyMs: number; model: string; errorKind?: string; errorMessage?: string }) => void },
+    model: string
+  ): Promise<{ latencyMs: number; model: string; message: string }> {
+    const startedAt = performance.now()
+    try {
+      const status = await dreaminaStatus()
+      const latencyMs = Math.round(performance.now() - startedAt)
+      if (!status.installed) throw new GatewayError('ProviderConfigError', status.message ?? '未检测到即梦 CLI')
+      if (!status.loggedIn) throw new GatewayError('AuthError', status.message ?? '尚未登录即梦，请点击「登录即梦」完成授权')
+      input.onLog?.({ success: true, latencyMs, model })
+      return {
+        latencyMs,
+        model,
+        message: `连接成功 · 即梦 CLI 已登录${status.totalCredit !== undefined ? `（剩余额度 ${status.totalCredit}${status.vipLevel ? ` · ${status.vipLevel}` : ''}）` : ''}`
+      }
+    } catch (error) {
+      const latencyMs = Math.round(performance.now() - startedAt)
+      const normalized = normalizeError(error)
       input.onLog?.({ success: false, latencyMs, model, errorKind: normalized.kind, errorMessage: normalized.message })
       throw normalized
     }
@@ -430,9 +501,53 @@ export class ModelGateway {
     if (!provider.capabilities.image) {
       throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力，请先在「模型网关」中勾选')
     }
+    const startedAt = performance.now()
+
+    // 即梦本机 CLI：无 HTTP 端点，走 CLI 提交+轮询；分辨率取「图片最低 2k」，高档质量升 4k
+    if (provider.accessMode === 'dreamina-cli') {
+      try {
+        const result = await dreaminaGenerateImage({
+          model: input.model,
+          prompt: input.prompt,
+          ratio: normalizeImageRatio(input.ratio) ?? normalizeImageRatio(input.size),
+          resolution: dreaminaResolution(input.resolution, input.quality),
+          signal: input.signal,
+          onTaskCreated: input.onTaskCreated,
+          onProgress: input.onProgress
+        })
+        const latencyMs = Math.round(performance.now() - startedAt)
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs,
+          success: true,
+          taskId: result.submitId
+        })
+        return {
+          base64: result.base64,
+          model: result.model,
+          providerId: provider.id,
+          latencyMs,
+          taskId: result.submitId,
+          remoteUrl: result.remoteUrl
+        }
+      } catch (error) {
+        const latencyMs = Math.round(performance.now() - startedAt)
+        const normalized = normalizeError(error, undefined, input.signal)
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs,
+          success: false,
+          errorKind: normalized.kind,
+          errorMessage: normalized.message
+        })
+        throw normalized
+      }
+    }
+
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildImageEndpoint(provider.baseUrl)
-    const startedAt = performance.now()
 
     try {
       // response_format 用 url 而非 b64_json：部分异步中转（gpt-image-2 等）不支持 b64 请求，
@@ -577,10 +692,60 @@ export class ModelGateway {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
     if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
+    const startedAt = performance.now()
+
+    // 即梦 CLI 的图生图只接受本地路径：参考图先落地为临时文件，用完即删
+    if (provider.accessMode === 'dreamina-cli') {
+      try {
+        const reference = await downloadReferenceImage(input.imageUrl)
+        try {
+          const result = await dreaminaGenerateImage({
+            model: input.model,
+            prompt: input.prompt,
+            ratio: normalizeImageRatio(input.size),
+            resolution: dreaminaResolution(undefined, input.quality),
+            referenceImagePath: reference.path,
+            signal: input.signal,
+            onTaskCreated: input.onTaskCreated,
+            onProgress: input.onProgress
+          })
+          const latencyMs = Math.round(performance.now() - startedAt)
+          this.database.recordModelCall({
+            providerId: provider.id,
+            model: input.model,
+            latencyMs,
+            success: true,
+            taskId: result.submitId
+          })
+          return {
+            base64: result.base64,
+            model: result.model,
+            providerId: provider.id,
+            latencyMs,
+            taskId: result.submitId,
+            remoteUrl: result.remoteUrl
+          }
+        } finally {
+          await reference.cleanup()
+        }
+      } catch (error) {
+        const latencyMs = Math.round(performance.now() - startedAt)
+        const normalized = normalizeError(error, undefined, input.signal)
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs,
+          success: false,
+          errorKind: normalized.kind,
+          errorMessage: normalized.message
+        })
+        throw normalized
+      }
+    }
+
     const apiKey = this.keyStore.read(provider.id)
     const editEndpoint = buildApiBase(provider.baseUrl, '/images/edits')
     const pollEndpoint = buildImageEndpoint(provider.baseUrl)
-    const startedAt = performance.now()
 
     try {
       const form = new FormData()
@@ -682,6 +847,7 @@ export class ModelGateway {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
     if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
+    if (provider.accessMode === 'dreamina-cli') throw new GatewayError('ProviderConfigError', '即梦任务暂不支持应用重启后续查，请在即梦 App 查看任务结果')
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildImageEndpoint(provider.baseUrl)
     const startedAt = performance.now()
@@ -960,16 +1126,19 @@ export class ModelGateway {
 }
 
 function resolveModel(
-  models: Array<{ enabled: boolean; modelId: string; isDefault: boolean; params?: Record<string, unknown> }>,
+  models: Array<{ enabled: boolean; modelId: string; isDefault: boolean; kind?: string; params?: Record<string, unknown> }>,
   requested?: string
 ): { modelId: string; params?: Record<string, unknown> } {
+  // 默认回落只认文本模型：同一供应商可同时挂文本与生图模型，两类各有一个默认，
+  // 对话请求绝不能落到生图模型上；显式指定 modelId 时则尊重调用方选择。
   const selected = requested?.trim()
     ? models.find((model) => model.enabled && model.modelId === requested.trim())
-    : models.find((model) => model.enabled && model.isDefault)
+    : models.find((model) => model.enabled && model.isDefault && (model.kind ?? 'text') === 'text')
+      ?? models.find((model) => model.enabled && (model.kind ?? 'text') === 'text')
   if (!selected) {
     throw new GatewayError(
       'ProviderConfigError',
-      requested ? '所选模型不存在或已停用' : '该供应商没有可用的默认模型'
+      requested ? '所选模型不存在或已停用' : '该供应商没有可用的默认文本模型'
     )
   }
   return selected
@@ -1152,6 +1321,13 @@ export function normalizeImageRatio(value?: string): string | undefined {
 
 function greatestCommonDivisor(a: number, b: number): number {
   return b === 0 ? a : greatestCommonDivisor(b, a % b)
+}
+
+/** 即梦分辨率档位：图片硬下限 2k；仅在分辨率或质量显式要求高档时升 4k */
+function dreaminaResolution(resolution?: string, quality?: string): '2k' | '4k' {
+  if (resolution === '4k') return '4k'
+  if (quality === 'high' || quality === 'xhigh' || quality === 'max') return '4k'
+  return '2k'
 }
 
 /**

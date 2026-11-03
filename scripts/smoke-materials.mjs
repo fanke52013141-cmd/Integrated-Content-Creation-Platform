@@ -62,17 +62,23 @@ const application = await electron.launch({
 
 try {
   const window = await application.firstWindow()
+  // 整轮冒烟接连启动多个 Electron，系统负载高时默认 30s 会偶发超时：放宽到 60s
+  window.setDefaultTimeout(60_000)
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
-  await window.getByRole('button', { name: 'AI 服务' }).first().click()
-  // F17：搜索能力单独分层在「素材搜索」视图里
-  await window.getByRole('button', { name: '素材搜索' }).click()
-  const searchPanel = window.locator('.search-service-panel')
-  await searchPanel.scrollIntoViewIfNeeded()
-  await searchPanel.getByLabel(/访问密钥/).fill('material-smoke-key')
-  await searchPanel.getByRole('button', { name: '加密保存' }).click()
-  await window.getByText('豆包搜索密钥已加密保存').waitFor()
+  // 搜索已并入供应商体系：直接建一个「搜索」类型模型的供应商（端点指向本脚本 mock）
+  await window.evaluate(async port => {
+    await window.moliu.providers.save({
+      id: 'doubao-search', displayName: '豆包搜索', protocol: 'openai-compatible',
+      baseUrl: `http://127.0.0.1:${port}/search`, defaultModel: 'web-search', enabled: true, isRelay: false,
+      capabilities: { chat: false, jsonMode: false, streaming: false, vision: false, image: false },
+      models: [{ modelId: 'web-search', displayName: '豆包搜索', kind: 'search', reasoningVariants: [], isDefault: true, enabled: true }],
+      apiKey: 'material-smoke-key'
+    })
+  }, address.port)
 
+  // 供应商保存绕过了 UI 的刷新链路：reload 重新拉 bootstrap，素材页横幅才会感知到搜索已配置
+  await window.reload({ waitUntil: 'domcontentloaded' })
   await window.getByRole('button', { name: '素材库' }).first().click()
   await window.getByRole('heading', { name: '素材库' }).waitFor()
   await window.getByRole('button', { name: '搜索素材' }).waitFor()
@@ -180,7 +186,7 @@ try {
 
 const database = new DatabaseSync(resolve(userDataDir, 'moliu.db'))
 const materialRows = database.prepare('SELECT kind, title, summary FROM materials ORDER BY created_at ASC').all()
-const secretRow = database.prepare('SELECT encrypted_key FROM search_service_secrets WHERE service_id = ?').get('doubao-custom')
+const secretRow = database.prepare('SELECT encrypted_key FROM provider_secrets WHERE provider_id = ?').get('doubao-search')
 database.close()
 if (materialRows.length !== 14
   || materialRows.some((row) => row.title === '访谈摘录')
