@@ -36,15 +36,15 @@ export function FirstCreationGuide({
       <div className="first-creation-options">
         <button className="first-creation-option" onClick={() => finish('articles', { import: '1' })}>
           <FileText size={20} aria-hidden />
-          <span><strong>我已有一篇文章</strong><small>粘贴或导入 Markdown；DOCX、HTML 可在文章页导入。</small></span>
+          <span><strong>我已有一篇文章</strong></span>
         </button>
         <button className="first-creation-option" onClick={() => finish('materials', { returnTo: 'articles' })}>
           <BookOpenText size={20} aria-hidden />
-          <span><strong>我有资料或素材</strong><small>先整理参考内容；写作时可以选择它们作为依据。</small></span>
+          <span><strong>我有资料或素材</strong></span>
         </button>
         <button className="first-creation-option" onClick={() => finish(textReady ? 'topics' : 'providers', textReady ? undefined : { returnTo: 'topics' })}>
           <Lightbulb size={20} aria-hidden />
-          <span><strong>我只有一个想法</strong><small>{textReady ? '从选题开始，逐步形成框架和文章。' : '先连接文本 AI；配置完成后会回到选题。'}</small></span>
+          <span><strong>我只有一个想法</strong></span>
           {!textReady && <span className="first-creation-option-tag"><Settings2 size={14} />需配置</span>}
         </button>
       </div>

@@ -3884,12 +3884,12 @@
 .first-creation-header p { color: var(--text-secondary); font-size: 13px; }
 .first-creation-mark { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: var(--radius-lg); background: var(--primary-wash); color: var(--primary); flex: 0 0 auto; }
 .first-creation-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.first-creation-option { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-height: 156px; padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-subtle); text-align: left; transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast); }
+/* 选项卡只保留标题（描述文案已按走查反馈移除），压缩卡片高度避免大片留白 */
+.first-creation-option { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-height: 96px; padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-subtle); text-align: left; transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast); }
 .first-creation-option:hover { border-color: var(--primary); background: var(--primary-wash); transform: translateY(-1px); }
 .first-creation-option > svg { color: var(--primary); }
 .first-creation-option > span:not(.first-creation-option-tag) { display: grid; gap: 4px; }
 .first-creation-option strong { font-size: 13px; color: var(--text); }
-.first-creation-option small { color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
 .first-creation-option-tag { display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding: 3px 6px; border-radius: var(--radius-full); background: var(--amber-50); color: var(--amber-600); font-size: 11px; }
 .first-creation-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; color: var(--text-tertiary); font-size: 12px; }
 .first-creation-footer-actions { display: inline-flex; align-items: center; gap: 8px; }
