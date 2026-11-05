@@ -37,7 +37,11 @@ hljs.registerLanguage('markdown', markdownLang)
  * 把源码里的行首空格转为全角空格，避免 HTML 源码缩进被原样渲染。
  *
  * 为什么需要：代码块不用 white-space:pre（会渲染出大段空白），
- * 缩进只能靠字符本身承载，而普通空格在 HTML 源码里会被忽略/折叠。
+ * 缩进只能靠字符本身承载，而普通空格在 HTML 源码里会被忽略/折叠——
+ * 微信编辑器还会把连续普通空格合并成一个，缩进直接丢失。
+ * 全角空格（U+3000）不属于可折叠空白，能存活到读者手机上。
+ * 高亮路径（hljs 输出）与非高亮路径都必须过这里：hljs 的 .value
+ * 只保留语义标签，行首缩进仍是普通空格，不转换就会塌陷。
  */
 function toFullWidthIndent(line: string): string {
   return line.replace(/^( +)/, (_m, spaces: string) => '　'.repeat(spaces.length))
@@ -71,7 +75,7 @@ md.renderer.rules.fence = (tokens, idx) => {
   const body = highlightToWechat(token.content, lang)
   const bodyHtml = body
     .split('\n')
-    .map((line) => `<p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#e2e8f0;">${line || ' '}</p>`)
+    .map((line) => `<p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#e2e8f0;">${toFullWidthIndent(line) || ' '}</p>`)
     .join('')
   return `<section style="margin:0 0 20px;border-radius:8px;overflow:hidden;background:#1e293b;">`
     + '<section style="padding:9px 14px;background:#0f172a;font-size:12px;color:#64748b;font-family:Consolas,Monaco,monospace;">'

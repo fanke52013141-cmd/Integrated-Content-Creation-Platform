@@ -46,15 +46,20 @@ const HLJS_CSS = `
 .mly-body .hljs-comment, .mly-body .hljs-quote { color: #5c6370; font-style: italic; }
 .mly-body .hljs-built_in, .mly-body .hljs-type { color: #e5c07b; }`
 
-const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif"
+/**
+ * 字体策略（官方规范"不建议设置任何 font-family"）：
+ * 正文/标题不再声明 font-family，跟随微信默认字体栈（mp-quote, PingFang SC, system-ui…），
+ * 层级由字号/字重承担；避免 iOS 17+ 因字体栈映射差异出现字号/字距渲染不一致。
+ * 代码块保留 monospace（行内单字体，业界通行）；衬线仅作为用户显式 opt-in 的实验项保留。
+ */
 const SERIF_STACK = "Georgia, 'Songti SC', 'Noto Serif SC', SimSun, serif"
 
-function baseCss(accent: string, text: string, headingFont: string): string {
+function baseCss(accent: string, text: string): string {
   return `
-.mly-body { font-family: ${FONT_STACK}; font-size: 16px; color: ${text}; line-height: 1.8; letter-spacing: 0.3px; word-break: break-word; }
-.mly-title { font-family: ${headingFont}; font-size: 22px; font-weight: 700; line-height: 1.45; color: ${text}; margin: 0 0 22px; }
-.mly-body h2 { font-family: ${headingFont}; font-size: 20px; font-weight: 700; color: ${text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${accent}; line-height: 1.5; }
-.mly-body h3 { font-family: ${headingFont}; font-size: 17px; font-weight: 700; color: ${text}; margin: 24px 0 10px; line-height: 1.5; }
+.mly-body { font-size: 16px; color: ${text}; line-height: 1.8; letter-spacing: 0.3px; word-break: break-word; }
+.mly-title { font-size: 22px; font-weight: 700; line-height: 1.45; color: ${text}; margin: 0 0 22px; }
+.mly-body h2 { font-size: 20px; font-weight: 700; color: ${text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${accent}; line-height: 1.5; }
+.mly-body h3 { font-size: 17px; font-weight: 700; color: ${text}; margin: 24px 0 10px; line-height: 1.5; }
 .mly-body h4 { font-size: 15px; font-weight: 700; color: ${text}; margin: 18px 0 8px; }
 .mly-body p { margin: 0 0 16px; font-size: 16px; line-height: 1.8; }
 .mly-body strong { color: ${accent}; font-weight: 700; }
@@ -146,11 +151,9 @@ function buildTheme(def: {
   accent: string
   suitedFor: ArticleGenre[]
   personality: string
-  headingFont?: string
   text?: string
   extra?: string
 }): LayoutThemeDef {
-  const headingFont = def.headingFont ?? FONT_STACK
   const text = def.text ?? '#2b2b2b'
   return {
     id: def.id,
@@ -159,7 +162,7 @@ function buildTheme(def: {
     accent: def.accent,
     suitedFor: def.suitedFor,
     personality: def.personality,
-    css: baseCss(def.accent, text, headingFont) + (def.extra ?? '') + HLJS_CSS
+    css: baseCss(def.accent, text) + (def.extra ?? '') + HLJS_CSS
   }
 }
 
@@ -179,12 +182,11 @@ export const LAYOUT_THEMES: LayoutThemeDef[] = [
     accent: '#1a1a1a',
     suitedFor: ['analysis', 'narrative'],
     personality: '端庄有分量，适合长文与观点内容',
-    headingFont: SERIF_STACK,
     text: '#262626',
     extra: `
 .mly-body h2 { border-left: none; border-bottom: 2px solid #1a1a1a; padding-left: 0; padding-bottom: 8px; }
 .mly-body strong { color: #1a1a1a; text-decoration: underline; text-decoration-color: #c9a86a; text-underline-offset: 4px; }
-.mly-body blockquote { background: transparent; border-left: 3px solid #c9a86a; font-family: ${SERIF_STACK}; }`
+.mly-body blockquote { background: transparent; border-left: 3px solid #c9a86a; }`
   }),
   buildTheme({
     id: 'tech-blue',
@@ -268,7 +270,7 @@ export function themesForGenre(genre?: ArticleGenre): string[] {
 
 /** 自定义主题：用户粘贴的 CSS 原样参与内联（建议选择器以 .mly-body 开头），叠加在基础样式之上 */
 export function buildCustomThemeCss(customCss: string): string {
-  return baseCss('#07c160', '#2b2b2b', FONT_STACK) + '\n' + customCss + HLJS_CSS
+  return baseCss('#07c160', '#2b2b2b') + '\n' + customCss + HLJS_CSS
 }
 /** 基于现有主题追加受控的结构化参数，供账号版式版本和单篇覆盖共用。 */
 export function buildLayoutThemeCss(themeId: string, config: LayoutStyleConfig = {}, customCss?: string): string {
@@ -285,7 +287,9 @@ export function buildLayoutThemeCss(themeId: string, config: LayoutStyleConfig =
   const imageCaptionFontSize = safeNumber(config.imageCaptionFontSize, 10, 16)
   const accentColor = safeColor(config.accentColor)
   const textColor = safeColor(config.textColor)
-  const fontFamily = config.bodyFontFamily === 'serif' ? SERIF_STACK : config.bodyFontFamily === 'system' ? FONT_STACK : undefined
+  // 官方规范不建议设置 font-family：system（默认）不再输出任何字体声明，跟随微信默认栈；
+  // serif 为用户显式 opt-in 的实验项（UI 上标注可能与真机有差异）
+  const fontFamily = config.bodyFontFamily === 'serif' ? SERIF_STACK : undefined
   const accent = accentColor ?? getLayoutTheme(themeId).accent
   const heading2Variant = config.heading2Variant ?? 'accent-bar'
   const quoteVariant = config.quoteVariant ?? 'bar'
