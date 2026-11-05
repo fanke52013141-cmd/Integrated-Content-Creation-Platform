@@ -51,11 +51,15 @@ const CLICHE_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
 /** 模板化连接词：少量正常，密度过高即 AI 腔 */
 const CONNECTIVES = ['首先', '其次', '此外', '另外', '与此同时', '不仅如此', '更重要的是', '换句话说', '因此', '然而', '事实上', '总之', '其实']
 
-const CLICHE_DENSITY_MEDIUM = 6 // 每千字
+// 阈值经 30 个干净样本（套话/连接词密度实测全为 0）与三档污染样本的分布标定：
+// 干净侧零命中，污染侧按 hits 绝对数≥2 兜底小样本（此前 300 字门槛让 296 字的
+// 高污染样本整篇跳过检查，漏检实证见 tests/metrics-baseline.test.ts）。
+const CLICHE_DENSITY_MEDIUM = 4 // 每千字
 const CLICHE_DENSITY_HIGH = 12
-const CONNECTIVE_DENSITY_MEDIUM = 10 // 每千字
+const CONNECTIVE_DENSITY_MEDIUM = 7 // 每千字
 const CONNECTIVE_DENSITY_HIGH = 16
-const SENTENCE_CV_THRESHOLD = 0.3 // 句长变异系数低于该值视为过于均匀
+const MIN_HITS_FOR_DENSITY_FINDING = 2 // 小样本防误伤：命中次数不足 2 不产生结论
+const SENTENCE_CV_THRESHOLD = 0.23 // 干净样本实测 CV 最低 0.25，AI 腔均匀文本实测 <0.2
 const MIN_SENTENCES_FOR_CV = 8
 const LONG_PARAGRAPH_CHARS = 350
 const REPEATED_OPENING_RUN = 3
@@ -67,7 +71,7 @@ export function runArticleChecks(markdown: string): ArticleCheckReport {
   const findings: ArticleCheckFinding[] = []
   const metrics: ArticleCheckMetric[] = [ { key: 'word-count', label: '字数', value: wordCount } ]
 
-  if (wordCount >= MIN_WORD_COUNT) {
+  if (wordCount > 0) {
     // ── 套话 ──
     const clicheHits = CLICHE_PATTERNS.map(({ label, pattern }) => ({
       label,
@@ -76,7 +80,8 @@ export function runArticleChecks(markdown: string): ArticleCheckReport {
     const clicheTotal = clicheHits.reduce((sum, hit) => sum + hit.count, 0)
     const clicheDensity = density(clicheTotal, wordCount)
     metrics.push({ key: 'cliche-density', label: '套话密度', value: clicheDensity, hint: '处/千字' })
-    if (clicheHits.length) {
+    // 小样本保护：绝对命中 <2 时不给结论（1 次命中可能只是正常引用），避免短文密度爆炸误伤
+    if (clicheHits.length && clicheTotal >= MIN_HITS_FOR_DENSITY_FINDING) {
       const samples = clicheHits.slice().sort((a, b) => b.count - a.count).slice(0, 5)
         .map((hit) => `${hit.label}×${hit.count}`).join('、')
       const firstAnchor = findAnchor(withoutCode, clicheHits[0]!.label)
@@ -108,20 +113,21 @@ export function runArticleChecks(markdown: string): ArticleCheckReport {
     const connectiveTotal = CONNECTIVES.reduce((sum, word) => sum + countOccurrences(withoutCode, word), 0)
     const connectiveDensity = density(connectiveTotal, wordCount)
     metrics.push({ key: 'connective-density', label: '连接词密度', value: connectiveDensity, hint: '处/千字' })
-    if (connectiveDensity >= CONNECTIVE_DENSITY_HIGH) {
+    if (connectiveTotal >= MIN_HITS_FOR_DENSITY_FINDING && connectiveDensity >= CONNECTIVE_DENSITY_HIGH) {
       findings.push({
         rule: 'connective-density', severity: 'high', position: '全文',
         issue: `连接词密度 ${connectiveDensity} 处/千字，段落推进依赖"首先/然而/因此"式模板`,
         suggestion: '删掉大部分连接词，靠内容自身的逻辑推进段落'
       })
-    } else if (connectiveDensity >= CONNECTIVE_DENSITY_MEDIUM) {
+    } else if (connectiveTotal >= MIN_HITS_FOR_DENSITY_FINDING && connectiveDensity >= CONNECTIVE_DENSITY_MEDIUM) {
       findings.push({
         rule: 'connective-density', severity: 'medium', position: '全文',
         issue: `连接词密度偏高（${connectiveDensity} 处/千字）`,
         suggestion: '保留必要的转折与因果，其余连接关系让句子顺序自然承担'
       })
     }
-  } else {
+  }
+  if (wordCount > 0 && wordCount < MIN_WORD_COUNT) {
     findings.push({
       rule: 'thin-content', severity: 'low', position: '全文',
       issue: `正文仅约 ${wordCount} 字，信息量偏少`,
@@ -152,7 +158,7 @@ export function runArticleChecks(markdown: string): ArticleCheckReport {
     const mean = lengths.reduce((sum, length) => sum + length, 0) / lengths.length
     const variance = lengths.reduce((sum, length) => sum + (length - mean) ** 2, 0) / lengths.length
     const cv = mean > 0 ? Math.sqrt(variance) / mean : 0
-    metrics.push({ key: 'sentence-cv', label: '句长变异系数', value: round2(cv), hint: '低于 0.3 视为过于均匀' })
+    metrics.push({ key: 'sentence-cv', label: '句长变异系数', value: round2(cv), hint: '低于 0.23 视为过于均匀' })
     if (cv < SENTENCE_CV_THRESHOLD) {
       findings.push({
         rule: 'sentence-uniformity', severity: 'medium', position: '全文',
