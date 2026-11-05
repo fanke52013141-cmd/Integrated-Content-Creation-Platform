@@ -153,9 +153,9 @@ function maxNestChain(el: Element): number {
 
 type RuleAdd = (level: LayoutViolation['level'], rule: string, message: string, hint?: string) => void
 
-/** 结构规范检查（需要 DOM 树的规则都在这里） */
+/** 结构规范检查（需要 DOM 树的规则都在这里）。片段模式解析：不引入 html/body 包裹层 */
 function structuralChecks(html: string, add: RuleAdd): void {
-  const $ = load(html, { xml: false })
+  const $ = load(html, {}, false)
 
   // ── leaf 内严禁块级元素（官方 2.2：不符合会被编辑器自动删除）──
   $('span[leaf]').each((_, el) => {
@@ -184,7 +184,7 @@ function structuralChecks(html: string, add: RuleAdd): void {
   $('*').each((_, el) => {
     const element = el as Element
     const height = parseStyle(element.attribs?.style).get('height')
-    if (height && /^\s*0+(?:\.0+)?\s*px?\s*$/i.test(height) && $(element).text().trim()) {
+    if (height && /^\s*0+(?:\.0+)?\s*(?:px)?\s*$/i.test(height) && $(element).text().trim()) {
       add('error', 'height-zero-with-text',
         'height:0 的容器内有文字，移动端内容完全不可见',
         '去掉 height:0，或该容器内不放文字（纯图无缝拼接场景官方豁免）')
