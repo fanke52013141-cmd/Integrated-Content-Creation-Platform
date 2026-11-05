@@ -3896,6 +3896,8 @@
 
 /* 首页首次创作只问起点；具体表单仍留在各自页面，避免把完整流程塞进一张弹窗。 */
 .first-creation-modal { width: min(620px, 100%); }
+/* 首启时主页数据尚未加载完，半透明遮罩会透出空白加载态——改用近实心底把引导变成"启动页" */
+.modal-overlay:has(.first-creation-modal) { background: #f5f6f8; }
 .first-creation-header { display: flex; align-items: flex-start; gap: 12px; }
 .first-creation-header > div { flex: 1; min-width: 0; }
 .first-creation-header h2 { margin: 0 0 3px; }

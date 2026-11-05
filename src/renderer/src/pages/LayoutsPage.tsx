@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Code2, Copy, FileDown, FileText, FileUp, Save, Send, Smartphone, Trash2 } from 'lucide-react'
-import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
+import { Code2, Copy, FileDown, FileText, FileUp, ImageDown, Moon, Save, Send, Smartphone, Trash2 } from 'lucide-react'
+import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutGenreInfo, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
@@ -13,7 +13,7 @@ import { SourceBadge } from '../components/SourceBadge'
 import { EmptyState } from '../components/EmptyState'
 import { useConfirm } from '../components/useConfirm'
 import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
-import { disambiguateOptions, resolveLayoutSelection } from '../../../shared/creation-state'
+import { disambiguateOptions, isRecentlyUsedTheme, orderThemesByRecency, resolveLayoutSelection } from '../../../shared/creation-state'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
@@ -53,10 +53,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [accountLayoutLoading, setAccountLayoutLoading] = useState(false)
   const [articleId, setArticleId] = useState('')
   const [platform, setPlatform] = useState<LayoutPlatform>('wechat')
+  /** 暗色预览：模拟微信暗黑模式的底色，检查主题在暗色下的可读性（近似模拟） */
+  const [darkPreview, setDarkPreview] = useState(false)
   const [themeId, setThemeId] = useState('wechat-green')
   /** 文章类型。选中后自动推荐主题，把"选色块"变成"选内容类型" */
   const [genre, setGenre] = useState<ArticleGenre | ''>('')
-  const [genres, setGenres] = useState<Array<{ id: ArticleGenre; label: string; hint: string }>>([])
+  const [genres, setGenres] = useState<LayoutGenreInfo[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -71,6 +73,17 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const { article, error: selectionError } = useSelectedArticle(articleId, articles)
   const accountName = accounts.find((item) => item.id === article?.accountId)?.name
   const selectedThemeName = themes.find((item) => item.id === themeId)?.name ?? themeId
+  /**
+   * 最近使用主题（阶段五 6.1）：当前文章历史排版稿 → 全部排版稿 → 账号默认版式兜底。
+   * "最近使用"的语义是刚用过的主题，账号绑定是"默认值"而非最近行为，放在兜底位；
+   * 数据列表按创建时间倒序返回，天然"新→旧"；排序只作用于下拉展示层。
+   */
+  const recentThemeIds = useMemo(() => [
+    ...articleLayouts.map(item => item.themeId),
+    ...layouts.map(item => item.themeId),
+    accountLayout?.themeId
+  ], [accountLayout?.themeId, articleLayouts, layouts])
+  const orderedThemes = useMemo(() => orderThemesByRecency(themes, recentThemeIds), [themes, recentThemeIds])
 
   const workDraft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
   const needsSavedVersion = workDraft.dirty || workDraft.status !== 'saved'
@@ -267,7 +280,14 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
     setBusy(true)
     try {
       const result = await window.moliu.clipboard.prepareLayout(selected.id, mode)
-      showToast({ type: 'success', message: mode === 'wechat' ? `已复制图文，已准备 ${result.imageCount} 张本地图片，请粘贴后核对` : `已复制正文与 ${result.imageCount} 个图片占位，请在公众号后台插入图片` })
+      showToast({
+        type: 'success',
+        message: mode === 'wechat' ? `已复制图文，已准备 ${result.imageCount} 张本地图片，请粘贴后核对` : `已复制正文与 ${result.imageCount} 个图片占位，请在公众号后台插入图片`,
+        // 复制成功即就地给出"打开公众号后台"快捷出口（阶段五 6.1 动线收敛）
+        action: mode === 'wechat'
+          ? { label: '打开公众号后台', onClick: () => { void window.moliu.app.openExternal('https://mp.weixin.qq.com/').then(ok => { if (!ok) showToast({ type: 'error', message: '打开外部链接失败，请手动访问 mp.weixin.qq.com' }) }) } }
+          : undefined
+      })
     } catch (error) {
       showToast({ type: 'error', message: `复制失败：${errorMessage(error)}` })
     } finally { setBusy(false) }
@@ -281,6 +301,17 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       else showToast({ type: 'info', message: '已取消导出' })
     } catch (error) {
       showToast({ type: 'error', message: `导出失败：${errorMessage(error)}` })
+    }
+  }
+
+  /** 导出长图 PNG（375px 宽、高度自适应）：小红书等图片流渠道的直接产物 */
+  const exportLongImage = async (item: ArticleLayout): Promise<void> => {
+    try {
+      const result = await window.moliu.app.exportLayoutImage({ layoutId: item.id })
+      if (result.path) showToast({ type: 'success', message: `长图已导出：${result.path}` })
+      else showToast({ type: 'info', message: '已取消导出' })
+    } catch (error) {
+      showToast({ type: 'error', message: `长图导出失败：${errorMessage(error)}` })
     }
   }
 
@@ -324,19 +355,30 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           <div className="field"><span className="field-label">平台</span>
             <Segmented ariaLabel="平台" value={platform} onChange={(value) => { setShowingSamplePreview(false); setPlatform(value) }} options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], title: platformHints[key] }))} />
           </div>
-          <div className="field"><span className="field-label">文章类型<em>用于推荐主题</em></span>
+          <div className="field"><span className="field-label">文章类型<em>选类型即装配版式</em></span>
             <Segmented
               value={genre}
               onChange={(value) => {
                 const next = value as ArticleGenre
                 setGenre(next)
-                // 按类型自动切到推荐主题，用户仍可手动改
-                const matched = themes.find((theme) => theme.suitedFor.includes(next))
-                if (matched) setThemeId(matched.id)
+                // 一键预设：主题 + 样式差异项装配。叠加在当前值之上而非重置——
+                // 否则会把账号版式已存的品牌首尾文案等用户配置一并清掉（走查实测踩中）
+                const preset = genres.find((item) => item.id === next)?.preset
+                if (preset) {
+                  const matched = themes.find((theme) => theme.id === preset.themeId)
+                  if (matched) setThemeId(matched.id)
+                  setStyleConfig(current => normalizeStyleConfig({ ...current, ...preset.styleConfig }))
+                }
               }}
               ariaLabel="文章类型"
               options={genres.map((item) => ({ value: item.id, label: item.label, title: item.hint }))}
             />
+            {genre && (() => {
+              const preset = genres.find((item) => item.id === genre)?.preset
+              return preset?.reason ? (
+                <p className="micro-copy">推荐版式：{preset.reason}。建议组件：{preset.components.join('、')}；主题与参数已按此装配，可继续微调。</p>
+              ) : null
+            })()}
           </div>
           <label className="field"><span>主题<em>{platform === 'xiaohongshu' ? '（纯文本不适用）' : ''}</em></span>
             <Select
@@ -344,9 +386,9 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               onChange={setThemeId}
               ariaLabel="排版主题"
               disabled={platform === 'xiaohongshu'}
-              options={(themes.length ? themes : []).map((theme) => ({
+              options={orderedThemes.map((theme) => ({
                 value: theme.id,
-                label: theme.name,
+                label: isRecentlyUsedTheme(recentThemeIds, theme.id) ? `${theme.name} · 最近使用` : theme.name,
                 // 提示里带上适合的文章类型与视觉性格，省得"选了个色块但不知道合不合适"
                 hint: `${theme.personality}（适合${theme.suitedFor.map((g) => genreLabels[g] ?? g).join('、')}）`
               }))}
@@ -363,7 +405,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           {platform !== 'xiaohongshu' && (
             <details className="layout-style-editor">
               <summary>固定版式设计<span>正文、标题、引用、图片、品牌首尾组件</span></summary>
-              <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={accountLayoutLoading || busy} platform={platform} themes={themes} themeId={themeId} />
+              <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={accountLayoutLoading || busy} platform={platform} themes={themes} themeId={themeId} brandSourceHint={accountLayout ? `固定首尾文案已带入${accountName ? `「${accountName}」` : '账号'}版式 V${accountLayout.versionNumber}，可按篇修改` : undefined} />
               <div className="layout-style-toolbar">
                 <p className="micro-copy">{article?.accountId && accountLayout ? `当前默认：${themes.find((theme) => theme.id === accountLayout.themeId)?.name ?? accountLayout.themeId} · V${accountLayout.versionNumber}` : ''}</p>
                 <div className="layout-style-actions">
@@ -412,8 +454,10 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               icon={FileText}
               title="暂无排版稿"
               description={articleId
-                ? '当前文章还没有排版稿，点击上方「生成排版稿」即可。'
-                : '先在上方选择要排版的文章，再点击「生成排版稿」。'}
+                ? '当前文章还没有排版稿，直接生成一份即可预览与推送。'
+                : '先在上方选择要排版的文章，再生成排版稿。'}
+              actionLabel={articleId && !busy ? '生成排版稿' : undefined}
+              onAction={articleId ? () => void create() : undefined}
             />}
           </aside>
           <main>
@@ -428,9 +472,13 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <button className="button ghost compact" onClick={() => setShowingSamplePreview(false)}>返回文章</button>
                 </header>
                 <div className="layout-device-wrap">
-                  <p className="layout-device-hint micro-copy"><Smartphone size={13} />样稿会随当前参数自动更新；品牌首尾文字也会同步展示</p>
-                  <div className="layout-device">
-                    <iframe className="layout-preview-frame" title="固定版式组件样稿预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(samplePreview.html)} />
+                  <p className="layout-device-hint micro-copy"><Smartphone size={13} />样稿会随当前参数自动更新；品牌首尾文字也会同步展示
+                    <button type="button" className="text-button" onClick={() => setDarkPreview(value => !value)}>
+                      <Moon size={13} />{darkPreview ? '切回浅色' : '预览暗色'}
+                    </button>
+                  </p>
+                  <div className={`layout-device${darkPreview ? ' layout-device-dark' : ''}`}>
+                    <iframe className="layout-preview-frame" title="固定版式组件样稿预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(samplePreview.html, { dark: darkPreview })} />
                   </div>
                 </div>
               </div>
@@ -462,15 +510,21 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <button className="button secondary compact" onClick={() => void copy(selected.plainText, '已复制纯文本正文')} title="复制不含样式的纯文本，适合小红书等纯文本编辑器"><Copy size={16} />复制纯文本</button>
                   <button className="button ghost compact" onClick={() => void copy(selected.html, 'HTML 源码已复制')} title="复制 HTML 源码，供网页或支持源码的编辑器使用"><Code2 size={16} />复制 HTML 源码</button>
                   <button className="button secondary compact" onClick={() => void exportHtml(selected)} title="导出图片内嵌的单文件 HTML，离线可打开"><FileDown size={16} />导出 HTML 文件</button>
+                  <button className="button secondary compact" onClick={() => void exportLongImage(selected)} title="导出 375px 宽长图 PNG，适合小红书等图片流渠道"><ImageDown size={16} />导出长图</button>
                   {selected.platform === 'wechat' && (
                     <button className="button primary compact" onClick={() => onNavigate('publishing', { articleId: selected.articleId })}><Send size={16} />去发布</button>
                   )}
                 </div>
                 {selected.platform === 'wechat' ? (
                   <div className="layout-device-wrap">
-                    <p className="layout-device-hint micro-copy"><Smartphone size={16} />按手机宽度（375px）预览，实际效果以微信为准</p>
-                    <div className="layout-device">
-                      <iframe className="layout-preview-frame" title="公众号排版预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(selected.html)} />
+                    <p className="layout-device-hint micro-copy">
+                      <Smartphone size={16} />按手机宽度（375px）预览 · 已注入微信基础样式模拟 · 实际效果以微信为准
+                      <button type="button" className="text-button" onClick={() => setDarkPreview(value => !value)}>
+                        <Moon size={13} />{darkPreview ? '切回浅色' : '预览暗色'}
+                      </button>
+                    </p>
+                    <div className={`layout-device${darkPreview ? ' layout-device-dark' : ''}`}>
+                      <iframe className="layout-preview-frame" title="公众号排版预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(selected.html, { dark: darkPreview })} />
                     </div>
                   </div>
                 ) : selected.platform === 'xiaohongshu' ? (

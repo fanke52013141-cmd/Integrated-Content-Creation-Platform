@@ -341,9 +341,9 @@ export function TopicsPage({
               ) : (
                 <button
                   className="button primary"
-                  disabled={!models.length}
+                  disabled={stream.active || !models.length}
                   onClick={() => void generate()}
-                  title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
+                  title={stream.active ? '正在生成中，请等本批结束' : !models.length ? '请先在「AI 服务」配置文本模型' : undefined}
                 >
                   <Sparkles size={16} />
                   {`生成 ${count} 条选题`}

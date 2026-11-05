@@ -22,12 +22,17 @@ const toastConfig = {
 /**
  * 可堆叠通知：所有类型都会自动消失（错误 8s、警告 6s、其余 4.5s，见 App），
  * 同文案重复触发时只刷新已有的一条，不再无限叠挂。
+ * 同时最多渲染最近 4 条：连环操作（生成+保存+锁定）会瞬间叠出多条同类通知，
+ * 统计型的旧条目没有阅读价值，只保留最新的几条让当前结果可见。
  */
+const MAX_VISIBLE_TOASTS = 4
+
 export function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss(id: number): void }): React.JSX.Element | null {
   if (!toasts.length) return null
+  const visible = toasts.slice(-MAX_VISIBLE_TOASTS)
   return createPortal(
     <div className="toast-stack">
-      {toasts.map((toast) => {
+      {visible.map((toast) => {
         const config = toastConfig[toast.type]
         const Icon = config.icon
         return (
