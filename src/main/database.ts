@@ -53,8 +53,9 @@ import type {
   ArticleVersion,
   ArticleVersionSource,
   SaveArticleInput,
-  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationRetro,
+  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationMetrics, PublicationRetro,
   Topic,
+  TopicAssessment,
   TopicSchemaField,
   TopicStatus,
   TopicVersion,
@@ -223,6 +224,7 @@ interface TopicRow {
   fields_json: string
   provider_id: string | null
   model: string | null
+  assessment_json: string | null
 }
 
 interface TopicVersionRow {
@@ -233,6 +235,7 @@ interface TopicVersionRow {
   provider_id: string | null
   model: string | null
   fields_json: string
+  assessment_json: string | null
   created_at: string
 }
 
@@ -300,7 +303,7 @@ export interface PendingImageTask {
 }
 interface AccountLayoutVersionRow { id:string; profile_id:string; platform:LayoutPlatform; version_number:number; theme_id:string; custom_css:string|null; style_config_json:string; created_at:string; updated_at:string }
 interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
-interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; created_at:string; updated_at:string }
+interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; publish_msgid:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
 interface PromptVersionRow { id: string; prompt_key: string; version: number; content: string; source: 'builtin' | 'user'; note: string; created_at: string }
 interface ArtifactImportRow { id: string; artifact_type: string; artifact_id: string | null; version_id: string | null; tool: string; format: string; external_id: string | null; file_name: string | null; content_hash: string | null; source_json: string; imported_at: string }
@@ -581,6 +584,18 @@ export class AppDatabase {
         sort_order INTEGER NOT NULL,
         updated_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS hot_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        hot_value TEXT,
+        captured_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_hot_snapshots_item
+        ON hot_snapshots(source_id, item_id, captured_at);
 
       CREATE TABLE IF NOT EXISTS topic_schema_fields (
         id TEXT PRIMARY KEY,
@@ -888,11 +903,13 @@ export class AppDatabase {
       ['review_tasks', 'failures_json', "TEXT NOT NULL DEFAULT '[]'"],
       ['review_problems', 'evidence_json', "TEXT NOT NULL DEFAULT '{}'"],
       ['publications', 'retro_json', 'TEXT'],
+      ['publications', 'publish_msgid', 'TEXT'],
       ['article_versions', 'label', "TEXT NOT NULL DEFAULT ''"],
       ['article_layouts', 'theme_id', 'TEXT'],
       ['article_layouts', 'layout_version_id', 'TEXT'],
       ['article_layouts', 'layout_config_snapshot_json', 'TEXT'],
-      ['article_layouts', 'render_engine_version', 'TEXT']
+      ['article_layouts', 'render_engine_version', 'TEXT'],
+      ['topic_versions', 'assessment_json', 'TEXT']
     ]
     for (const [table, column, definition] of added) {
       const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as unknown as Array<{ name: string }>
@@ -1265,7 +1282,7 @@ export class AppDatabase {
 
   // ===== 提示词管理 =====
 
-  /** 首次运行用内置默认模板灌入各提示词单元（v1），已存在则跳过。 */
+  /** 首次运行用内置默认模板灌入各提示词单元（v1）；已存在的做内置模板升级（见内注释）。 */
   seedPrompts(defs: PromptDefBase[]): void {
     const now = new Date().toISOString()
     const hasDef = this.db.prepare('SELECT 1 FROM prompt_defs WHERE key = ?')
@@ -1277,9 +1294,29 @@ export class AppDatabase {
       INSERT OR IGNORE INTO prompt_versions (id, prompt_key, version, content, source, note, created_at)
       VALUES (?, ?, 1, ?, 'builtin', '', ?)
     `)
+    // 内置模板随应用版本演进：生效版本仍是 builtin 原文（用户从未自定义）的跟着升级；
+    // 用户已自定义的只刷新 default_template（「恢复默认」的新基线），绝不动其生效内容。
+    // 用"生效内容 === 旧 default_template"判定未自定义，天然幂等。
+    const selectActive = this.db.prepare(`
+      SELECT v.id AS version_id, v.source, v.content, d.default_template
+      FROM prompt_defs d
+      JOIN prompt_versions v ON v.prompt_key = d.key AND v.version = d.active_version
+      WHERE d.key = ?
+    `)
     this.transaction(() => {
       for (const def of defs) {
-        if (hasDef.get(def.key)) continue
+        if (hasDef.get(def.key)) {
+          const row = selectActive.get(def.key) as
+            | { version_id: string; source: string; content: string; default_template: string }
+            | undefined
+          if (row && row.default_template !== def.template) {
+            if (row.source === 'builtin' && row.content === row.default_template) {
+              this.db.prepare('UPDATE prompt_versions SET content = ? WHERE id = ?').run(def.template, row.version_id)
+            }
+            this.db.prepare('UPDATE prompt_defs SET default_template = ? WHERE key = ?').run(def.template, def.key)
+          }
+          continue
+        }
         insertDef.run(def.key, def.title, def.description, def.template, now)
         insertV1.run(crypto.randomUUID(), def.key, def.template, now)
       }
@@ -1725,6 +1762,36 @@ export class AppDatabase {
     return rows.map((row) => ({ ...this.mapHotFavorite(row), importSource: this.getArtifactImportSource('hot-favorite', row.id) }))
   }
 
+  /** 热榜快照落库：每次抓取成功后记录排名，供黑马（排名跃升）检测；顺带清理 7 天前旧快照防膨胀 */
+  recordHotSnapshots(sourceId: string, items: HotItem[], capturedAt: string = new Date().toISOString()): void {
+    this.transaction(() => {
+      this.db.prepare('DELETE FROM hot_snapshots WHERE captured_at < ?').run(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      const insert = this.db.prepare('INSERT INTO hot_snapshots(source_id, item_id, title, rank, hot_value, captured_at) VALUES (?, ?, ?, ?, ?, ?)')
+      for (const item of items) insert.run(sourceId, item.id, item.title, item.rank, item.hotValue ?? null, capturedAt)
+    })
+  }
+
+  /**
+   * 黑马检测基线：返回每个条目在 90 分钟~48 小时前窗口内最近一次快照的排名。
+   * 借鉴 AIWriteX 的"黑马挖掘"，但涨跃是确定性计算，不用模型猜。无历史快照时返回空 Map（新条目不误报）。
+   */
+  getHotRankBaselines(sourceId: string): Map<string, number> {
+    const now = Date.now()
+    const windowStart = new Date(now - 48 * 60 * 60 * 1000).toISOString()
+    const windowEnd = new Date(now - 90 * 60 * 1000).toISOString()
+    const rows = this.db.prepare(`
+      SELECT item_id, rank FROM hot_snapshots
+      WHERE source_id = ? AND captured_at BETWEEN ? AND ?
+        AND id IN (
+          SELECT MAX(id) FROM hot_snapshots
+          WHERE source_id = ? AND captured_at BETWEEN ? AND ?
+          GROUP BY item_id
+        )
+    `).all(sourceId, windowStart, windowEnd, sourceId, windowStart, windowEnd) as unknown as Array<{ item_id: string; rank: number }>
+    const baseline = new Map(rows.map((row) => [row.item_id, Number(row.rank)]))
+    return baseline
+  }
+
   listHotSourcePreferences(): HotSourcePreference[] {
     const rows = this.db.prepare(`
       SELECT * FROM hot_source_preferences ORDER BY sort_order ASC, source_id ASC
@@ -1863,6 +1930,7 @@ export class AppDatabase {
         v.fields_json,
         v.provider_id,
         v.model,
+        v.assessment_json,
         EXISTS(SELECT 1 FROM topic_library l WHERE l.topic_id = t.id) AS is_in_library,
         (SELECT COUNT(*) FROM topic_versions tv WHERE tv.topic_id = t.id) AS version_count
       FROM topics t
@@ -1880,6 +1948,7 @@ export class AppDatabase {
         v.fields_json,
         v.provider_id,
         v.model,
+        v.assessment_json,
         EXISTS(SELECT 1 FROM topic_library l WHERE l.topic_id = t.id) AS is_in_library,
         (SELECT COUNT(*) FROM topic_versions tv WHERE tv.topic_id = t.id) AS version_count
       FROM topics t
@@ -1924,11 +1993,12 @@ export class AppDatabase {
 
       this.db.prepare(`
         INSERT INTO topic_versions(
-          id, topic_id, version_number, source, provider_id, model, fields_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, topic_id, version_number, source, provider_id, model, fields_json, assessment_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         versionId, topicId, versionNumber, input.source, input.providerId ?? null,
-        input.model ?? null, JSON.stringify(fields), now
+        input.model ?? null, JSON.stringify(fields),
+        input.assessment ? JSON.stringify(input.assessment) : null, now
       )
     })
 
@@ -2378,6 +2448,24 @@ export class AppDatabase {
   listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(row=>({...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf})) }
   getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf}:null }
   markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
+
+  /** 登记发表态消息 ID（msgid）：数据统计的键，由「发表」能力或用户手动回填 */
+  setPublicationPublishMsgid(id: string, msgid: string): Publication {
+    this.db.prepare('UPDATE publications SET publish_msgid=?, updated_at=? WHERE id=?').run(msgid.trim(), new Date().toISOString(), id)
+    const publication = this.getPublication(id)
+    if (!publication) throw new Error('发布记录不存在')
+    return publication
+  }
+
+  /** H1 数据回填：只更新复盘的 metrics，保留用户手填的目标/结果/经验 */
+  updatePublicationMetrics(publicationId: string, metrics: PublicationMetrics): Publication {
+    const current = this.getPublication(publicationId)
+    if (!current) throw new Error('发布记录不存在')
+    const retro: PublicationRetro = current.retro ?? { goal: '', result: '', lesson: '', updatedAt: '' }
+    const updated: PublicationRetro = { ...retro, metrics, updatedAt: new Date().toISOString() }
+    this.db.prepare('UPDATE publications SET retro_json=?, updated_at=? WHERE id=?').run(JSON.stringify(updated), new Date().toISOString(), publicationId)
+    return this.getPublication(publicationId)!
+  }
   /** 发布复盘：三项全空视为清除复盘 */
   savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string;metrics?:import('../shared/contracts.js').PublicationMetrics}):Publication {
     const trimmed = { goal: input.goal.trim(), result: input.result.trim(), lesson: input.lesson.trim() }
@@ -2645,6 +2733,7 @@ export class AppDatabase {
       fields: parseJson<Record<string, string>>(row.fields_json, {}),
       providerId: row.provider_id ?? undefined,
       model: row.model ?? undefined,
+      assessment: parseJson<TopicAssessment | null>(row.assessment_json ?? '', null) ?? undefined,
       importSource: this.getArtifactImportSource('topic', row.id),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -2656,6 +2745,9 @@ export class AppDatabase {
         providerId: version.provider_id ?? undefined,
         model: version.model ?? undefined,
         fields: parseJson<Record<string, string>>(version.fields_json, {}),
+        assessment: version.assessment_json
+          ? parseJson<TopicAssessment | null>(version.assessment_json, null) ?? undefined
+          : undefined,
         createdAt: version.created_at
       })),
       references: this.listArtifactReferencesForTarget('topic', row.id)
@@ -2964,7 +3056,7 @@ function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/$
 function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,layoutVersionId:row.layout_version_id??undefined,layoutConfigSnapshot:row.layout_config_snapshot_json?parseJson<{themeId:string;customCss?:string;styleConfig?:AccountLayoutVersion['styleConfig']}>(row.layout_config_snapshot_json,{themeId:row.theme_id??'wechat-green'}):undefined,renderEngineVersion:row.render_engine_version??undefined,createdAt:row.created_at} }
 function mapAccountLayoutVersion(row:AccountLayoutVersionRow):AccountLayoutVersion { return {id:row.id,accountId:row.profile_id,platform:row.platform,versionNumber:row.version_number,themeId:row.theme_id,customCss:row.custom_css??undefined,styleConfig:parseJson(row.style_config_json,{}),createdAt:row.created_at,updatedAt:row.updated_at} }
 function mapWechatChannel(row:WechatChannelRow):WechatPublishChannel { return {id:row.id,displayName:row.display_name,appId:row.app_id,enabled:Boolean(row.enabled),hasAppSecret:Boolean(row.has_app_secret),updatedAt:row.updated_at} }
-function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,retro:parseRetro(row.retro_json),createdAt:row.created_at,updatedAt:row.updated_at} }
+function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,retro:parseRetro(row.retro_json),publishMsgid:row.publish_msgid??undefined,createdAt:row.created_at,updatedAt:row.updated_at} }
 
 function parseRetro(value: string | null): PublicationRetro | undefined {
   if (!value) return undefined

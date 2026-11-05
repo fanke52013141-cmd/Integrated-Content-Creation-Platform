@@ -430,6 +430,8 @@ export interface HotItem {
   updateTime: string
   hotValue?: string
   rank: number
+  /** 黑马标记：排名较 90 分钟~48 小时前的快照跃升 ≥10 位（确定性计算，非模型预测） */
+  surging?: boolean
   rawJson: string
 }
 
@@ -532,6 +534,18 @@ export interface TopicSchemaField {
   sortOrder: number
 }
 
+/** 选题三维评估（借鉴 wewrite 的评分选题）：模型输出，旧数据/旧提示词版本可能缺失 */
+export interface TopicAssessment {
+  /** 吸引力：点击欲望 */
+  appeal: number
+  /** 差异化：与常见同题角度的区分度 */
+  differentiation: number
+  /** 可行性：素材获取与事实核验成本 */
+  feasibility: number
+  /** 一句话说明扣分主因 */
+  reason: string
+}
+
 export interface TopicVersion {
   id: string
   topicId: string
@@ -540,6 +554,7 @@ export interface TopicVersion {
   providerId?: string
   model?: string
   fields: Record<string, string>
+  assessment?: TopicAssessment
   createdAt: string
 }
 
@@ -555,6 +570,8 @@ export interface Topic {
   fields: Record<string, string>
   providerId?: string
   model?: string
+  /** 当前版本的三维评估；仅 AI 生成且模型按新提示词输出时存在 */
+  assessment?: TopicAssessment
   /** 最近一次外部导入的来源；本应用生成/手动新建时为空 */
   importSource?: ContentImportSource
   createdAt: string
@@ -573,6 +590,7 @@ export interface SaveTopicInput {
   fields: Record<string, string>
   providerId?: string
   model?: string
+  assessment?: TopicAssessment
 }
 
 export interface MaterialFragment { id: string; materialId: string; versionId: string; title: string; sourceUrl?: string; start: number; end: number; text: string }
@@ -687,7 +705,7 @@ export type FrameworkStatus = 'draft' | 'locked'
 export interface FrameworkTemplate { id: string; name: string; sections: string[]; isDefault: boolean; isSystem: boolean; createdAt: string; updatedAt: string }
 export interface FrameworkSection { name: string; content: string }
 export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; references: ArtifactReference[] }
-export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number }
+export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number; /** 深度预研：先用搜索模型抓取选题相关公开资料注入框架生成（借鉴 STORM 多视角提问），无搜索配置时自动跳过 */ research?: boolean }
 export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }> }
 export interface SaveFrameworkInput { id?: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; sections: FrameworkSection[]; providerId?: string; model?: string }
 export interface SaveFrameworkTemplateInput { id?: string; name: string; sections: string[]; isDefault: boolean }
@@ -697,7 +715,7 @@ export type ArticleVersionSource = 'generate' | 'revise' | 'manual' | 'restore'
 export interface ArticleVersion { id: string; articleId: string; versionNumber: number; source: ArticleVersionSource; instruction?: string; providerId?: string; model?: string; label?: string; rawMarkdown: string; createdAt: string }
 export interface Article { id: string; frameworkId?: string; accountId?: string; materialIds: string[]; manualOutline: string; status: ArticleStatus; currentVersionId: string; versionCount: number; rawMarkdown: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; versions: ArticleVersion[]; references: ArtifactReference[] }
 export type AccountSelection = { mode: 'inherit' } | { mode: 'none' } | { mode: 'specific'; accountId: string }
-export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; accountSelection?: AccountSelection; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number }
+export interface GenerateArticlesInput { frameworkId?: string; accountId?: string; accountSelection?: AccountSelection; materialIds: string[]; manualOutline?: string; providerId: string; model: string; count: number; /** 文风体检自动修正：候选生成后执行"体检→按意见改写→复检"循环（上限 2 轮，防退化），轨迹写入生成结果消息 */ polish?: boolean }
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }>; requestId?: string }
 export interface ReviseArticleInput { articleId: string; revisionMode: 'new-version' | 'new-candidates'; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string; expectedVersionId?: string; draftRevision?: number }
 export interface ReviseArticleResult extends GenerateArticlesResult {}
@@ -865,7 +883,7 @@ export interface SaveWechatPublishChannelInput { appId: string; appSecret?: stri
 export type PublicationStatus = 'draft' | 'published' | 'failed' | 'unknown'
 export interface PublicationResolution { decision: 'received' | 'not-received' | 'unresolved'; note: string; checkedAt: string; remoteId?: string }
 export interface PublicationSnapshot { retryOf?: string; appId: string; html: string; input: PushWechatDraftInput }
-export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot; resolution?: PublicationResolution; retryOf?: string }
+export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; /** 发表态消息 ID（msgid）：数据统计的键；当前链路只到草稿箱，待「发表」能力上线后回填 */ publishMsgid?: string; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot; resolution?: PublicationResolution; retryOf?: string }
 export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId?: string; coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string; appId?: string }
 export interface PublishFormDraft { articleId: string; layoutId: string; appId: string; coverAssetId: string; thumbMediaId: string; author: string; digest: string; contentSourceUrl: string; importSource?: ContentImportSource }
 export interface DeliveryCheck { ready: boolean; issues: string[]; localImageCount: number; title: string; articleVersionNumber: number; appId: string }
@@ -1260,6 +1278,8 @@ export interface MoliuApi {
     update(input: UpdatePublicationInput): Promise<Publication>
     /** 记录发布复盘（目标/结果/经验），传空即清除 */
     saveRetro(input: SavePublicationRetroInput): Promise<Publication>
+    /** H1 数据回填脚手架：从公众号 datacube 拉取发表态文章的阅读/分享数据并写入复盘 metrics */
+    refreshMetrics(input: { publicationId: string }): Promise<Publication>
     /** 把图片资产上传到公众号素材库，回填 media_id */
     uploadWechatCover(input: { assetId: string }): Promise<VisualAsset>
   }

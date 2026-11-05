@@ -171,7 +171,9 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
     const result = await service.start({ articleId, roleIds, fallbackProviderId: PROVIDER_ID, fallbackModel: MODEL_ID })
     expect(result.failed).toHaveLength(2)
     expect(result.task.status).toBe('failed')
-    expect(result.task.opinions).toHaveLength(0)
+    // 角色全挂时模型意见为 0，但确定性的机器体检意见仍然可用
+    expect(result.task.opinions.filter((opinion) => opinion.roleId)).toHaveLength(0)
+    expect(result.task.opinions.map((opinion) => opinion.roleName)).toContain('机器体检')
     expect(result.task.failures.map((item) => item.roleName)).toEqual(roleNames)
     database.close()
   })
@@ -182,8 +184,9 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
     const service = new ReviewService(database, gateway, new ArticleGenerator(database, gateway, prompts))
     const result = await service.start({ articleId, roleIds, fallbackProviderId: PROVIDER_ID, fallbackModel: MODEL_ID })
     expect(result.task.status).toBe('partial')
-    expect(result.task.opinions).toHaveLength(1)
-    expect(result.task.opinions[0]?.problems[0]?.issue).toBe('太空')
+    const modelOpinions = result.task.opinions.filter((opinion) => opinion.roleId)
+    expect(modelOpinions).toHaveLength(1)
+    expect(modelOpinions[0]?.problems[0]?.issue).toBe('太空')
     database.close()
   })
 
@@ -194,7 +197,7 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
     const result = await service.start({ articleId, roleIds, fallbackProviderId: PROVIDER_ID, fallbackModel: MODEL_ID })
 
     expect(result.task.status).toBe('failed')
-    expect(result.task.opinions).toHaveLength(0)
+    expect(result.task.opinions.filter((opinion) => opinion.roleId)).toHaveLength(0)
     expect(result.failed).toHaveLength(roleIds.length)
     expect(result.failed.every((item) => item.message.includes('未返回可识别的评审意见'))).toBe(true)
     database.close()
@@ -213,7 +216,7 @@ describe('F07/F14 评审任务真实状态与版本基线', () => {
 
     expect(result.task.status).toBe('completed')
     expect(result.task.roleIds).toEqual([roleIds[0]])
-    expect(result.task.opinions).toHaveLength(1)
+    expect(result.task.opinions.filter((opinion) => opinion.roleId)).toHaveLength(1)
     expect(gateway.chat).toHaveBeenCalledTimes(1)
     database.close()
   })

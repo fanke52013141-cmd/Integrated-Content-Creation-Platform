@@ -167,12 +167,26 @@ export class HotspotService {
       .sort((left, right) => left.sortOrder - right.sortOrder)
   }
 
+  /** 黑马判定：当前排名比 90 分钟~48 小时前的基线跃升 ≥ 10 位 */
+  private static readonly SURGE_RANK_JUMP = 10
+
   async refresh(sourceIds?: string[]): Promise<HotSourceResult[]> {
     if (!this.sources.length) await this.bootstrap()
     const requested = sourceIds?.length
       ? this.sources.filter((source) => sourceIds.includes(source.id))
       : this.sources
-    return Promise.all(requested.map((source) => this.fetchSource(source)))
+    const results = await Promise.all(requested.map((source) => this.fetchSource(source)))
+    for (const result of results) {
+      if (result.status !== 'ready' || !this.database) continue
+      // 快照落库 + 黑马标记：排名跃升是确定性计算，历史不足 90 分钟时不误报
+      this.database.recordHotSnapshots(result.source.id, result.items)
+      const baselines = this.database.getHotRankBaselines(result.source.id)
+      for (const item of result.items) {
+        const baseline = baselines.get(item.id)
+        if (baseline !== undefined && baseline - item.rank >= HotspotService.SURGE_RANK_JUMP) item.surging = true
+      }
+    }
+    return results
   }
 
   private normalizeSource(route: UpstreamRoute): HotSource | undefined {

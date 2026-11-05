@@ -249,6 +249,7 @@ const api: MoliuApi = {
       prompts: input => ipcRenderer.invoke('visual-studio:prompts', input),
       generate: input => ipcRenderer.invoke('visual-studio:generate', input),
       select: input => ipcRenderer.invoke('visual-studio:select', input),
+      review: input => ipcRenderer.invoke('visual-studio:review', input),
       preview: id => ipcRenderer.invoke('visual-studio:preview', id),
       apply: input => ipcRenderer.invoke('visual-studio:apply', input),
       undo: input => ipcRenderer.invoke('visual-studio:undo', input)
@@ -300,6 +301,7 @@ const api: MoliuApi = {
     pushWechatDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-draft', input),
     update: (input) => ipcRenderer.invoke('publishing:update', input),
     saveRetro: (input) => ipcRenderer.invoke('publishing:retro', input),
+    refreshMetrics: (input) => ipcRenderer.invoke('publishing:refresh-metrics', input),
     uploadWechatCover: (input) => ipcRenderer.invoke('publishing:wechat:upload-cover', input)
   }
 }

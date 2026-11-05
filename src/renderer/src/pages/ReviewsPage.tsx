@@ -51,7 +51,9 @@ function reviewStatusOf(task: ReviewTask, live: boolean): { label: string; badge
   if (task.status === 'running') {
     return live ? { label: statusLabels.running, badge: 'primary' } : { label: '评审已中断', badge: 'danger' }
   }
-  const failedUnits = Math.max(task.failures.length, task.roleIds.length - task.opinions.length)
+  // 机器体检/手动添加的意见没有 roleId，不计入角色覆盖统计
+  const effectiveOpinions = task.opinions.filter((opinion) => opinion.roleId && task.roleIds.includes(opinion.roleId)).length
+  const failedUnits = Math.max(task.failures.length, task.roleIds.length - effectiveOpinions)
   if (task.roleIds.length > 0 && failedUnits >= task.roleIds.length) return { label: statusLabels.failed, badge: 'danger' }
   if (failedUnits > 0) return { label: `部分完成 · ${failedUnits} 个角色失败`, badge: 'warning' }
   if (task.status === 'partial') return { label: statusLabels.partial, badge: 'warning' }
@@ -313,7 +315,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                   {isReviewBaselineStale(task, selectedArticle) && task.status !== 'applied' && (
                     <span className="badge warning">基线已过期 · 评审第 {task.articleVersionNumber} 版</span>
                   )}
-                  <small>{formatDate(task.createdAt)} · 基于第 {task.articleVersionNumber} 版 · {task.opinions.length}/{task.roleIds.length} 个角色有效 · 采纳 {allAdoptedCount(task)} 条问题</small>
+                  <small>{formatDate(task.createdAt)} · 基于第 {task.articleVersionNumber} 版 · {task.opinions.filter((opinion) => opinion.roleId && task.roleIds.includes(opinion.roleId)).length}/{task.roleIds.length} 个角色有效 · 采纳 {allAdoptedCount(task)} 条问题</small>
                   {task.failures.length > 0 && (
                     <small className="review-task-failures">失败：{task.failures.map((item) => `${item.roleName || '未知角色'} ${item.message.slice(0, 40)}`).join('；')}</small>
                   )}

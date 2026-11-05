@@ -806,7 +806,8 @@ export function registerIpc(options: {
       topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
       materialIds: z.array(z.string().uuid()).max(30), templateId: z.string().min(1).max(100),
       manualTopic: z.string().trim().max(2_000).optional(), providerId: z.string().uuid(),
-      model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3)
+      model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
+      research: z.boolean().optional()
     }).parse(raw)
     return runGeneration(event, 'frameworks', (signal) =>
       frameworkGenerator.generate(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
@@ -845,7 +846,8 @@ export function registerIpc(options: {
       frameworkId: articleIdSchema.optional(), accountId: articleIdSchema.optional(),
       accountSelection: z.discriminatedUnion('mode', [z.object({ mode: z.literal('inherit') }), z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('specific'), accountId: articleIdSchema })]).optional(),
       materialIds: z.array(articleIdSchema).max(30), manualOutline: z.string().trim().min(1).max(30_000).optional(),
-      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3)
+      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
+      polish: z.boolean().optional()
     }).refine((value) => Boolean(value.frameworkId || value.manualOutline), { message: '请选择框架或填写手动框架' }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.generate(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))

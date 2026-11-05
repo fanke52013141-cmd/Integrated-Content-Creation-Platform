@@ -4,12 +4,46 @@ import type { DeliveryCheck, Publication, PublicationSnapshot, PushWechatDraftIn
 import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
 import type { VisualAssetService } from './visual-asset-service.js'
-import { localAssetNames, replaceLocalAssets } from './local-assets.js'
+import { localAssetNames, localAssetName } from './local-assets.js'
 import { formatViolations, hasBlockingViolation, validateWechatLayout } from './layout-validator.js'
 
-interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number }
+interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number; list?: Array<Record<string, unknown>> }
 class WechatRejectedError extends Error {}
 const MIME_BY_EXT: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }
+
+/**
+ * 从 PNG/JPEG 二进制头部读取像素尺寸（正文本地图只允许 PNG/JPG，见 MIME_BY_EXT）。
+ *
+ * 为什么要解析：官方宽度检测采用"已加载图片优先 + data-w 占位兜底"策略，
+ * 建议 img 携带 data-w（原始像素宽），否则固定宽度图可能被误报溢出。
+ * 上传前本就持有图片字节，顺手从头部解析，不引入任何图片库依赖。
+ * 解析不出（损坏/异形格式）返回 null，调用方跳过即可，不阻塞上传链路。
+ */
+export function imageDimensionsFromBuffer(bytes: Uint8Array): { width: number; height: number } | null {
+  // PNG：8 字节签名 + IHDR 块，宽高在固定偏移 16/20（大端）
+  if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const width = view.getUint32(16)
+    const height = view.getUint32(20)
+    return width > 0 && height > 0 ? { width, height } : null
+  }
+  // JPEG：SOI(FFD8) 后逐段扫描，SOF0/1/2（0xC0-0xCF，排除 C4/C8/CC 段）里是高宽
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2
+    while (offset + 9 <= bytes.length) {
+      if (bytes[offset] !== 0xff) break
+      const marker = bytes[offset + 1]
+      const length = (bytes[offset + 2] << 8) | bytes[offset + 3]
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        const height = (bytes[offset + 5] << 8) | bytes[offset + 6]
+        const width = (bytes[offset + 7] << 8) | bytes[offset + 8]
+        return width > 0 && height > 0 ? { width, height } : null
+      }
+      offset += 2 + length
+    }
+  }
+  return null
+}
 
 /** 请求失败不打印 URL（token/secret 在查询参数内）。写入结果未知时禁止盲目重试。 */
 export class WechatPublishService {
@@ -182,6 +216,7 @@ export class WechatPublishService {
 
   private async prepareInlineImages(html: string, appId: string): Promise<string> {
     const replacements = new Map<string, string>()
+    const widths = new Map<string, number>()
     const assets = new Map(this.database.listVisualAssets().map(asset => [asset.fileName, asset]))
     for (const name of localAssetNames(html)) {
       const asset = assets.get(name)
@@ -197,8 +232,23 @@ export class WechatPublishService {
       }
       this.database.saveWechatBodyImageUrl(appId,name,hash,url)
       replacements.set(name, url)
+      // 同一次读取顺手解析原始像素宽，供 data-w 标注（解析失败不阻塞）
+      const size = imageDimensionsFromBuffer(bytes)
+      if (size?.width) widths.set(name, size.width)
     }
-    return replaceLocalAssets(html, replacements)
+    // 逐个 img 标签替换本地地址并补 data-w。不走 replaceLocalAssets：
+    // 它只能替换 src 值本身，而 data-w 需要写在标签属性上，必须拿到完整标签。
+    // 非 moliu-asset 的 img（微信图床/占位符）原样保留，由后续检查兜底。
+    return html.replace(/<img\b[^>]*>/gi, (tag) => {
+      const raw = tag.match(/\bsrc=["']moliu-asset:\/\/assets\/([^"']+)["']/i)?.[1]
+      if (!raw) return tag
+      const name = localAssetName(raw)
+      const url = replacements.get(name)
+      if (!url) throw new Error(`图片“${name}”未完成交付处理`)
+      const width = widths.get(name)
+      const dataW = width ? ` data-w="${width}"` : ''
+      return tag.replace(/\bsrc=["'][^"']*["']/i, `src="${url}"`).replace(/^<img/i, `<img${dataW}`)
+    })
   }
 
   async uploadAsset(assetId: string): Promise<VisualAsset> {
@@ -232,6 +282,40 @@ export class WechatPublishService {
     if (payload.errcode === 40001 || payload.errcode === 42001) { this.tokenCache = null; payload = await upload(await this.token(true)) }
     if (payload.errcode) throw new WechatRejectedError(wechatErrorMessage(payload.errcode, payload.errmsg))
     return payload
+  }
+
+  /**
+   * H1 阅读数据回填脚手架：从 datacube/getarticletotal 拉取发表态文章的阅读/分享数据，
+   * 写入发布记录复盘的 metrics（只动 metrics，不覆盖用户手填的目标/结果/经验）。
+   * 已知限制：当前发布链路只推送草稿箱（draft/add），草稿 media_id 不是发表态 msgid，
+   * 无法作为统计键；因此没有 publishMsgid 时给出明确错误，而不是静默返回空数据。
+   * 「发表」（freepublish）能力上线后自动回填 publishMsgid 即可打通全链路。
+   */
+  async refreshMetrics(publicationId: string): Promise<Publication> {
+    const publication = this.database.getPublication(publicationId)
+    if (!publication) throw new Error('发布记录不存在')
+    const msgid = publication.publishMsgid
+    if (!msgid) throw new Error('尚未登记发表态消息 ID（msgid）：当前发布链路只到草稿箱，草稿 media_id 不能用于数据统计。待「发表」能力上线后自动回填。')
+    const token = await this.token()
+    const day = 24 * 60 * 60 * 1000
+    const fmt = (timestamp: number) => new Date(timestamp).toISOString().slice(0, 10)
+    // 阅读统计隔天出数：取截至昨天、近 3 天窗口
+    const payload = await this.request(`/datacube/getarticletotal?access_token=${encodeURIComponent(token)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ begin_date: fmt(Date.now() - 3 * day), end_date: fmt(Date.now() - day) })
+    })
+    const rows = (payload.list ?? []).filter(item => String(item.msgid) === msgid)
+    if (!rows.length) throw new Error('统计接口暂未返回该文章的数据（发布后隔天才有统计，请稍后再试）')
+    const latest = rows[rows.length - 1]!
+    const numeric = (value: unknown): number | undefined => {
+      const parsed = typeof value === 'number' ? value : Number(value)
+      return Number.isFinite(parsed) ? parsed : undefined
+    }
+    return this.database.updatePublicationMetrics(publicationId, {
+      reads: numeric(latest.int_page_read_count),
+      shares: numeric(latest.int_page_share_count),
+      cutoff: typeof latest.date === 'string' ? latest.date : undefined
+    })
   }
 
   private async token(force = false): Promise<string> {

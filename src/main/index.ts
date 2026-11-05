@@ -112,7 +112,7 @@ if (!hasLock) {
         keyStore,
         process.env.MOLIU_DOUBAO_SEARCH_ENDPOINT || undefined
       )
-      const frameworkGenerator = new FrameworkGenerator(database, gateway, prompts)
+      const frameworkGenerator = new FrameworkGenerator(database, gateway, prompts, materialSearchService)
       const articleGenerator = new ArticleGenerator(database, gateway, prompts)
       const reviewService = new ReviewService(database, gateway, articleGenerator)
       const visualPackGenerator = new VisualPackGenerator(database, gateway, prompts)

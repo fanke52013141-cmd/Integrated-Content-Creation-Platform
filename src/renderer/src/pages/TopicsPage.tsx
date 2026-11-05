@@ -520,6 +520,14 @@ function TopicCard({
             {topic.status === 'locked' ? '已锁定' : '草稿'}
           </span>
           {topic.isInLibrary && <span className="badge primary"><BookmarkCheck size={16} />已入库</span>}
+          {topic.assessment && (
+            <span
+              className="badge neutral"
+              title={topic.assessment.reason || '选题三维评估：吸引力 / 差异化 / 可行性'}
+            >
+              评估 {topic.assessment.appeal}/{topic.assessment.differentiation}/{topic.assessment.feasibility}
+            </span>
+          )}
           {draftReference && <span className="badge warning">引用草稿账号</span>}
         </div>
         <div className="topic-card-actions">

@@ -24,6 +24,7 @@ export function registerPublishingIpc(handle: RegisterHandler, database: AppData
   handle('publishing:preflight', (_event, raw: unknown) => service.preflight(draftSchema.parse(raw)))
   handle('publishing:resolve-unknown', (_event, raw: unknown) => service.resolveUnknown(z.object({ id, decision: z.enum(['received', 'not-received', 'unresolved']), note: z.string().trim().min(1).max(2000), expectedUpdatedAt: z.string().max(100), remoteId: z.string().trim().min(1).max(200).optional() }).parse(raw)))
   handle('publishing:retry', (_event, publicationId: string) => service.retry(id.parse(publicationId)))
+  handle('publishing:refresh-metrics', (_event, publicationId: string) => service.refreshMetrics(id.parse(publicationId)))
   handle('publishing:form:get', (_event, articleId: string) => database.workflow.getForm(id.parse(articleId)))
   handle('publishing:form:save', (_event, raw: unknown) => database.workflow.saveForm(z.object({
     articleId: id, layoutId: z.string().max(100), appId: z.string().max(100), coverAssetId: z.string().max(100), thumbMediaId: z.string().max(200),

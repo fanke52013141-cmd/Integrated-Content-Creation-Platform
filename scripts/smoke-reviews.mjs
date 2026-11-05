@@ -32,6 +32,8 @@ try {
   const page = await app.firstWindow()
   page.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await page.waitForLoadState('domcontentloaded')
+  // 首启引导弹窗会拦截后续所有点击：全新 userData 环境必弹，等它挂载后关掉；没有则跳过
+  await page.getByRole('button', { name: '稍后再说' }).first().click({ timeout: 8000 }).catch(() => {})
   await page.getByRole('button', { name: 'AI 服务' }).first().click()
   await page.getByRole('button', { name: /空白配置/ }).click()
   await page.getByLabel('显示名称').fill('Review')
@@ -107,8 +109,9 @@ try {
       failedApplyRejected = error instanceof Error ? error.message : String(error)
     }
     return {
-      opinions: started.task.opinions.length,
-      problems: started.task.opinions[0]?.problems.length ?? 0,
+      opinions: started.task.opinions.filter((opinion) => opinion.roleId).length,
+      checkerPresent: started.task.opinions.some((opinion) => opinion.roleName === '机器体检'),
+      problems: started.task.opinions.find((opinion) => opinion.roleId)?.problems.length ?? 0,
       appliedStatus: appliedTask?.status,
       appliedMarkdown: applied.rawMarkdown,
       boundVersionNumber: started.task.articleVersionNumber,
@@ -117,7 +120,7 @@ try {
       staleVersionNumber: beforeStale,
       forcedVersionId: forced.currentVersionId,
       partialStatus: partial.task.status,
-      partialOpinions: partial.task.opinions.length,
+      partialOpinions: partial.task.opinions.filter((opinion) => opinion.roleId).length,
       partialFailedCount: partial.failed.length,
       allFailedStatus: allFailed.task.status,
       allFailedCount: allFailed.failed.length,
@@ -126,6 +129,7 @@ try {
     }
   })
   if (data.opinions !== 1 || data.problems !== 1) throw new Error('Review opinion not parsed')
+  if (!data.checkerPresent) throw new Error('Deterministic machine-check opinion missing')
   if (data.appliedStatus !== 'applied') throw new Error(`Applied task status is ${data.appliedStatus}`)
   if (!data.appliedMarkdown.includes('改稿标题')) throw new Error('Applied review did not rewrite the article')
   if (!data.baselineVersionId || data.boundVersionNumber !== 1) throw new Error(`Review task is not bound to the reviewed version: ${JSON.stringify(data)}`)

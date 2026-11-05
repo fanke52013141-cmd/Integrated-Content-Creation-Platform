@@ -51,6 +51,8 @@ export function FrameworksPage({
   const [materialIds, setMaterialIds] = useDraftSelection('framework-materials')
   const [manualTopic, setManualTopic] = useDraftState('framework-topic')
   const [count, setCount] = useState(3)
+  // 深度预研默认开启：已配搜索模型时先抓取选题相关公开资料再生成框架，未配置则自动跳过
+  const [research, setResearch] = useState(true)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
@@ -112,7 +114,7 @@ export function FrameworksPage({
       const result = await stream.run(() => window.moliu.frameworks.generate({
         templateId, topicId: topicId || undefined, accountId: accountId || undefined,
         materialIds: [...materialIds], manualTopic: manualTopic.trim() || undefined,
-        providerId: target.providerId, model: target.modelId, count
+        providerId: target.providerId, model: target.modelId, count, research
       }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
       setLastFailed(result.failed)
@@ -190,6 +192,7 @@ export function FrameworksPage({
       <MaterialContextPreview ids={materialIds} query={topics.find(topic => topic.id === topicId)?.seedKeyword ?? manualTopic} baseText={manualTopic} providerId={decodeModelTarget(modelTarget)?.providerId} model={decodeModelTarget(modelTarget)?.modelId} />
       <footer>
         <div className="field framework-count"><span className="field-label">数量</span><Segmented ariaLabel="生成数量" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></div>
+        <label className="field framework-research"><span className="field-label">深度预研</span><span className="check-line"><input type="checkbox" checked={research} onChange={(event) => setResearch(event.target.checked)} />先联网抓取选题相关资料再生成（未配搜索模型时自动跳过）</span></label>
         <button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={16} />新建模板</button>
         <button
           className="button primary"

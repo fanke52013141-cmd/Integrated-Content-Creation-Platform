@@ -157,8 +157,11 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
       fallbackModel: MODEL_ID
     })
     expect(reviewResult.failed).toHaveLength(0)
-    expect(reviewResult.task.opinions).toHaveLength(1)
-    expect(reviewResult.task.opinions[0].problems.length).toBeGreaterThanOrEqual(1)
+    // 模型意见按 roleId 归属角色；机器体检是确定性意见，无 roleId，同样落库
+    const modelOpinions = reviewResult.task.opinions.filter((opinion) => opinion.roleId)
+    expect(modelOpinions).toHaveLength(1)
+    expect(modelOpinions[0]!.problems.length).toBeGreaterThanOrEqual(1)
+    expect(reviewResult.task.opinions.some((opinion) => opinion.roleName === '机器体检')).toBe(true)
 
     // === 阶段 6：采纳评审意见改稿 ===
     // 作者明确选择采用意见，生成结果仍需比较采纳。

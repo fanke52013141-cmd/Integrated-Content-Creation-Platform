@@ -47,6 +47,8 @@ try {
   const window = await application.firstWindow()
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
+  // 首启引导弹窗会拦截后续所有点击：全新 userData 环境必弹，等它挂载后关掉；没有则跳过
+  await window.getByRole('button', { name: '稍后再说' }).first().click({ timeout: 8000 }).catch(() => {})
 
   await window.getByRole('button', { name: 'AI 服务' }).first().click()
   await window.getByRole('button', { name: /空白配置/ }).click()

@@ -719,6 +719,7 @@ export function HotspotsPage({
                         <button className="hot-item-link" disabled={!item.url} onClick={() => void openSource(item.url)}>
                           <span>{item.title}</span>
                         </button>
+                        {item.surging && <span className="hot-surge" title="排名较此前快照跃升 10 位以上">飙升</span>}
                         <span className="hot-value">{item.hotValue || '—'}</span>
                         <button
                           className={`hot-favorite-button ${favorited ? 'active' : ''}`}

@@ -58,6 +58,8 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   const [materialIds, setMaterialIds] = useDraftSelection('article-materials')
   const [manualOutline, setManualOutline] = useDraftState('article-outline')
   const [count, setCount] = useState(1)
+  // 文风体检自动修正默认开启：只在体检发现 medium/high 问题时才产生额外改稿调用，达标候选零额外成本
+  const [polish, setPolish] = useState(true)
   const [revising, setRevising] = useState(false)
   const [revisionMode, setRevisionMode] = useState<ReviseArticleInput['revisionMode']>('new-version')
   const [requestId, setRequestId] = useState('')
@@ -181,7 +183,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     }
     setComposeError(undefined)
     try {
-      const request: GenerateArticlesInput = { frameworkId: frameworkId || undefined, accountId: accountId || undefined, accountSelection: accountId ? { mode: 'specific', accountId } : { mode: 'none' }, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count: candidateCount }
+      const request: GenerateArticlesInput = { frameworkId: frameworkId || undefined, accountId: accountId || undefined, accountSelection: accountId ? { mode: 'specific', accountId } : { mode: 'none' }, materialIds: [...materialIds], manualOutline: manualOutline.trim() || undefined, providerId: target.providerId, model: target.modelId, count: candidateCount, polish }
       failedRequest.current = { kind: 'generate', input: request }
       const result = await stream.run(() => window.moliu.articles.generate(request))
       setRequestId(result.requestId ?? '')
@@ -189,7 +191,11 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       if (result.articles.length) setComposerOpen(false)
       setLastFailed(result.failed)
       if (stream.isCancelled()) { showToast({ type: 'info', message: `已取消，保留 ${result.articles.length} 篇已完成结果` }); return }
-      showToast({ type: !result.articles.length ? 'error' : result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : `已生成 ${result.articles.length} 篇成稿` })
+      // 体检轨迹在折叠的生成历史里，第一触点的 toast 要带上，用户不用翻记录就能看到改了什么
+      const polishTrace = result.requestId
+        ? (await window.moliu.articles.listRequests()).find(item => item.id === result.requestId)?.results.find(item => item.message.includes('文风体检自动修正'))?.message ?? ''
+        : ''
+      showToast({ type: !result.articles.length ? 'error' : result.failed.length ? 'warning' : 'success', message: result.failed.length ? `已生成 ${result.articles.length} 篇，${result.failed.length} 篇失败` : polishTrace ? `已生成 ${result.articles.length} 篇成稿 · ${polishTrace}` : `已生成 ${result.articles.length} 篇成稿` })
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消本次写作' } : { type: 'error', message: errorMessage(error) })
     }
@@ -365,7 +371,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       {frameworkAccountHint && <p className="inline-alert">所选框架使用账号「{accounts.find((account) => account.id === frameworkAccountHint)?.name ?? '已删除'}」定位，当前写作账号不同。<button className="text-button" onClick={() => { setAccountId(frameworkAccountHint); setFrameworkAccountHint('') }}>改用框架账号</button><button className="text-button" onClick={() => setFrameworkAccountHint('')}>保持当前</button></p>}
       <MaterialPicker materials={usableMaterials} selected={materialIds} onToggle={(id, checked) => { setInheritedMaterials(false); setMaterialIds((current) => { const next = new Set(current); checked ? next.add(id) : next.delete(id); return next }) }} onNavigate={onNavigate} />
       <MaterialContextPreview ids={materialIds} query={selectedFramework?.rawXml ?? manualOutline} baseText={selectedFramework?.rawXml ?? manualOutline} providerId={decodeModelTarget(modelTarget)?.providerId} model={decodeModelTarget(modelTarget)?.modelId} />
-      <details className="composer-advanced"><summary><Sliders size={16} />高级选项</summary><div className="field article-count"><span className="field-label">每批生成</span><Segmented ariaLabel="每批生成" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 篇` }))} /></div></details>
+      <details className="composer-advanced"><summary><Sliders size={16} />高级选项</summary><div className="field article-count"><span className="field-label">每批生成</span><Segmented ariaLabel="每批生成" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 篇` }))} /></div><label className="field article-polish-toggle"><span className="field-label">文风体检自动修正</span><span className="check-line"><input type="checkbox" checked={polish} onChange={(event) => setPolish(event.target.checked)} />生成后自动按文风体检意见改写并复检（最多 2 轮，不改善则保留原稿）</span></label></details>
       {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在写作…" />}
       </div>
       <footer className="article-composer-footer">

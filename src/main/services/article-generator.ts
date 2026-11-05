@@ -18,6 +18,7 @@ import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { contentCompletion, completionMessage } from './content-completion.js'
+import { polishMarkdown } from './article-polisher.js'
 
 interface PreparedArticleRequest {
   maxTokens?: number
@@ -145,7 +146,14 @@ export class ArticleGenerator {
       state.content = response.content
       state.completion = contentCompletion(response.content, response.finishReason)
       if (state.completion !== 'complete') throw new Error(completionMessage[state.completion])
-      const markdown = normalizeMarkdown(response.content)
+      let markdown = normalizeMarkdown(response.content)
+      // 文风体检自动修正：生成后立即执行"体检→改写→复检"循环，轨迹并入结果消息
+      let polishSummary = ''
+      if ('polish' in prepared.input && prepared.input.polish) {
+        const polish = await this.polishCandidate(prepared, markdown, signal)
+        markdown = polish.markdown
+        polishSummary = polish.summary
+      }
       const original = prepared.article
       const revise = 'revisionMode' in prepared.input ? prepared.input : undefined
       const current = original ? this.database.getArticle(original.id) : null
@@ -158,7 +166,7 @@ export class ArticleGenerator {
         if (prepared.evidence) this.database.workflow.saveEvidence(article.currentVersionId, prepared.evidence)
         for (const reference of prepared.references ?? []) this.database.createArtifactReference({ ...reference, targetId: article.id })
         if (original && !targetId) this.database.createArtifactReference({ sourceType: 'article', sourceId: original.id, sourceVersionId: original.currentVersionId, sourceStatusSnapshot: original.status, targetType: 'article', targetId: article.id })
-        state = { ...state, status: 'succeeded', articleId: article.id, message: revise?.revisionMode === 'new-version' && !targetId ? '原文章或工作草稿已变化，已安全另存为备选稿，请比较后采纳' : '' }
+        state = { ...state, status: 'succeeded', content: markdown, articleId: article.id, message: [revise?.revisionMode === 'new-version' && !targetId ? '原文章或工作草稿已变化，已安全另存为备选稿，请比较后采纳' : '', polishSummary].filter(Boolean).join('；') }
         this.database.workflow.saveCreationResult(requestId, state)
         return this.database.getArticle(article.id)!
       })
@@ -169,6 +177,28 @@ export class ArticleGenerator {
       this.database.workflow.saveCreationResult(requestId, { ...state, status: 'failed', completion: state.completion ?? (state.content ? 'interrupted' : 'invalid'), message: error instanceof Error ? error.message : '生成失败' })
       throw error
     }
+  }
+
+  /** 文风体检自动修正：把确定性体检意见交给当前模型改写并复检（循环规则见 article-polisher.ts） */
+  private async polishCandidate(prepared: PreparedArticleRequest, markdown: string, signal?: AbortSignal): Promise<{ markdown: string; summary: string }> {
+    const outcome = await polishMarkdown(markdown, {
+      callRevise: async (base, instruction) => {
+        const response = await callModelWithFallback(this.gateway, {
+          providerId: prepared.input.providerId,
+          model: prepared.input.model,
+          maxTokens: prepared.maxTokens ?? 16_000,
+          temperature: 0.4,
+          jsonMode: false,
+          signal,
+          messages: [
+            { role: 'system', content: this.prompts.render('article.revise') },
+            { role: 'user', content: [`<原稿>\n${escapeXml(base)}\n</原稿>`, `<修改指令>\n${escapeXml(instruction)}\n</修改指令>`].join('\n\n') }
+          ]
+        }, { signal })
+        return response.content
+      }
+    })
+    return { markdown: outcome.markdown, summary: outcome.summary }
   }
 
   private resolveAccount(id: string | undefined) {

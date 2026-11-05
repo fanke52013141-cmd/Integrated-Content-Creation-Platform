@@ -6,6 +6,7 @@ import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { UnifiedRequest } from '../gateway/types.js'
+import { runArticleChecks } from './article-checker.js'
 import type { ArticleGenerator } from './article-generator.js'
 
 export class ReviewService {
@@ -34,6 +35,27 @@ export class ReviewService {
       articleVersionId: article.currentVersionId,
       articleVersionNumber: article.versionCount,
       roleIds
+    })
+    // 确定性文风体检先于模型角色落库：零模型成本、永不失败，任何角色全挂时它仍是可用基线；
+    // 意见与其他角色一样可采纳进改稿，是"评分不过自动改稿"循环的确定性一环
+    const report = runArticleChecks(article.rawMarkdown)
+    this.database.addReviewOpinion({
+      taskId: task.id,
+      roleName: '机器体检',
+      dimensions: ['文风', '节奏', 'AI 味'],
+      overallSuggestion: report.overall,
+      rawXml: '',
+      extractionMatched: true,
+      problems: report.findings.map((finding) => ({
+        position: finding.position,
+        severity: finding.severity,
+        issue: finding.issue,
+        suggestion: finding.suggestion,
+        adopted: false,
+        isManual: false,
+        reviewKind: 'style' as const,
+        anchor: finding.anchor
+      }))
     })
     const total = roles.length
     let failures: ReviewFailure[] = []

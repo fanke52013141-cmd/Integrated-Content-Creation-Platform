@@ -14,6 +14,11 @@ export interface VisualStyle extends VisualStyleInput {
   id: string; versionId: string; version: number; archived: boolean; createdAt: string
 }
 export interface PictureAnchor { versionId?: string; block: string; occurrence: number; placement: 'before' | 'after' | 'top' }
+/** F1 配图回看（文本模型比对版）：提示词与其挂载位置的匹配度结论 */
+export interface PictureReview {
+  verdict: 'match' | 'weak' | 'mismatch'
+  reason: string
+}
 export interface PictureBrief {
   id: string; kind: 'cover' | 'header' | 'inline' | 'release'; slot: number
   subject: string; purpose: string; ratio: string; alt: string; caption: string
@@ -22,6 +27,8 @@ export interface PictureBrief {
   selectedAssetId?: string
   promptStale?: boolean
   approvedAssetSignature?: string
+  /** 匹配度回看结论；提示词或内容语义变化后自动失效清空 */
+  review?: PictureReview
 }
 export interface VisualPlan {
   id: string; articleId: string; articleVersionId: string; sourceMarkdown: string
@@ -80,6 +87,7 @@ export interface VisualStudioApi {
   enqueue(input: GeneratePictureInput): Promise<VisualImageJob>
   controlJob(input: { id: string; action: 'pause' | 'resume' | 'retry' | 'check-result' | 'confirm-not-submitted' }): Promise<void>
   prompts(input: VisualModelTarget & { planId: string; expectedRevision: number }): Promise<VisualPlan>
+  review(input: VisualModelTarget & { planId: string; expectedRevision: number }): Promise<VisualPlan>
   generate(input: GeneratePictureInput): Promise<VisualAsset>
   select(input: { planId: string; pictureId: string; assetId: string; expectedRevision: number; allowOutdated?: boolean }): Promise<VisualPlan>
   preview(planId: string): Promise<ApplyVisualPreview>

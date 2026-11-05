@@ -16,12 +16,14 @@ import { callModelWithFallback } from '../gateway/stream-helper.js'
 import type { UnifiedRequest } from '../gateway/types.js'
 import type { PromptRegistry } from '../gateway/prompt-registry.js'
 import { GatewayError } from '../gateway/types.js'
+import type { MaterialSearchService } from './material-search-service.js'
 
 export class FrameworkGenerator {
   constructor(
     private readonly database: AppDatabase,
     private readonly gateway: ModelGateway,
-    private readonly prompts: PromptRegistry
+    private readonly prompts: PromptRegistry,
+    private readonly materialSearch?: MaterialSearchService
   ) {}
 
   async generate(input: GenerateFrameworksInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateFrameworksResult> {
@@ -43,12 +45,18 @@ export class FrameworkGenerator {
       throw new Error('部分素材不存在，或图片素材不能作为正文依据')
     }
 
+    // 深度预研（借鉴 STORM 多视角提问）：整批候选共用一次搜索，失败静默跳过
+    const researchXml = input.research !== false
+      ? await this.researchContext(topic, manualTopic)
+      : ''
+
     const work = Array.from({ length: input.count }, (_, index) => this.generateOne({
       template,
       topic,
       manualTopic,
       account,
       materials,
+      researchXml,
       input,
       index,
       total: input.count,
@@ -65,12 +73,31 @@ export class FrameworkGenerator {
     return { frameworks, failed }
   }
 
+  /** 抓取选题相关公开资料摘要作为预研上下文；未配置搜索模型或搜索失败时返回空串，绝不阻塞框架生成 */
+  private async researchContext(topic: Topic | null, manualTopic: string): Promise<string> {
+    if (!this.materialSearch) return ''
+    const query = (topic?.fields['选题主题'] || Object.values(topic?.fields ?? {})[0] || manualTopic).trim()
+    if (!query) return ''
+    try {
+      const result = await this.materialSearch.search({ type: 'web', query, count: 8 })
+      const webResults = result.results.filter((item): item is import('../../shared/contracts.js').MaterialSearchWebResult => 'summary' in item)
+      if (!webResults.length) return ''
+      const body = webResults.slice(0, 8)
+        .map((item, index) => `${index + 1}. ${item.title}（${item.sourceName ?? '公开网页'}）：${item.summary || item.snippet || ''}`.trim())
+        .join('\n')
+      return `<预研资料>以下是与选题相关的公开资料摘要，可能不完整或过时，仅用于开阔角度与交叉核对；事实以 <素材> 为准，不得把预研资料当作已证实事实：\n${escapeXml(body)}\n</预研资料>`
+    } catch {
+      return ''
+    }
+  }
+
   private async generateOne(context: {
     template: FrameworkTemplate
     topic: Topic | null
     manualTopic: string
     account: ReturnType<AppDatabase['getAccount']>
     materials: Material[]
+    researchXml: string
     input: GenerateFrameworksInput
     index: number
     total: number
@@ -99,8 +126,9 @@ export class FrameworkGenerator {
             serializeFrameworkTask(context.template, context.index),
             serializeFrameworkTopic(context.topic, context.manualTopic),
             context.account ? serializeAccountXml(context.account.fields, context.account.redlines) : '<账号定位>未选择</账号定位>',
+            context.researchXml,
             evidence.text
-          ].join('\n\n')
+          ].filter(Boolean).join('\n\n')
         }
       ]
     }

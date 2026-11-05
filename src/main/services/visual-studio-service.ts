@@ -143,6 +143,8 @@ export class VisualStudioService {
       const semanticsChanged = !old || old.subject !== p.subject || old.purpose !== p.purpose || old.ratio !== p.ratio ||
         (old.style ?? current.style)?.versionId !== (p.style ?? input.style)?.versionId
       return { ...p, style: styleSnapshot(p.style), approvedAssetSignature: old?.approvedAssetSignature,
+        // 内容语义或提示词变化后，旧回看结论不再成立
+        review: old && !semanticsChanged && p.prompt === old.prompt ? p.review ?? old.review : undefined,
         promptStale: p.prompt !== old?.prompt && Boolean(p.prompt.trim()) ? false : semanticsChanged || Boolean(old?.promptStale ?? current.promptsStale) }
     })
     if (pictures.filter(p => p.kind === 'cover').length > 1 || pictures.filter(p => p.kind === 'header').length > 1) throw new Error('封面和顶部图各只能有一张')
@@ -158,7 +160,48 @@ export class VisualStudioService {
       { title: plan.title, article: plan.sourceMarkdown, pictures: unlocked.map(p => ({ id: p.id, subject: p.subject, purpose: p.purpose, ratio: p.ratio, style: styleDescription(p.style ?? plan.style) })) }, signal))
     const prompts = new Map(result.pictures.map(p => [p.id, p.prompt]))
     if (prompts.size !== unlocked.length || unlocked.some(p => !prompts.has(p.id))) throw new Error('模型返回的提示词数量或标识不完整，请重试')
-    return this.store.save({ ...plan, promptsStale: false, pictures: plan.pictures.map(p => ({ ...p, promptStale: false, prompt: prompts.get(p.id) ?? p.prompt })) })
+    // 重新生成的提示词内容已变化：旧回看结论随之失效清空
+    const unlockedIds = new Set(unlocked.map(p => p.id))
+    return this.store.save({ ...plan, promptsStale: false, pictures: plan.pictures.map(p => ({ ...p, promptStale: false, review: unlockedIds.has(p.id) ? undefined : p.review, prompt: prompts.get(p.id) ?? p.prompt })) })
+  }
+
+  /**
+   * F1 配图回看（文本模型比对版）：评估每条提示词与其挂载位置的匹配度。
+   * 文本模型看不到图片本身，比对的是"提示词 ↔ 段落/封面主题"——提示词决定成图内容，
+   * 它与位置对不上，图必然不对位。回看只给结论不自动重生成（生图提交涉及真实扣费）。
+   */
+  async review(input: VisualModelTarget & { planId: string; expectedRevision: number }, signal?: AbortSignal): Promise<VisualPlan> {
+    const plan = this.checked(input.planId, input.expectedRevision)
+    const withPrompt = plan.pictures.filter(p => p.prompt.trim())
+    if (!withPrompt.length) throw new Error('请先生成提示词，再做匹配度回看')
+    const article = this.database.getArticle(plan.articleId)
+    const blocks = article ? articleBlocks(article.rawMarkdown) : []
+    const blockText = new Map(blocks.map(block => [block.text, block]))
+    const result = z.object({ pictures: z.array(z.object({
+      id: z.string().uuid(),
+      verdict: z.enum(['match', 'weak', 'mismatch']).catch('weak'),
+      reason: z.string().max(300).catch('')
+    })) }).parse(await this.json(input,
+      new PromptRegistry(this.database).render('visual-studio.review'),
+      {
+        title: plan.title,
+        blocks: blocks.map((block, index) => ({ index, content: block.text })),
+        pictures: withPrompt.map(p => ({
+          id: p.id, kind: p.kind, subject: p.subject, purpose: p.purpose, prompt: p.prompt,
+          placement: p.kind === 'cover' ? '封面：全文主题是「' + plan.title + '」'
+            : p.kind === 'header' ? '文章顶部横图'
+            : (() => {
+                const block = blockText.get(p.anchor.block)
+                return block ? `插入到第 ${blocks.indexOf(block) + 1} 段之后，段落内容：${block.text.slice(0, 160)}` : '原挂载段落已不在当前正文中，需要重新确认位置'
+              })()
+        }))
+      }, signal))
+    const verdicts = new Map(result.pictures.map(p => [p.id, { verdict: p.verdict, reason: p.reason }]))
+    const withPromptIds = new Set(withPrompt.map(p => p.id))
+    return this.store.save({ ...plan, pictures: plan.pictures.map(p => ({
+      ...p,
+      review: withPromptIds.has(p.id) ? verdicts.get(p.id) ?? { verdict: 'weak' as const, reason: '模型未返回该图的评估' } : undefined
+    })) })
   }
   private checked(id: string, revision: number): VisualPlan { const plan = this.store.plan(id); if (plan.revision !== revision) throw new Error('方案已更新，请重新加载'); return plan }
   async generate(input: GeneratePictureInput, signal?: AbortSignal, onTaskCreated?: (id: string) => void) {
