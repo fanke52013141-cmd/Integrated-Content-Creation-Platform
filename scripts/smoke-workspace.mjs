@@ -67,7 +67,7 @@ try {
   await window.locator('.work-bar').waitFor()
   await window.getByRole('button', { name: '收起作品栏' }).waitFor()
   await window.locator('.work-bar-title').click()
-  await window.getByText('文章工作台').first().waitFor()
+  await window.getByText('文章创作').first().waitFor()
   for (const next of ['评审', '配图', '排版']) await window.locator('.work-bar-stage-next').filter({ hasText: `下一步：${next}` }).click()
   if (!window.url().includes('layouts')) throw new Error(`作品条阶段跳转失败：${window.url()}`)
   await window.getByRole('button', { name: '创作台' }).first().click()

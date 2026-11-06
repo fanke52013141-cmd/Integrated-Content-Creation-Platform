@@ -1,5 +1,5 @@
 .prompts-page .provider-layout { grid-template-columns: 228px minmax(0, 1fr); min-height: 600px; }
-.prompts-page .provider-list-column { padding: 16px 12px; background: #fafbfc; }
+.prompts-page .provider-list-column { padding: 16px 12px; background: var(--surface-subtle); }
 .prompts-page .prompt-list { gap: 8px; }
 .prompts-page .prompt-card { align-items: flex-start; padding: 14px 12px; border-radius: 8px; }
 .prompts-page .prompt-card .provider-logo { display: none; }
@@ -23,7 +23,7 @@
 .prompt-advanced summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
 .prompt-advanced .micro-copy { margin: 12px 0; overflow-wrap: anywhere; }
 .prompt-inspector .version-panel-head { display: flex; align-items: center; gap: 8px; }
-.prompt-inspector .version-panel-head h4 { margin: 0; flex-basis: auto; }
+.prompt-inspector .version-panel-head h3 { margin: 0; flex-basis: auto; }
 .prompt-inspector h4 { flex-basis: 100%; margin-bottom: 8px; font-size: 14px; }
 .prompt-inspector .var-chip { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .prompt-inspector .prompt-vars-empty { font-size: 13px; color: var(--text-secondary); }

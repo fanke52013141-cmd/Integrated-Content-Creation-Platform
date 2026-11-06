@@ -17,7 +17,7 @@ import { StreamingPreview } from '../components/StreamingPreview'
 import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate, markdownTitle } from '../lib'
+import { errorMessage, formatDate, markdownTitle, MISSING_MODEL_MESSAGE, NEED_ARTICLE_MESSAGE } from '../lib'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
@@ -127,7 +127,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     if (!article || !roleIds.length) return
     // 缺模型时不再静默返回：按钮点了没反应比报错更困惑
     if (!target) {
-      showToast({ type: 'warning', message: '还没有可用模型：请先在「AI 服务」配置并启用一个供应商' })
+      showToast({ type: 'warning', message: MISSING_MODEL_MESSAGE })
       return
     }
     setLastFailed([])
@@ -182,7 +182,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   const apply = async (task: ReviewTask): Promise<void> => {
     const target = availableModelTarget(modelTarget)
     if (!target) {
-      showToast({ type: 'warning', message: '还没有可用模型：请先在「AI 服务」配置并启用一个供应商' })
+      showToast({ type: 'warning', message: MISSING_MODEL_MESSAGE })
       return
     }
     const stale = isReviewBaselineStale(task, selectedArticle)
@@ -248,7 +248,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
       <EmptyState
         icon={FileText}
         title="还没有可评审的文章"
-        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        description={NEED_ARTICLE_MESSAGE}
         actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
@@ -422,7 +422,7 @@ function RoleDialog({ roles, providers, onClose, onSaved, showToast }: { roles: 
       </header>
       <label className="field"><span>管理角色</span><Select ariaLabel="管理评审角色" value={roleId} onChange={selectRole} options={[{value:'',label:'新建角色'},...roles.map(role=>({value:role.id,label:role.name}))]} /></label>
       <label className="field"><span>名称</span><input name="roleName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：标题党猎人" /></label>
-      <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /><small>不指定则使用本次评审的模型。</small></label>
+      <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /></label>
       <label className="field"><span>角色指令</span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <footer>
         <span className="micro-copy">现有 {roles.length} 个角色</span>

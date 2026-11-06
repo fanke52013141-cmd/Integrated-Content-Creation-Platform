@@ -883,7 +883,7 @@ export function ProvidersPage({
                       {/* 这是新手最容易填错的字段：它指外部服务商的模型名，不是显示名。
                           说明填错的后果，避免反复试错。 */}
                       <small className="field-help">
-                        服务商提供的模型名称，需与其官方文档一致。填错会导致「测试连接」失败。
+                        与服务商文档中的模型名一致，填错会导致「测试连接」失败。
                       </small>
                     </label>
                   </div>
@@ -965,7 +965,7 @@ export function ProvidersPage({
                       placeholder='{"thinking":{"type":"disabled"}}'
                     />
                     <small className="field-help">
-                      原样合并进对话请求体，可传供应商专属参数；不能覆盖 model / messages / stream。豆包推理模型默认关闭思考（预设已填）。
+                      追加供应商专属参数；不能覆盖 model / messages / stream。
                     </small>
                   </label>
                 </article>

@@ -40,7 +40,7 @@ export function SavedVersionGate({ article, onSaved, onNavigate }: { article?: A
         <div className="page-intro-actions">
           <button className="button primary compact" disabled={busy || draft.conflict || draft.status === 'loading'} onClick={() => void save()}>{busy ? '正在处理…' : '保存为新版本'}</button>
           <button className="button secondary compact" onClick={() => onNavigate('articles', { articleId: article.id })}>返回正文</button>
-          <button className="button ghost compact" disabled={busy} onClick={() => void discard()}>放弃修改，使用已保存版本</button>
+          <button className="button ghost compact" disabled={busy} onClick={() => void discard()}>放弃修改</button>
         </div>
     </section>
     {ConfirmPortal}

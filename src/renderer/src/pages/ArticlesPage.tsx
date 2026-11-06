@@ -20,6 +20,7 @@ import { useConfirm } from '../components/useConfirm'
 import { VirtualList } from '../components/VirtualList'
 import { StreamingPreview } from '../components/StreamingPreview'
 import { PageHeader } from '../components/PageHeader'
+import { Pagination } from '../components/Pagination'
 import { ImportDialog } from '../components/ImportDialog'
 import { SourceBadge } from '../components/SourceBadge'
 import { CreationHistory } from '../components/CreationHistory'
@@ -31,7 +32,7 @@ import { useReportWork } from '../active-work'
 import { resolveAccountSelection } from '../../../shared/creation-state'
 import { diffLines } from '../../../shared/text-diff'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate, markdownTitle, sanitizeHtml } from '../lib'
+import { errorMessage, formatDate, markdownTitle, sanitizeHtml, MISSING_MODEL_MESSAGE, SELECT_MODEL_MESSAGE, DRAFT_STAGED_LABEL } from '../lib'
 
 interface ArticlesPageProps { accounts: AccountProfileSummary[]; providers: ProviderSummary[]; currentAccountId?: string; onNavigate(route: RouteId, params?: Record<string, string>): void; focusFrameworkId?: string; focusArticleId?: string; importMode?: boolean; dirtyOnly?: boolean; showToast(toast: ToastState): void }
 
@@ -178,7 +179,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
       return
     }
     if (!target) {
-      setComposeError({ field: 'model', message: '请选择可用模型后再生成。' })
+      setComposeError({ field: 'model', message: SELECT_MODEL_MESSAGE })
       return
     }
     setComposeError(undefined)
@@ -204,7 +205,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     const target = decodeModelTarget(revisionTarget)
     if (!selected) return showToast({ type: 'error', message: '请先选择一篇成稿' })
     if (!instruction.trim()) return showToast({ type: 'error', message: '请填写修改指令' })
-    if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
+    if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
     setRevising(true)
     try {
       const persistedDraft = await flush()
@@ -266,7 +267,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
   async function renameVersion(versionId: string, label: string): Promise<void> { if (!selected) return; try { await window.moliu.articles.renameVersion({ articleId: selected.id, versionId, label }); await refresh(); showToast({ type: 'success', message: label.trim() ? `已把这一版命名为「${label.trim()}」` : '已清除这一版的名称' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
   async function restore(versionId: string): Promise<void> { if (!selected) return; if (dirty && !(await confirm({ title: '恢复历史版本', message: '恢复会放弃当前未保存修改，是否继续？', confirmLabel: '恢复' }))) return; try { await discard(); const saved = await window.moliu.articles.restore({ articleId: selected.id, versionId }); if (!saved) throw new Error('本地服务没有返回恢复结果，文章保持原样'); setSelected(saved); await markSaved({ currentVersionId: saved.currentVersionId }); await refresh(); showToast({ type: 'success', message: '已从历史版本创建新草稿' }) } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } }
   async function remove(): Promise<void> {
-    if (!selected || !(await confirm({ title: '确认操作', message: '确定删除这篇成稿及其全部本地版本吗？', danger: true, confirmLabel: '确认' }))) return
+    if (!selected || !(await confirm({ title: '删除这篇成稿？', message: '其全部本地版本会一并删除。', danger: true, confirmLabel: '确认' }))) return
     try {
       await window.moliu.articles.remove(selected.id)
       setSelectedId('')
@@ -331,11 +332,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
             </button>
           )} /> : !listLoading && <div className="article-list-empty"><BookOpenText size={28} /><span>{query || listStatus !== 'all' || accountFilter !== 'all' || dirtyOnly ? '没有匹配的文章' : '暂无文章'}</span></div>}
         </div>
-        <div className="article-pagination">
-          <button className="button ghost compact" disabled={listLoading || !page} onClick={() => setPage(current => Math.max(0, current - 1))}>上一页</button>
-          <span aria-live="polite">{page + 1} / {Math.max(1, Math.ceil(total / 30))}</span>
-          <button className="button ghost compact" disabled={listLoading || (page + 1) * 30 >= total} onClick={() => setPage(current => current + 1)}>下一页</button>
-        </div>
+        <Pagination className="article-pagination" page={page} pageSize={30} total={total} disabled={listLoading} onPageChange={setPage} />
 
       </>
 
@@ -343,12 +340,12 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
     <PageHeader
       route="articles"
       onNavigate={onNavigate}
-      title="文章工作台"
+      title="文章创作"
       description="按框架扩写成稿，改稿打磨后锁定进入评审与发布"
       actions={<>
         {compactLibrary && <button className="button secondary" aria-haspopup="dialog" aria-expanded={libraryOpen} onClick={() => setLibraryOpen(true)}><LibraryBig size={16} />切换文章 · {total}</button>}
-        <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入现成稿</button>
-        {!compactLibrary && <button className="button ghost compact" onClick={() => setFileImportOpen(true)}><FileUp size={16} />导入 DOCX/HTML</button>}
+        {/* 两个导入入口合并为一个菜单（原「导入现成稿」「导入 DOCX/HTML」并排语义重复） */}
+        <details className="article-more-actions" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.open = false }} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}><summary className="button secondary" aria-haspopup="menu"><FileUp size={16} />导入 ▾</summary><div onClick={(event) => { if ((event.target as HTMLElement).closest('button')) event.currentTarget.parentElement?.removeAttribute('open') }}><button className="button ghost" onClick={() => setImportOpen(true)}>导入现成稿</button><button className="button ghost" onClick={() => setFileImportOpen(true)}>导入 DOCX/HTML</button></div></details>
         <button className="button primary" onClick={() => setComposerOpen(true)}><PenLine size={16} />新建草稿</button>
         {!compactLibrary && <button className="button secondary" onClick={() => onNavigate('frameworks')}><WandSparkles size={16} />内容框架</button>}
         {selected && !compactLibrary && <button className="button secondary compact focus-toggle" onClick={() => setFocused(value => !value)}>{focused ? '退出专注写作' : '专注写作'}</button>}
@@ -382,7 +379,7 @@ export function ArticlesPage({ accounts, providers, currentAccountId, onNavigate
               className="button primary"
               disabled={!models.length}
               onClick={() => void generate()}
-              title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
+              title={!models.length ? MISSING_MODEL_MESSAGE : undefined}
             >
               <Sparkles size={16} />生成草稿
             </button>}
@@ -461,7 +458,7 @@ function ArticleEditor({ revisionModelControl, article, draft, dirty, loadingDra
     onDraftChange(draft.slice(0, start) + before + draft.slice(start, end) + after + draft.slice(end))
     requestAnimationFrame(() => { element?.focus(); element?.setSelectionRange(start + before.length, end + before.length) })
   }
-  return (<div className="article-editor layout-desk two-col"><div className="article-canvas"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p><SourceBadge source={article.importSource} />{!article.importSource && `${article.model || '手动创建'} · `}{article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'rich' ? 'active' : ''} disabled={!richTextSupported} title={richTextSupported ? '可视化编辑基础内容' : '当前内容包含表格、嵌套列表、代码块或原始 HTML，请使用源码编辑'} onClick={() => onModeChange('rich')}><PenLine size={16} />可视化编辑</button><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={16} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={16} />源码编辑</button><button className={editorMode === 'split' ? 'active' : ''} onClick={() => onModeChange('split')}>编辑与预览</button></div><div className="article-save-state">{dirty ? <><span className="badge warning" role="status">{draftStatus === 'error' ? '暂存失败' : draftStatus === 'saving' ? '正在本地暂存…' : '已本地暂存 · 待保存版本'}</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">{loadingDraft ? '正在读取草稿…' : '已保存版本'}</span>}<button className="button primary compact" disabled={!dirty || loadingDraft} onClick={onSave}><Save size={16} />保存</button></div></div><div className="article-supplement-tools">{editorMode !== 'visual' && editorMode !== 'rich' && <div className="markdown-formatting" role="toolbar" aria-label="正文格式">{[['标题', '\n## '], ['加粗', '**', '**'], ['列表', '\n- '], ['引用', '\n> '], ['链接', '[', '](https://)']].map(([label, before, after]) => <button key={label} className="button ghost compact" disabled={loadingDraft} onClick={() => insertFormatting(before, after)}>{label}</button>)}</div>}<div className="article-tools-end">{editorMode !== 'visual' && imageAssets.length > 0 && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}{editorMode !== 'visual' && <LocalImageImport articleId={article.id} kind="inline" onImported={asset => { onAssetImported(asset); insertImage(asset) }} />}<div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={16} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={16} />HTML</button></div></div></div>{editorMode === 'rich' ? <BasicRichTextEditor ref={richEditorRef} markdown={draft} disabled={loadingDraft} onChange={onDraftChange} onSave={onSave} /> : editorMode !== 'visual' ? (
+  return (<div className="article-editor layout-desk two-col"><div className="article-canvas"><header className="article-editor-head"><div><span className="eyebrow">文章 · V{article.versionCount}</span><h2>{articleTitle(article.rawMarkdown)}</h2><p><SourceBadge source={article.importSource} />{!article.importSource && `${article.model || '手动创建'} · `}{article.materialIds.length} 条素材 · {formatDate(article.updatedAt)}</p></div><div><button className="button ghost compact" onClick={onLock}>{article.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}{article.status === 'locked' ? '解锁' : '锁定'}</button><button className="icon-button danger" title="删除" aria-label="删除" onClick={onRemove}><Trash2 size={16} /></button></div></header><div className="article-editor-toolbar"><div><button className={editorMode === 'rich' ? 'active' : ''} disabled={!richTextSupported} title={richTextSupported ? '可视化编辑基础内容' : '当前内容包含表格、嵌套列表、代码块或原始 HTML，请使用源码编辑'} onClick={() => onModeChange('rich')}><PenLine size={16} />可视化编辑</button><button className={editorMode === 'visual' ? 'active' : ''} onClick={() => onModeChange('visual')}><BookOpenText size={16} />预览</button><button className={editorMode === 'source' ? 'active' : ''} onClick={() => onModeChange('source')}><FilePenLine size={16} />源码编辑</button><button className={editorMode === 'split' ? 'active' : ''} onClick={() => onModeChange('split')}>编辑与预览</button></div><div className="article-save-state">{dirty ? <><span className="badge warning" role="status">{draftStatus === 'error' ? '暂存失败' : draftStatus === 'saving' ? '正在本地暂存…' : DRAFT_STAGED_LABEL}</span><button className="text-button" onClick={onDiscard}>放弃本地修改</button></> : <span className="badge neutral" role="status">{loadingDraft ? '正在读取草稿…' : '已保存版本'}</span>}<button className="button primary compact" disabled={!dirty || loadingDraft} onClick={onSave}><Save size={16} />保存</button></div></div><div className="article-supplement-tools">{editorMode !== 'visual' && editorMode !== 'rich' && <div className="markdown-formatting" role="toolbar" aria-label="正文格式">{[['标题', '\n## '], ['加粗', '**', '**'], ['列表', '\n- '], ['引用', '\n> '], ['链接', '[', '](https://)']].map(([label, before, after]) => <button key={label} className="button ghost compact" disabled={loadingDraft} onClick={() => insertFormatting(before, after)}>{label}</button>)}</div>}<div className="article-tools-end">{editorMode !== 'visual' && imageAssets.length > 0 && <Select value="" onChange={(value) => { const asset = imageAssets.find((item) => item.id === value); if (asset) insertImage(asset) }} ariaLabel="插入配图" disabled={!imageAssets.length} emptyText="还没有图片，先去智能配图导入或生成" placeholder={imageAssets.length ? `插入配图（${imageAssets.length} 张）` : '暂无配图'} options={imageAssets.map((asset, index) => ({ value: asset.id, label: `${asset.kind === 'release' ? '发布图' : '文内图'} ${index + 1}`, hint: asset.prompt.slice(0, 18) }))} />}{editorMode !== 'visual' && <LocalImageImport articleId={article.id} kind="inline" onImported={asset => { onAssetImported(asset); insertImage(asset) }} />}<div className="article-export-actions"><button className="button ghost compact" title="导出为 Markdown 文件" onClick={() => onExport('markdown')}><Download size={16} />Markdown</button><button className="button ghost compact" title="导出为图片内嵌的单文件 HTML" onClick={() => onExport('html')}><Download size={16} />HTML</button></div></div></div>{editorMode === 'rich' ? <BasicRichTextEditor ref={richEditorRef} markdown={draft} disabled={loadingDraft} onChange={onDraftChange} onSave={onSave} /> : editorMode !== 'visual' ? (
           /* 源码模式左右并排：左边改字，右边同步看到微信里的真实排版（与正式排版同一渲染函数） */
           <div className={`article-split ${editorMode === 'source' ? 'source-only' : ''}`}>
             <textarea ref={editorRef} onSelect={() => { selectionArticleId.current = article.id }} disabled={loadingDraft} maxLength={190000} className="article-markdown-editor" name="articleMarkdown" aria-label="正文 Markdown 编辑器" autoComplete="off" value={draft} onChange={(event) => onDraftChange(event.target.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); onSave() } }} spellCheck />
@@ -585,7 +582,7 @@ function WechatLivePreview({ articleId, markdown, themeId }: { articleId?: strin
         </div>
       </div>
       <p className="live-preview-foot micro-copy">
-        预览与实际发布使用同一套排版结果。宽度与真机一致，微信客户端的字体渲染与间距可能有细微差异。
+        预览与实际发布使用同一套排版结果；微信客户端的字体渲染可能有细微差异。
       </p>
     </section>
   )

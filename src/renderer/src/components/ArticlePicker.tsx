@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ArticleSummary } from '../../../shared/contracts'
 import { Select } from './Select'
+import { Pagination } from './Pagination'
 import { errorMessage, formatTimedDate } from '../lib'
 
 /** 选择器服务端搜索分页，当前项独立加载，不限制在最近 500 篇。 */
@@ -28,7 +29,7 @@ export function ArticlePicker({ value, onChange, disabled }: { value: string; on
   return <div className="article-picker">
     <input aria-label="搜索可选文章" placeholder="搜索标题或正文" value={query} disabled={disabled} onChange={event => { setQuery(event.target.value); setPage(0) }} />
     <Select value={value} onChange={onChange} disabled={disabled} ariaLabel="文章" searchable={false} options={choices.map(item => ({ value: item.id, label: item.title, hint: `${item.status === 'locked' ? '已锁定' : '草稿'} · 第 ${item.versionCount} 版 · ${formatTimedDate(item.updatedAt)} · ${item.id.slice(0, 8)}` }))} />
-    {total > 30 && <div className="article-picker-pagination"><button type="button" disabled={disabled || !page} onClick={() => setPage(page - 1)}>上一页</button><small>{page + 1}/{Math.ceil(total / 30)}</small><button type="button" disabled={disabled || (page + 1) * 30 >= total} onClick={() => setPage(page + 1)}>下一页</button></div>}
+    <Pagination className="article-picker-pagination" page={page} pageSize={30} total={total} disabled={disabled} onPageChange={setPage} />
     {error && <p role="alert">{error}</p>}
   </div>
 }

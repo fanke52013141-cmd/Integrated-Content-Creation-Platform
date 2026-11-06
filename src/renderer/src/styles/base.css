@@ -160,6 +160,12 @@ input[type='radio']:disabled {
   box-shadow: none;
 }
 .button.primary:hover:not(:disabled) { background: var(--btn-primary-bg-hover); }
+/* 主按钮禁用态：浅底虚化代替深灰实块（0.45 透明度的墨底会读成「大灰砖」），原因由 .form-hint 就近说明 */
+.button.primary:disabled {
+  opacity: 1;
+  background: var(--surface-strong);
+  color: var(--text-secondary);
+}
 
 .button.secondary {
   background: var(--surface-solid);
@@ -223,8 +229,9 @@ input[type='radio']:disabled {
   align-items: center;
   gap: 6px;
 }
+/* 辅助小字统一视觉：12px / tertiary / 1.6（.field small、.micro-copy、.form-hint 三机制同观感） */
 .field em { color: var(--text-tertiary); font-style: normal; font-weight: 400; }
-.field small { color: var(--text-tertiary); font-size: 12px; }
+.field small { color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
 
 .field input,
 .field textarea,
@@ -417,7 +424,7 @@ input[type="checkbox"], input[type="radio"] {
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
 .section-heading-actions { display: inline-flex; align-items: center; gap: var(--space-sm); }
 
-.page { display: flex; flex-direction: column; gap: 14px; min-width: 0; animation: fade-up var(--transition-base); }
+.page { display: flex; flex-direction: column; gap: 16px; min-width: 0; animation: fade-up var(--transition-base); }
 
 .page-intro {
   display: flex;
@@ -874,7 +881,7 @@ input[type="checkbox"], input[type="radio"] {
   margin: 6px 0 0;
   font-size: 12px;
   color: var(--text-tertiary);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 .form-hint .text-button {
   font-size: 12px;
@@ -939,14 +946,9 @@ input[type="checkbox"], input[type="radio"] {
  * 尺寸语言（高度 / 圆角 / 内边距 / 命中区），不动颜色与布局结构。
  *
  * 三档控件高度：32（行内次操作）/ 36（默认）/ 44（每屏主行动）
- * 圆角：控件 8，卡片 12，胶囊 999。
+ * 圆角：控件 8，卡片 12，胶囊 999（--radius-sm 已在 tokens.css 归一为 8px，勿在此重复定义）。
  * 逐页度量见 docs/UI-重构交付说明-2026-10-18.md。
  * ───────────────────────────────────────────────────────────── */
-
-:root {
-  /* 6px → 8px：全站不再保留 4/6 两档圆角 */
-  --radius-sm: 8px;
-}
 
 .button {
   min-height: 36px;

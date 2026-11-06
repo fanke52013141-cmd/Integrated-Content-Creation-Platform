@@ -22,7 +22,7 @@ import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
 import { availableModels, availableImageModels, DEFAULT_IMAGE_MODEL_KEY, VISUALS_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
+import { errorMessage, formatDate, formatTimedDate, markdownTitle, MISSING_IMAGE_MODEL_MESSAGE, NEED_ARTICLE_MESSAGE } from '../lib'
 import { disambiguateOptions } from '../../../shared/creation-state'
 
 /** 封面固定 21:9：PRD 原定的 2.35:1 不在供应商支持列表内，21:9 是最接近的横版比例 */
@@ -118,7 +118,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
   const generateImage = async (pack: VisualPack, kind: VisualAssetKind, slot: number, prompt: string, ratio?: string): Promise<void> => {
     const target = decodeTarget(imageTarget)
     if (!target) {
-      showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
+      showToast({ type: 'warning', message: MISSING_IMAGE_MODEL_MESSAGE })
       return
     }
     const key = `${pack.id}:${kind}:${slot}`
@@ -155,7 +155,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
     }
     const target = decodeTarget(imageTarget)
     if (!target) {
-      showToast({ type: 'warning', message: '请先在「AI 服务」为供应商开启图片能力并添加生图模型' })
+      showToast({ type: 'warning', message: MISSING_IMAGE_MODEL_MESSAGE })
       return
     }
     const slots = [
@@ -332,7 +332,7 @@ export function VisualsPage({ providers, onNavigate, focusArticleId, showToast }
       <EmptyState
         icon={ImageIcon}
         title="还没有可配图的文章"
-        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        description={NEED_ARTICLE_MESSAGE}
         actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
@@ -588,11 +588,11 @@ function VisualSlot({ pack, kind, slot, prompt, ratio, assets, imageBusyKey, bat
                 {asset.costUsd !== undefined && <span className="badge neutral">{asset.costEstimated ? '≈' : ''}${asset.costUsd.toFixed(4)}</span>}
                 {asset.remoteUrl ? (
                   <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="用这张图做参考，按修改提示词重新生成">
-                    <Sparkles size={16} />改这张图
+                    <Sparkles size={16} />参考改图
                   </button>
                 ) : (
                   <button className="button ghost tiny" disabled={Boolean(imageBusyKey)} onClick={() => onEditAsset(pack, kind, slot, asset)} title="先自动上传这张图，再按修改提示词重新生成">
-                    <Sparkles size={16} />改这张图
+                    <Sparkles size={16} />上传后改图
                   </button>
                 )}
                 {asset.wechatMediaId

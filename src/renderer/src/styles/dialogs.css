@@ -47,7 +47,7 @@
 /* 外部导入 / 手动新建：与页面三入口配套 */
 .source-badge { flex-shrink: 0; font-size: 11px; }
 .import-dialog, .manual-topic-dialog { width: min(780px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; overflow: hidden; border-radius: 12px; display: flex; flex-direction: column; }
-.import-dialog > header, .manual-topic-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 24px 18px; border-bottom: 1px solid var(--border-subtle); }
+.import-dialog > header, .manual-topic-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 24px 16px; border-bottom: 1px solid var(--border); }
 .import-dialog > header h2, .manual-topic-dialog > header h2 { margin: 2px 0 6px; font-size: 21px; }
 .import-dialog > header p, .manual-topic-dialog > header p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
 .import-dialog > header .eyebrow, .manual-topic-dialog > header .eyebrow { display: none; }
@@ -78,7 +78,7 @@
 .import-preview-list li:last-child { border-bottom: 0; }
 .import-preview-list li span { color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .import-preview-list li em { color: var(--warning); font-size: 12px; font-style: normal; }
-.import-dialog > footer, .manual-topic-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--border-subtle); background: var(--surface); }
+.import-dialog > footer, .manual-topic-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--surface); }
 .import-dialog > footer > div, .manual-topic-dialog > footer > div { display: flex; gap: 8px; align-items: center; }
 .manual-topic-fields { display: grid; gap: 16px; }
 .manual-topic-fields textarea { min-height: 88px; }

@@ -63,6 +63,10 @@ try {
   assert.equal(await page.locator('.home-board-list article').count(), 1, 'Board searches persisted summaries')
   for (const [route, name] of [['frameworks','编辑模板'],['materials','添加文字'],['articles','导入现成稿']]) {
     await page.goto(`http://127.0.0.1:5176/?ui-fixtures=1#/${route}`)
+    if (route === 'articles') {
+      // 2026-11-06 审查：两个导入入口合并为「导入 ▾」菜单（summary 不暴露 button role，用 locator）
+      await page.locator('details.article-more-actions > summary', { hasText: '导入' }).first().click()
+    }
     await page.getByRole('button', {name, exact: false}).first().click()
     const dialog = page.getByRole('dialog')
     await dialog.waitFor()

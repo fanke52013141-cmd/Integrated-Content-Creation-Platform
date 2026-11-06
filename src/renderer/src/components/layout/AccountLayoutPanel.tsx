@@ -228,7 +228,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
         <button className="button primary compact" disabled={busy || !canActivate || baselineChanged} onClick={() => void activate()}>{busy ? '正在保存…' : '启用为新版本'}</button>
       </div>
     </header>
-    {baselineChanged && <div className="account-layout-notice" role="status"><span>编辑草稿基于旧版式。更新基准会保留当前参数，再启用时创建新版本。</span><button className="button secondary compact" disabled={busy} onClick={() => void updateBase()}>更新启用基准</button></div>}
+    {baselineChanged && <div className="account-layout-notice" role="status"><span>编辑草稿基于旧版式；更新基准保留当前参数并创建新版本。</span><button className="button secondary compact" disabled={busy} onClick={() => void updateBase()}>更新启用基准</button></div>}
     {recovery && <div className="account-layout-notice"><span>本窗口有一份未保存编辑，与已保存草稿版本不同。</span><button className="button secondary compact" disabled={busy} onClick={() => { applyEditing(recovery); setRecovery(null) }}>恢复本窗口编辑</button></div>}
     <div className="account-layout-designer">
       <div className="panel account-layout-controls">
@@ -244,7 +244,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
           <label className="field"><span>预览内容</span><Select ariaLabel="预览内容" value={previewSource} onChange={setPreviewSource} options={[{value:'sample',label:'标准组件样稿'},...articles.map(article => ({value:article.id,label:markdownTitle(article.rawMarkdown)}))]} /></label>
           <label className="field"><span>近似设备宽度</span><Select ariaLabel="近似设备宽度" value={String(deviceWidth)} onChange={value => setDeviceWidth(Number(value))} options={[{value:'320',label:'窄屏 320px'},{value:'375',label:'标准 375px'},{value:'430',label:'宽屏 430px'}]} /></label>
         </div>
-        <p className="micro-copy" role="status">{previewLoading ? '正在更新预览…' : previewError ? '当前参数未能生成预览' : '预览不保存正式排版稿；实际微信效果仍需粘贴和实机验收。'}</p>
+        <p className="micro-copy" role="status">{previewLoading ? '正在更新预览…' : previewError ? '当前参数未能生成预览' : '预览仅供参考；实际微信效果仍需实机验收。'}</p>
         {previewError && <p className="account-layout-error" role="alert">{previewError}</p>}
         {preview && <div className="layout-device" style={{ width: deviceWidth }}><iframe className="layout-preview-frame" title={`${accountName}公众号版式设计预览`} sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(preview.html)} /></div>}
       </div>

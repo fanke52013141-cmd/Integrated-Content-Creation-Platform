@@ -6,7 +6,7 @@ import { useActiveWork } from '../active-work'
 import type { RouteId } from './Layout'
 import { ModalBase } from './ModalBase'
 import { EmptyState } from './EmptyState'
-import { formatDate, errorMessage } from '../lib'
+import { formatDate, errorMessage, DRAFT_STAGED_LABEL } from '../lib'
 import { useEffect, useState } from 'react'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { CircleDashed, Clock3, ListChecks } from 'lucide-react'
@@ -50,7 +50,7 @@ export function WorkBar({ route, accounts, onNavigate }: { route: RouteId; accou
       <Layers size={16} className="work-bar-icon" aria-hidden />
       <button className="work-bar-title" title={work.title} onClick={() => onNavigate('articles', { articleId: work.articleId })}>{work.title}</button>
       <span className="work-bar-meta">{account?.name ?? '未绑定账号'} · 第 {work.versionCount} 版{work.status === 'locked' ? ' · 已锁定' : ''}</span>
-      <span className={`badge ${local.dirty || local.status === 'error' ? 'warning' : 'success'}`} role="status">{local.status === 'loading' ? '读取草稿…' : local.status === 'saving' ? '正在暂存…' : local.status === 'error' ? '暂存失败' : local.dirty ? '已本地暂存 · 待保存版本' : `已保存第 ${work.versionCount} 版`}</span>
+      <span className={`badge ${local.dirty || local.status === 'error' ? 'warning' : 'success'}`} role="status">{local.status === 'loading' ? '读取草稿…' : local.status === 'saving' ? '正在暂存…' : local.status === 'error' ? '暂存失败' : local.dirty ? DRAFT_STAGED_LABEL : `已保存第 ${work.versionCount} 版`}</span>
       {/* 2026-10-06：阶段按钮由「5 个并列」改为「当前阶段 + 下一步」。
           原设计把 5 个阶段平铺成一条，形似导航，与侧边栏的创作组指向同一批目的地——
           用户想「写文章」要在两处找不同叫法（文章创作 / 正文），是重复导航的根源。

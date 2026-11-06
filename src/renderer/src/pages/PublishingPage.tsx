@@ -182,16 +182,16 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     />
     <nav className="publish-journey" aria-label="公众号交付步骤">
       <button type="button" className={`publish-journey-step ${currentStep === 'channel' ? 'current' : ''} ${channelReady ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-channel')}>
-        <span className="publish-journey-number">1</span><span><strong>第一步 · 连接公众号</strong><small>{channelReady ? '已验证，可推送' : '填写凭证并验证'}</small></span>
+        <span className="publish-journey-number">1</span><span><strong>连接公众号</strong><small>{channelReady ? '已验证，可推送' : '填写凭证并验证'}</small></span>
       </button>
       <button type="button" className={`publish-journey-step ${currentStep === 'prepare' ? 'current' : ''} ${selectedLayout && check?.ready ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-preflight')}>
-        <span className="publish-journey-number">2</span><span><strong>第二步 · 准备交付</strong><small>{selectedLayout && check?.ready ? '内容检查通过' : checking ? '正在检查内容' : '选择排版稿并完成检查'}</small></span>
+        <span className="publish-journey-number">2</span><span><strong>准备交付</strong><small>{selectedLayout && check?.ready ? '内容检查通过' : checking ? '正在检查内容' : '选择排版稿并完成检查'}</small></span>
       </button>
       <button type="button" className={`publish-journey-step ${currentStep === 'push' ? 'current' : ''} ${hasDraftInWechat ? 'complete' : ''}`} onClick={() => focusPublishStep('publish-preflight')}>
-        <span className="publish-journey-number">3</span><span><strong>第三步 · 推送草稿箱</strong><small>{deliveryBlocked ? '结果待确认，请先核对' : hasDraftInWechat ? '草稿已送达公众号' : '检查通过后再推送'}</small></span>
+        <span className="publish-journey-number">3</span><span><strong>推送草稿箱</strong><small>{deliveryBlocked ? '结果待确认，请先核对' : hasDraftInWechat ? '草稿已送达公众号' : '检查通过后再推送'}</small></span>
       </button>
       <button type="button" className={`publish-journey-step ${currentStep === 'publish' ? 'current' : ''} ${hasPublishedLink ? 'complete' : ''}`} onClick={() => focusPublishStep('publication-log')}>
-        <span className="publish-journey-number">4</span><span><strong>第四步 · 后台发布并回填链接</strong><small>{hasPublishedLink ? '已记录正式发布链接' : '请在公众号后台确认后完成'}</small></span>
+        <span className="publish-journey-number">4</span><span><strong>后台发布并回填链接</strong><small>{hasPublishedLink ? '已记录正式发布链接' : '请在公众号后台确认后完成'}</small></span>
       </button>
     </nav>
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
@@ -207,7 +207,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <label className="field"><span>原文链接（可选）</span><input type="url" name="sourceUrl" disabled={!loaded || busy} value={form.contentSourceUrl} onChange={event => update({ contentSourceUrl: event.target.value })} /></label>
         </div>
       {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}
-      <details className="composer-advanced"><summary>已有公众号素材标识？手动填写</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
+      <details className="composer-advanced"><summary>手动填写素材标识</summary><label className="field"><span>封面素材标识</span><input name="thumbMediaId" disabled={!loaded || busy} value={form.thumbMediaId} onChange={event => update({ thumbMediaId: event.target.value, coverAssetId: '' })} /></label></details>
       {selectedLayout ? <div className="delivery-preview">
         <div><strong>{selectedLayout.title}</strong><p className="micro-copy">{selectedLayout.articleVersionId === article?.currentVersionId ? `使用当前正文第 ${article.versionCount} 版` : '使用较早的正文版本'} · 推送时上传 {check?.localImageCount ?? 0} 张本地图片</p>
           {article && selectedLayout.articleVersionId !== article.currentVersionId && <p className="inline-alert" role="status">正文已有第 {article.versionCount} 版，本排版稿不会自动更新。请核对下方预览，或<button className="text-button" onClick={() => onNavigate('layouts', { articleId: article.id })}>重新排版</button>。</p>}
@@ -249,7 +249,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         </div>
         <footer className="publish-section-foot"><span style={{ flex: 1 }} />
           <button className="button ghost" disabled={busy} onClick={() => void test()}><TestTube2 size={16} />测试当前配置</button>
-          <button className="button primary" disabled={busy || !appId.trim()} onClick={() => void save()}><Save size={16} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
+          <button className="button primary" disabled={busy || !appId.trim()} title={!appId.trim() ? '填写 AppID 后可保存' : undefined} onClick={() => void save()}><Save size={16} />{enabled ? '验证并保存' : '保存并停用'}</button></footer>
       </>}
     </section>
     </div>

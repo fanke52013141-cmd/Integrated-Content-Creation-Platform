@@ -182,7 +182,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
 
               <div className="prompt-edit-workspace">
               <div className="prompt-main">
-              <label className="field"><span>默认文本模型</span><Select ariaLabel="提示词默认模型" value={bindingTarget} onChange={setBindingTarget} options={[{ value: '', label: '沿用生成页面的模型' }, ...models.map(({provider, model}) => ({value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName})), ...(bindingTarget && !models.some(({provider, model}) => encodeModelTarget(provider.id, model.modelId) === bindingTarget) ? [{value: bindingTarget, label: '绑定的模型已不可用，请重新选择'}] : [])]} /><small>生成页默认使用此模型；可手动覆盖。</small></label>
+              <label className="field"><span>默认文本模型</span><Select ariaLabel="提示词默认模型" value={bindingTarget} onChange={setBindingTarget} options={[{ value: '', label: '沿用生成页面的模型' }, ...models.map(({provider, model}) => ({value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName})), ...(bindingTarget && !models.some(({provider, model}) => encodeModelTarget(provider.id, model.modelId) === bindingTarget) ? [{value: bindingTarget, label: '绑定的模型已不可用，请重新选择'}] : [])]} /></label>
               <label className="field prompt-textarea">
                 <span>生成要求</span>
                 <textarea
@@ -205,7 +205,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 <summary>变量与接入信息</summary>
                 <p className="micro-copy">接入标识：<code>{selected.key}</code>。变量由对应生成环节提供，保留已有变量可确保上下文正常传入。</p>
               <div className="prompt-vars">
-                <h4>当前使用的变量</h4>
+                <h3>当前使用的变量</h3>
                 {variables.length
                   ? variables.map((v) => <code key={v} className="preset-chip var-chip">{'{'}{'{'} {v} {'}'}{'}'}</code>)
                   : <span className="prompt-vars-empty">当前内容未使用变量</span>}
@@ -215,7 +215,7 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
               <div className="panel version-panel">
                 <div className="version-panel-head">
                   <History size={16} />
-                  <h4>版本历史</h4>
+                  <h3>版本历史</h3>
                 </div>
                 <div className="version-list">
                   {versions.map((v) => (

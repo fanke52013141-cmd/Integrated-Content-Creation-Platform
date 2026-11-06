@@ -49,7 +49,7 @@
 .account-editor-page .account-editor-grid { grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; }
 .account-editor-page .fields-panel { padding: 24px; }
 .account-editor-page .fields-panel .generated-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.account-editor-page .generated-field { padding: 16px; gap: 8px; grid-template-columns: 24px minmax(0, 1fr) 24px; background: #fafbfc; }
+.account-editor-page .generated-field { padding: 16px; gap: 8px; grid-template-columns: 24px minmax(0, 1fr) 24px; background: var(--surface-subtle); }
 .account-editor-page .generated-field textarea { min-height: 96px; font-size: 14px; line-height: 1.8; }
 .account-editor-page .field-name-input { font-weight: 600; font-size: 14px; }
 .account-editor-page .field-priority-hint { padding: 12px 0; margin-bottom: 16px; background: transparent; border: 0; color: var(--text-secondary); }
@@ -60,7 +60,7 @@
 .account-editor-page .dimension-panel .section-heading { padding-bottom: 20px; border-bottom: 1px solid var(--border-subtle); }
 .account-editor-page .dimension-panel h3 { font-size: 20px; }
 .account-editor-page .dimension-panel .micro-copy { margin-top: 10px; font-size: 13px; }
-.account-editor-page .dimension-add-row { padding: 20px; background: #fafbfc; border: 1px solid var(--border-subtle); border-radius: 8px; gap: 16px; }
+.account-editor-page .dimension-add-row { padding: 20px; background: var(--surface-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; gap: 16px; }
 .account-editor-page .dimension-add-row .field { margin: 0; }
 .account-editor-page .dimension-add-column { gap: 16px; }
 .account-editor-page .dimension-list { gap: 12px; }
@@ -73,7 +73,7 @@
 .wizard-page .question-hint { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
 .wizard-page .wizard-shell { display: grid; grid-template-columns: 228px minmax(0, 1fr); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--surface); }
 .wizard-page .wizard-shell:has(.wizard-actions-panel) { grid-template-columns: 200px minmax(0, 1fr) 240px; }
-.wizard-page .wizard-steps { padding: 24px; background: #fafbfc; border-right: 1px solid var(--border-subtle); }
+.wizard-page .wizard-steps { padding: 24px; background: var(--surface-subtle); border-right: 1px solid var(--border-subtle); }
 .wizard-page .wizard-steps h2 { margin: 0; font-size: 19px; }
 .wizard-page .wizard-steps li { min-height: 48px; font-size: 13px; }
 .wizard-page .wizard-workspace { min-width: 0; padding: 28px; }
@@ -81,7 +81,7 @@
 .wizard-page .question-card h3 { font-size: 25px; line-height: 1.5; }
 .wizard-page .question-card textarea { min-height: 180px; line-height: 1.8; }
 .wizard-page .question-actions { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; gap: 12px; }
-.wizard-page .wizard-actions-panel { min-width: 0; padding: 24px 20px; background: #fafbfc; border-left: 1px solid var(--border-subtle); }
+.wizard-page .wizard-actions-panel { min-width: 0; padding: 24px 20px; background: var(--surface-subtle); border-left: 1px solid var(--border-subtle); }
 @media (max-width: 1250px) { .account-editor-page .fields-panel .generated-fields { grid-template-columns: minmax(0, 1fr); } .wizard-page .wizard-shell:has(.wizard-actions-panel) { grid-template-columns: 200px minmax(0, 1fr); } .wizard-page .wizard-actions-panel { grid-column: 2; border-left: 0; border-top: 1px solid var(--border-subtle); } }
 @media (max-width: 1050px) { .account-editor-page .account-editor-grid { grid-template-columns: minmax(0, 1fr); } .account-editor-page .account-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 850px) { .wizard-page .wizard-shell, .wizard-page .wizard-shell:has(.wizard-actions-panel) { grid-template-columns: minmax(0, 1fr); } .wizard-page .wizard-actions-panel { grid-column: 1; } .wizard-page .wizard-steps { border-right: 0; border-bottom: 1px solid var(--border-subtle); } .wizard-page .wizard-steps ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wizard-page .wizard-steps li::after { display: none; } .account-editor-page .account-context { grid-template-columns: minmax(0, 1fr); } }

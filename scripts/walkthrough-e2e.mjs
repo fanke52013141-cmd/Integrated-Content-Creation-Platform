@@ -110,7 +110,7 @@ try {
 
   // ── 1. 热点洞察（真实网络拉取；黑马快照落库） ──
   await window.getByRole('button', { name: '热点洞察' }).click()
-  await window.getByRole('heading', { name: '热点雷达' }).waitFor()
+  await window.getByRole('heading', { name: '热点洞察' }).waitFor()
   await window.locator('.hot-item-list li, .hotspot-source-rail li').first().waitFor({ timeout: 60_000 }).catch(() => {})
   await shot(window, '01-hotspots')
   summary.hotspotsLoaded = await window.locator('.hot-item-list li').count().catch(() => 0)

@@ -32,7 +32,7 @@ try {
   // 首启引导弹窗会拦截后续所有点击：全新 userData 环境必弹，等它挂载后关掉；没有则跳过
   await window.getByRole('button', { name: '稍后再说' }).first().click({ timeout: 8000 }).catch(() => {})
   await window.getByRole('button', { name: '热点洞察' }).click()
-  await window.getByRole('heading', { name: '热点雷达' }).waitFor()
+  await window.getByRole('heading', { name: '热点洞察' }).waitFor()
 
   // F19：默认只展示精选信号源，其余平台要在「平台设置」里仍可发现与打开
   const sourceCards = window.locator('.hotspot-source-rail > div > button')

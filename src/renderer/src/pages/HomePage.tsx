@@ -102,7 +102,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
                 <h3><Gauge size={16} /> 需要 AI 写作时，连接文本模型</h3>
                 <p className="micro-copy">填一次接口地址和密钥即可开始写作。</p>
               </div>
-              <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={16} />去AI 服务</button>
+              <button className="button secondary compact" onClick={() => onNavigate('providers')}><ArrowRight size={16} />去 AI 服务</button>
             </section>
           )}
 
@@ -187,7 +187,7 @@ export function HomePage({ accounts, providers, onNavigate, onShowTasks, showToa
             </>}
           </ul>
         </section>
-        <section className="home-note"><h3>数据备份</h3><p className="micro-copy">{backupError ? '备份列表暂时无法读取。' : !backupPaths ? '正在读取备份记录…' : latestBackup ? `最近本地备份：${formatDate(latestBackup.toISOString())}${Date.now() - latestBackup.getTime() > 7 * 86400000 ? '，建议检查并更新备份。' : '。'}` : backupPaths.length ? '有备份，但无法从名称判断时间，请进入备份页检查。' : '还没有本地备份，建议保存一份数据副本。'}</p><button className="button ghost compact" onClick={() => onNavigate('data')}>查看与检查备份</button></section>
+        <section className="home-note"><h3>数据备份</h3><p className="micro-copy">{backupError ? '备份列表暂时无法读取。' : !backupPaths ? '正在读取备份记录…' : latestBackup ? `最近本地备份：${formatDate(latestBackup.toISOString())}${Date.now() - latestBackup.getTime() > 7 * 86400000 ? '，建议更新备份。' : ''}` : backupPaths.length ? '已有备份，可到备份页核对时间。' : '还没有本地备份，建议保存一份数据副本。'}</p><button className="button ghost compact" onClick={() => onNavigate('data')}>查看与检查备份</button></section>
       </aside>
       </div>
     </div>

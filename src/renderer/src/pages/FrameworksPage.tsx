@@ -24,7 +24,7 @@ import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream
 import { useDraftSelection, useDraftState } from '../hooks/useDraftState'
 import { resolveAccountSelection } from '../../../shared/creation-state'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate } from '../lib'
+import { errorMessage, formatDate, MISSING_MODEL_MESSAGE, SELECT_MODEL_MESSAGE } from '../lib'
 
 interface FrameworksPageProps {
   accounts: AccountProfileSummary[]
@@ -109,7 +109,7 @@ export function FrameworksPage({
     const target = decodeModelTarget(modelTarget)
     if (!templateId) return showToast({ type: 'error', message: '请选择框架模板' })
     if (!topicId && !manualTopic.trim()) return showToast({ type: 'error', message: '请选择选题，或填写框架主题' })
-    if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
+    if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
     try {
       const result = await stream.run(() => window.moliu.frameworks.generate({
         templateId, topicId: topicId || undefined, accountId: accountId || undefined,
@@ -133,7 +133,7 @@ export function FrameworksPage({
     } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
   }
   async function remove(framework: Framework): Promise<void> {
-    if (!(await confirm({ title: '确认操作', message: '确定删除这个内容框架吗？其本地版本记录会一并删除。', danger: true, confirmLabel: '确认' }))) return
+    if (!(await confirm({ title: '删除这个内容框架？', message: '其本地版本记录会一并删除。', danger: true, confirmLabel: '确认' }))) return
     try { await window.moliu.frameworks.remove(framework.id); await refresh(); showToast({ type: 'success', message: '内容框架已删除' }) }
     catch (error) { showToast({ type: 'error', message: errorMessage(error) }) }
   }
@@ -198,7 +198,7 @@ export function FrameworksPage({
           className="button primary"
           disabled={stream.active || !models.length}
           onClick={() => void generate()}
-          title={!models.length ? '请先在「AI 服务」配置文本模型' : undefined}
+          title={!models.length ? MISSING_MODEL_MESSAGE : undefined}
         >
           {stream.active ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />}
           {stream.active ? '正在生成…' : '生成框架'}

@@ -11,7 +11,8 @@
 .material-query-input input { min-width: 0; font-size: 14px; }
 .materials-page .material-search-context { flex-wrap: wrap; max-width: none; padding: 0; margin: 4px 0 20px; border: 0; background: transparent; }
 .material-search-context .select { max-width: 300px; }
-.material-search-empty, .material-search-disabled { min-height: 360px; justify-content: center; padding: 40px 24px; }
+/* 空态收紧（2026-11-06 审查）：提示性空态不需要 360px 高度 */
+.material-search-empty, .material-search-disabled { min-height: 180px; justify-content: center; padding: 32px 24px; }
 .material-search-results > header { padding: 0; flex-wrap: wrap; gap: 16px; }
 .material-results-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .web-material-results { padding: 0; }

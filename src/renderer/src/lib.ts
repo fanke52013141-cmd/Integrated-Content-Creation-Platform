@@ -1,5 +1,14 @@
 import DOMPurify from 'dompurify'
 
+// 共享文案（2026-11-06 全页面审查）：同一事项全站一句话，避免多种说法并存。
+export const MISSING_MODEL_MESSAGE = '还没有可用模型：请先在「AI 服务」配置并启用一个供应商'
+export const MISSING_IMAGE_MODEL_MESSAGE = '还没有可用生图模型：请先在「AI 服务」为供应商开启图片能力'
+export const SELECT_MODEL_MESSAGE = '请先选择一个模型'
+/** 评审/配图/排版三个页面的空态共用了这句话，抽成常量防止改一处漏两处。 */
+export const NEED_ARTICLE_MESSAGE = '先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。'
+/** 文章页工具条与顶部工作条共用同一暂存状态措辞。 */
+export const DRAFT_STAGED_LABEL = '已本地暂存 · 待保存版本'
+
 // P2-7: 缓存 Intl.DateTimeFormat 实例并指定 timeZone，避免每次调用新建 + 跨时区不一致
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',

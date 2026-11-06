@@ -30,7 +30,7 @@ export function FactCheckPanel({ article, dirty, onLocate }: { article: Article;
   }
   return <details className="fact-check-panel" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>事实核对 · 数字与日期</summary>
-    <p className="micro-copy">仅从已保存正文识别数字线索，可能遗漏事实或包含非事实；相同数字只表示可供核对，不代表内容已证实。修改正文后须保存版本再核对。</p>
+    <p className="micro-copy">仅从已保存正文识别数字线索，结果供核对参考、不代表内容已证实。修改正文后须保存版本再核对。</p>
     {dirty && <p className="inline-alert" role="status">当前有未保存修改，下面显示已保存版本；保存后才能定位或确认。</p>}
     {error && <p className="inline-alert" role="alert">{error}</p>}
     {reviewError && <p className="inline-alert" role="alert">评审事实意见未能读取：{reviewError}</p>}

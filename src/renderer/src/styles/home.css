@@ -17,9 +17,10 @@
 .home-resume-main small { color: var(--text-tertiary); line-height: 1.7; }
 .home-resume-actions { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-base); }
 .home-resume-secondary { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.home-empty-card { min-height: 190px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--space-md); }
-.home-empty-icon { display: grid; place-items: center; width: 48px; height: 48px; color: var(--text-secondary); background: var(--surface-subtle); border-radius: var(--radius-lg); }
-.home-empty-card > strong { font-size: 20px; font-weight: 600; }
+/* 空态收紧（2026-11-06 审查）：原图标区留白过大，整卡 min-height 190px 浪费首屏 */
+.home-empty-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); padding-block: var(--space-md); }
+.home-empty-icon { display: grid; place-items: center; width: 40px; height: 40px; color: var(--text-secondary); background: var(--surface-subtle); border-radius: var(--radius-lg); }
+.home-empty-card > strong { font-size: 16px; font-weight: 600; }
 .home-empty-card .inline-alert { line-height: 1.7; }
 .home-entry-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
 .home-entry-chip { display: flex; align-items: flex-start; gap: var(--space-md); padding: var(--space-base); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); text-align: left; transition: background var(--transition-fast), border-color var(--transition-fast); }

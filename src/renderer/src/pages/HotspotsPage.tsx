@@ -43,7 +43,7 @@ import type {
   HotspotFit,
   ProviderSummary
 } from '../../../shared/contracts'
-import { errorMessage } from '../lib'
+import { errorMessage, MISSING_MODEL_MESSAGE } from '../lib'
 import type { RouteId } from '../components/Layout'
 import { ImportDialog } from '../components/ImportDialog'
 import { ManualHotDialog, type ManualHotInput } from '../components/ManualHotDialog'
@@ -490,7 +490,7 @@ export function HotspotsPage({
       return
     }
     if (!availableModels.length) {
-      showToast({ type: 'error', message: '请先配置一个可用模型' })
+      showToast({ type: 'error', message: MISSING_MODEL_MESSAGE })
       return
     }
     const readySources = sources.filter((source) => results[source.id]?.status === 'ready')
@@ -595,7 +595,7 @@ export function HotspotsPage({
         <div>
           <h1>
             {view === 'wall'
-              ? '热点雷达'
+              ? '热点洞察'
               : view === 'favorites'
                 ? '热点收藏'
                 : '智能筛选'}
@@ -758,6 +758,7 @@ export function HotspotsPage({
               <button className="button primary" disabled={!favorites.length} onClick={openTopicsFromFavorites}>
                 生成选题
               </button>
+              {!favorites.length && <small className="form-hint">先收藏热点，才能生成选题</small>}
             </aside>
           </section>
 

@@ -12,7 +12,7 @@ import { PageHeader, NextStepBar } from '../components/PageHeader'
 import { SourceBadge } from '../components/SourceBadge'
 import { EmptyState } from '../components/EmptyState'
 import { useConfirm } from '../components/useConfirm'
-import { errorMessage, formatDate, formatTimedDate, markdownTitle } from '../lib'
+import { errorMessage, formatDate, formatTimedDate, markdownTitle, NEED_ARTICLE_MESSAGE } from '../lib'
 import { disambiguateOptions, isRecentlyUsedTheme, orderThemesByRecency, resolveLayoutSelection } from '../../../shared/creation-state'
 import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
@@ -342,7 +342,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       <EmptyState
         icon={FileText}
         title="还没有可排版的文章"
-        description="先准备一篇文章：可以在「文章创作」里写，也可以导入现成稿。"
+        description={NEED_ARTICLE_MESSAGE}
         actionLabel="去文章创作"
         onAction={() => onNavigate('articles')}
       />
@@ -394,14 +394,17 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               }))}
             />
           </label>
-          <button
-            className="button primary"
-            disabled={busy || !articleId || needsSavedVersion || accountLayoutLoading}
-            onClick={() => void create()}
-            title={!articleId ? '请先选择要排版的文章' : undefined}
-          >
-            <FileText size={16} />{busy ? '正在排版…' : '生成排版稿'}
-          </button>
+          {/* 空态时左栏已有同动作按钮，顶部主按钮让位避免双入口 */}
+          {articleLayouts.length > 0 && (
+            <button
+              className="button primary"
+              disabled={busy || !articleId || needsSavedVersion || accountLayoutLoading}
+              onClick={() => void create()}
+              title={!articleId ? '请先选择要排版的文章' : undefined}
+            >
+              <FileText size={16} />{busy ? '正在排版…' : '生成排版稿'}
+            </button>
+          )}
           {platform !== 'xiaohongshu' && (
             <details className="layout-style-editor">
               <summary>固定版式设计<span>正文、标题、引用、图片、品牌首尾组件</span></summary>

@@ -53,7 +53,7 @@ import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { useConfirm } from '../components/useConfirm'
 import type { ToastState } from '../components/Toast'
-import { errorMessage, formatDate, formatFullDate } from '../lib'
+import { errorMessage, formatDate, formatFullDate, MISSING_MODEL_MESSAGE } from '../lib'
 import { AccountLayoutPanel } from '../components/layout/AccountLayoutPanel'
 
 type AccountMode = 'list' | 'wizard' | 'editor'
@@ -229,18 +229,9 @@ function AccountList({
                 >
                   <div className="account-card-head">
                     <span className="profile-avatar">{account.name.slice(0, 1)}</span>
+                    {/* 徽章降噪（2026-11-06 审查）：卡片正面只留「当前」一枚；状态与完整度并入元信息行 */}
                     <div className="account-badges">
                       {account.isCurrent && <span className="badge primary">当前</span>}
-                      <span className={`badge ${account.status === 'locked' ? 'success' : 'neutral'}`}>
-                        {account.status === 'locked' ? <Lock size={16} /> : <LockOpen size={16} />}
-                        {account.status === 'locked' ? '已锁定' : '草稿'}
-                      </span>
-                      <span
-                        className={`badge ${account.completeness >= 80 ? 'success' : 'neutral'}`}
-                        title={`默认九个定位字段的非空占比：${completenessHint(account.completeness)}`}
-                      >
-                        完整度 {account.completeness}%
-                      </span>
                     </div>
                   </div>
                   <h3>{account.name}</h3>
@@ -248,8 +239,8 @@ function AccountList({
                   <div className="account-card-domain">{account.domain || '未设置领域'}</div>
                   <footer>
                     <SourceBadge source={account.importSource} />
-                    <span>v{account.versionCount}</span>
-                    <span>{formatDate(account.updatedAt)}</span>
+                    <span>{account.status === 'locked' ? '已锁定' : '草稿'} · 完整度 {account.completeness}%</span>
+                    <span>v{account.versionCount} · {formatDate(account.updatedAt)}</span>
                     <span className="account-edit-link">编辑定位 <ChevronRight size={16} /></span>
                   </footer>
                 </button>
@@ -371,7 +362,7 @@ function AccountWizard({
   async function generate(): Promise<void> {
     const selectedTarget = decodeModelTarget(modelTarget)
     if (!selectedTarget) {
-      showToast({ type: 'error', message: '请先配置一个可用模型供应商' })
+      showToast({ type: 'error', message: MISSING_MODEL_MESSAGE })
       return
     }
     setGenerating(true)
@@ -540,7 +531,7 @@ function AccountWizard({
               </div>
               {!usableProviders.length && (
                 <button className="inline-alert" onClick={() => onNavigate('providers')}>
-                  <KeyRound size={16} />需要先配置AI 服务 <ChevronRight size={16} />
+                  <KeyRound size={16} />需要先配置 AI 服务 <ChevronRight size={16} />
                 </button>
               )}
               <button className="text-button" onClick={startManual}>手动填写字段</button>
@@ -1314,9 +1305,7 @@ function GeneratedFields({
               {(CORE_FIELD_NAMES as readonly string[]).includes(field.name.trim()) && (
                 <span
                   className="field-required-mark"
-                  title={locked
-                    ? '这三个字段对成稿质量影响最大'
-                    : '这三个字段对成稿质量影响最大，填完即可开始'}
+                  title='核心字段：对成稿质量影响最大'
                 >
                   {locked ? '关键' : '必填'}
                 </span>

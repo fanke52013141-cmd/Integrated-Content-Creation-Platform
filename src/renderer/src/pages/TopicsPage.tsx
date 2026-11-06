@@ -44,7 +44,7 @@ import { SourceBadge } from '../components/SourceBadge'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useDraftState } from '../hooks/useDraftState'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate } from '../lib'
+import { errorMessage, formatDate, MISSING_MODEL_MESSAGE, SELECT_MODEL_MESSAGE } from '../lib'
 
 type TopicView = 'drafts' | 'library'
 
@@ -174,7 +174,7 @@ export function TopicsPage({
 
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
-    if (!target) return showToast({ type: 'error', message: '请选择可用模型' })
+    if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
     if (!seedKeyword.trim()) return showToast({ type: 'error', message: '请填写热点关键词或主题' })
     // 生成开始就切到草稿视图：候选逐个入库、逐个点亮，用户不必等整批结束
     setView('drafts')
@@ -231,7 +231,7 @@ export function TopicsPage({
   }
 
   async function remove(topic: Topic): Promise<void> {
-    if (!(await confirm({ title: '确认操作', message: `确定删除「${topic.fields['选题主题'] || '未命名选题'}」吗？`, danger: true, confirmLabel: '确认' }))) return
+    if (!(await confirm({ title: '删除这个选题？', message: `「${topic.fields['选题主题'] || '未命名选题'}」将被删除。`, danger: true, confirmLabel: '确认' }))) return
     try {
       await window.moliu.topics.remove(topic.id)
       await refresh()
@@ -343,7 +343,7 @@ export function TopicsPage({
                   className="button primary"
                   disabled={stream.active || !models.length}
                   onClick={() => void generate()}
-                  title={stream.active ? '正在生成中，请等本批结束' : !models.length ? '请先在「AI 服务」配置文本模型' : undefined}
+                  title={stream.active ? '正在生成中，请等本批结束' : !models.length ? MISSING_MODEL_MESSAGE : undefined}
                 >
                   <Sparkles size={16} />
                   {`生成 ${count} 条选题`}
@@ -607,7 +607,7 @@ function SchemaDialog({
     })
   }
   async function reset(): Promise<void> {
-    if (!(await confirm({ title: '确认操作', message: '恢复默认的 7\u00A0个选题字段？当前自定义字段不会保留。', danger: true, confirmLabel: '确认' }))) return
+    if (!(await confirm({ title: '恢复默认选题字段？', message: '恢复默认的 7\u00A0个字段，当前自定义字段不会保留。', danger: true, confirmLabel: '确认' }))) return
     try {
       const restored = await window.moliu.topics.resetSchema()
       setFields(restored)
