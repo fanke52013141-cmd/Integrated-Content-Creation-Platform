@@ -13,7 +13,7 @@ import type { LayoutStyleConfig } from '../../shared/contracts.js'
  * 文章类型与主题元信息的类型定义放在共享契约里，
  * 主进程与渲染层引用同一份，避免两处漂移。
  */
-import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts.js'
+import type { ArticleGenre, LayoutGenreInfo, LayoutGenrePreset, LayoutThemeInfo } from '../../shared/contracts.js'
 
 export type { ArticleGenre, LayoutThemeInfo }
 
@@ -27,6 +27,7 @@ export const ARTICLE_GENRES: Array<{ id: ArticleGenre; label: string; hint: stri
 ]
 
 export interface LayoutThemeDef extends LayoutThemeInfo {
+  tokens: LayoutThemeTokens
   css: string
 }
 
@@ -54,39 +55,59 @@ const HLJS_CSS = `
  */
 const SERIF_STACK = "Georgia, 'Songti SC', 'Noto Serif SC', SimSun, serif"
 
-function baseCss(accent: string, text: string): string {
-  return `
-.mly-body { font-size: 16px; color: ${text}; line-height: 1.8; letter-spacing: 0.3px; word-break: break-word; }
-.mly-title { font-size: 22px; font-weight: 700; line-height: 1.45; color: ${text}; margin: 0 0 22px; }
-.mly-body h2 { font-size: 20px; font-weight: 700; color: ${text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${accent}; line-height: 1.5; }
-.mly-body h3 { font-size: 17px; font-weight: 700; color: ${text}; margin: 24px 0 10px; line-height: 1.5; }
-.mly-body h4 { font-size: 15px; font-weight: 700; color: ${text}; margin: 18px 0 8px; }
-.mly-body p { margin: 0 0 16px; font-size: 16px; line-height: 1.8; }
-.mly-body strong { color: ${accent}; font-weight: 700; }
-.mly-body em { font-style: normal; color: ${accent}; }
-.mly-body a { color: ${accent}; text-decoration: none; border-bottom: 1px solid ${accent}; }
-.mly-body ul, .mly-body ol { margin: 0 0 16px; padding-left: 22px; }
-.mly-body li { margin: 6px 0; line-height: 1.8; }
-.mly-body li::marker { color: ${accent}; }
-.mly-body blockquote { margin: 18px 0; padding: 12px 16px; border-left: 4px solid ${accent}; background: #f7f8fa; color: #595959; font-size: 14px; border-radius: 0 6px 6px 0; }
-.mly-body blockquote p { margin: 0 0 8px; font-size: 14px; }
-.mly-body blockquote p:last-child { margin-bottom: 0; }
-.mly-body code { font-family: 'SF Mono', Consolas, Menlo, monospace; font-size: 13px; background: #f2f3f5; color: #c7254e; padding: 2px 6px; border-radius: 4px; }
-.mly-body table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13.5px; }
-.mly-body th { background: ${accent}; color: #ffffff; font-weight: 600; padding: 9px 10px; border: 1px solid ${accent}; text-align: left; }
-.mly-body td { padding: 8px 10px; border: 1px solid #e8e8e8; color: ${text}; }
-.mly-body tr:nth-child(2n) td { background: #fafafa; }
-.mly-body img { max-width: 100%; border-radius: 6px; margin: 6px auto; display: block; }
-.mly-body .mly-image-block { display: block; margin: 18px 0; text-align: center; }
-.mly-body .mly-image-caption { display: block; margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }
-.mly-body figcaption { margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }
-.mly-body .mly-brand-header { margin: 0 0 22px; padding: 12px 14px; color: #666666; background: #f7f8fa; border-left: 3px solid ${accent}; font-size: 13px; line-height: 1.75; }
-.mly-body .mly-brand-footer { margin: 26px 0 0; padding: 14px 0 0; color: #888888; border-top: 1px solid #e8e8e8; font-size: 12px; line-height: 1.75; }
-.mly-body hr { border: none; border-top: 1px solid #e8e8e8; margin: 28px 0; }
-.mly-body sup { font-size: 11px; color: ${accent}; }
-.mly-refs { margin-top: 30px; padding: 14px 16px; background: #f7f8fa; border-radius: 8px; font-size: 13px; color: #595959; }
-.mly-refs h3 { font-size: 14px; margin: 0 0 8px; color: ${text}; }
-.mly-refs p { margin: 4px 0; font-size: 13px; line-height: 1.7; word-break: break-all; }` + componentCss(accent, text)
+/**
+ * 主题设计 token（L2 主题体系的底座）。
+ * 新增主题只需给出 tokens +（可选）extra 追加规则；
+ * 公共元素结构由下方配方表统一提供，主题差异不再靠复制整段 CSS。
+ */
+export interface LayoutThemeTokens {
+  /** 主色：只在锚点出现（强调、标题竖条、表头、序号），不承担正文阅读 */
+  accent: string
+  /** 正文颜色 */
+  text: string
+}
+
+/**
+ * 元素级配方表（L2）：每个元素一段 CSS 生成器，按数组顺序拼接。
+ * 拼接结果与历史模板逐字节一致（tests/layout-golden 基线锁定）——
+ * 调整措辞、顺序、增删规则都会被 golden 测试拦截，改视觉必须显式重生成基线。
+ */
+export const LAYOUT_ELEMENT_RECIPES: Array<{ key: string; css: (tokens: LayoutThemeTokens) => string }> = [
+  { key: 'body', css: t => `.mly-body { font-size: 16px; color: ${t.text}; line-height: 1.8; letter-spacing: 0.3px; word-break: break-word; }` },
+  { key: 'title', css: t => `.mly-title { font-size: 22px; font-weight: 700; line-height: 1.45; color: ${t.text}; margin: 0 0 22px; }` },
+  { key: 'h2', css: t => `.mly-body h2 { font-size: 20px; font-weight: 700; color: ${t.text}; margin: 32px 0 14px; padding-left: 10px; border-left: 4px solid ${t.accent}; line-height: 1.5; }` },
+  { key: 'h3', css: t => `.mly-body h3 { font-size: 17px; font-weight: 700; color: ${t.text}; margin: 24px 0 10px; line-height: 1.5; }` },
+  { key: 'h4', css: t => `.mly-body h4 { font-size: 15px; font-weight: 700; color: ${t.text}; margin: 18px 0 8px; }` },
+  { key: 'p', css: () => `.mly-body p { margin: 0 0 16px; font-size: 16px; line-height: 1.8; }` },
+  { key: 'strong', css: t => `.mly-body strong { color: ${t.accent}; font-weight: 700; }` },
+  { key: 'em', css: t => `.mly-body em { font-style: normal; color: ${t.accent}; }` },
+  { key: 'a', css: t => `.mly-body a { color: ${t.accent}; text-decoration: none; border-bottom: 1px solid ${t.accent}; }` },
+  { key: 'list', css: () => `.mly-body ul, .mly-body ol { margin: 0 0 16px; padding-left: 22px; }` },
+  { key: 'li', css: () => `.mly-body li { margin: 6px 0; line-height: 1.8; }` },
+  { key: 'li-marker', css: t => `.mly-body li::marker { color: ${t.accent}; }` },
+  { key: 'blockquote', css: t => `.mly-body blockquote { margin: 18px 0; padding: 12px 16px; border-left: 4px solid ${t.accent}; background: #f7f8fa; color: #595959; font-size: 14px; border-radius: 0 6px 6px 0; }` },
+  { key: 'blockquote-p', css: () => `.mly-body blockquote p { margin: 0 0 8px; font-size: 14px; }` },
+  { key: 'blockquote-p-last', css: () => `.mly-body blockquote p:last-child { margin-bottom: 0; }` },
+  { key: 'code', css: () => `.mly-body code { font-family: 'SF Mono', Consolas, Menlo, monospace; font-size: 13px; background: #f2f3f5; color: #c7254e; padding: 2px 6px; border-radius: 4px; }` },
+  { key: 'table', css: () => `.mly-body table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13.5px; }` },
+  { key: 'th', css: t => `.mly-body th { background: ${t.accent}; color: #ffffff; font-weight: 600; padding: 9px 10px; border: 1px solid ${t.accent}; text-align: left; }` },
+  { key: 'td', css: t => `.mly-body td { padding: 8px 10px; border: 1px solid #e8e8e8; color: ${t.text}; }` },
+  { key: 'td-even', css: () => `.mly-body tr:nth-child(2n) td { background: #fafafa; }` },
+  { key: 'img', css: () => `.mly-body img { max-width: 100%; border-radius: 6px; margin: 6px auto; display: block; }` },
+  { key: 'image-block', css: () => `.mly-body .mly-image-block { display: block; margin: 18px 0; text-align: center; }` },
+  { key: 'image-caption', css: () => `.mly-body .mly-image-caption { display: block; margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }` },
+  { key: 'figcaption', css: () => `.mly-body figcaption { margin-top: 7px; color: #888888; font-size: 12px; line-height: 1.6; text-align: center; }` },
+  { key: 'brand-header', css: t => `.mly-body .mly-brand-header { margin: 0 0 22px; padding: 12px 14px; color: #666666; background: #f7f8fa; border-left: 3px solid ${t.accent}; font-size: 13px; line-height: 1.75; }` },
+  { key: 'brand-footer', css: () => `.mly-body .mly-brand-footer { margin: 26px 0 0; padding: 14px 0 0; color: #888888; border-top: 1px solid #e8e8e8; font-size: 12px; line-height: 1.75; }` },
+  { key: 'hr', css: () => `.mly-body hr { border: none; border-top: 1px solid #e8e8e8; margin: 28px 0; }` },
+  { key: 'sup', css: t => `.mly-body sup { font-size: 11px; color: ${t.accent}; }` },
+  { key: 'refs', css: () => `.mly-refs { margin-top: 30px; padding: 14px 16px; background: #f7f8fa; border-radius: 8px; font-size: 13px; color: #595959; }` },
+  { key: 'refs-h3', css: t => `.mly-refs h3 { font-size: 14px; margin: 0 0 8px; color: ${t.text}; }` },
+  { key: 'refs-p', css: () => `.mly-refs p { margin: 4px 0; font-size: 13px; line-height: 1.7; word-break: break-all; }` }
+]
+
+function baseCss(tokens: LayoutThemeTokens): string {
+  return '\n' + LAYOUT_ELEMENT_RECIPES.map(recipe => recipe.css(tokens)).join('\n') + componentCss(tokens.accent, tokens.text)
 }
 
 /**
@@ -105,6 +126,13 @@ function componentCss(accent: string, text: string): string {
 /* ── 引言卡：开头三行决定读者是否继续读，需要与正文有明确区隔 ── */
 .mly-lead { margin: 0 0 24px; padding: 16px 20px; background: #f7f8fa; border-left: 4px solid ${accent}; border-radius: 0 8px 8px 0; }
 .mly-lead p { margin: 0; font-size: 15px; line-height: 1.85; color: ${text}; }
+
+/* ── 金句卡：核心观点的视觉锚点，居中 + 上下细线，与 lead（左竖条）区分 ── */
+.mly-hero { margin: 26px 0; padding: 18px 8px; text-align: center; border-top: 1px solid ${accent}; border-bottom: 1px solid ${accent}; }
+.mly-hero p { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.9; letter-spacing: 1px; color: ${text}; }
+
+/* ── 章节编号：h2/h3 前缀的序号标记，主色承担锚点 ── */
+.mly-secnum { color: ${accent}; font-weight: 700; }
 
 /* ── 金句块：核心观点的视觉锚点，比普通引用更强调 ── */
 .mly-quote { margin: 0 0 24px; padding: 16px 20px; background: #f7f8fa; border-left: 4px solid ${accent}; border-radius: 0 8px 8px 0; }
@@ -154,7 +182,7 @@ function buildTheme(def: {
   text?: string
   extra?: string
 }): LayoutThemeDef {
-  const text = def.text ?? '#2b2b2b'
+  const tokens: LayoutThemeTokens = { accent: def.accent, text: def.text ?? '#2b2b2b' }
   return {
     id: def.id,
     name: def.name,
@@ -162,7 +190,8 @@ function buildTheme(def: {
     accent: def.accent,
     suitedFor: def.suitedFor,
     personality: def.personality,
-    css: baseCss(def.accent, text) + (def.extra ?? '') + HLJS_CSS
+    tokens,
+    css: baseCss(tokens) + (def.extra ?? '') + HLJS_CSS
   }
 }
 
@@ -244,11 +273,6 @@ export function listLayoutThemes(): LayoutThemeInfo[] {
   }))
 }
 
-/** 文章类型清单。渲染层据此渲染分组标签 */
-export function listArticleGenres(): Array<{ id: ArticleGenre; label: string; hint: string }> {
-  return ARTICLE_GENRES
-}
-
 /**
  * 按文章类型推荐主题。
  *
@@ -268,9 +292,60 @@ export function themesForGenre(genre?: ArticleGenre): string[] {
   return matched.length ? matched : [DEFAULT_LAYOUT_THEME_ID]
 }
 
+/**
+ * 文章类型的一键排版预设（阶段三"更便捷"核心）。
+ *
+ * 选类型 = 装配：主题 + 样式微调 + 推荐组件一次到位，用户在此基础上微调即可成稿。
+ * themeId 与 recommendThemeForGenre 同源（suitedFor 的首选）；styleConfig 只写
+ * "与默认值不同的差异项"，避免预设和默认值漂移；components 用中文名，
+ * 展示给用户的同时也作为 AI 排版的组件装配引导。
+ */
+export const GENRE_LAYOUT_PRESETS: Record<ArticleGenre, LayoutGenrePreset> = {
+  tutorial: {
+    themeId: 'wechat-green',
+    styleConfig: { heading2Variant: 'accent-bar' },
+    components: ['引言卡', '目录', '章节编号', '结论块'],
+    reason: '步骤清晰，目录与章节编号帮读者随时定位步骤'
+  },
+  analysis: {
+    themeId: 'magazine',
+    styleConfig: { heading2Variant: 'underline' },
+    components: ['引言卡', '金句卡', '目录', '章节编号', '重点块'],
+    reason: '长文观点鲜明，衬线质感配下划线层级压得住场'
+  },
+  professional: {
+    themeId: 'tech-blue',
+    styleConfig: { heading2Variant: 'accent-bar' },
+    components: ['引言卡', '结论块', '提示块'],
+    reason: '信息密度高，冷色克制、锚点少而准'
+  },
+  narrative: {
+    themeId: 'magazine',
+    styleConfig: { quoteVariant: 'plain' },
+    components: ['金句卡', '分割线', '旁注'],
+    reason: '氛围优先，去底色引用与装饰分割线更轻盈'
+  },
+  listicle: {
+    themeId: 'wechat-green',
+    styleConfig: {},
+    components: ['章节编号', '分割线', '结论块'],
+    reason: '条目式轻快，编号与分割线就够了'
+  }
+}
+
+export function genreLayoutPreset(genre?: ArticleGenre): LayoutGenrePreset {
+  if (!genre) return { themeId: DEFAULT_LAYOUT_THEME_ID, styleConfig: {}, components: [], reason: '' }
+  return GENRE_LAYOUT_PRESETS[genre] ?? { themeId: DEFAULT_LAYOUT_THEME_ID, styleConfig: {}, components: [], reason: '' }
+}
+
+/** 文章类型清单（含一键排版预设）。渲染层据此渲染分组标签与预设装配 */
+export function listArticleGenres(): LayoutGenreInfo[] {
+  return ARTICLE_GENRES.map(entry => ({ ...entry, preset: genreLayoutPreset(entry.id) }))
+}
+
 /** 自定义主题：用户粘贴的 CSS 原样参与内联（建议选择器以 .mly-body 开头），叠加在基础样式之上 */
 export function buildCustomThemeCss(customCss: string): string {
-  return baseCss('#07c160', '#2b2b2b') + '\n' + customCss + HLJS_CSS
+  return baseCss({ accent: '#07c160', text: '#2b2b2b' }) + '\n' + customCss + HLJS_CSS
 }
 /** 基于现有主题追加受控的结构化参数，供账号版式版本和单篇覆盖共用。 */
 export function buildLayoutThemeCss(themeId: string, config: LayoutStyleConfig = {}, customCss?: string): string {

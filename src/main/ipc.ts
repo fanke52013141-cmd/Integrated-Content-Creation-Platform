@@ -28,6 +28,7 @@ import type { FileMaterialService } from './services/file-material-service.js'
 import type { WorkspaceService } from './services/workspace-service.js'
 import { listArticleGenres, listLayoutThemes } from './services/layout-themes.js'
 import { renderLayoutMarkdown } from './services/article-layout-service.js'
+import { checkLayoutRendering } from './services/layout-render-check.js'
 import { validateWechatLayout } from './services/layout-validator.js'
 import {
   activeGenerationDomains,
@@ -296,6 +297,10 @@ export function registerIpc(options: {
   handle('app:export-layout', (_event, raw: { layoutId: string; targetDir?: string }) => {
     const input = z.object({ layoutId: z.string().uuid(), targetDir: z.string().min(1).max(1_000).optional() }).parse(raw)
     return workspace.exportLayout(input)
+  })
+  handle('app:export-layout-image', (_event, raw: { layoutId: string; targetDir?: string }) => {
+    const input = z.object({ layoutId: z.string().uuid(), targetDir: z.string().min(1).max(1_000).optional() }).parse(raw)
+    return workspace.exportLayoutLongImage(input)
   })
   handle('app:export-layout-preset', (_event, raw: unknown) => {
     const input = z.object({ themeId: z.string().trim().min(1).max(60), styleConfig: layoutStyleConfigSchema }).strict().parse(raw)
@@ -983,6 +988,13 @@ export function registerIpc(options: {
     const input=z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
     if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
     return articleLayoutService.previewArticle(input)
+  })
+  // 渲染级检测（阶段四）：隐藏 BrowserWindow 真实测量溢出/叠字。
+  // 静态校验器查"写法"，这里查"渲染"；推送前还会自动再跑一遍（见 ipc-publishing）
+  handle('layouts:render-check', async (_e, layoutId: string) => {
+    const layout = database.getArticleLayout(requireId(layoutId))
+    if (!layout) throw new Error('排版稿不存在')
+    return checkLayoutRendering(layout.html)
   })
   handle('layouts:account-default:get',(_e,accountId:string,platform:unknown)=>database.getAccountLayoutDefault(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform)))
   handle('layouts:account-versions:list',(_e,accountId:string,platform:unknown)=>database.listAccountLayoutVersions(requireId(accountId),z.enum(['wechat','xiaohongshu','web']).parse(platform)))

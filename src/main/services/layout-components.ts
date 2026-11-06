@@ -17,19 +17,25 @@
  * 而段落占位（带唯一 id 的 <p>）走的是正常渲染路径，替换时按 id 精确回填。
  *
  * 语法约定：
- *   ::: tip 提示内容      → 提示块（tip / warn / key / note）
+ *   ::: tip 提示内容      → 提示块（tip / warn / key / ok / note）
  *   ::: lead 引言内容      → 引言卡
+ *   ::: hero 金句内容      → 金句卡（居中强化的核心观点）
  *   [[toc]]              → 目录（按二三级标题自动生成）
+ *   [[secnum]]           → 章节自动编号（h2 → 一、二…；h3 → 1. 2.…）
  *   ---（独立成段）      → 装饰分割线
  */
 
 /** 组件语法说明。展示给用户，让"能用什么"是可发现的 */
 export const LAYOUT_COMPONENT_SYNTAX: Array<{ syntax: string; result: string }> = [
   { syntax: '::: lead 引言内容', result: '引言卡（开篇核心判断）' },
+  { syntax: '::: hero 金句内容', result: '金句卡（居中强化的核心观点）' },
   { syntax: '::: tip 提示内容', result: '提示块，标签为「提示」' },
   { syntax: '::: warn 注意内容', result: '提示块，标签为「注意」' },
   { syntax: '::: key 重点内容', result: '提示块，标签为「重点」' },
+  { syntax: '::: ok 结论内容', result: '提示块，标签为「结论」' },
+  { syntax: '::: note 旁注内容', result: '提示块，标签为「旁注」' },
   { syntax: '[[toc]]', result: '目录（自动汇总二三级标题）' },
+  { syntax: '[[secnum]]', result: '章节自动编号（h2 → 一、二…；h3 → 1. 2.…）' },
   { syntax: '---', result: '装饰分割线' }
 ]
 
@@ -37,6 +43,7 @@ const CALLOUT_LABELS: Record<string, string> = {
   tip: '提示',
   warn: '注意',
   key: '重点',
+  ok: '结论',
   note: '旁注'
 }
 
@@ -53,9 +60,9 @@ const SLOT_PREFIX = 'mly-slot-'
  */
 export function transformComponents(markdown: string): {
   markdown: string
-  slots: Map<string, { kind: 'lead' | 'callout'; label?: string; body: string }>
+  slots: Map<string, { kind: 'lead' | 'callout' | 'hero'; label?: string; body: string }>
 } {
-  const slots = new Map<string, { kind: 'lead' | 'callout'; label?: string; body: string }>()
+  const slots = new Map<string, { kind: 'lead' | 'callout' | 'hero'; label?: string; body: string }>()
   const lines = markdown.split(/\r?\n/)
   const out: string[] = []
   let counter = 0
@@ -72,10 +79,18 @@ export function transformComponents(markdown: string): {
       continue
     }
 
+    // 章节编号占位：编号结果注入 h2/h3，占位本身随后移除
+    if (/^\[\[secnum\]\]$/i.test(trimmed)) {
+      const id = `${SLOT_PREFIX}${counter++}`
+      slots.set(id, { kind: 'callout', label: '__SECNUM__', body: '' })
+      out.push('', id, '')
+      continue
+    }
+
     // 组件开标签行。两种写法都要支持：
     //   ::: tip 同行内容      （单行块）
     //   ::: tip               （多行块，内容在下一行直到 :::）
-    const openMatch = trimmed.match(/^:::[ \t]*(tip|warn|key|note|lead)(?:[ \t]+(.*))?$/i)
+    const openMatch = trimmed.match(/^:::[ \t]*(tip|warn|key|ok|note|lead|hero)(?:[ \t]+(.*))?$/i)
     if (!openMatch) {
       out.push(line)
       continue
@@ -110,6 +125,8 @@ export function transformComponents(markdown: string): {
     const id = `${SLOT_PREFIX}${counter++}`
     if (type === 'lead') {
       slots.set(id, { kind: 'lead', body })
+    } else if (type === 'hero') {
+      slots.set(id, { kind: 'hero', body })
     } else {
       slots.set(id, { kind: 'callout', label: CALLOUT_LABELS[type] ?? '提示', body })
     }
@@ -128,7 +145,7 @@ const SLOT_RE = new RegExp(`<p[^>]*>\\s*${SLOT_PREFIX}(\\d+)\\s*</p>`, 'g')
  */
 export function renderSlots(
   html: string,
-  slots: Map<string, { kind: 'lead' | 'callout'; label?: string; body: string }>,
+  slots: Map<string, { kind: 'lead' | 'callout' | 'hero'; label?: string; body: string }>,
   renderInline: (markdown: string) => string
 ): string {
   if (!slots.size) return html
@@ -136,16 +153,51 @@ export function renderSlots(
     const slot = slots.get(`${SLOT_PREFIX}${rawIndex}`)
     if (!slot) return whole
 
-    if (slot.label === '__TOC__') {
-      // 目录内容依赖全部标题，因此留到最终阶段注入
+    if (slot.label === '__TOC__' || slot.label === '__SECNUM__') {
+      // 目录与章节编号依赖全部标题，因此留到最终阶段注入
       return whole
     }
 
     const inner = renderInline(slot.body)
-    return slot.kind === 'lead'
-      ? `<section class="mly-lead">${inner}</section>`
-      : `<section class="mly-callout"><p class="mly-callout-tag"><span leaf="">${slot.label}</span></p>${inner}</section>`
+    if (slot.kind === 'lead') return `<section class="mly-lead">${inner}</section>`
+    if (slot.kind === 'hero') return `<section class="mly-hero">${inner}</section>`
+    return `<section class="mly-callout"><p class="mly-callout-tag"><span leaf="">${slot.label}</span></p>${inner}</section>`
   })
+}
+
+/** 中文序号：1-10 直取，11 起按「十X」组合（章节编号上限 99，足够长文使用） */
+function chineseNumeral(value: number): string {
+  const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+  if (value <= 0 || value >= 100) return String(value)
+  if (value < 10) return digits[value]
+  const tens = Math.floor(value / 10)
+  const rest = value % 10
+  const tensPart = tens === 1 ? '十' : `${digits[tens]}十`
+  return rest === 0 ? tensPart : `${tensPart}${digits[rest]}`
+}
+
+/**
+ * 章节自动编号：h2 → 「一、二、…」，h3 → 「1. 2. …」（每个 h2 内重新计数）。
+ * 在 [[secnum]] 占位处触发；编号以独立 span 承载，主色标记，正文标题文字不动。
+ * 编号先于目录注入执行，目录条目会自然带上编号。
+ * 占位以非全局替换移除一个：若同时存在 [[toc]]，其余占位留给 injectToc。
+ */
+export function injectSectionNumbers(html: string): string {
+  let h2Count = 0
+  let h3Count = 0
+  const numbered = html.replace(/<h([23])(\b[^>]*)>([\s\S]*?)<\/h\1>/g, (whole, level: string, attrs: string, inner: string) => {
+    const text = inner.replace(/<[^>]+>/g, '').trim()
+    if (!text) return whole
+    if (level === '2') {
+      h2Count += 1
+      h3Count = 0
+      return `<h2${attrs}><span class="mly-secnum">${chineseNumeral(h2Count)}、</span></span>${inner}</h2>`
+    }
+    h3Count += 1
+    return `<h3${attrs}><span class="mly-secnum">${h3Count}. </span></span>${inner}</h3>`
+  })
+  const slotRe = new RegExp(`<p[^>]*>\\s*${SLOT_PREFIX}\\d+\\s*</p>`)
+  return numbered.replace(slotRe, '')
 }
 
 /**

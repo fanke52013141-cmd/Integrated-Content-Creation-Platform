@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { IpcMainInvokeEvent } from 'electron'
 import type { AppDatabase } from './database.js'
 import type { KeyStore } from './security/key-store.js'
+import { checkLayoutRendering } from './services/layout-render-check.js'
 import type { WechatPublishService } from './services/wechat-publish-service.js'
 
 type RegisterHandler = (channel: string, listener: (event: IpcMainInvokeEvent, ...args: any[]) => unknown) => void
@@ -20,7 +21,19 @@ export function registerPublishingIpc(handle: RegisterHandler, database: AppData
   }))
   handle('publishing:wechat:test', (_event, raw?: unknown) => service.configure(() => service.test(raw === undefined ? undefined : channelSchema.parse(raw))))
   handle('publishing:list', () => database.listPublications())
-  handle('publishing:wechat:push-draft', (_event, raw: unknown) => service.pushDraft(draftSchema.parse(raw)))
+  handle('publishing:wechat:push-draft', async (_event, raw: unknown) => {
+    const input = draftSchema.parse(raw)
+    // 推送前渲染级检测（阶段四）：真实浏览器测量溢出/叠字，这类问题发到微信无法修复。
+    // 只挂在推送时机——预览与复制不受影响；检测到问题直接中止，先改版式再推送。
+    const layout = database.getArticleLayout(input.layoutId)
+    if (layout?.platform === 'wechat') {
+      const issues = await checkLayoutRendering(layout.html)
+      if (issues.length) {
+        throw new Error(`渲染级检测未通过（真实浏览器测量）：${issues.map(issue => issue.message).join('；')}。请调整版式后重新排版，或在发布页手动运行渲染检测复核。`)
+      }
+    }
+    return service.pushDraft(input)
+  })
   handle('publishing:preflight', (_event, raw: unknown) => service.preflight(draftSchema.parse(raw)))
   handle('publishing:resolve-unknown', (_event, raw: unknown) => service.resolveUnknown(z.object({ id, decision: z.enum(['received', 'not-received', 'unresolved']), note: z.string().trim().min(1).max(2000), expectedUpdatedAt: z.string().max(100), remoteId: z.string().trim().min(1).max(200).optional() }).parse(raw)))
   handle('publishing:retry', (_event, publicationId: string) => service.retry(id.parse(publicationId)))
@@ -29,6 +42,11 @@ export function registerPublishingIpc(handle: RegisterHandler, database: AppData
   handle('publishing:form:save', (_event, raw: unknown) => database.workflow.saveForm(z.object({
     articleId: id, layoutId: z.string().max(100), appId: z.string().max(100), coverAssetId: z.string().max(100), thumbMediaId: z.string().max(200),
     author: z.string().max(100), digest: z.string().max(120), contentSourceUrl: z.string().max(2000)
+  }).parse(raw)))
+  handle('publishing:wechat:push-newspic', (_event, raw: unknown) => service.pushNewsPicDraft(z.object({
+    title: z.string().trim().min(1).max(32),
+    imageAssetIds: z.array(id).min(1).max(20),
+    digest: z.string().trim().max(120).optional()
   }).parse(raw)))
   handle('publishing:wechat:upload-cover', (_event, raw: unknown) => service.uploadAsset(z.object({ assetId: id }).parse(raw).assetId))
   handle('publishing:update', (_event, raw: unknown) => {

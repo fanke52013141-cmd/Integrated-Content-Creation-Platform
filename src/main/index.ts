@@ -25,6 +25,7 @@ import { VisualAssetService } from './services/visual-asset-service.js'
 import { FileMaterialService } from './services/file-material-service.js'
 import { WorkspaceService } from './services/workspace-service.js'
 import { ArticleLayoutService } from './services/article-layout-service.js'
+import { disposeLayoutRenderChecker } from './services/layout-render-check.js'
 import { WechatPublishService } from './services/wechat-publish-service.js'
 import { KuaishouCookieService } from './services/kuaishou-cookie-service.js'
 import { WeiboLoginService } from './services/weibo-login-service.js'
@@ -168,6 +169,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   cancelAllGenerations()
+  disposeLayoutRenderChecker()
   void embeddedHotService?.stop()
   embeddedHotService = undefined
   database?.close()

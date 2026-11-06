@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   ARTICLE_GENRES,
   DEFAULT_LAYOUT_THEME_ID,
+  GENRE_LAYOUT_PRESETS,
   LAYOUT_THEMES,
+  genreLayoutPreset,
+  listArticleGenres,
   recommendThemeForGenre,
   themesForGenre
 } from '../src/main/services/layout-themes.js'
@@ -108,5 +111,49 @@ describe('按文章类型推荐主题', () => {
     for (const { id } of ARTICLE_GENRES) {
       expect(recommendThemeForGenre(id)).toBe(recommendThemeForGenre(id))
     }
+  })
+})
+
+describe('一键排版预设（阶段三）', () => {
+  it('每个文章类型都有预设，且预设主题真实存在', () => {
+    for (const { id } of ARTICLE_GENRES) {
+      const preset = genreLayoutPreset(id)
+      expect(GENRE_LAYOUT_PRESETS[id], `类型 ${id} 缺预设`).toBeDefined()
+      expect(LAYOUT_THEMES.some(theme => theme.id === preset.themeId), `类型 ${id} 预设主题不存在`).toBe(true)
+      expect(preset.components.length, `类型 ${id} 无推荐组件`).toBeGreaterThan(0)
+      expect(preset.reason.length, `类型 ${id} 无推荐理由`).toBeGreaterThan(0)
+    }
+  })
+
+  it('预设主题与 recommendThemeForGenre 同源（两套推荐不漂移）', () => {
+    for (const { id } of ARTICLE_GENRES) {
+      expect(GENRE_LAYOUT_PRESETS[id].themeId).toBe(recommendThemeForGenre(id))
+    }
+  })
+
+  it('预设样式微调只含 LayoutStyleConfig 的合法字段', () => {
+    const legalKeys = new Set(['bodyFontSize', 'bodyLineHeight', 'paragraphSpacing', 'paragraphFirstLineIndent', 'bodyFontFamily',
+      'heading2FontSize', 'heading3FontSize', 'heading2Variant', 'quoteVariant', 'imageRadius', 'imageCaptionFontSize',
+      'accentColor', 'textColor', 'showTitleInBody', 'brandHeaderText', 'brandFooterText'])
+    for (const { id } of ARTICLE_GENRES) {
+      for (const key of Object.keys(GENRE_LAYOUT_PRESETS[id].styleConfig)) {
+        expect(legalKeys.has(key), `类型 ${id} 的预设样式含非法字段 ${key}`).toBe(true)
+      }
+    }
+  })
+
+  it('listArticleGenres 携带预设（IPC 契约形状）', () => {
+    const infos = listArticleGenres()
+    expect(infos.length).toBe(ARTICLE_GENRES.length)
+    for (const info of infos) {
+      expect(info.preset.themeId).toBeTruthy()
+      expect(info.preset.components.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('未指定类型时预设为空壳（回落默认主题）', () => {
+    const preset = genreLayoutPreset(undefined)
+    expect(preset.themeId).toBe(DEFAULT_LAYOUT_THEME_ID)
+    expect(preset.components).toEqual([])
   })
 })

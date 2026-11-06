@@ -16,7 +16,7 @@ import type { LayoutPreviewSampleInput, LayoutStyleConfig, CreateArticleLayoutIn
 import type { AppDatabase } from '../database.js'
 import { buildLayoutThemeCss, buildCustomThemeCss, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
 import { validateWechatLayout } from './layout-validator.js'
-import { decorateDivider, injectToc, renderSlots, stripCustomTags, transformComponents } from './layout-components.js'
+import { decorateDivider, injectSectionNumbers, injectToc, renderSlots, stripCustomTags, transformComponents } from './layout-components.js'
 import { annotateWideTables, markNumericCells } from './layout-table.js'
 
 hljs.registerLanguage('javascript', javascript)
@@ -211,6 +211,9 @@ export function renderLayoutMarkdown(
   if (platform === 'wechat') {
     // 组件内容重新走一遍 markdown-it，保留加粗、列表等行内格式
     bodyHtml = renderSlots(bodyHtml, slots, (inner) => renderWechatMarkdown(inner, refs))
+    // 章节编号必须先于目录注入：目录条目会自然带上编号
+    const hasSectionNumbers = [...slots.values()].some(slot => slot.label === '__SECNUM__')
+    if (hasSectionNumbers) bodyHtml = injectSectionNumbers(bodyHtml)
     bodyHtml = injectToc(bodyHtml)
     bodyHtml = decorateDivider(bodyHtml)
     bodyHtml = stripCustomTags(bodyHtml)

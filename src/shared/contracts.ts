@@ -876,6 +876,18 @@ export interface SaveAccountLayoutDraftInput { accountId: string; platform: Layo
 export interface LayoutPreviewSampleInput { platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; customCss?: string }
 export interface LayoutPreviewResult { title: string; html: string; plainText: string; themeId: string }
 export interface LayoutPresetPackage { format: 'moliu-layout-preset'; schemaVersion: 1; exportedAt: string; themeId: string; styleConfig: LayoutStyleConfig }
+/** 文章类型的一键排版预设：选中类型即装配主题 + 样式 + 推荐组件 */
+export interface LayoutGenrePreset {
+  /** 推荐主题（与 recommendThemeForGenre 同源） */
+  themeId: string
+  /** 推荐样式微调；未列出的字段保持账号/默认值 */
+  styleConfig: Partial<LayoutStyleConfig>
+  /** 推荐组件（中文名，展示给用户，也作为 AI 排版的组件引导） */
+  components: string[]
+  /** 一句话理由：为什么这个类型适合这套版式 */
+  reason: string
+}
+export interface LayoutGenreInfo { id: ArticleGenre; label: string; hint: string; preset: LayoutGenrePreset }
 /** 排版主题元信息（完整 CSS 在主进程，不经 IPC 传输） */
 export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
@@ -1062,6 +1074,8 @@ export interface MoliuApi {
     /** 导出成品到本地：Markdown 或图片内嵌的单文件 HTML，离线可读 */
     exportArticle(input: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }): Promise<LocalFileResult>
     exportLayout(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult>
+    /** 排版稿导出长图 PNG（375px 宽），用于小红书等图片流渠道 */
+    exportLayoutImage(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult>
     exportLayoutPreset(input: Omit<LayoutPresetPackage, 'format' | 'schemaVersion' | 'exportedAt'>): Promise<LocalFileResult>
     importLayoutPreset(): Promise<LayoutPresetPackage | null>
     /** 整库备份：数据库快照 + 图片目录 + 校验清单 */
@@ -1246,7 +1260,7 @@ export interface MoliuApi {
     /** 可用排版主题清单（含适合的文章类型与视觉性格） */
     themes(): Promise<LayoutThemeInfo[]>
     /** 文章类型清单，用于「按类型选主题」 */
-    genres(): Promise<Array<{ id: ArticleGenre; label: string; hint: string }>>
+    genres(): Promise<LayoutGenreInfo[]>
     /**
      * 实时预览渲染。与正式排版调用同一个 renderLayoutMarkdown，
      * 因此预览所见即最终发布所得。不落库——预览是高频调用。
@@ -1261,6 +1275,8 @@ export interface MoliuApi {
     activateAccountDraft(accountId: string, platform: LayoutPlatform, revision: number): Promise<AccountLayoutVersion>
     previewSample(input: LayoutPreviewSampleInput): Promise<LayoutPreviewResult>
     previewArticle(input: CreateArticleLayoutInput): Promise<LayoutPreviewResult>
+    /** 渲染级检测（阶段四）：隐藏窗口真实测量溢出/叠字。推送前主进程也会自动执行 */
+    renderCheck(layoutId: string): Promise<import('./render-measure.js').LayoutRenderIssue[]>
     remove(id: string): Promise<void>
   }
   publishing: {
@@ -1274,6 +1290,8 @@ export interface MoliuApi {
     resolveUnknown(input: { id: string; decision: 'received' | 'not-received' | 'unresolved'; note: string; expectedUpdatedAt: string; remoteId?: string }): Promise<Publication>
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
+    /** 小绿书（图片消息 newspic）草稿：≤20 张图，走永久素材，不产生排版稿快照 */
+    pushNewsPicDraft(input: { title: string; imageAssetIds: string[]; digest?: string }): Promise<{ mediaId: string; count: number }>
     /** 上传公众号正文图片并返回可用于粘贴的 HTML；不创建草稿 */
     update(input: UpdatePublicationInput): Promise<Publication>
     /** 记录发布复盘（目标/结果/经验），传空即清除 */

@@ -19,5 +19,8 @@
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "tests/layout-preview-document.test.ts"
   ]
 }

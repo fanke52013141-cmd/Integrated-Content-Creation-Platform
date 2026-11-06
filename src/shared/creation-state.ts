@@ -2,6 +2,37 @@
  * 创作体验里最容易出错的对象选择与草稿状态判断，集中在这里以便主进程测试直接覆盖。
  */
 
+/**
+ * 主题下拉的「最近使用置顶」：把最近用过的主题排到选项最前面，其余保持原顺序。
+ *
+ * recentThemeIds 按新旧顺序传入（去重在这里做）；不在清单里的主题不受影响，
+ * 排序纯展示层——不改变 themes 数组本身，也不引入新的持久化。
+ */
+export function orderThemesByRecency<T extends { id: string }>(themes: T[], recentThemeIds: Array<string | undefined | null>): T[] {
+  const seen = new Set<string>()
+  const pinned: T[] = []
+  for (const id of recentThemeIds) {
+    if (!id || seen.has(id)) continue
+    const found = themes.find(theme => theme.id === id)
+    if (found) {
+      pinned.push(found)
+      seen.add(id)
+    }
+  }
+  return [...pinned, ...themes.filter(theme => !seen.has(theme.id))]
+}
+
+/** 判断某主题是否被最近使用置顶（供选项标注「最近使用」徽标） */
+export function isRecentlyUsedTheme(recentThemeIds: Array<string | undefined | null>, themeId: string): boolean {
+  const seen = new Set<string>()
+  for (const id of recentThemeIds) {
+    if (!id || seen.has(id)) continue
+    if (id === themeId) return true
+    seen.add(id)
+  }
+  return false
+}
+
 /** 排版稿选中态：始终限定在当前文章的排版稿集合内，避免切换文章后预览仍指向另一篇 */
 export function resolveLayoutSelection<T extends { id: string; articleId: string }>(
   layouts: T[],

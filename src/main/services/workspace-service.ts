@@ -7,6 +7,7 @@ import { basename, extname, join, resolve, sep } from 'node:path'
 import type { LayoutPresetPackage, LocalFileResult } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import { renderLayoutMarkdown } from './article-layout-service.js'
+import { renderLayoutLongImage } from './layout-long-image.js'
 import { localAssetNames, replaceLocalAssets } from './local-assets.js'
 
 export type ExportFormat = 'markdown' | 'html'
@@ -72,6 +73,20 @@ export class WorkspaceService {
     if (!directory) return { path: null }
     await mkdir(directory, { recursive: true })
     const target = await this.writeUnique(directory, fileName, await this.embedImages(wrapDocument(layout.title, layout.html)))
+    return { path: target }
+  }
+
+  /** 排版稿导出长图 PNG（375px 宽、高度自适应），用于小红书等图片流渠道 */
+  async exportLayoutLongImage(input: { layoutId: string; targetDir?: string }): Promise<LocalFileResult> {
+    const layout = this.database.getArticleLayout(input.layoutId)
+    if (!layout) throw new Error('排版稿不存在')
+    this.database.workflow.assertSaved(layout.articleId)
+    const png = await renderLayoutLongImage(layout.html)
+    const fileName = `${slug(layout.title)}-长图-${layout.id.slice(0, 8)}.png`
+    const directory = input.targetDir ? this.insideData(input.targetDir) : await this.pickDirectory([formatFilter('PNG 图片', ['png'])])
+    if (!directory) return { path: null }
+    await mkdir(directory, { recursive: true })
+    const target = await this.writeUnique(directory, fileName, png)
     return { path: target }
   }
 
@@ -263,11 +278,12 @@ export class WorkspaceService {
     return result
   }
 
-  private async writeUnique(directory: string, fileName: string, body: string): Promise<string> {
+  /** body 支持 string（文本导出）与 Buffer（二进制导出，如长图 PNG）；encoding 仅对文本生效 */
+  private async writeUnique(directory: string, fileName: string, body: string | Buffer, encoding: 'utf8' = 'utf8'): Promise<string> {
     const ext = extname(fileName)
     for (let suffix = 0; suffix < 1000; suffix += 1) {
       const target = join(directory, suffix ? `${fileName.slice(0, -ext.length)}-${suffix}${ext}` : fileName)
-      try { await writeFile(target, body, { encoding: 'utf8', flag: 'wx' }); return target }
+      try { await writeFile(target, body, typeof body === 'string' ? { encoding, flag: 'wx' } : { flag: 'wx' }); return target }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error }
     }
     throw new Error('该目录中同名导出过多，请选择其他位置')

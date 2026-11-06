@@ -164,4 +164,60 @@ describe('P2 版式组件', () => {
       expect(html).toContain('判断')
     })
   })
+
+  describe('阶段三新增组件', () => {
+    const CALLOUT_RE = /<section style="[^"]*border-left:\s*4px solid[^"]*">/
+
+    it('::: ok 渲染「结论」标签的提示块', () => {
+      const { html } = render('# T\n\n::: ok 三步完成\n:::\n')
+      expect(html).toMatch(CALLOUT_RE)
+      expect(html).toContain('结论')
+      expect(html).toContain('三步完成')
+    })
+
+    it('::: hero 渲染金句卡（居中 + 上下细线，与引言卡的左竖条区分）', () => {
+      const { html } = render('# T\n\n::: hero 排版的价值在成体系的设计选择\n:::\n')
+      expect(html).toContain('排版的价值在成体系的设计选择')
+      expect(html).toMatch(/<section style="[^"]*text-align:\s*center[^"]*border-top[^"]*">/)
+      expect(html).toMatch(/letter-spacing:\s*1px/)
+      expect(html).not.toContain('结论')
+    })
+
+    it('[[secnum]] 给 h2 生成中文序号、h3 生成数字序号且每章重新计数', () => {
+      const { html } = render('# T\n\n[[secnum]]\n\n## 第一章节\n\n### 小节甲\n\n### 小节乙\n\n## 第二章节\n\n### 小节丙\n')
+      // 编号与标题分属不同 leaf span，用顺序与计数断言
+      expect(html).toContain('一、')
+      expect(html).toContain('二、')
+      expect(html).toContain('第一章节')
+      expect(html).toContain('第二章节')
+      expect(html.indexOf('一、')).toBeLessThan(html.indexOf('第一章节'))
+      expect(html.indexOf('二、')).toBeGreaterThan(html.indexOf('第一章节'))
+      expect(html.indexOf('一、')).toBeLessThan(html.indexOf('二、'))
+      // h3 序号在每个 h2 内重新计数：「1. 」出现两次（小节甲、小节丙）
+      expect([...html.matchAll(/1\. /g)].length).toBe(2)
+      expect(html).toContain('2. ')
+    })
+
+    it('secnum 与 toc 同用：目录条目带上编号', () => {
+      const { html } = render('# T\n\n[[secnum]]\n\n[[toc]]\n\n## 第一章节\n\n### 小节甲\n\n## 第二章节\n')
+      const tocPart = html.slice(html.indexOf('本文目录'))
+      expect(tocPart).toContain('一、第一章节')
+      expect(tocPart).toContain('1. 小节甲')
+      expect(tocPart).toContain('二、第二章节')
+    })
+
+    it('secnum 占位被移除，不残留 mly-slot 文本', () => {
+      const { html } = render('# T\n\n[[secnum]]\n\n## 第一章节\n')
+      expect(html).not.toMatch(/mly-slot-\d+/)
+      expect(html).toContain('一、')
+      expect(html).toContain('第一章节')
+      expect(html.indexOf('一、')).toBeLessThan(html.indexOf('第一章节'))
+    })
+
+    it('产物通过合规校验（新组件不引入丢格式风险）', () => {
+      const { html, title } = render('# T\n\n::: hero 金句\n:::\n\n::: ok 结论\n:::\n\n[[secnum]]\n\n## 章节\n\n[[toc]]\n\n### 小节\n')
+      const violations = validateWechatLayout({ html, title })
+      expect(violations.filter(v => v.level === 'error').map(v => `${v.rule}: ${v.message}`)).toEqual([])
+    })
+  })
 })

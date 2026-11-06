@@ -19,6 +19,21 @@ const MIME_BY_EXT: Record<string, string> = { '.png': 'image/png', '.jpg': 'imag
  * 上传前本就持有图片字节，顺手从头部解析，不引入任何图片库依赖。
  * 解析不出（损坏/异形格式）返回 null，调用方跳过即可，不阻塞上传链路。
  */
+/**
+ * 构造 newspic 草稿请求的 articles 体（独立导出便于测试）。
+ * 图片数组顺序即展示顺序，首张即封面；digest 留空时不带该字段（微信自动抓取）。
+ */
+export function buildNewsPicDraftArticles(input: { title: string; digest?: string; mediaIds: string[] }): Array<Record<string, unknown>> {
+  return [{
+    article_type: 'newspic',
+    title: input.title.trim(),
+    ...(input.digest?.trim() ? { digest: input.digest.trim() } : {}),
+    image_info: { image_list: input.mediaIds.map(imageMediaId => ({ image_media_id: imageMediaId })) },
+    need_open_comment: 0,
+    only_fans_can_comment: 0
+  }]
+}
+
 export function imageDimensionsFromBuffer(bytes: Uint8Array): { width: number; height: number } | null {
   // PNG：8 字节签名 + IHDR 块，宽高在固定偏移 16/20（大端）
   if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
@@ -150,6 +165,52 @@ export class WechatPublishService {
     })
   }
 
+  /**
+   * 推送「小绿书」图片消息草稿（article_type=newspic，官方 draft/add 支持）。
+   *
+   * 与图文草稿的差异：newspic 没有 content 正文，只有 image_info.image_list
+   * （≤20 张，首张即封面），且要求**永久 MediaID**——走 add_material 而非
+   * uploadimg（uploadimg 只返回图床 URL，不能用于 image_list，两者不可混用）。
+   * 不创建 Publication 交付记录：图片消息没有排版稿快照，结果直接以草稿
+   * media_id 返回，由调用方提示用户到公众号后台核对。
+   */
+  async pushNewsPicDraft(input: { title: string; imageAssetIds: string[]; digest?: string }): Promise<{ mediaId: string; count: number }> {
+    if (this.pushing || this.configurationBusy) throw new Error('公众号操作进行中，请稍后再推送')
+    const imageAssetIds = input.imageAssetIds.slice(0, 20)
+    if (!imageAssetIds.length) throw new Error('请至少选择 1 张图片')
+    const title = input.title.trim()
+    if (!title) throw new Error('小绿书草稿需要标题')
+    this.pushing = true
+    try {
+      // 先逐张上传为永久素材（顺序即展示顺序，首张即封面），再建图片消息草稿
+      const mediaIds: string[] = []
+      for (const assetId of imageAssetIds) {
+        const asset = this.database.getVisualAsset(assetId)
+        if (!asset) throw new Error('图片不存在或已被删除，请刷新后重试')
+        const payload = await this.uploadImageFile(asset.fileName, 'cover')
+        if (!payload.media_id) throw new Error('图片上传未返回永久素材标识')
+        mediaIds.push(payload.media_id)
+      }
+      const push = (accessToken: string): Promise<WechatResponse> => this.request(
+        `/cgi-bin/draft/add?access_token=${encodeURIComponent(accessToken)}`,
+        {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ articles: buildNewsPicDraftArticles({ title, digest: input.digest, mediaIds }) })
+        }
+      )
+      let payload = await push(await this.token())
+      if (payload.errcode === 40001 || payload.errcode === 42001) {
+        this.tokenCache = null
+        payload = await push(await this.token(true))
+      }
+      if (payload.errcode) throw new WechatRejectedError(wechatErrorMessage(payload.errcode, payload.errmsg))
+      if (!payload.media_id) throw new Error('公众号未返回草稿标识，请到草稿箱核对结果')
+      return { mediaId: payload.media_id, count: mediaIds.length }
+    } finally {
+      this.pushing = false
+    }
+  }
+
   async prepareClipboard(layoutId: string, mode: 'wechat' | 'placeholders'): Promise<{ html: string; text: string; imageCount: number }> {
     if (this.configurationBusy || this.pushing) throw new Error('公众号操作进行中，请稍后复制')
     const layout = this.database.getArticleLayout(layoutId)
@@ -171,7 +232,13 @@ export class WechatPublishService {
       const appId = this.database.getWechatPublishChannel().appId
       const html = await this.prepareInlineImages(layout.html, appId)
       if (html.includes('moliu-asset:')) throw new Error('仍有本地图片地址，已停止复制')
-      if ([...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].some(match => !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\//i.test(match[1]))) throw new Error('含外部图片，请先导入或选择手动插图复制')
+      // 复制走粘贴通道：data-URI（内嵌图）公众号编辑器粘贴时会自动转存图床，可以放行；
+      // 真正的外部 http 链接才会因 Referer 防盗链/过滤而丢图
+      if ([...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["']/gi)].some(match => {
+        const src = match[1]
+        if (/^data:image\//i.test(src)) return false
+        return !/^https?:\/\/mmbiz\.(?:qpic|qlogo)\.cn\//i.test(src)
+      })) throw new Error('含外部图片（非微信图床链接），请先在配图工作台导入，或选择「复制正文，手动插图」')
       if (this.database.getArticle(article.id)?.currentVersionId !== layout.articleVersionId) throw new Error('上传期间正文已变化，请重新排版')
       this.database.workflow.assertSaved(article.id)
       return { html, text: layout.plainText, imageCount: names.length }
@@ -187,6 +254,9 @@ export class WechatPublishService {
       if (snapshot.input.coverAssetId) thumbMediaId = (await this.uploadAsset(snapshot.input.coverAssetId)).wechatMediaId!
       const html = await this.prepareInlineImages(snapshot.html, snapshot.appId)
       if (html.includes('moliu-asset:')) throw new Error('正文仍有未处理的本地图片')
+      // 草稿 API 通道：data-URI 图不会被微信服务端转存，发出去图片会静默消失，
+      // 必须明确拒绝并把出路告诉用户（复制通道可放行，见 prepareClipboard）
+      if (/<img\b[^>]*\bsrc=["']data:image\//i.test(html)) throw new Error('正文含内嵌（base64）图片，草稿接口会静默丢弃它们。请改用「复制图文」通道，或先在配图工作台导入为素材')
       const check = await this.preflight(snapshot.input)
       if (!check.ready) throw new Error(check.issues.join('；'))
       const token = await this.token()

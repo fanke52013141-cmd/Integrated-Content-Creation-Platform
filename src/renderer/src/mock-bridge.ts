@@ -11,7 +11,7 @@
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
 import { createUiFixtures } from './ui-fixtures'
-import type { ArticleGenre, LayoutThemeInfo } from '../../shared/contracts'
+import type { ArticleGenre, LayoutGenreInfo, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
   AccountMemory,
@@ -240,12 +240,12 @@ function createMockBridge(): MoliuApi {
 
   // 主题与文章类型：与主进程 layout-themes.ts 保持一致。
   // mock 提供真实数据是必要的——主题下拉若为空，界面改动无法在浏览器里验证。
-  const MOCK_ARTICLE_GENRES: Array<{ id: ArticleGenre; label: string; hint: string }> = [
-    { id: 'tutorial', label: '教程 / 攻略', hint: '步骤清晰、代码与列表多' },
-    { id: 'analysis', label: '深度分析', hint: '长文、观点鲜明、需要目录' },
-    { id: 'professional', label: '专业 / 科技', hint: '克制、理性、信息密度高' },
-    { id: 'narrative', label: '叙事 / 随笔', hint: '阅读体验优先、氛围感' },
-    { id: 'listicle', label: '清单 / 盘点', hint: '条目式、轻快' }
+  const MOCK_ARTICLE_GENRES: LayoutGenreInfo[] = [
+    { id: 'tutorial', label: '教程 / 攻略', hint: '步骤清晰、代码与列表多', preset: { themeId: 'wechat-green', styleConfig: {}, components: ['引言卡', '目录', '章节编号'], reason: '目录与编号帮读者定位步骤' } },
+    { id: 'analysis', label: '深度分析', hint: '长文、观点鲜明、需要目录', preset: { themeId: 'magazine', styleConfig: {}, components: ['引言卡', '金句卡', '目录'], reason: '衬线质感压得住长文' } },
+    { id: 'professional', label: '专业 / 科技', hint: '克制、理性、信息密度高', preset: { themeId: 'tech-blue', styleConfig: {}, components: ['引言卡', '结论块'], reason: '冷色克制、锚点少而准' } },
+    { id: 'narrative', label: '叙事 / 随笔', hint: '阅读体验优先、氛围感', preset: { themeId: 'magazine', styleConfig: {}, components: ['金句卡', '分割线'], reason: '氛围优先、装饰轻盈' } },
+    { id: 'listicle', label: '清单 / 盘点', hint: '条目式、轻快', preset: { themeId: 'wechat-green', styleConfig: {}, components: ['章节编号', '分割线'], reason: '编号与分割线就够了' } }
   ]
   const MOCK_LAYOUT_THEMES: LayoutThemeInfo[] = [
     { id: 'wechat-green', name: '微信经典', description: '品牌绿点缀，百搭安全', accent: '#07c160', suitedFor: ['tutorial', 'listicle'], personality: '清晰友好，最不容易出错的选择' },
@@ -276,6 +276,7 @@ function createMockBridge(): MoliuApi {
       // 浏览器预览没有本地磁盘权限：导出/备份返回「已取消」语义，页面按提示分支展示
       exportArticle: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
       exportLayout: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
+      exportLayoutImage: (): Promise<LocalFileResult> => Promise.reject(new Error('长图导出请在桌面应用中使用')),
       exportLayoutPreset: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
       importLayoutPreset: () => Promise.resolve(null),
       createBackup: (): Promise<{ path: string; checksum: string }> =>
@@ -559,10 +560,12 @@ function createMockBridge(): MoliuApi {
       listAccountVersions: () => emptyArray(),
       setAccountDefault: (input: unknown) => Promise.resolve(input),
       create: (input: unknown) => Promise.resolve(input),
+      renderCheck: () => Promise.resolve([]),
       remove: () => void_()
     },
     publishing: {
       resolveUnknown: () => Promise.reject(new Error('演示模式没有交付记录')),
+      pushNewsPicDraft: () => Promise.reject(new Error('小绿书推送请在桌面应用中连接公众号后使用')),
       getForm: () => Promise.resolve(null),
       saveForm: (input: unknown) => Promise.resolve(input),
       preflight: () => Promise.resolve({ ready: false, issues: ['请配置公众号连接'], localImageCount: 0, title: '', articleVersionNumber: 0, appId: '' }),

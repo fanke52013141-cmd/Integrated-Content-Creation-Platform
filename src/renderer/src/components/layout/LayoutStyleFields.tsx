@@ -2,13 +2,15 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { LayoutPlatform, LayoutStyleConfig, LayoutThemeInfo } from '../../../../shared/contracts'
 import { Select } from '../Select'
 
-export function LayoutStyleFields({ value, onChange, disabled = false, platform, themes, themeId }: {
+export function LayoutStyleFields({ value, onChange, disabled = false, platform, themes, themeId, brandSourceHint }: {
   value: LayoutStyleConfig
   onChange: Dispatch<SetStateAction<LayoutStyleConfig>>
   disabled?: boolean
   platform: LayoutPlatform
   themes: LayoutThemeInfo[]
   themeId: string
+  /** 品牌首尾的来源提示（如「已带入账号版式 V3」），让"默认带入"对用户可见 */
+  brandSourceHint?: string
 }): React.JSX.Element {
   return (
     <div className="layout-style-fields">
@@ -26,6 +28,7 @@ export function LayoutStyleFields({ value, onChange, disabled = false, platform,
       <label className="field"><span>正文文字色</span><input type="color" value={value.textColor ?? '#2b2b2b'} disabled={disabled} onChange={(event) => onChange((current) => ({ ...current, textColor: event.target.value }))} /></label>
       <label className="layout-checkbox-field"><input type="checkbox" checked={value.paragraphFirstLineIndent ?? false} disabled={disabled} onChange={(event) => onChange((current) => ({ ...current, paragraphFirstLineIndent: event.target.checked }))} /><span>段首缩进两个字</span></label>
       {platform === 'wechat' && <label className="layout-checkbox-field"><input type="checkbox" checked={value.showTitleInBody ?? false} disabled={disabled} onChange={(event) => onChange((current) => ({ ...current, showTitleInBody: event.target.checked }))} /><span>在正文中重复显示公众号标题</span></label>}
+      {brandSourceHint && <p className="micro-copy layout-brand-source">{brandSourceHint}</p>}
       <label className="field layout-brand-field"><span>固定开篇说明</span><textarea rows={2} maxLength={1200} value={value.brandHeaderText ?? ''} disabled={disabled} placeholder="例如：栏目定位、作者说明或内容提示" onChange={(event) => onChange((current) => ({ ...current, brandHeaderText: event.target.value }))} /></label>
       <label className="field layout-brand-field"><span>固定文末署名</span><textarea rows={2} maxLength={1200} value={value.brandFooterText ?? ''} disabled={disabled} placeholder="例如：关注提示、版权说明或品牌落款" onChange={(event) => onChange((current) => ({ ...current, brandFooterText: event.target.value }))} /></label>
     </div>

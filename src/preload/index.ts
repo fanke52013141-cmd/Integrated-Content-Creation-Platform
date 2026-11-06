@@ -40,6 +40,7 @@ const api: MoliuApi = {
     exportArticle: (input: { articleId: string; format: 'markdown' | 'html'; targetDir?: string }) =>
       ipcRenderer.invoke('app:export-article', input),
     exportLayout: (input: { layoutId: string; targetDir?: string }) => ipcRenderer.invoke('app:export-layout', input),
+    exportLayoutImage: (input: { layoutId: string; targetDir?: string }) => ipcRenderer.invoke('app:export-layout-image', input),
     exportLayoutPreset: (input) => ipcRenderer.invoke('app:export-layout-preset', input),
     importLayoutPreset: () => ipcRenderer.invoke('app:import-layout-preset'),
     createBackup: (input?: { targetDir?: string }) => ipcRenderer.invoke('app:backup-create', input),
@@ -286,6 +287,7 @@ const api: MoliuApi = {
     saveAccountDraft: (input) => ipcRenderer.invoke('layouts:account-draft:save', input),
     activateAccountDraft: (accountId, platform, revision) => ipcRenderer.invoke('layouts:account-draft:activate', accountId, platform, revision),
     create: (input) => ipcRenderer.invoke('layouts:create', input),
+    renderCheck: (layoutId: string) => ipcRenderer.invoke('layouts:render-check', layoutId),
     remove: (id: string) => ipcRenderer.invoke('layouts:remove', id)
   },
   publishing: {
@@ -299,6 +301,7 @@ const api: MoliuApi = {
     retry: (id) => ipcRenderer.invoke('publishing:retry', id),
     list: () => ipcRenderer.invoke('publishing:list'),
     pushWechatDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-draft', input),
+    pushNewsPicDraft: (input) => ipcRenderer.invoke('publishing:wechat:push-newspic', input),
     update: (input) => ipcRenderer.invoke('publishing:update', input),
     saveRetro: (input) => ipcRenderer.invoke('publishing:retro', input),
     refreshMetrics: (input) => ipcRenderer.invoke('publishing:refresh-metrics', input),

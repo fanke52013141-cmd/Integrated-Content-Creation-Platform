@@ -518,7 +518,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                 {selected.platform === 'wechat' ? (
                   <div className="layout-device-wrap">
                     <p className="layout-device-hint micro-copy">
-                      <Smartphone size={16} />按手机宽度（375px）预览 · 已注入微信基础样式模拟 · 实际效果以微信为准
+                      <Smartphone size={16} />按手机宽度（375px）预览，与实际发布使用同一套排版结果
                       <button type="button" className="text-button" onClick={() => setDarkPreview(value => !value)}>
                         <Moon size={13} />{darkPreview ? '切回浅色' : '预览暗色'}
                       </button>

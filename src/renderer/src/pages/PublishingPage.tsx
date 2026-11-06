@@ -1,6 +1,6 @@
 import { LocalImageImport } from '../components/LocalImageImport'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ClipboardList, CloudUpload, FileUp, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, Send, TestTube2, UploadCloud } from 'lucide-react'
+import { CheckCircle2, ClipboardList, CloudUpload, ExternalLink, FileUp, Images, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, ScanSearch, Send, TestTube2, UploadCloud } from 'lucide-react'
 import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
@@ -42,10 +42,30 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [check, setCheck] = useState<DeliveryCheck>()
   const [checking, setChecking] = useState(false)
+  /** 渲染级检测（阶段四）：真实浏览器测量溢出/叠字；推送前主进程还会自动再跑一遍 */
+  const [renderIssues, setRenderIssues] = useState<Array<{ rule: string; message: string; hint?: string }>>([])
+  const [renderChecking, setRenderChecking] = useState(false)
+  const runRenderCheck = async (): Promise<void> => {
+    if (!selectedLayout || renderChecking) return
+    setRenderChecking(true)
+    try {
+      const issues = await window.moliu.layouts.renderCheck(selectedLayout.id)
+      setRenderIssues(issues)
+      showToast(issues.length
+        ? { type: 'warning', message: `渲染检测发现 ${issues.length} 个问题：${issues[0]?.message ?? ''}` }
+        : { type: 'success', message: '渲染检测通过：无溢出、无叠字' })
+    } catch (error) {
+      showToast({ type: 'error', message: `渲染检测失败：${errorMessage(error)}` })
+    } finally {
+      setRenderChecking(false)
+    }
+  }
   const wechatLayouts = layouts.filter(item => item.platform === 'wechat')
   const selectedLayout = wechatLayouts.find(item => item.id === layoutId)
   const { article, error: selectionError } = useSelectedArticle(selectedLayout?.articleId ?? focusArticleId ?? '', articles)
-  const coverAssets = assets.articleId === article?.id ? assets.items : []
+  const coverAssets = (assets.articleId === article?.id ? assets.items : []).filter(asset => asset.kind === 'cover')
+  /** 小绿书图片池：文章的全部配图（推送时取前 20 张，首张为封面） */
+  const newsPicImages = assets.articleId === article?.id ? assets.items : []
   const authorDefault = articles.find(item => item.id === article?.id)?.accountId === currentAccount?.id ? currentAccount?.name ?? '' : ''
   const { form, loaded, error: formError, update } = usePublishForm(article, channel?.appId ?? '', layoutId, authorDefault, formReloadKey)
   const draft = useWorkDraft(article?.id ?? '', article?.rawMarkdown ?? '', article?.currentVersionId ?? '')
@@ -80,7 +100,8 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     if (!article) { setAssets({ articleId: '', items: [] }); return }
     const id = article.id
     void window.moliu.visuals.list(id).then(packs => Promise.all(packs.map(pack => window.moliu.visuals.listAssets(pack.id)))).then(groups => {
-      if (alive) setAssets({ articleId: id, items: groups.flat().filter(asset => asset.kind === 'cover') })
+      // 保留全部图片（封面选择只用 cover；小绿书推送用全部）
+      if (alive) setAssets({ articleId: id, items: groups.flat() })
     }).catch(reason => { if (alive) showToast({ type: 'error', message: `封面读取失败：${errorMessage(reason)}` }) })
     return () => { alive = false }
   }, [article?.id, publications.length])
@@ -116,6 +137,17 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   }
   const push = () => perform(async () => { await draft.flush(); await report(await window.moliu.publishing.pushWechatDraft(input)) })
   const retry = (publication: Publication) => perform(async () => { await report(await window.moliu.publishing.retry(publication.id)) })
+  /** 小绿书：文章配图直接推送为图片消息草稿（无正文，≤20 张，首张为封面） */
+  const pushNewsPic = async (): Promise<void> => {
+    if (!article || !channelReady) return
+    const imageAssetIds = newsPicImages.map(asset => asset.id).slice(0, 20)
+    if (!imageAssetIds.length) { showToast({ type: 'error', message: '请先在配图工作台为文章准备图片' }); return }
+    const title = markdownTitle(article.rawMarkdown).slice(0, 32)
+    await perform(async () => {
+      const result = await window.moliu.publishing.pushNewsPicDraft({ title, imageAssetIds, digest: form.digest?.trim() || undefined })
+      showToast({ type: 'success', message: `小绿书草稿已创建（${result.count} 张图，首张为封面），请到公众号后台核对` })
+    })
+  }
   const markPublished = async (publication: Publication): Promise<void> => {
     const url = urls[publication.id]?.trim(); if (!url) return
     await perform(async () => { await window.moliu.publishing.update({ id: publication.id, status: 'published', publishedUrl: url }); await refresh(); showToast({ type: 'success', message: '发布链接已记录' }) })
@@ -144,7 +176,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     <PageHeader
       route="publishing"
       onNavigate={onNavigate}
-      title="排版交付"
+      title="发布管理"
       description="核对当前作品，推送公众号草稿箱，再记录正式发布链接"
       actions={article && selectedLayout ? <button className="button secondary" onClick={() => setImportOpen(true)}><FileUp size={16} />导入交付信息</button> : undefined}
     />
@@ -183,14 +215,20 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html).replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>') }} /></details>
       </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
       {formError && <p className="inline-alert">{formError}</p>}
-      {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+        {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+        {renderIssues.length > 0 && <ul className="delivery-issues" role="status">{renderIssues.map(issue => <li key={`${issue.rule}:${issue.message}`}>{issue.message}{issue.hint && <span className="micro-copy">（{issue.hint}）</span>}</li>)}</ul>}
       <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
         {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}
         <button className="button ghost compact" disabled={busy || !selectedCover || !channelReady} onClick={() => void uploadCover()}><UploadCloud size={16} />上传封面</button>
+        <button className="button secondary large" disabled={!selectedLayout || renderChecking || busy} onClick={() => void runRenderCheck()} title="在真实浏览器环境测量横向溢出与行高叠字（推送前主进程也会自动执行）"><ScanSearch size={16} />{renderChecking ? '渲染检测中…' : '渲染检测'}</button>
+        <button className="button secondary large" disabled={busy || !loaded || !channelReady || !newsPicImages.length} onClick={() => void pushNewsPic()} title="把文章配图推送为小绿书图片消息草稿（≤20 张，首张为封面，无需排版稿）"><Images size={16} />推送小绿书</button>
         <button className="button primary large" disabled={busy || !loaded || !channelReady || !check?.ready || checking || draft.dirty || draft.status !== 'saved' || Boolean(formError)} onClick={() => void push()}>{busy ? <LoaderCircle size={16} className="spin" /> : <CloudUpload size={16} />}{busy ? '正在推送…' : '推送草稿箱'}</button>
       </footer>
     </section>
-    <section id="publication-log" className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3></div></header>
+    <section id="publication-log" className="publication-log"><header className="publish-section-head"><div><h3><Send size={16} />交付记录与复盘</h3></div>
+      {/* 草稿箱直达：推送成功后省去"手动开浏览器 → 找到后台"的跳转成本 */}
+      <button className="button ghost compact" disabled={busy} onClick={() => { void window.moliu.app.openExternal('https://mp.weixin.qq.com/').then(ok => { if (!ok) showToast({ type: 'error', message: '打开外部链接失败，请手动访问 mp.weixin.qq.com' }) }) }} title="打开微信公众平台后台，核对草稿箱里的排版效果"><ExternalLink size={16} />打开公众号后台</button>
+    </header>
       {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={true}
         onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
         onResolve={(decision, note, remoteId) => perform(async () => { await window.moliu.publishing.resolveUnknown({ id: item.id, decision, note, remoteId: remoteId || undefined, expectedUpdatedAt: item.updatedAt }); await refresh() })}
