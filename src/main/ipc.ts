@@ -61,10 +61,12 @@ import type {
   SaveProviderInput,
   ProviderDraftTestInput,
   GenerateTopicsInput,
+  RetryTopicInput,
   AddSearchMaterialInput,
   MaterialSearchInput,
   SaveManualMaterialInput,
   GenerateFrameworksInput,
+  RetryFrameworkInput,
   SaveFrameworkInput,
   SaveFrameworkTemplateInput,
   GenerateArticlesInput,
@@ -697,15 +699,27 @@ export function registerIpc(options: {
   handle('topics:list', (_event, libraryOnly?: boolean) => database.listTopics(Boolean(libraryOnly)))
   handle('topics:generate', (event, raw: GenerateTopicsInput) => {
     const input = z.object({
-      accountId: z.string().uuid().optional(),
+      accountIds: z.array(z.string().uuid()).max(10).optional(),
       providerId: z.string().uuid(),
       model: z.string().trim().min(1).max(160),
-      seedKeyword: z.string().trim().min(1).max(4_000),
+      seedKeywords: z.array(z.string().trim().min(1).max(4_000)).min(1).max(10),
+      mode: z.enum(['round-robin', 'exhaustive']).optional(),
       relatedHotFavoriteIds: z.array(z.string().uuid()).max(30),
       count: z.number().int().min(1).max(5)
     }).parse(raw)
     return runGeneration(event, 'topics', (signal) =>
       topicGenerator.generate(input, (streamEvent) => sendToStream(event, 'topics:stream', streamEvent), signal))
+  })
+  handle('topics:retry-one', (event, raw: RetryTopicInput) => {
+    const input = z.object({
+      providerId: z.string().uuid(),
+      model: z.string().trim().min(1).max(160),
+      accountId: z.string().uuid().optional(),
+      seedKeyword: z.string().trim().min(1).max(4_000),
+      relatedHotFavoriteIds: z.array(z.string().uuid()).max(30)
+    }).parse(raw)
+    return runGeneration(event, 'topics', (signal) =>
+      topicGenerator.retryOne(input, (streamEvent) => sendToStream(event, 'topics:stream', streamEvent), signal))
   })
   handle('topics:save', (_event, raw: SaveTopicInput) => {
     const input = z.object({
@@ -835,6 +849,16 @@ export function registerIpc(options: {
     }).parse(raw)
     return runGeneration(event, 'frameworks', (signal) =>
       frameworkGenerator.generate(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
+  })
+  handle('frameworks:retry-one', (event, raw: RetryFrameworkInput) => {
+    const input = z.object({
+      topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
+      materialIds: z.array(z.string().uuid()).max(30), templateId: z.string().min(1).max(100),
+      manualTopic: z.string().trim().max(2_000).optional(), providerId: z.string().uuid(),
+      model: z.string().trim().min(1).max(160), research: z.boolean().optional()
+    }).parse(raw)
+    return runGeneration(event, 'frameworks', (signal) =>
+      frameworkGenerator.retryOne(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
   })
   handle('frameworks:save', (_event, raw: SaveFrameworkInput) => {
     const input = z.object({

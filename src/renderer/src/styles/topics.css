@@ -11,6 +11,13 @@
 .topics-page .topic-favorites-heading > span { margin-left: auto; font-size: 12px; color: var(--text-secondary); }
 .topics-page .topic-favorites-picker > .button { margin: 12px 0; }
 .topics-page .topic-favorite-options { max-height: 220px; overflow: auto; grid-template-columns: minmax(0, 1fr); }
+/* 账号池多选：chips 形态，不占整行高度 */
+.topics-page .topic-account-pool { display: flex; flex-wrap: wrap; gap: 8px; }
+.topics-page .topic-account-pool label { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--border-subtle); border-radius: 999px; background: var(--surface); cursor: pointer; font-size: 12.5px; color: var(--text-secondary); }
+.topics-page .topic-account-pool label.selected { background: var(--primary-wash, rgba(63, 81, 181, 0.08)); border-color: var(--primary, #3f51b5); color: var(--primary, #3f51b5); }
+.topics-page .topic-failed-list { display: flex; flex-direction: column; gap: 4px; }
+.topics-page .topic-failed-list p { margin: 0; }
+.topics-page .topic-failed-list span { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .topics-page .topic-composer { overflow: visible; }
 .topics-page .topic-composer > footer { display: flex; flex-direction: column; align-items: stretch; margin-top: 24px; padding: 16px 0 4px; gap: 12px; position: static; background: var(--surface); border-top: 1px solid var(--border-subtle); }
 .topics-page .topic-composer > footer .button { width: 100%; justify-content: center; }

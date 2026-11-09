@@ -130,10 +130,29 @@ export function FrameworksPage({
       await refresh()
       setLastFailed(result.failed)
       setLastResearch(result.research)
-      if (result.failed.length) showToast({ type: 'warning', message: `已生成 ${result.frameworks.length}\u00A0个框架；${result.failed.length}\u00A0个失败` })
+      if (result.failed.length) showToast({ type: 'warning', message: `已生成 ${result.frameworks.length}\u00A0个框架；${result.failed.length}\u00A0个失败，可在下方逐个重试` })
       else showToast({ type: 'success', message: `已生成 ${result.frameworks.length}\u00A0个可编辑框架` })
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消本次生成' } : { type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  /** 单个失败候选重试：沿用当次面板输入原位重跑（count=1） */
+  async function retryFailed(): Promise<void> {
+    const target = decodeModelTarget(modelTarget)
+    if (!templateId || !target || stream.active) return
+    if (!topicId && !manualTopic.trim()) return showToast({ type: 'error', message: '请选择选题，或填写框架主题' })
+    try {
+      await stream.run(() => window.moliu.frameworks.retryOne({
+        templateId, topicId: topicId || undefined, accountId: accountId || undefined,
+        materialIds: [...materialIds], manualTopic: manualTopic.trim() || undefined,
+        providerId: target.providerId, model: target.modelId, research
+      }))
+      await refresh()
+      setLastFailed([])
+      showToast({ type: 'success', message: '失败候选已重试成功' })
+    } catch (error) {
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消重试' } : { type: 'error', message: `重试失败：${errorMessage(error)}` })
     }
   }
 
@@ -227,7 +246,10 @@ export function FrameworksPage({
         </p>
       )}
       {lastFailed.length > 0 && !stream.active && (
-        <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
+        <p className="inline-alert">
+          上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}
+          <button className="button ghost compact" onClick={() => void retryFailed()}>按当前输入重试一个</button>
+        </p>
       )}
       <header><div><h3>框架预览 <small>{frameworks.length}</small></h3></div><div className="segmented account-filter" role="group" aria-label="账号筛选"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>全部账号</button><button className={accountFilter === 'current' ? 'active' : ''} disabled={!currentAccountId} title={currentAccountId ? '只看当前账号的框架' : '尚未创建当前账号'} onClick={() => setAccountFilter('current')}>当前账号</button></div></header>
       {loading ? (

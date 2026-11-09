@@ -3,6 +3,7 @@ import type {
   GenerateTopicsInput,
   GenerateTopicsResult,
   HotFavorite,
+  RetryTopicInput,
   StreamEvent,
   Topic,
   TopicAssessment,
@@ -24,55 +25,127 @@ export class TopicGenerator {
   ) {}
 
   async generate(input: GenerateTopicsInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<GenerateTopicsResult> {
-    const account = input.accountId ? this.database.getAccount(input.accountId) : null
-    if (input.accountId && !account) throw new Error('账号定位不存在')
-    if (account && account.status !== 'locked') throw new Error('选题生成只能使用已锁定的账号定位')
+    const accountIds = [...new Set(input.accountIds ?? [])]
+    const accounts = accountIds.map((id) => this.database.getAccount(id))
+    if (accounts.some((account) => !account)) throw new Error('部分账号定位不存在')
+    if (accounts.some((account) => account && account.status !== 'locked')) throw new Error('选题生成只能使用已锁定的账号定位')
 
     const schema = this.database.getTopicSchema()
     if (!schema.length) throw new Error('请先配置至少一个选题字段')
 
-    const seedKeyword = input.seedKeyword.trim()
-    if (!seedKeyword) throw new Error('请填写热点关键词或主题')
+    const seedKeywords = [...new Set(input.seedKeywords.map((keyword) => keyword.trim()).filter(Boolean))]
+    if (!seedKeywords.length) throw new Error('请填写热点关键词或主题')
 
     const favoriteIds = [...new Set(input.relatedHotFavoriteIds)]
     const favorites = this.database.listHotFavorites()
       .filter((favorite) => favoriteIds.includes(favorite.id))
     if (favorites.length !== favoriteIds.length) throw new Error('部分收藏热点不存在或已被删除')
 
-    // 历史去重（借鉴 wewrite）：把同账号近期选题喂给模型避开，选题撞车是最直接的浪费；
-    // 只注入标题做轻量提示，不阻断生成
-    const historyTitles = this.database.listTopics()
-      .filter((topic) => !input.accountId || topic.accountIds.includes(input.accountId))
-      .slice(0, 30)
-      .map((topic) => topic.fields['选题主题'] || Object.values(topic.fields)[0] || '')
-      .filter(Boolean)
+    // 账号池 × 关键词池的任务分配（PRD §4.4）：
+    // - 轮询（默认）：第 i 次取 accountIds[i % A] 与 seedKeywords[i % K]，产物数 = count
+    // - 穷举：账号 × 关键词 × count 笛卡尔积，保证每对组合至少各出一条
+    const mode = input.mode ?? 'round-robin'
+    const assignments: Array<{ account: (typeof accounts)[number]; seedKeyword: string }> = []
+    if (mode === 'exhaustive') {
+      for (const account of accounts) {
+        for (const seedKeyword of seedKeywords) {
+          for (let round = 0; round < input.count; round += 1) assignments.push({ account, seedKeyword })
+        }
+      }
+      // 通用创作（无账号池）也要覆盖全部关键词
+      if (!accounts.length) for (const seedKeyword of seedKeywords) for (let round = 0; round < input.count; round += 1) assignments.push({ account: null, seedKeyword })
+      if (assignments.length > 60) throw new Error(`穷举任务过多（${assignments.length} 条，上限 60），请减少账号/关键词/数量组合`)
+    } else {
+      for (let index = 0; index < input.count; index += 1) {
+        assignments.push({
+          account: accounts.length ? accounts[index % accounts.length] : null,
+          seedKeyword: seedKeywords[index % seedKeywords.length]
+        })
+      }
+    }
 
-    const work = Array.from({ length: input.count }, (_, index) =>
+    // 历史去重（借鉴 wewrite）：把同账号近期选题喂给模型避开，选题撞车是最直接的浪费；
+    // 只注入标题做轻量提示，不阻断生成。按账号缓存，避免池化后逐任务全量重查
+    const historyCache = new Map<string, string[]>()
+    const historyTitlesFor = (accountId?: string): string[] => {
+      const key = accountId ?? ''
+      const cached = historyCache.get(key)
+      if (cached) return cached
+      const titles = this.database.listTopics()
+        .filter((topic) => !accountId || topic.accountIds.includes(accountId))
+        .slice(0, 30)
+        .map((topic) => topic.fields['选题主题'] || Object.values(topic.fields)[0] || '')
+        .filter(Boolean)
+      historyCache.set(key, titles)
+      return titles
+    }
+
+    const work = assignments.map((assignment, index) =>
       this.generateOne({
-        accountId: account?.id,
-        accountVersionId: account?.currentVersionId,
+        accountId: assignment.account?.id,
+        accountVersionId: assignment.account?.currentVersionId,
         accountStatus: 'locked',
-        accountXml: account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>通用创作，不使用账号定位</账号定位>',
+        accountXml: assignment.account ? serializeAccountXml(assignment.account.fields, assignment.account.redlines) : '<账号定位>通用创作，不使用账号定位</账号定位>',
         providerId: input.providerId,
         model: input.model,
         schema,
-        seedKeyword,
+        seedKeyword: assignment.seedKeyword,
         favorites,
-        historyTitles,
+        historyTitles: historyTitlesFor(assignment.account?.id),
         index,
-        total: input.count,
+        total: assignments.length,
         onStream,
         signal
       })
     )
     const settled = await Promise.allSettled(work)
     const topics: Topic[] = []
-    const failed: Array<{ index: number; message: string }> = []
+    const failed: GenerateTopicsResult['failed'] = []
     settled.forEach((result, index) => {
       if (result.status === 'fulfilled') topics.push(result.value)
-      else failed.push({ index: index + 1, message: readableError(result.reason) })
+      else failed.push({
+        index: index + 1,
+        message: readableError(result.reason),
+        accountId: assignments[index].account?.id,
+        seedKeyword: assignments[index].seedKeyword
+      })
     })
     return { topics, failed }
+  }
+
+  /** 单条重试：按失败项当时的账号/关键词分配原位重跑（PRD §4.5 单卡重试） */
+  async retryOne(input: RetryTopicInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<Topic> {
+    const account = input.accountId ? this.database.getAccount(input.accountId) : null
+    if (input.accountId && !account) throw new Error('账号定位不存在')
+    if (account && account.status !== 'locked') throw new Error('选题生成只能使用已锁定的账号定位')
+    const schema = this.database.getTopicSchema()
+    if (!schema.length) throw new Error('请先配置至少一个选题字段')
+    const seedKeyword = input.seedKeyword.trim()
+    if (!seedKeyword) throw new Error('请填写热点关键词或主题')
+    const favoriteIds = [...new Set(input.relatedHotFavoriteIds)]
+    const favorites = this.database.listHotFavorites().filter((favorite) => favoriteIds.includes(favorite.id))
+    if (favorites.length !== favoriteIds.length) throw new Error('部分收藏热点不存在或已被删除')
+    const historyTitles = this.database.listTopics()
+      .filter((topic) => !input.accountId || topic.accountIds.includes(input.accountId))
+      .slice(0, 30)
+      .map((topic) => topic.fields['选题主题'] || Object.values(topic.fields)[0] || '')
+      .filter(Boolean)
+    return this.generateOne({
+      accountId: account?.id,
+      accountVersionId: account?.currentVersionId,
+      accountStatus: 'locked',
+      accountXml: account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>通用创作，不使用账号定位</账号定位>',
+      providerId: input.providerId,
+      model: input.model,
+      schema,
+      seedKeyword,
+      favorites,
+      historyTitles,
+      index: 0,
+      total: 1,
+      onStream,
+      signal
+    })
   }
 
   private async generateOne(input: {

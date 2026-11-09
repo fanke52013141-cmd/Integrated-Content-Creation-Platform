@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BookmarkCheck,
   ChevronDown,
@@ -83,7 +83,7 @@ export function TopicsPage({
   const [schema, setSchema] = useState<TopicSchemaField[]>([])
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
   const [view, setView] = useState<TopicView>('drafts')
-  const [accountId, setAccountId] = useState(currentAccountId ?? '')
+  const [accountIds, setAccountIds] = useState<Set<string>>(() => currentAccountId ? new Set([currentAccountId]) : new Set())
   const [seedKeyword, setSeedKeyword] = useDraftState('topic-seed', readSeedHandoff())
   // 初始化器只读不删（StrictMode 下会双调用，就地删除会丢值），清除放到 useEffect
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
@@ -95,7 +95,10 @@ export function TopicsPage({
     }
   })
   const [count, setCount] = useState(3)
-  const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
+  const [poolMode, setPoolMode] = useState<'round-robin' | 'exhaustive'>('round-robin')
+  const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string; accountId?: string; seedKeyword?: string }>>([])
+  // 重试需要沿用整批的热点组合：生成时记录，单卡重试时原样带回
+  const lastBatchFavoritesRef = useRef<string[]>([])
   const [listQuery, setListQuery] = useState('')
   const [accountFilter, setAccountFilter] = useState<'all' | 'current'>('all')
   const [schemaOpen, setSchemaOpen] = useState(false)
@@ -112,10 +115,21 @@ export function TopicsPage({
   const [modelTarget, setModelTarget] = useModelTarget(models, undefined, 'topic.generate')
 
   useEffect(() => {
-    if (accountId && !lockedAccounts.some((account) => account.id === accountId)) {
-      setAccountId('')
-    }
-  }, [accountId, currentAccountId, lockedAccounts])
+    setAccountIds((current) => {
+      const valid = new Set([...current].filter((id) => lockedAccounts.some((account) => account.id === id)))
+      return valid.size === current.size ? current : valid
+    })
+  }, [currentAccountId, lockedAccounts])
+
+  // 关键词池：每行一个，空行忽略；单行输入行为与旧版完全一致
+  const seedKeywords = useMemo(
+    () => [...new Set(seedKeyword.split('\n').map((line) => line.trim()).filter(Boolean))].slice(0, 10),
+    [seedKeyword]
+  )
+  /** 穷举模式的产物数 = 账号数（通用创作为 1）× 关键词数 × 每组数量；轮询恒为 count */
+  const plannedOutputs = poolMode === 'exhaustive'
+    ? Math.max(accountIds.size, 1) * seedKeywords.length * count
+    : count
 
   async function refresh(): Promise<void> {
     const [nextTopics, nextSchema, nextFavorites] = await Promise.all([
@@ -175,27 +189,59 @@ export function TopicsPage({
   async function generate(): Promise<void> {
     const target = decodeModelTarget(modelTarget)
     if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
-    if (!seedKeyword.trim()) return showToast({ type: 'error', message: '请填写热点关键词或主题' })
+    if (!seedKeywords.length) return showToast({ type: 'error', message: '请填写热点关键词或主题（每行一个）' })
+    if (poolMode === 'exhaustive' && plannedOutputs > 30) {
+      const okToRun = await confirm({
+        title: '穷举任务较多',
+        message: `账号 × 关键词 × 数量 共 ${plannedOutputs} 条任务，将逐条调用模型。确认继续？`,
+        confirmLabel: '继续生成'
+      })
+      if (!okToRun) return
+    }
     // 生成开始就切到草稿视图：候选逐个入库、逐个点亮，用户不必等整批结束
     setView('drafts')
+    const favoriteList = [...favoriteIds]
+    lastBatchFavoritesRef.current = favoriteList
     try {
       const result = await stream.run(() => window.moliu.topics.generate({
-        accountId: accountId || undefined,
+        accountIds: [...accountIds],
         providerId: target.providerId,
         model: target.modelId,
-        seedKeyword: seedKeyword.trim(),
-        relatedHotFavoriteIds: [...favoriteIds],
+        seedKeywords,
+        mode: poolMode,
+        relatedHotFavoriteIds: favoriteList,
         count
       }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
       setLastFailed(result.failed)
       if (result.failed.length) {
-        showToast({ type: 'warning', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可再次生成补齐` })
+        showToast({ type: 'warning', message: `已生成 ${result.topics.length}\u00A0条；${result.failed.length}\u00A0条失败，可在下方逐条重试` })
       } else {
         showToast({ type: 'success', message: `已生成 ${result.topics.length}\u00A0条选题草稿` })
       }
     } catch (error) {
       showToast(isCancelError(error) ? { type: 'info', message: '已取消本次生成' } : { type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  /** 单卡重试：按失败项当时的账号/关键词分配原位重跑（PRD §4.5） */
+  async function retryFailed(failed: { index: number; message: string; accountId?: string; seedKeyword?: string }): Promise<void> {
+    if (stream.active || !failed.seedKeyword) return
+    const target = decodeModelTarget(modelTarget)
+    if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
+    try {
+      await stream.run(() => window.moliu.topics.retryOne({
+        providerId: target.providerId,
+        model: target.modelId,
+        accountId: failed.accountId,
+        seedKeyword: failed.seedKeyword!,
+        relatedHotFavoriteIds: lastBatchFavoritesRef.current
+      }))
+      await refresh()
+      setLastFailed((current) => current.filter((item) => item.index !== failed.index))
+      showToast({ type: 'success', message: `第 ${failed.index} 条已重试成功` })
+    } catch (error) {
+      showToast(isCancelError(error) ? { type: 'info', message: '已取消重试' } : { type: 'error', message: `重试失败：${errorMessage(error)}` })
     }
   }
 
@@ -267,12 +313,31 @@ export function TopicsPage({
           <>
             <div className="topic-generation-layout">
               <div className="topic-generation-main">
-                <label className="field">
-                  <span>账号定位</span>
-                  <Select value={accountId} onChange={setAccountId} placeholder="选择账号" options={[{ value: '', label: '通用创作（不使用账号定位）' }, ...lockedAccounts.map((account) => ({ value: account.id, label: account.name, hint: `v${account.versionCount}` }))]} ariaLabel="账号定位" />
-                </label>
+                <div className="field">
+                  <span className="field-label">账号定位<em>{accountIds.size ? `已选 ${accountIds.size} 个，轮换使用` : '不使用账号定位'}</em></span>
+                  <div className="topic-account-pool">
+                    {lockedAccounts.map((account) => (
+                      <label key={account.id} className={accountIds.has(account.id) ? 'selected' : ''}>
+                        <input
+                          type="checkbox"
+                          name="accountPoolId"
+                          autoComplete="off"
+                          checked={accountIds.has(account.id)}
+                          onChange={(event) => setAccountIds((current) => {
+                            const next = new Set(current)
+                            if (event.target.checked) next.add(account.id)
+                            else next.delete(account.id)
+                            return next
+                          })}
+                        />
+                        {account.name}
+                      </label>
+                    ))}
+                    {!lockedAccounts.length && <p className="micro-copy">还没有已锁定的账号定位，当前为通用创作。</p>}
+                  </div>
+                </div>
                 <label className="field topic-keyword-field">
-                  <span>主题</span>
+                  <span>主题<em>每行一个关键词，多关键词轮换或穷举</em></span>
                   <textarea
                     name="seedKeyword"
                     autoComplete="off"
@@ -284,7 +349,7 @@ export function TopicsPage({
                         void generate()
                       }
                     }}
-                    placeholder="输入热点关键词或内容方向（Ctrl+Enter 直接生成）"
+                    placeholder={'输入热点关键词或内容方向，每行一个（Ctrl+Enter 直接生成）\n例如：\nAI 编程\n效率工具'}
                     rows={4}
                   />
                 </label>
@@ -323,9 +388,23 @@ export function TopicsPage({
                   <Select value={modelTarget} onChange={setModelTarget} placeholder="选择模型" options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))} ariaLabel="模型" />
                 </label>
                 <div className="field topic-count-field">
-                  <span className="field-label">数量</span>
+                  <span className="field-label">数量<em>每组账号×关键词</em></span>
                   <Segmented ariaLabel="数量" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: `${value} 条` }))} />
                 </div>
+                {(accountIds.size > 1 || seedKeywords.length > 1) && (
+                  <div className="field topic-count-field">
+                    <span className="field-label">分配方式</span>
+                    <Segmented
+                      ariaLabel="分配方式"
+                      value={poolMode}
+                      onChange={(value) => setPoolMode(value)}
+                      options={[
+                        { value: 'round-robin', label: '轮询', title: `轮换搭配账号与关键词，共 ${count} 条` },
+                        { value: 'exhaustive', label: '穷举', title: '账号 × 关键词全组合，每组各出 count 条' }
+                      ]}
+                    />
+                  </div>
+                )}
                 <div className="topic-template-summary">
                   <span>输出模板</span>
                   <strong>{schema.length} 个字段</strong>
@@ -346,7 +425,7 @@ export function TopicsPage({
                   title={stream.active ? '正在生成中，请等本批结束' : !models.length ? MISSING_MODEL_MESSAGE : undefined}
                 >
                   <Sparkles size={16} />
-                  {`生成 ${count} 条选题`}
+                  {`生成 ${plannedOutputs} 条选题`}
                 </button>
               )}
             </footer>
@@ -356,7 +435,15 @@ export function TopicsPage({
       <div className="topic-results">
       {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在生成选题…" />}
       {lastFailed.length > 0 && !stream.active && (
-        <p className="inline-alert">上批有 {lastFailed.length} 条未成功：{lastFailed.map((item) => `第 ${item.index} 条 ${item.message.slice(0, 50)}`).join('；')}</p>
+        <div className="inline-alert topic-failed-list">
+          <p>上批有 {lastFailed.length} 条未成功：</p>
+          {lastFailed.map((item) => (
+            <span key={item.index}>
+              第 {item.index} 条{item.seedKeyword ? `（${item.seedKeyword.slice(0, 20)}）` : ''} {item.message.slice(0, 50)}
+              <button className="button ghost compact" disabled={stream.active || !item.seedKeyword} onClick={() => void retryFailed(item)}>重试</button>
+            </span>
+          ))}
+        </div>
       )}
 
       <section className="topic-wall">
@@ -465,7 +552,7 @@ export function TopicsPage({
       <ManualTopicDialog
         open={manualOpen}
         schema={schema}
-        accountId={accountId || undefined}
+        accountId={[...accountIds][0]}
         onClose={() => setManualOpen(false)}
         onSaved={() => { void refresh(); setView('drafts') }}
         showToast={showToast}
@@ -474,7 +561,7 @@ export function TopicsPage({
         open={importOpen}
         kind="topic"
         targetFields={schema.map((field) => field.name)}
-        associations={{ accountId: accountId || undefined }}
+        associations={{ accountId: [...accountIds][0] }}
         onClose={() => setImportOpen(false)}
         onImported={() => { void refresh(); setView('drafts') }}
         showToast={showToast}

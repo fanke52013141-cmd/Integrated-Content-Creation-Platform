@@ -94,9 +94,9 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
     // === 阶段 2：选题 ===
     const topicGenerator = new TopicGenerator(database, gateway, prompts)
     const topicResult = await topicGenerator.generate({
-      accountId: account.id,
+      accountIds: [account.id],
       relatedHotFavoriteIds: [],
-      seedKeyword: 'AI 写作',
+      seedKeywords: ['AI 写作'],
       count: 1,
       providerId: PROVIDER_ID,
       model: MODEL_ID

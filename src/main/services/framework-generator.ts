@@ -8,6 +8,7 @@ import type {
   GenerateFrameworksResult,
   FrameworkResearchStatus,
   Material,
+  RetryFrameworkInput,
   StreamEvent,
   Topic
 } from '../../shared/contracts.js'
@@ -73,6 +74,13 @@ export class FrameworkGenerator {
       else failed.push({ index: index + 1, message: readableError(result.reason) })
     })
     return { frameworks, failed, research: researchResult.status }
+  }
+
+  /** 单条重试：沿用失败候选当时的完整输入，count=1 原位重跑 */
+  async retryOne(input: RetryFrameworkInput, onStream?: (event: StreamEvent) => void, signal?: AbortSignal): Promise<Framework> {
+    const result = await this.generate({ ...input, count: 1 }, onStream, signal)
+    if (!result.frameworks.length) throw new Error(result.failed[0]?.message ?? '重试失败')
+    return result.frameworks[0]
   }
 
   /** 抓取选题相关公开资料摘要作为预研上下文；失败时返回明确状态，不阻塞框架生成 */

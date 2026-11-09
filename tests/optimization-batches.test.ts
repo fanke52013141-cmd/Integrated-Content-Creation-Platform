@@ -125,7 +125,7 @@ describe('C/D：输入交接、依据与可携带备份', () => {
     const db = database(), p = provider(db)
     const fields = Object.fromEntries(db.getTopicSchema().map(field => [field.name, '通用创作方向']))
     const gateway = { chat: async () => ({ ...response(JSON.stringify(fields)), providerId: p.id }) } as unknown as ModelGateway
-    const result = await new TopicGenerator(db, gateway, makePromptRegistryStub()).generate({ providerId: p.id, model: 'mock', seedKeyword: '主题', relatedHotFavoriteIds: [], count: 1 })
+    const result = await new TopicGenerator(db, gateway, makePromptRegistryStub()).generate({ providerId: p.id, model: 'mock', seedKeywords: ['主题'], relatedHotFavoriteIds: [], count: 1 })
     expect(result.failed).toEqual([]); expect(result.topics[0].accountIds).toEqual([])
   })
   it('超过两万字的文件完整保存，可检索后半段，片段预算不截断原文', async () => {

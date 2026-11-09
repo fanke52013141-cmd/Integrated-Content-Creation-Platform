@@ -597,18 +597,26 @@ export interface MaterialFragment { id: string; materialId: string; versionId: s
 export interface MaterialContext { fragments: MaterialFragment[]; totalChars: number; usedChars: number; omittedChars: number; text: string }
 
 export interface GenerateTopicsInput {
-  accountId?: string
+  /** 账号池（PRD §4.4）：全部须为已锁定账号；空数组/缺省 = 通用创作 */
+  accountIds?: string[]
   providerId: string
   model: string
-  seedKeyword: string
+  /** 关键词池（PRD §4.4）：1~10 个，与账号池轮询或穷举组合 */
+  seedKeywords: string[]
+  /** 分配模式：round-robin 轮询（默认）/ exhaustive 账号×关键词笛卡尔积穷举 */
+  mode?: 'round-robin' | 'exhaustive'
   relatedHotFavoriteIds: string[]
   count: number
 }
 
 export interface GenerateTopicsResult {
   topics: Topic[]
-  failed: Array<{ index: number; message: string }>
+  /** 失败项携带当次的账号/关键词分配，供「重试这一条」原位重跑 */
+  failed: Array<{ index: number; message: string; accountId?: string; seedKeyword?: string }>
 }
+
+/** 单条重试：按失败项当时的分配重新生成一个选题 */
+export interface RetryTopicInput { providerId: string; model: string; accountId?: string; seedKeyword: string; relatedHotFavoriteIds: string[] }
 
 export type MaterialKind = 'web' | 'image' | 'text'
 export type MaterialOrigin = 'doubao_web' | 'doubao_image' | 'manual_text' | 'file_upload'
@@ -712,6 +720,8 @@ export interface FrameworkResearchStatus {
   message: string
 }
 export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }>; research?: FrameworkResearchStatus }
+/** 框架单条重试：沿用失败项当时的完整输入重新生成一个候选 */
+export interface RetryFrameworkInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; research?: boolean }
 export interface SaveFrameworkInput { id?: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; sections: FrameworkSection[]; providerId?: string; model?: string }
 export interface SaveFrameworkTemplateInput { id?: string; name: string; sections: string[]; isDefault: boolean }
 
@@ -1217,6 +1227,8 @@ export interface MoliuApi {
     resetSchema(): Promise<TopicSchemaField[]>
     list(libraryOnly?: boolean): Promise<Topic[]>
     generate(input: GenerateTopicsInput): Promise<GenerateTopicsResult>
+    /** 按失败项当时的账号/关键词分配重跑单条 */
+    retryOne(input: RetryTopicInput): Promise<Topic>
     save(input: SaveTopicInput): Promise<Topic>
     setLocked(id: string, locked: boolean): Promise<Topic>
     setInLibrary(id: string, inLibrary: boolean): Promise<Topic>
@@ -1241,6 +1253,8 @@ export interface MoliuApi {
     saveTemplate(input: SaveFrameworkTemplateInput): Promise<FrameworkTemplate>
     list(): Promise<Framework[]>
     generate(input: GenerateFrameworksInput): Promise<GenerateFrameworksResult>
+    /** 重跑单个失败候选（count=1） */
+    retryOne(input: RetryFrameworkInput): Promise<Framework>
     save(input: SaveFrameworkInput): Promise<Framework>
     setLocked(id: string, locked: boolean): Promise<Framework>
     remove(id: string): Promise<void>
