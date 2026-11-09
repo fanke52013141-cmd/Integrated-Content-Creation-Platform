@@ -228,6 +228,19 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   }
 
   const allAdoptedCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.filter((problem) => problem.adopted).length, 0)
+  const highSeverityCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.filter((problem) => problem.severity === 'high').length, 0)
+  const allProblemsCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.length, 0)
+
+  const setTaskAdopted = async (task: ReviewTask, adopted: boolean): Promise<void> => {
+    try {
+      await window.moliu.reviews.setProblemsAdopted(task.id, adopted)
+      await refreshTasks(task.articleId)
+      showToast({ type: 'success', message: adopted ? '已全部采纳' : '已全部忽略，应用改稿时不会带上这些意见' })
+    } catch (error) {
+      await refreshTasks(task.articleId).catch((reloadError) => showToast({ type: 'error', message: `评审结果刷新失败：${errorMessage(reloadError)}` }))
+      showToast({ type: 'error', message: `批量操作未生效：${errorMessage(error)}` })
+    }
+  }
 
   return <div className="page reviews-page">
     <PageHeader
@@ -315,7 +328,7 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                   {isReviewBaselineStale(task, selectedArticle) && task.status !== 'applied' && (
                     <span className="badge warning">基线已过期 · 评审第 {task.articleVersionNumber} 版</span>
                   )}
-                  <small>{formatDate(task.createdAt)} · 基于第 {task.articleVersionNumber} 版 · {task.opinions.filter((opinion) => opinion.roleId && task.roleIds.includes(opinion.roleId)).length}/{task.roleIds.length} 个角色有效 · 采纳 {allAdoptedCount(task)} 条问题</small>
+                  <small>{formatDate(task.createdAt)} · 基于第 {task.articleVersionNumber} 版 · {task.opinions.filter((opinion) => opinion.roleId && task.roleIds.includes(opinion.roleId)).length}/{task.roleIds.length} 个角色有效 · 采纳 {allAdoptedCount(task)} 条问题{highSeverityCount(task) > 0 ? ` · 高严重度 ${highSeverityCount(task)} 条` : ''}</small>
                   {task.failures.length > 0 && (
                     <small className="review-task-failures">失败：{task.failures.map((item) => `${item.roleName || '未知角色'} ${item.message.slice(0, 40)}`).join('；')}</small>
                   )}
@@ -329,6 +342,16 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
                   <button className="button secondary compact" onClick={() => setManualTaskId(task.id)}>
                     <Plus size={16} />手动加问题
                   </button>
+                )}
+                {task.status !== 'applied' && allProblemsCount(task) > 0 && (
+                  <>
+                    <button className="button secondary compact" disabled={stream.active || allAdoptedCount(task) === 0} onClick={() => void setTaskAdopted(task, false)}>
+                      全部忽略
+                    </button>
+                    <button className="button secondary compact" disabled={stream.active || allAdoptedCount(task) === allProblemsCount(task)} onClick={() => void setTaskAdopted(task, true)}>
+                      全部采纳
+                    </button>
+                  </>
                 )}
                 {task.status !== 'applied' && (
                   <button className="button secondary compact" onClick={() => void apply(task)} disabled={stream.active || !task.opinions.length}>

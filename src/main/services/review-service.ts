@@ -181,7 +181,8 @@ function parseOpinion(raw: string): { problems: Omit<ReviewProblem, 'id'>[]; ove
     severity: ({ 高: 'high', 中: 'medium', 低: 'low', high: 'high', medium: 'medium', low: 'low' } as any)[m[2].trim()] ?? 'medium',
     issue: m[3].trim(),
     suggestion: m[4].trim(),
-    adopted: false,
+    // PRD §5.5：AI 意见默认全采纳（勾选态），逐条取消或「全部忽略」由用户操作；机器体检与手动添加各自单独定默认值
+    adopted: true,
     isManual: false
   }))
   return { problems, overall: raw.match(/总体建议[：:]\s*([^<\n]+)/)?.[1]?.trim() ?? '' }

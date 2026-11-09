@@ -500,6 +500,7 @@ function createMockBridge(): MoliuApi {
       createManualTask: (articleId: string) => Promise.resolve({ id: `manual-task-${Date.now()}`, articleId, articleVersionId: '', articleVersionNumber: 1, roleIds: [], failures: [], status: 'running' as const, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), opinions: [] }),
       start: () => void_(),
       updateProblem: () => void_(),
+      setProblemsAdopted: () => void_(),
       addManualProblem: () => void_(),
       apply: () => void_(),
       onStream: () => () => undefined

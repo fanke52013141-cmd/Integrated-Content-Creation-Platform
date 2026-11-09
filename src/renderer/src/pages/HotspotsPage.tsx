@@ -92,6 +92,8 @@ export function HotspotsPage({
   const [results, setResults] = useState<Record<string, HotSourceResult>>({})
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
   const [bootError, setBootError] = useState<string>()
+  // PRD-热点模块 §4.1：页面必须标明内置服务版本与「草稿数据源、使用前核实来源」
+  const [serviceVersion, setServiceVersion] = useState('')
   const [refreshingAll, setRefreshingAll] = useState(false)
   const [favorites, setFavorites] = useState<HotFavorite[]>([])
   const [manualHotOpen, setManualHotOpen] = useState(false)
@@ -299,6 +301,7 @@ export function HotspotsPage({
         if (disposed) return
         setWeiboConfigured(weiboStatus.configured)
         setWeiboUpdatedAt(weiboStatus.updatedAt)
+        setServiceVersion(bootstrap.service.version)
         const orderedSources = applySourcePreferences(bootstrap.sources, bootstrap.preferences)
         setSources(orderedSources)
         setHiddenSourceIds(new Set(
@@ -780,6 +783,11 @@ export function HotspotsPage({
               {!favorites.length && <small className="form-hint">先收藏热点，才能生成选题</small>}
             </aside>
           </section>
+          {serviceVersion && (
+            <p className="hotspot-source-note micro-copy">
+              内置 DailyHotApi v{serviceVersion} · 榜单为接口快照，发布前请核实原始来源
+            </p>
+          )}
 
                   </>
       ) : view === 'favorites' ? (

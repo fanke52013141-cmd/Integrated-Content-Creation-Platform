@@ -215,6 +215,7 @@ const api: MoliuApi = {
     createManualTask: (articleId: string) => ipcRenderer.invoke('reviews:manual-task', articleId),
     start: (input: StartReviewInput) => ipcRenderer.invoke('reviews:start', input),
     updateProblem: (input: UpdateReviewProblemInput) => ipcRenderer.invoke('reviews:problems:update', input),
+    setProblemsAdopted: (taskId: string, adopted: boolean) => ipcRenderer.invoke('reviews:problems:set-adopted', { taskId, adopted }),
     addManualProblem: (input: AddManualReviewProblemInput) => ipcRenderer.invoke('reviews:problems:add', input),
     apply: (taskId: string, providerId: string, model: string, force?: boolean) => ipcRenderer.invoke('reviews:apply', taskId, providerId, model, force),
     onStream: (callback: (event: StreamEvent) => void): (() => void) => {

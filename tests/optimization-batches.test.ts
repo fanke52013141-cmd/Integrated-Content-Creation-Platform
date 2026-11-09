@@ -140,16 +140,17 @@ describe('C/D：输入交接、依据与可携带备份', () => {
     for (const fragment of context.fragments) expect(text.slice(fragment.start, fragment.end)).toBe(fragment.text)
     expect(db.workflow.getDocument(material.id)?.content).toBe(text)
   })
-  it('来源 ID 和逐字摘录验证失败时事实意见保持未核实且默认未采纳', async () => {
+  it('来源 ID 和逐字摘录验证失败时事实意见保持未核实，可一键全部忽略后再应用', async () => {
     const db = database(), p = provider(db), original = article(db)
     const role = db.listReviewRoles()[0]
     const gateway = { chat: async () => response('<评审意见>位置：正文｜严重程度：高｜问题：事实数字错误｜建议：改成 100｜类型：事实｜片段ID：虚构来源｜依据摘录：来源并不存在\n总体建议：核查。</评审意见>') } as unknown as ModelGateway
     const articles = new ArticleGenerator(db, gateway, makePromptRegistryStub())
     const result = await new ReviewService(db, gateway, articles).start({ articleId: original.id, roleIds: [role.id], fallbackProviderId: p.id, fallbackModel: 'mock' })
-    expect(result.task.opinions.filter((opinion) => opinion.roleId)[0]!.problems[0]).toMatchObject({ adopted: false, reviewKind: 'fact', evidence: { status: 'unverified' } })
+    expect(result.task.opinions.filter((opinion) => opinion.roleId)[0]!.problems[0]).toMatchObject({ adopted: true, reviewKind: 'fact', evidence: { status: 'unverified' } })
+    db.setReviewTaskProblemsAdopted(result.task.id, false)
     await expect(new ReviewService(db, gateway, articles).apply(result.task.id, p.id, 'mock')).rejects.toThrow('至少采纳')
   })
-  it('可追溯的事实意见绑定原文与冻结来源，仍由作者决定是否采纳', async () => {
+  it('可追溯的事实意见绑定原文与冻结来源，默认采纳仍由作者决定是否保留', async () => {
     const db = database(), p = provider(db), original = article(db)
     const material = db.addFileMaterial({ fileName: '访谈.txt', content: '受访用户认为导入文章比连接模型更优先。', formatNote: 'TXT' })
     const evidence = buildMaterialContext(db, [material], '导入文章', 2000)
@@ -158,7 +159,7 @@ describe('C/D：输入交接、依据与可携带备份', () => {
     const gateway = { chat: async () => response(`<评审意见>位置：正文｜严重程度：中｜问题：缺少受访用户观点｜建议：补充访谈观点｜类型：事实｜原文摘录：原稿｜片段ID：${fragment.id}｜依据摘录：${fragment.text}
 总体建议：人工核对。</评审意见>`) } as unknown as ModelGateway
     const result = await new ReviewService(db, gateway, new ArticleGenerator(db, gateway, makePromptRegistryStub())).start({ articleId: original.id, roleIds: [role.id], fallbackProviderId: p.id, fallbackModel: 'mock' })
-    expect(result.task.opinions.filter((opinion) => opinion.roleId)[0]!.problems[0]).toMatchObject({ adopted: false, anchor: '原稿', evidence: { status: 'source-matched', fragmentId: fragment.id } })
+    expect(result.task.opinions.filter((opinion) => opinion.roleId)[0]!.problems[0]).toMatchObject({ adopted: true, anchor: '原稿', evidence: { status: 'source-matched', fragmentId: fragment.id } })
   })
   it('外部备份剔除密钥字节，新环境恢复完整素材、任务、图片，损坏包不覆盖', async () => {
     const root = mkdtempSync(join(tmpdir(), 'moliu-portable-source-')), external = mkdtempSync(join(tmpdir(), 'moliu-portable-export-'))

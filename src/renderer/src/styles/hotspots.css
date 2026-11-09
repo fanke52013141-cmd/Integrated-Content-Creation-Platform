@@ -43,5 +43,6 @@
 .hotspot-filter-dialog .modal-scroll-body > .filter-source-picker { padding: 0; }
 .hotspot-filter-dialog .filter-source-options label { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; }
 .weibo-login-body { padding: 24px; }
+.hotspot-source-note { margin: 8px 4px 0; }
 @media (max-width: 1279px) { .hotspots-page .hotspot-radar-layout { grid-template-columns: 192px minmax(0, 1fr); } .hotspots-page .hotspot-insight-rail { grid-column: 1 / -1; } }
 @media (max-width: 850px) { .hotspots-page .hotspot-radar-layout { grid-template-columns: minmax(0, 1fr); } .hotspots-page .hotspot-source-rail > div { max-height: 180px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .hotspots-page .hotspot-source-rail { border-right: 0; border-bottom: 1px solid var(--border-subtle); } .hotspots-page .hot-value { display: none; } .filter-dialog-grid, .source-manager-list { grid-template-columns: minmax(0, 1fr); } }

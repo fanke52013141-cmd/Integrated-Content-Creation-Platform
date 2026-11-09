@@ -3,7 +3,7 @@
 import './stdout-guard.js'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { app, BrowserWindow, Menu, protocol } from 'electron'
+import { app, BrowserWindow, Menu, dialog, protocol, shell } from 'electron'
 import { net } from 'electron'
 import { AppDatabase } from './database.js'
 import { ModelGateway } from './gateway/model-gateway.js'
@@ -149,7 +149,21 @@ if (!hasLock) {
       registerAssetProtocol(imagesDir)
       createWindow()
     } catch (initError) {
+      // 初始化失败时窗口还没创建，只写 console 用户只会看到白屏；弹原生错误框并给出数据目录入口
       console.error('[main] initialization failed:', initError)
+      const detail = initError instanceof Error ? `${initError.name}: ${initError.message}` : String(initError)
+      const userDataPath = app.getPath('userData')
+      const choice = dialog.showMessageBoxSync({
+        type: 'error',
+        title: '心流启动失败',
+        message: '心流初始化失败，无法继续启动。',
+        detail: `${detail}\n\n数据目录：${userDataPath}`,
+        buttons: ['打开数据目录', '退出'],
+        defaultId: 1,
+        cancelId: 1
+      })
+      if (choice === 0) void shell.openPath(userDataPath)
+      app.exit(1)
     }
     void embeddedHotService?.start().catch((error) => {
       console.error('Embedded DailyHotApi failed to start:', error)

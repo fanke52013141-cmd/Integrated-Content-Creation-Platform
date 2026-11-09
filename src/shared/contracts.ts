@@ -1239,6 +1239,8 @@ export interface MoliuApi {
     createManualTask(articleId: string): Promise<ReviewTask>
     start(input: StartReviewInput): Promise<StartReviewResult>
     updateProblem(input: UpdateReviewProblemInput): Promise<ReviewProblem>
+    /** 批量设置一次评审任务内全部问题的采纳态（全部采纳 / 全部忽略） */
+    setProblemsAdopted(taskId: string, adopted: boolean): Promise<void>
     addManualProblem(input: AddManualReviewProblemInput): Promise<ReviewProblem>
     apply(taskId: string, providerId: string, model: string, force?: boolean): Promise<Article>
     onStream(callback: (event: StreamEvent) => void): () => void
