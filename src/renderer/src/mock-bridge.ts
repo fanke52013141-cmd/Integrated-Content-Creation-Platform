@@ -558,6 +558,7 @@ function createMockBridge(): MoliuApi {
         }),
       previewSample: () => Promise.resolve({ title: '固定版式标准样稿', html: '', plainText: '', themeId: 'editorial' }),
       previewArticle: () => Promise.reject(new Error('请在桌面应用中预览文章版式')),
+      generatePlan: () => Promise.reject(new Error('请在桌面应用中生成 AI 排版方案')),
       getAccountDefault: () => Promise.resolve(null),
       getAccountDraft: () => Promise.resolve(null),
       saveAccountDraft: () => Promise.reject(new Error('请在桌面应用中保存版式草稿')),

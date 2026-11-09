@@ -3001,6 +3001,38 @@
 .layout-style-editor > summary::before { content: '＋'; color: var(--purple-600); }
 .layout-style-editor[open] > summary::before { content: '－'; }
 .layout-style-editor > summary span { color: var(--text-tertiary); font-size: 11.5px; }
+/* AI 排版方案编辑区：与固定版式设计同款折叠面板 */
+.layout-plan-editor {
+  grid-column: 1 / -1;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+.layout-plan-editor > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  list-style: none;
+}
+.layout-plan-editor > summary::-webkit-details-marker { display: none; }
+.layout-plan-editor > summary::before { content: '＋'; color: var(--purple-600); }
+.layout-plan-editor[open] > summary::before { content: '－'; }
+.layout-plan-editor > summary span { color: var(--text-tertiary); font-size: 11.5px; }
+.layout-plan-toolbar { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+.layout-plan-toolbar .select { flex: 1; min-width: 0; }
+.layout-plan-card { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding: 12px; background: var(--surface-subtle); border-radius: var(--radius-md); }
+.layout-plan-warnings { margin: 0; padding-left: 18px; color: var(--text-tertiary); font-size: 12px; }
+.layout-plan-apply { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); }
+.layout-plan-insertion { display: flex; gap: 10px; align-items: flex-start; padding: 8px; background: var(--surface-default, var(--bg-elevated, #fff)); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.layout-plan-insertion img { width: 72px; height: 44px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: var(--surface-subtle); }
+.layout-plan-insertion-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.layout-plan-anchor-row { display: flex; gap: 8px; align-items: center; }
+.layout-plan-anchor-row .select { flex: 1; min-width: 0; }
+.layout-plan-anchor-row input[type="number"] { width: 84px; }
+.layout-plan-insertion small { color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layout-plan-theme { margin: 0; font-size: 12.5px; color: var(--text-secondary); }
 .layout-style-fields {
   display: grid;
   grid-template-columns: repeat(6, minmax(90px, 1fr));

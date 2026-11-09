@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Code2, Copy, FileDown, FileText, FileUp, ImageDown, Moon, Save, Send, Smartphone, Trash2 } from 'lucide-react'
-import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutGenreInfo, LayoutPlatform, LayoutThemeInfo } from '../../../shared/contracts'
+import { Code2, Copy, FileDown, FileText, FileUp, ImageDown, Moon, Save, Send, Smartphone, Sparkles, Trash2, X } from 'lucide-react'
+import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutGenreInfo, LayoutPlan, LayoutPlatform, LayoutThemeInfo, ProviderSummary } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
@@ -21,6 +21,7 @@ import { LayoutStyleFields } from '../components/layout/LayoutStyleFields'
 import { ThemeGallery } from '../components/layout/ThemeGallery'
 import { layoutPreviewDocument } from '../components/layout/preview-document'
 import { DEFAULT_STYLE_CONFIG, normalizeStyleConfig, sameStyleConfig } from '../../../shared/layout-config'
+import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
 
@@ -63,6 +64,11 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [selectedId, setSelectedId] = useState('')
   const [importOpen, setImportOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [providers, setProviders] = useState<ProviderSummary[]>([])
+  const [plan, setPlan] = useState<LayoutPlan | null>(null)
+  const [planMeta, setPlanMeta] = useState<{ extractionMatched: boolean; warnings: string[]; paragraphCount: number } | null>(null)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [planEnabled, setPlanEnabled] = useState(true)
   const [showingSamplePreview, setShowingSamplePreview] = useState(false)
   const [samplePreview, setSamplePreview] = useState<LayoutPreviewResult | null>(null)
   const [samplePreviewLoading, setSamplePreviewLoading] = useState(false)
@@ -125,7 +131,47 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   useEffect(() => {
     void window.moliu.layouts.themes().then(setThemes).catch(() => undefined)
     void window.moliu.layouts.genres().then(setGenres).catch(() => undefined)
+    void window.moliu.providers.list().then(setProviders).catch(() => undefined)
   }, [])
+
+  const models = useMemo(() => availableModels(providers), [providers])
+  const [planModelTarget, setPlanModelTarget] = useModelTarget(models, 'moliu:stage-model:layout-plan', 'layout.plan')
+
+  // 方案与文章绑定：换文章就清空，避免把上一篇的插入点带到下一篇
+  useEffect(() => {
+    setPlan(null)
+    setPlanMeta(null)
+  }, [articleId])
+
+  const generatePlan = async (): Promise<void> => {
+    if (!articleId || planBusy) return
+    const target = decodeModelTarget(planModelTarget)
+    if (!target || !models.some(({ provider, model }) => provider.id === target.providerId && model.modelId === target.modelId)) {
+      showToast({ type: 'error', message: '请先选择可用的文本模型' })
+      return
+    }
+    setPlanBusy(true)
+    try {
+      const result = await window.moliu.layouts.generatePlan({
+        articleId,
+        providerId: target.providerId,
+        model: target.modelId,
+        ...(themeId !== 'custom' && themeId ? { userThemeId: themeId } : {})
+      })
+      setPlan(result.plan)
+      setPlanMeta({ extractionMatched: result.extractionMatched, warnings: result.warnings, paragraphCount: result.paragraphCount })
+      setPlanEnabled(true)
+      if (result.plan.recommendedThemeId && result.plan.recommendedThemeId !== themeId) setThemeId(result.plan.recommendedThemeId)
+      const dropped = result.warnings.length
+      showToast(result.extractionMatched
+        ? { type: dropped ? 'warning' : 'success', message: dropped ? `方案已生成，但 ${dropped} 处需注意：${result.warnings[0]}` : 'AI 排版方案已生成，可调整后随排版稿生效' }
+        : { type: 'warning', message: '模型未按约定输出方案区块，已保留人工排版模式' })
+    } catch (error) {
+      showToast({ type: 'error', message: `生成排版方案失败：${errorMessage(error)}` })
+    } finally {
+      setPlanBusy(false)
+    }
+  }
 
   /** 当前主题的完整信息，用于展示"为什么推荐它" */
   useEffect(() => {
@@ -187,7 +233,8 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       const item = await window.moliu.layouts.create({
         articleId,
         platform,
-        ...(platform !== 'xiaohongshu' && !useAccountDefault ? { themeId, styleConfig, customCss } : {})
+        ...(platform !== 'xiaohongshu' && !useAccountDefault ? { themeId, styleConfig, customCss } : {}),
+        ...(plan && planEnabled ? { plan } : {})
       })
       await refresh()
       setSelectedId(item.id)
@@ -395,6 +442,85 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
               }))}
             />
           </label>
+          {platform !== 'xiaohongshu' && (
+            <details className="layout-plan-editor">
+              <summary>AI 排版方案<span>配图落位 · 导读互动语 · 模板推荐</span></summary>
+              <div className="layout-plan-toolbar">
+                <Select
+                  value={planModelTarget}
+                  onChange={setPlanModelTarget}
+                  ariaLabel="排版方案模型"
+                  options={models.map(({ provider, model }) => ({ value: encodeModelTarget(provider.id, model.modelId), label: model.displayName, hint: provider.displayName }))}
+                />
+                <button className="button secondary" disabled={planBusy || !articleId || needsSavedVersion} onClick={() => void generatePlan()}>
+                  <Sparkles size={16} />{planBusy ? '生成中…' : plan ? '重新生成方案' : '生成方案'}
+                </button>
+              </div>
+              {plan && planMeta && (
+                <div className="layout-plan-card">
+                  {!planMeta.extractionMatched && <p className="inline-alert">模型未按约定输出方案区块，以下为空方案；可直接排版（无轻编排），或换模型重试。</p>}
+                  {planMeta.warnings.length > 0 && (
+                    <ul className="layout-plan-warnings">
+                      {planMeta.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>
+                  )}
+                  <label className="layout-plan-apply">
+                    <input type="checkbox" checked={planEnabled} onChange={(event) => setPlanEnabled(event.target.checked)} />
+                    生成排版稿时应用本方案（取消则按纯文字排版）
+                  </label>
+                  {plan.insertions.length > 0 ? plan.insertions.map((insertion, index) => (
+                    <div className="layout-plan-insertion" key={`${insertion.assetFileName}-${index}`}>
+                      <img src={`moliu-asset://assets/${insertion.assetFileName}`} alt={insertion.alt} />
+                      <div className="layout-plan-insertion-main">
+                        <div className="layout-plan-anchor-row">
+                          <Select
+                            value={insertion.anchor}
+                            onChange={(value) => setPlan((current) => current ? { ...current, insertions: current.insertions.map((item, itemIndex) => itemIndex === index ? { ...item, anchor: value as typeof item.anchor } : item) } : current)}
+                            ariaLabel="插入位置"
+                            options={[
+                              { value: 'leading', label: '文首' },
+                              { value: 'after-paragraph', label: '指定段落之后' },
+                              { value: 'before-ending', label: '结尾之前' }
+                            ]}
+                          />
+                          {insertion.anchor === 'after-paragraph' && (
+                            <input
+                              type="number"
+                              min={1}
+                              max={planMeta.paragraphCount}
+                              value={insertion.paragraph ?? 1}
+                              aria-label="段落序号"
+                              onChange={(event) => {
+                                const next = Math.min(Math.max(Number(event.target.value) || 1, 1), planMeta.paragraphCount)
+                                setPlan((current) => current ? { ...current, insertions: current.insertions.map((item, itemIndex) => itemIndex === index ? { ...item, paragraph: next } : item) } : current)
+                              }}
+                            />
+                          )}
+                        </div>
+                        <small>{insertion.note || insertion.alt || insertion.assetFileName}</small>
+                      </div>
+                      <button className="button ghost compact" title="移除该插入点" onClick={() => setPlan((current) => current ? { ...current, insertions: current.insertions.filter((_, itemIndex) => itemIndex !== index) } : current)}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )) : <p className="micro-copy">{planMeta.extractionMatched ? '方案没有配图插入点（可能本篇没有可用图片资产）。' : '无插入点。'}</p>}
+                  {(plan.recommendedThemeId || plan.recommendedReason) && (
+                    <p className="layout-plan-theme">
+                      {plan.recommendedThemeId
+                        ? <>AI 推荐「{themes.find((theme) => theme.id === plan.recommendedThemeId)?.name ?? plan.recommendedThemeId}」并已选用{plan.recommendedReason ? `：${plan.recommendedReason}` : ''}</>
+                        : <>模板建议：{plan.recommendedReason}</>}
+                    </p>
+                  )}
+                  <label className="field"><span>导读<em>文首引用块</em></span>
+                    <textarea rows={2} maxLength={300} value={plan.leadIn ?? ''} placeholder="留空则不加导读" onChange={(event) => setPlan((current) => current ? { ...current, leadIn: event.target.value || undefined } : current)} />
+                  </label>
+                  <label className="field"><span>结尾互动语<em>文末段落</em></span>
+                    <textarea rows={2} maxLength={300} value={plan.closing ?? ''} placeholder="留空则不加互动语" onChange={(event) => setPlan((current) => current ? { ...current, closing: event.target.value || undefined } : current)} />
+                  </label>
+                </div>
+              )}
+            </details>
+          )}
           {/* 空态时左栏已有同动作按钮，顶部主按钮让位避免双入口 */}
           {articleLayouts.length > 0 && (
             <button

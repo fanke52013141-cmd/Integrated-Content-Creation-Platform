@@ -12,8 +12,9 @@ import xml from 'highlight.js/lib/languages/xml'
 import sql from 'highlight.js/lib/languages/sql'
 import yaml from 'highlight.js/lib/languages/yaml'
 import markdownLang from 'highlight.js/lib/languages/markdown'
-import type { LayoutPreviewSampleInput, LayoutStyleConfig, CreateArticleLayoutInput, CreateArticleLayoutResult, LayoutPlatform } from '../../shared/contracts.js'
+import type { LayoutPreviewSampleInput, LayoutStyleConfig, CreateArticleLayoutInput, CreateArticleLayoutResult, LayoutPlatform, LayoutPlan, LayoutPlanInsertion } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
+import { articleBlocks } from '../../shared/visual-studio.js'
 import { buildLayoutThemeCss, buildCustomThemeCss, DEFAULT_LAYOUT_THEME_ID, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
 import { validateWechatLayout } from './layout-validator.js'
 import { decorateDivider, injectSectionNumbers, injectToc, renderSlots, stripCustomTags, transformComponents } from './layout-components.js'
@@ -132,7 +133,7 @@ export class ArticleLayoutService {
   previewArticle(input: CreateArticleLayoutInput) {
     const article = this.database.getArticle(input.articleId)
     if (!article) throw new Error('文章不存在')
-    return renderLayoutMarkdown(article.rawMarkdown, input.platform, input.themeId, input.customCss, input.styleConfig)
+    return renderLayoutMarkdown(applyLayoutPlan(article.rawMarkdown, input.plan), input.platform, input.themeId, input.customCss, input.styleConfig)
   }
 
   previewSample(input: LayoutPreviewSampleInput) {
@@ -156,7 +157,7 @@ export class ArticleLayoutService {
     const themeId = input.themeId ?? accountLayout?.themeId
     const customCss = input.customCss ?? accountLayout?.customCss
     const styleConfig = input.styleConfig ?? accountLayout?.styleConfig
-    const rendered = renderLayoutMarkdown(article.rawMarkdown, input.platform, themeId, customCss, styleConfig)
+    const rendered = renderLayoutMarkdown(applyLayoutPlan(article.rawMarkdown, input.plan), input.platform, themeId, customCss, styleConfig)
     const violations = input.platform === 'wechat' ? validateWechatLayout({ html: rendered.html, title: rendered.title }) : []
     const saved = this.database.saveArticleLayout({
       articleId: article.id,
@@ -164,7 +165,8 @@ export class ArticleLayoutService {
       articleStatusSnapshot: article.status,
       platform: input.platform,
       layoutVersionId: usesAccountLayout ? accountLayout?.id : undefined,
-      layoutConfigSnapshot: { themeId: rendered.themeId, ...(customCss ? { customCss } : {}), ...(styleConfig ? { styleConfig } : {}) },
+      // plan 随快照存档：排版稿可复现当时的 AI 编排内容
+      layoutConfigSnapshot: { themeId: rendered.themeId, ...(customCss ? { customCss } : {}), ...(styleConfig ? { styleConfig } : {}), ...(input.plan ? { plan: input.plan } : {}) },
       renderEngineVersion: 'mly-layout-v4',
       ...rendered
     })
@@ -283,7 +285,7 @@ function wrapTextNodes(html: string): string {
 }
 
 /** 使用 Markdown token 定位标题，避免把代码围栏里的 `#` 文本误判为文章标题。 */
-function extractArticleTitle(markdown: string): { title: string; body: string } {
+export function extractArticleTitle(markdown: string): { title: string; body: string } {
   const lines = markdown.replace(/\r\n?/g, '\n').split('\n')
   const tokens = md.parse(markdown, {})
   const headingIndex = tokens.findIndex((token) => token.type === 'heading_open' && token.tag === 'h1' && token.level === 0)
@@ -297,6 +299,68 @@ function extractArticleTitle(markdown: string): { title: string; body: string } 
   if (start === undefined || end === undefined) return { title, body: markdown }
   lines.splice(start, end - start)
   return { title, body: lines.join('\n').trim() }
+}
+
+/**
+ * 把排版方案应用到成稿 Markdown（仅用于渲染输入，不改动文章源稿）：
+ * - 配图插入点按「正文段落」锚点插入 `![](moliu-asset://…)`；
+ * - 导读作为引用块置于文首、结尾互动语作为普通段落置于文末（PRD：轻编排不触碰正文）。
+ *
+ * 锚点以顶层块计（与配图工作台 articleBlocks 同一划分）。标题行原样保留在产物开头，
+ * 后续 renderLayoutMarkdown 会再次提取标题，不受本函数影响。
+ */
+export function applyLayoutPlan(markdown: string, plan?: LayoutPlan): string {
+  if (!plan || (!plan.insertions.length && !plan.leadIn && !plan.closing)) return markdown
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n')
+  const tokens = md.parse(markdown, {})
+  const headingIndex = tokens.findIndex((token) => token.type === 'heading_open' && token.tag === 'h1' && token.level === 0)
+  let header = ''
+  let body = markdown.replace(/\r\n?/g, '\n').trim()
+  if (headingIndex >= 0) {
+    const [start, end] = tokens[headingIndex].map ?? []
+    if (start !== undefined && end !== undefined) {
+      header = lines.slice(start, end).join('\n')
+      body = lines.slice(end).join('\n').trim()
+    }
+  }
+  const blocks = articleBlocks(body)
+
+  const imageMarkdown = (insertion: LayoutPlanInsertion): string =>
+    `![${insertion.alt.replace(/[[\]\n]/g, '') || '配图'}](moliu-asset://assets/${insertion.assetFileName})`
+
+  type Pending = { offset: number; text: string }
+  const pending: Pending[] = []
+  for (const insertion of plan.insertions) {
+    let offset: number
+    let text: string
+    if (insertion.anchor === 'leading') {
+      // 文首插入：内容自带尾部分隔，避免把第一段吞进图片/引用段落
+      offset = blocks[0]?.start ?? 0
+      text = `${imageMarkdown(insertion)}\n\n`
+    } else if (insertion.anchor === 'before-ending') {
+      offset = blocks.at(-1)?.end ?? 0
+      text = `\n\n${imageMarkdown(insertion)}`
+    } else {
+      const index = Math.min(Math.max((insertion.paragraph ?? 1) - 1, 0), Math.max(blocks.length - 1, 0))
+      offset = blocks[index]?.end ?? 0
+      text = `\n\n${imageMarkdown(insertion)}`
+    }
+    pending.push({ offset, text })
+  }
+  if (plan.leadIn) pending.push({ offset: blocks[0]?.start ?? 0, text: `> ${plan.leadIn.replace(/\n/g, '\n> ')}\n\n` })
+  if (plan.closing) pending.push({ offset: blocks.at(-1)?.end ?? 0, text: `\n\n${plan.closing}` })
+
+  // 稳定排序后顺序拼接：同一偏移的多条插入按插入点→导读→互动语的声明顺序落位。
+  // 段间插入只补前导空行（原有段间空行充当后导），不做全局归一化——避免误伤代码块内的连续空行。
+  pending.sort((left, right) => left.offset - right.offset)
+  let composed = ''
+  let cursor = 0
+  for (const item of pending) {
+    composed += body.slice(cursor, item.offset) + item.text
+    cursor = item.offset
+  }
+  composed = (composed + body.slice(cursor)).trim()
+  return header ? `${header}\n\n${composed}` : composed
 }
 
 /** 在 token 层移除外链锚点并追加脚注，保留链接内部的加粗、代码等 Markdown 结构。 */

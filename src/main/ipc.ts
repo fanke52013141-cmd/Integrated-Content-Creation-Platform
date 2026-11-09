@@ -21,6 +21,7 @@ import type { ArticleGenerator } from './services/article-generator.js'
 import type { ReviewService } from './services/review-service.js'
 import type { VisualPackGenerator } from './services/visual-pack-generator.js'
 import type { ArticleLayoutService } from './services/article-layout-service.js'
+import type { LayoutPlanService } from './services/layout-plan-service.js'
 import type { WechatPublishService } from './services/wechat-publish-service.js'
 import type { WeiboLoginService } from './services/weibo-login-service.js'
 import type { VisualAssetService } from './services/visual-asset-service.js'
@@ -170,6 +171,22 @@ const layoutPresetPackageSchema = z.object({
   styleConfig: layoutStyleConfigSchema
 }).strict()
 
+/** AI 排版方案的入参校验：结构来自渲染层编辑后的 plan，锚点字段按约定收紧 */
+const layoutPlanSchema = z.object({
+  insertions: z.array(z.object({
+    assetFileName: z.string().trim().min(1).max(200),
+    anchor: z.enum(['leading', 'after-paragraph', 'before-ending']),
+    paragraph: z.number().int().min(1).max(2000).optional(),
+    note: z.string().max(300),
+    alt: z.string().max(300)
+  })).max(20),
+  recommendedThemeId: z.string().trim().min(1).max(60).optional(),
+  recommendedReason: z.string().max(300).optional(),
+  coverAssetFileName: z.string().trim().min(1).max(200).optional(),
+  leadIn: z.string().max(300).optional(),
+  closing: z.string().max(300).optional()
+}).strict()
+
 const hotItemSchema = z.object({
   id: z.string().trim().min(1).max(300),
   title: z.string().trim().min(1).max(2_000),
@@ -202,6 +219,7 @@ export function registerIpc(options: {
   reviewService: ReviewService
   visualPackGenerator: VisualPackGenerator
   articleLayoutService: ArticleLayoutService
+  layoutPlanService: LayoutPlanService
   wechatPublishService: WechatPublishService
   weiboLoginService: WeiboLoginService
   visualAssets: VisualAssetService
@@ -224,6 +242,7 @@ export function registerIpc(options: {
     reviewService,
     visualPackGenerator,
     articleLayoutService,
+    layoutPlanService,
     wechatPublishService,
     weiboLoginService,
     visualAssets,
@@ -1012,9 +1031,13 @@ export function registerIpc(options: {
     return database.setAccountLayoutDefault(input)
   })
   handle('layouts:create',(_e,raw:unknown)=>{
-    const input=z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
+    const input=z.object({articleId:z.string().uuid(),platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional(),plan:layoutPlanSchema.optional()}).parse(raw)
     if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')
     return articleLayoutService.create(input)
+  })
+  handle('layouts:plan',(event,raw:unknown)=>{
+    const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),userThemeId:z.string().trim().min(1).max(60).optional()}).parse(raw)
+    return runGeneration(event,'layouts',(signal)=>layoutPlanService.generate(input,undefined,signal))
   })
   handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))
 }

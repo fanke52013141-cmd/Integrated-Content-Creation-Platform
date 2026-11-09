@@ -835,10 +835,51 @@ export interface LayoutViolation {
   /** 面向用户的修复建议 */
   hint?: string
 }
-export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; layoutVersionId?: string; layoutConfigSnapshot?: { themeId: string; customCss?: string; styleConfig?: LayoutStyleConfig }; renderEngineVersion?: string; importSource?: ContentImportSource; createdAt: string }
+export interface ArticleLayout { id: string; articleId: string; articleVersionId: string; articleStatusSnapshot: ArticleStatus; platform: LayoutPlatform; title: string; html: string; plainText: string; themeId?: string; layoutVersionId?: string; layoutConfigSnapshot?: { themeId: string; customCss?: string; styleConfig?: LayoutStyleConfig; plan?: LayoutPlan }; renderEngineVersion?: string; importSource?: ContentImportSource; createdAt: string }
 /** 生成排版稿的返回值：附带平台合规校验结果，供界面提示 */
 export type CreateArticleLayoutResult = ArticleLayout & { violations?: LayoutViolation[] }
-export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string }
+export interface CreateArticleLayoutInput { articleId: string; platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; /** 自定义主题 CSS（themeId='custom' 时生效，建议选择器以 .mly-body 开头） */ customCss?: string; /** AI 排版方案（轻编排）：渲染前按锚点插入配图、导读与结尾互动语，不改动文章源稿 */ plan?: LayoutPlan }
+
+/**
+ * 排版方案的一条配图插入点：AI 基于当前成稿语义推导的落位，用户可在界面改锚点后再生效。
+ * 锚点以「正文段落」计（不含 H1 标题行），按顶层块划分，与配图工作台的 blockIndex 口径一致。
+ */
+export interface LayoutPlanInsertion {
+  /** 相对图片目录的文件名（与配图资产一致，渲染为 moliu-asset:// 引用） */
+  assetFileName: string
+  anchor: 'leading' | 'after-paragraph' | 'before-ending'
+  /** anchor='after-paragraph' 时的段落序号（1-based，不含标题） */
+  paragraph?: number
+  /** 该图在这个位置的作用说明（人审参考） */
+  note: string
+  /** 图片替代文本 */
+  alt: string
+}
+
+/** AI 排版方案（PRD-排版AI §4.1 轻编排产物）。各字段均可缺省：缺什么就当「无此项」处理 */
+export interface LayoutPlan {
+  insertions: LayoutPlanInsertion[]
+  recommendedThemeId?: string
+  recommendedReason?: string
+  coverAssetFileName?: string
+  /** 文首导读（渲染为引用块，不触碰正文） */
+  leadIn?: string
+  /** 文末互动语（渲染为普通段落） */
+  closing?: string
+}
+
+export interface GenerateLayoutPlanInput { articleId: string; providerId: string; model: string; /** 用户已选主题时传入，AI 输出「沿用」而非另行推荐 */ userThemeId?: string }
+/** 生成排版方案的结果：extractionMatched=false 时 plan 为空方案，界面提示人工模式 */
+export interface GenerateLayoutPlanResult {
+  plan: LayoutPlan
+  extractionMatched: boolean
+  /** 解析告警（锚点越界收敛、未知图片已丢弃等），界面如实展示 */
+  warnings: string[]
+  /** 当前正文段落总数（不含标题），锚点编辑下拉的范围依据 */
+  paragraphCount: number
+  /** 参与本次规划的候选图片资产 */
+  assetOptions: Array<{ fileName: string; kind: 'cover' | 'inline'; alt: string }>
+}
 /**
  * 文章类型。用于「按内容类型选主题」——用户不该面对 5 个色块盲选，
  * 而应该选"我要写教程"然后得到适合教程的主题。
@@ -942,6 +983,7 @@ export type GenerationDomain =
   | 'articles'
   | 'reviews'
   | 'visuals'
+  | 'layouts'
 
 /** 模块中文标签：顶栏提示、跨页面通知与任务中心共用一份口径 */
 export const GENERATION_DOMAIN_LABELS: Record<GenerationDomain, string> = {
@@ -951,7 +993,8 @@ export const GENERATION_DOMAIN_LABELS: Record<GenerationDomain, string> = {
   frameworks: '框架',
   articles: '文章',
   reviews: '评审',
-  visuals: '配图'
+  visuals: '配图',
+  layouts: '排版方案'
 }
 
 /** 生成任务生命周期事件（主进程广播，供全局任务指示使用） */
@@ -1276,6 +1319,8 @@ export interface MoliuApi {
      */
     renderPreview(input: { articleId?: string; markdown: string; platform?: LayoutPlatform; themeId?: string }): Promise<CreateArticleLayoutResult>
     create(input: CreateArticleLayoutInput): Promise<CreateArticleLayoutResult>
+    /** 生成 AI 排版方案（轻编排）：配图插入点 + 推荐模板 + 导读/互动语 */
+    generatePlan(input: GenerateLayoutPlanInput): Promise<GenerateLayoutPlanResult>
     getAccountDefault(accountId: string, platform: LayoutPlatform): Promise<AccountLayoutVersion | null>
     listAccountVersions(accountId: string, platform: LayoutPlatform): Promise<AccountLayoutVersion[]>
     setAccountDefault(input: SetAccountLayoutDefaultInput): Promise<AccountLayoutVersion>

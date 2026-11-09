@@ -21,7 +21,8 @@ export const DOMAIN_ROUTE: Record<GenerationDomain, RouteId> = {
   frameworks: 'frameworks',
   articles: 'articles',
   reviews: 'reviews',
-  visuals: 'visuals'
+  visuals: 'visuals',
+  layouts: 'layouts'
 }
 
 const TASK_STATE: Record<GenerationTask['status'], { label: string; badge: string }> = {
