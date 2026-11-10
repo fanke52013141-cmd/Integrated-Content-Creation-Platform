@@ -49,7 +49,7 @@ export function markNumericCells(html: string): string {
  */
 export function annotateWideTables(html: string): string {
   // 微信正文里section 是可用的容器标签（div 会被过滤）
-  return html.replace(/<table(\s[^>]*)?>([\s\S]*?)<\/table>/g, (whole, attrs: string | undefined, inner: string) => {
+  return html.replace(/<table(\s[^>]*)?>([\s\S]*?)<\/table>/g, (whole, _attrs: string | undefined, inner: string) => {
     const columns = countColumns(inner)
     if (columns <= WIDE_TABLE_THRESHOLD) return whole
     return `${whole}<p class="mly-table-hint">← 表格共 ${columns} 列，可左右滑动查看完整内容 →</p>`

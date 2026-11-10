@@ -1,5 +1,5 @@
 import { useModelTarget } from '../lib/models'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,11 +32,8 @@ import {
   DEFAULT_ACCOUNT_FIELD_NAMES,
   WIZARD_QUESTIONS,
   type AccountField,
-  type AccountMemory,
-  type AccountPlatformBinding,
   type AccountProfile,
   type AccountProfileSummary,
-  type AccountRedline,
   type AccountRedlineKind,
   type AccountVersion,
   type GenerateAccountResult,

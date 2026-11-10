@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModelGateway, extractErrorMessage, normalizeImageRatio, resolveChatParams } from '../src/main/gateway/model-gateway.js'
 import { pixelSizeForRatio } from '../src/main/gateway/image-sizing.js'
-import { GatewayError } from '../src/main/gateway/types.js'
 import type { AppDatabase } from '../src/main/database.js'
 import type { KeyStore } from '../src/main/security/key-store.js'
 import type { ProviderSummary } from '../src/shared/contracts.js'

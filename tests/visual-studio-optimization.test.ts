@@ -4,7 +4,7 @@ import { VisualStudioService } from '../src/main/services/visual-studio-service.
 import { VisualStudioQueue } from '../src/main/services/visual-studio-queue.js'
 import type { VisualAssetService } from '../src/main/services/visual-asset-service.js'
 import type { ModelGateway } from '../src/main/gateway/model-gateway.js'
-import type { VisualPlan, PictureBrief, GeneratePictureInput } from '../src/shared/visual-studio.js'
+import type { PictureBrief, GeneratePictureInput } from '../src/shared/visual-studio.js'
 import { pictureSignature } from '../src/shared/visual-studio.js'
 import { GatewayError } from '../src/main/gateway/types.js'
 

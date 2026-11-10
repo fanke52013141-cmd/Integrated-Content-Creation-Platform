@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { AccountLayoutDraft, AccountLayoutVersion, Article, LayoutPreviewResult, LayoutStyleConfig, LayoutThemeInfo } from '../../../../shared/contracts'
+import type { AccountLayoutDraft, AccountLayoutVersion, ArticleSummary, LayoutPreviewResult, LayoutStyleConfig, LayoutThemeInfo } from '../../../../shared/contracts'
 import { DEFAULT_STYLE_CONFIG, normalizeStyleConfig, sameStyleConfig } from '../../../../shared/layout-config'
-import { errorMessage, formatFullDate, markdownTitle } from '../../lib'
+import { errorMessage, formatFullDate } from '../../lib'
 import type { ToastState } from '../Toast'
 import { useConfirm } from '../useConfirm'
 import { Select } from '../Select'
@@ -45,7 +45,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
   const [reloadToken, setReloadToken] = useState(0)
   const [busy, setBusy] = useState(false)
   const [themes, setThemes] = useState<LayoutThemeInfo[]>([])
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
   const [active, setActive] = useState<AccountLayoutVersion | null>(null)
   const [versions, setVersions] = useState<AccountLayoutVersion[]>([])
   const [draft, setDraft] = useState<AccountLayoutDraft | null>(null)
@@ -83,14 +83,15 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
       window.moliu.layouts.getAccountDefault(accountId, 'wechat'),
       window.moliu.layouts.listAccountVersions(accountId, 'wechat'),
       window.moliu.layouts.getAccountDraft(accountId, 'wechat'),
-      window.moliu.articles.list()
+      // 摘要接口按账号过滤（原 list() 全量拉含全文 JOIN，版式预览只需要标题与 id）
+      window.moliu.articles.listSummaries({ accountId, limit: 200 })
     ]).then(([nextThemes, current, history, nextDraft, nextArticles]) => {
       if (cancelled) return
       setThemes(nextThemes)
       setActive(current)
       setVersions(history)
       setDraft(nextDraft)
-      setArticles(nextArticles.filter((article) => article.accountId === accountId))
+      setArticles(nextArticles.items)
       const source = nextDraft ?? current
       const initial: EditingLayout = { themeId: source?.themeId ?? 'editorial', styleConfig: normalizeStyleConfig(source?.styleConfig), customCss: source?.customCss ?? '', baseVersionId: nextDraft ? nextDraft.baseVersionId : current?.id ?? null }
       setSaved(initial)
@@ -243,7 +244,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
       </div>
       <div className="panel account-layout-preview">
         <div className="account-layout-preview-options">
-          <label className="field"><span>预览内容</span><Select ariaLabel="预览内容" value={previewSource} onChange={setPreviewSource} options={[{value:'sample',label:'标准组件样稿'},...articles.map(article => ({value:article.id,label:markdownTitle(article.rawMarkdown)}))]} /></label>
+          <label className="field"><span>预览内容</span><Select ariaLabel="预览内容" value={previewSource} onChange={setPreviewSource} options={[{value:'sample',label:'标准组件样稿'},...articles.map(article => ({value:article.id,label:article.title}))]} /></label>
           <label className="field"><span>近似设备宽度</span><Select ariaLabel="近似设备宽度" value={String(deviceWidth)} onChange={value => setDeviceWidth(Number(value))} options={[{value:'320',label:'窄屏 320px'},{value:'375',label:'标准 375px'},{value:'430',label:'宽屏 430px'}]} /></label>
         </div>
         <p className="micro-copy" role="status">{previewLoading ? '正在更新预览…' : previewError ? '当前参数未能生成预览' : '预览仅供参考；实际微信效果仍需实机验收。'}</p>

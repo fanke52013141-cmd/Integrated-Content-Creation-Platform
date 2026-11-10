@@ -18,7 +18,6 @@ describe('P2 版式组件', () => {
     // 注意：P1 会剥除 class（微信强制移除非内联属性），因此断言一律用样式特征定位，
     // 不能依赖 class 名——那是中间态的产物
     const CALLOUT = /<section style="[^"]*border-left:\s*4px solid[^"]*">/
-    const LEAD = /<section style="[^"]*border-radius:\s*0 8px 8px 0[^"]*">/
 
     it('tip 渲染提示块并带「提示」标签', () => {
       const { html } = render('# T\n\n::: tip 这是补充说明\n:::\n')

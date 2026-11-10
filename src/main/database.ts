@@ -1,7 +1,9 @@
 import { DatabaseSync } from 'node:sqlite'
 import { copyFileSync, existsSync, rmSync, renameSync } from 'node:fs'
+import { applyPendingMigrations, BASELINE_VERSION, latestVersion, recordVersion } from './db/migrations.js'
 import { VisualStudioRepository } from './repositories/visual-studio-repository.js'
 import { WorkflowRepository } from './repositories/workflow-repository.js'
+import { MaterialRepository } from './repositories/material-repository.js'
 import { createHash } from 'node:crypto'
 import type {
   AccountField,
@@ -54,12 +56,11 @@ import type {
   ArticleVersion,
   ArticleVersionSource,
   SaveArticleInput,
-  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationMetrics, PublicationRetro,
+  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationMetrics, PublicationRetro, PublicationSnapshot, PublicationResolution,
   Topic,
   TopicAssessment,
   TopicSchemaField,
   TopicStatus,
-  TopicVersion,
   TopicVersionSource,
   WizardAnswer,
   PromptDefBase,
@@ -239,41 +240,6 @@ interface TopicVersionRow {
   assessment_json: string | null
   created_at: string
 }
-
-interface SearchServiceRow {
-  id: 'doubao-custom'
-  display_name: string
-  enabled: number
-  has_api_key: number
-  last_test_status: string | null
-  last_test_at: string | null
-  last_test_error: string | null
-  updated_at: string
-}
-
-interface MaterialRow {
-  id: string
-  kind: 'web' | 'image' | 'text'
-  origin: 'doubao_web' | 'doubao_image' | 'manual_text'
-  external_id: string | null
-  title: string
-  summary: string
-  source_url: string | null
-  source_name: string | null
-  source_note: string | null
-  query: string | null
-  related_topic_id: string | null
-  published_at: string | null
-  authority: string | null
-  relevance_score: number | null
-  image_url: string | null
-  image_width: number | null
-  image_height: number | null
-  image_shape: string | null
-  watermark: string | null
-  created_at: string
-  updated_at: string
-}
 interface FrameworkTemplateRow { id: string; name: string; sections_json: string; is_default: number; is_system: number; created_at: string; updated_at: string }
 interface FrameworkRow { id: string; topic_id: string | null; account_id: string | null; material_ids_json: string; template_id: string | null; manual_topic: string; status: FrameworkStatus; current_version_id: string; version_count: number; sections_json: string; raw_xml: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
 interface ArticleRow { id: string; framework_id: string | null; account_id: string | null; material_ids_json: string; manual_outline: string; status: ArticleStatus; current_version_id: string; version_count: number; raw_markdown: string; provider_id: string | null; model: string | null; created_at: string; updated_at: string }
@@ -327,6 +293,7 @@ export class AppDatabase {
   atomic<T>(operation: () => T): T { return this.transaction(operation) }
   visualStudio: VisualStudioRepository
   workflow: WorkflowRepository
+  materials!: MaterialRepository
   private readonly location: string
 
   constructor(path: string) {
@@ -334,7 +301,7 @@ export class AppDatabase {
     this.db = new DatabaseSync(path)
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db) } catch (error) { this.db.close(); throw error }
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db); this.materials = new MaterialRepository(this.db, this.workflow) } catch (error) { this.db.close(); throw error }
   }
 
   close(): void {
@@ -374,7 +341,7 @@ export class AppDatabase {
   private reopen(): void {
     this.db = new DatabaseSync(this.location)
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db) } catch (error) { this.db.close(); throw error }
+    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db); this.materials = new MaterialRepository(this.db, this.workflow) } catch (error) { this.db.close(); throw error }
   }
 
   /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */
@@ -386,7 +353,7 @@ export class AppDatabase {
       if (probe.prepare('PRAGMA integrity_check').get()?.integrity_check !== 'ok') return false
       const required = ['articles', 'article_versions', 'providers', 'visual_assets', 'publications', 'work_drafts', 'publication_snapshots']
       const tables = new Set(probe.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => String(row.name)))
-      if (tables.has('schema_migrations') && Number(probe.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > 2) return false
+      if (tables.has('schema_migrations') && Number(probe.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > latestVersion()) return false
       return required.every(name => tables.has(name)) && probe.prepare('PRAGMA foreign_key_check').all().length === 0
     } catch {
       return false
@@ -396,8 +363,9 @@ export class AppDatabase {
   }
 
   private migrate(): void {
+    // 版本化迁移框架（db/migrations.ts）：应用支持上限之后的新库拒绝打开，防静默丢数据
     const hasMigrations = this.db.prepare("SELECT name FROM sqlite_master WHERE name='schema_migrations'").get()
-    if (hasMigrations && Number(this.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > 2) throw new Error('数据库由更高版本创建，请升级应用后打开')
+    if (hasMigrations && Number(this.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()?.version ?? 0) > latestVersion()) throw new Error('数据库由更高版本创建，请升级应用后打开')
     const existingSchema = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='articles'").get()
     if (existingSchema && this.location !== ':memory:' && !existsSync(`${this.location}.pre-optimization`)) this.backupTo(`${this.location}.pre-optimization`)
     this.db.exec(`
@@ -869,7 +837,9 @@ export class AppDatabase {
     this.ensureFrameworkTemplate()
     this.ensureReviewRoles()
     this.markInterruptedGenerationTasks()
-    this.db.prepare('INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES(?,?)').run(2, new Date().toISOString())
+    // 幂等管线全量收敛为 baseline 版本；此后 schema 演进一律走 MIGRATIONS 有序 step（db/migrations.ts）
+    recordVersion(this.db, BASELINE_VERSION)
+    applyPendingMigrations(this.db)
   }
 
   /**
@@ -1072,33 +1042,12 @@ export class AppDatabase {
     }))
   }
 
-  /** 素材被哪些文章引用：素材选择器与素材库按此展示真实用量（已删除的素材不再计入） */
-  materialUsage(): Record<string, Array<{ id: string; title: string }>> {
-    const rows = this.db.prepare(
-      'SELECT a.id AS id, a.material_ids_json AS material_ids_json, v.raw_markdown AS raw_markdown FROM articles a JOIN article_versions v ON v.id = a.current_version_id'
-    ).all() as unknown as Array<{ id: string; material_ids_json: string; raw_markdown: string }>
-    const existing = new Set((this.db.prepare('SELECT id FROM materials').all() as unknown as Array<{ id: string }>).map((row) => row.id))
-    const usage: Record<string, Array<{ id: string; title: string }>> = {}
-    for (const row of rows) {
-      let ids: string[] = []
-      try { ids = JSON.parse(row.material_ids_json) as string[] } catch { ids = [] }
-      const title = row.raw_markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || '未命名文章'
-      for (const id of new Set(ids)) if (existing.has(id)) (usage[id] ??= []).push({ id: row.id, title })
-    }
-    return usage
-  }
+  // 素材域已拆到 MaterialRepository（批次 5 拆分先例）；门面方法保持原名，调用点零改动
+  materialUsage(): Record<string, Array<{ id: string; title: string }>> { return this.materials.usage() }
 
   /** 文件上传素材：以 file_upload 来源入库 */
   addFileMaterial(input: { fileName: string; content: string; relatedTopicId?: string; formatNote: string }): Material {
-    const title = input.fileName.replace(/.[^.]+$/, '').slice(0, 500) || '未命名文档'
-    const material = this.addManualMaterial({
-      title,
-      summary: input.content.slice(0, 2000),
-      sourceNote: `文件上传 · ${input.formatNote} · 全文 ${input.content.length} 字符（未保留原件）`,
-      relatedTopicId: input.relatedTopicId
-    }, 'file_upload')
-    this.workflow.saveDocument(material.id, createHash('sha256').update(input.content).digest('hex'), input.content)
-    return material
+    return this.materials.addFile(input)
   }
 
   /**
@@ -2081,58 +2030,18 @@ export class AppDatabase {
     return row?.encrypted_key ? Buffer.from(row.encrypted_key) : null
   }
 
-  listMaterials(): Material[] {
-    const rows = this.db.prepare('SELECT * FROM materials ORDER BY created_at DESC').all() as unknown as MaterialRow[]
-    return rows.map(mapMaterial)
-  }
+  listMaterials(): Material[] { return this.materials.list() }
 
   addSearchMaterial(input: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>): {
     material: Material
     created: boolean
-  } {
-    if (input.externalId) {
-      const existing = this.db.prepare(`
-        SELECT * FROM materials WHERE origin = ? AND external_id = ?
-      `).get(input.origin, input.externalId) as MaterialRow | undefined
-      if (existing) return { material: mapMaterial(existing), created: false }
-    }
-    const id = crypto.randomUUID()
-    const now = new Date().toISOString()
-    this.db.prepare(`
-      INSERT INTO materials(
-        id, kind, origin, external_id, title, summary, source_url, source_name, source_note,
-        query, related_topic_id, published_at, authority, relevance_score, image_url,
-        image_width, image_height, image_shape, watermark, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, input.kind, input.origin, input.externalId ?? null, input.title, input.summary,
-      input.sourceUrl ?? null, input.sourceName ?? null, input.sourceNote ?? null,
-      input.query ?? null, input.relatedTopicId ?? null, input.publishedAt ?? null,
-      input.authority ?? null, input.relevanceScore ?? null, input.imageUrl ?? null,
-      input.imageWidth ?? null, input.imageHeight ?? null, input.imageShape ?? null,
-      input.watermark ?? null, now, now
-    )
-    const material = this.getMaterial(id)
-    if (!material) throw new Error('素材保存失败')
-    return { material, created: true }
-  }
+  } { return this.materials.addSearch(input) }
 
   addManualMaterial(input: SaveManualMaterialInput, origin: MaterialOrigin = 'manual_text'): Material {
-    const result = this.addSearchMaterial({
-      kind: 'text',
-      origin,
-      title: input.title.trim(),
-      summary: input.summary.trim(),
-      sourceUrl: input.sourceUrl?.trim() || undefined,
-      sourceNote: input.sourceNote?.trim() || undefined,
-      relatedTopicId: input.relatedTopicId
-    })
-    return result.material
+    return this.materials.addManual(input, origin)
   }
 
-  removeMaterial(id: string): void {
-    this.db.prepare('DELETE FROM materials WHERE id = ?').run(id)
-  }
+  removeMaterial(id: string): void { this.materials.remove(id) }
 
   listFrameworkTemplates(): FrameworkTemplate[] {
     return (this.db.prepare('SELECT * FROM framework_templates ORDER BY is_default DESC, updated_at DESC').all() as unknown as FrameworkTemplateRow[]).map(mapFrameworkTemplate)
@@ -2469,7 +2378,16 @@ export class AppDatabase {
     return publication
   }
 
-  listPublications():Publication[] { return (this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC').all() as unknown as PublicationRow[]).map(row=>({...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf})) }
+  /** 发布记录列表（批量取快照/决议，消除逐行 3N+1 查询；数量上限防全表膨胀） */
+  listPublications():Publication[] {
+    const rows = this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC LIMIT 300').all() as unknown as PublicationRow[]
+    const snapshots = new Map((this.db.prepare('SELECT publication_id,data_json FROM publication_snapshots').all() as unknown as Array<{ publication_id: string; data_json: string }>).map(row => [row.publication_id, JSON.parse(String(row.data_json)) as PublicationSnapshot]))
+    const resolutions = new Map((this.db.prepare('SELECT publication_id,data_json FROM publication_resolutions').all() as unknown as Array<{ publication_id: string; data_json: string }>).map(row => [row.publication_id, JSON.parse(String(row.data_json)) as PublicationResolution]))
+    return rows.map(row => {
+      const snapshot = snapshots.get(row.id)
+      return { ...mapPublication(row), snapshot, resolution: resolutions.get(row.id), retryOf: snapshot?.retryOf }
+    })
+  }
   getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf}:null }
   markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
 
@@ -2738,10 +2656,8 @@ export class AppDatabase {
     this.db.prepare(`INSERT OR IGNORE INTO framework_templates(id,name,sections_json,is_default,is_system,created_at,updated_at) VALUES('system-default','默认三论点框架',?,1,1,?,?)`).run(JSON.stringify(['标题','开头','论点一','论点二','论点三','结尾']),now,now)
   }
 
-  private getMaterial(id: string): Material | null {
-    const row = this.db.prepare('SELECT * FROM materials WHERE id = ?').get(id) as MaterialRow | undefined
-    return row ? mapMaterial(row) : null
-  }
+  /** 素材详情（委托 MaterialRepository，含 file_upload 文档标记等渲染层所需字段） */
+  getMaterial(id: string): Material | null { return this.materials.get(id) }
 
   private mapTopic(row: TopicRow): Topic {
     const versionRows = this.db.prepare(`
@@ -2999,32 +2915,6 @@ function positiveNumberOrUndefined(value: number | undefined): number | undefine
 function normalizeFavoriteTags(tags: HotFavoriteTag[]): HotFavoriteTag[] {
   const allowed = new Set<HotFavoriteTag>(['待选题', '已用'])
   return [...new Set(tags)].filter((tag) => allowed.has(tag))
-}
-
-function mapMaterial(row: MaterialRow): Material {
-  return {
-    id: row.id,
-    kind: row.kind,
-    origin: row.origin,
-    externalId: row.external_id ?? undefined,
-    title: row.title,
-    summary: row.summary,
-    sourceUrl: row.source_url ?? undefined,
-    sourceName: row.source_name ?? undefined,
-    sourceNote: row.source_note ?? undefined,
-    query: row.query ?? undefined,
-    relatedTopicId: row.related_topic_id ?? undefined,
-    publishedAt: row.published_at ?? undefined,
-    authority: row.authority ?? undefined,
-    relevanceScore: row.relevance_score ?? undefined,
-    imageUrl: row.image_url ?? undefined,
-    imageWidth: row.image_width ?? undefined,
-    imageHeight: row.image_height ?? undefined,
-    imageShape: row.image_shape ?? undefined,
-    watermark: row.watermark ?? undefined,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  }
 }
 
 function mapFrameworkTemplate(row: FrameworkTemplateRow): FrameworkTemplate {

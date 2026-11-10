@@ -335,7 +335,7 @@ describe('INT-02b 池化分配（PRD §4.4）与单卡重试', () => {
   })
 
   it('FrameworkGenerator.retryOne 沿用原输入补齐一个候选', async () => {
-    const { database, schema } = makeSetup()
+    const { database } = makeSetup()
     const template = database.listFrameworkTemplates().find((item) => item.isDefault)!
     const content = `<框架>${template.sections.map((section) => `<${section}>${section}内容</${section}>`).join('')}</框架>`
     let failed = true

@@ -140,7 +140,7 @@ describe('F02 正文工作草稿与改稿基线', () => {
     ensureProvider(database)
     const articleId = newArticle(database)
     const captured: UnifiedRequest[] = []
-    const gateway = makeGateway((attempt, request) => {
+    const gateway = makeGateway((_attempt, request) => {
       captured.push(request)
       return ok(request, '# 改后\n\n新正文')
     })

@@ -3,13 +3,12 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
-  DatabaseBackup,
-  Download,
-  FolderArchive,
+
+
   KeyRound,
   Plus,
   Radio,
-  RotateCcw,
+
   ScrollText,
   Server,
   ShieldCheck,
@@ -26,7 +25,6 @@ import type {
   SaveProviderModelInput,
   ProviderSummary,
   SaveProviderInput,
-  ProviderAccessMode,
   DreaminaLoginInfo,
   DreaminaStatus
 } from '../../../shared/contracts'
@@ -112,12 +110,6 @@ function newModel(isDefault = false, kind: ProviderModelKind = 'text'): SaveProv
 /** 模型归一化类型：缺省视为文本（旧数据兼容） */
 function modelKindOf(model: { kind?: ProviderModelKind }): ProviderModelKind {
   return model.kind === 'image' ? 'image' : model.kind === 'search' ? 'search' : 'text'
-}
-
-/** 备份包只展示目录名，完整路径留在 title 里供核对 */
-function bundleName(path: string): string {
-  const segments = path.split(/[\\/]/).filter(Boolean)
-  return segments[segments.length - 1] ?? path
 }
 
 export function ProvidersPage({

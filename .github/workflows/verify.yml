@@ -22,3 +22,26 @@ jobs:
         with:
           name: workflow-evidence
           path: artifacts/
+  # 冒烟分片（批次 5）：核心创作页每轮必跑，其余按改动路径轮换；不用 run-all-smokes 是
+  # 13 个 Electron 串行启动在 CI 上过重且互相放大偶发超时
+  smokes:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [materials, reviews, topics, frameworks, layouts, hotspots]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/smoke-${{ matrix.suite }}.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-${{ matrix.suite }}-evidence
+          path: artifacts/

@@ -11,7 +11,6 @@
  */
 import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../../shared/contracts'
 import { createUiFixtures } from './ui-fixtures'
-import type { ArticleGenre, LayoutGenreInfo, LayoutThemeInfo } from '../../shared/contracts'
 import type {
   AccountField,
   AccountMemory,
@@ -22,12 +21,13 @@ import type {
   GenerationTask,
   HotspotBootstrap,
   HotSourceResult,
+  LayoutGenreInfo,
+  LayoutThemeInfo,
   LocalFileResult,
   MoliuApi,
   ProviderPreset,
   PromptDefSummary,
-  PromptVersionInfo,
-  WeiboSessionStatus
+  PromptVersionInfo
 } from '../../shared/contracts'
 
 const DEMO_PROMPT_DEFS: PromptDefSummary[] = [
@@ -309,7 +309,7 @@ function createMockBridge(): MoliuApi {
       presets: (): Promise<ProviderPreset[]> => Promise.resolve(DEMO_PROVIDER_PRESETS),
       list: () => emptyArray(),
       save: (input: unknown) => Promise.resolve(input),
-      remove: (id: string) => void_(),
+      remove: () => void_(),
       test: () => Promise.resolve({ ok: true, latencyMs: 42, model: 'demo-model', message: '演示连接成功' }),
       testDraft: () => Promise.resolve({ latencyMs: 42, model: 'demo-model', message: '演示连接成功' }),
       logs: () => emptyArray()

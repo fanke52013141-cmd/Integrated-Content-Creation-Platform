@@ -5,7 +5,6 @@ import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryChec
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
-import { ArticlePicker } from '../components/ArticlePicker'
 import { ImportDialog } from '../components/ImportDialog'
 import { Select } from '../components/Select'
 import { Segmented } from '../components/Segmented'

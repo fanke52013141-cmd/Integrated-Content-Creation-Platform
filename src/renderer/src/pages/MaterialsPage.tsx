@@ -7,7 +7,7 @@ import {
   Check,
   ExternalLink,
   FileText,
-  FolderHeart,
+
   Image,
   LibraryBig,
   Link2,

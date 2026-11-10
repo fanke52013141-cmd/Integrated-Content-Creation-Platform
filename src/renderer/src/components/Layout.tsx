@@ -4,7 +4,6 @@ import {
   FolderArchive,
   Braces,
   Check,
-  ChevronDown,
   ChevronRight,
   CircleUserRound,
   Flame,
@@ -67,9 +66,6 @@ const resourceItems = RESOURCE_ROUTES.map((id) => ({
   icon: NAV_ICONS[id] ?? Newspaper
 }))
 
-/** 系统组在侧边栏底部独立渲染，与创作链路分隔 */
-const SYSTEM_ITEMS: RouteId[] = ['data', 'providers', 'platforms', 'prompts']
-
 export type { RouteId }
 
 interface LayoutProps {
@@ -83,12 +79,6 @@ interface LayoutProps {
   onNavigate(route: RouteId, params?: Record<string, string>): void
   onSwitchAccount(id: string): void
   onShowTasks(): void
-}
-
-interface NavItem {
-  id: RouteId
-  label: string
-  icon: typeof CircleUserRound
 }
 
 const routeBreadcrumbs = (route: RouteId): { group: string; label: string } => ({

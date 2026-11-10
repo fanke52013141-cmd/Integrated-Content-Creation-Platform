@@ -22,8 +22,7 @@ import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
 import { availableModels, availableImageModels, DEFAULT_IMAGE_MODEL_KEY, VISUALS_IMAGE_MODEL_KEY, encodeModelTarget, useModelTarget } from '../lib/models'
-import { errorMessage, formatDate, formatTimedDate, markdownTitle, MISSING_IMAGE_MODEL_MESSAGE, NEED_ARTICLE_MESSAGE } from '../lib'
-import { disambiguateOptions } from '../../../shared/creation-state'
+import { errorMessage, formatDate, markdownTitle, MISSING_IMAGE_MODEL_MESSAGE, NEED_ARTICLE_MESSAGE } from '../lib'
 
 /** 封面固定 21:9：PRD 原定的 2.35:1 不在供应商支持列表内，21:9 是最接近的横版比例 */
 const COVER_RATIO = '21:9'

@@ -1,4 +1,4 @@
-import { Keyboard, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { ModalBase } from './ModalBase'
 import { SHORTCUT_LIST } from './useKeyboardShortcuts'
 

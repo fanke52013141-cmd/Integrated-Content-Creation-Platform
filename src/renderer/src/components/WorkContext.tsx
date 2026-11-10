@@ -1,6 +1,5 @@
 import { ArrowRight, Layers, X } from 'lucide-react'
 import type { AccountProfileSummary, GenerationDomain, GenerationTask } from '../../../shared/contracts'
-import { GENERATION_DOMAIN_LABELS } from '../../../shared/contracts'
 import { WORKBAR_STAGES } from '../../../shared/creation-flow'
 import { useActiveWork } from '../active-work'
 import type { RouteId } from './Layout'

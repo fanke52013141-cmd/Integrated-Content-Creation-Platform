@@ -5,7 +5,7 @@ import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
 import type { VisualAssetService } from './visual-asset-service.js'
 import { localAssetNames, localAssetName } from './local-assets.js'
-import { formatViolations, hasBlockingViolation, validateWechatLayout } from './layout-validator.js'
+import { formatViolations, validateWechatLayout } from './layout-validator.js'
 
 interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number; list?: Array<Record<string, unknown>> }
 class WechatRejectedError extends Error {}

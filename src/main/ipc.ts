@@ -233,7 +233,6 @@ export function registerIpc(options: {
     database,
     keyStore,
     gateway,
-    prompts,
     accountGenerator,
     hotspotFilter,
     hotspotService,

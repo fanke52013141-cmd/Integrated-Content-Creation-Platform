@@ -285,10 +285,8 @@ describe('INT-01 全流水线集成 - 账号→选题→框架→成稿→评审
       '# 无账号链路成稿\n\n松耦合启动的成稿内容。'
     ])
 
-    // 选题：无账号、无热点
-    const topicGenerator = new TopicGenerator(database, gateway, prompts)
-    // TopicGenerator 要求 locked account，所以这里改用直接 DB 创建选题验证松耦合
-    const topic = database.saveTopic({
+    // 选题：无账号、无热点。TopicGenerator 要求 locked account，这里改用直接 DB 创建选题验证松耦合
+    database.saveTopic({
       seedKeyword: '无账号选题',
       accountIds: [],
       relatedHotIds: [],
