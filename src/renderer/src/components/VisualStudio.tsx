@@ -38,6 +38,9 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
   const [count, setCount] = useState('auto'), [density, setDensity] = useState<'minimal'|'standard'|'rich'>('standard')
   const [cover, setCover] = useState(true), [header, setHeader] = useState(true)
   const [referenceMode, setReferenceMode] = useState<'image'|'text'>('image')
+  // PRD-配图三件套：中→英翻译开关（默认关）与 30 天候选清理开关，均持久化在 localStorage
+  const [translateToEnglish, setTranslateToEnglish] = useState(() => localStorage.getItem('moliu:studio-translate-en') === '1')
+  const [autoPrune, setAutoPrune] = useState(() => localStorage.getItem('moliu:studio-auto-prune') === '1')
   const [preview, setPreview] = useState<ApplyVisualPreview | null>(null), [previewHtml, setPreviewHtml] = useState('')
   const [lastAppliedVersion, setLastAppliedVersion] = useState('')
   const [samples,setSamples]=useState<StyleSampleTask[]>([])
@@ -106,6 +109,11 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
     else { setAssets([]);setJobs([]);setAssetStates([]) }
   }
   useEffect(() => { void reload().catch(e => setError(errorMessage(e))); return () => { loadSequence.current++ } }, [articleId, article?.accountId])
+  // 开关开启时惰性清理超期未选用候选（PRD §7：定稿后 30 天自动清理，可开关；主进程侧只删未引用且未选中的）
+  useEffect(() => {
+    if (!autoPrune) return
+    void api().pruneStale().then(({ removed }) => { if (removed > 0) { setNotice(`已清理 ${removed} 张超过 30 天未选用的候选图`); void reload().catch(() => undefined) } }).catch(() => undefined)
+  }, [autoPrune, articleId])
   useEffect(()=>{
     if (!plan) return
     let alive=true
@@ -235,8 +243,12 @@ export function VisualStudio({ article, articleId, importedPlanId, onArticleChan
         <label className="field"><span>本篇配图风格{plan.style ? ` · V${plan.style.version}` : ''}</span><Select ariaLabel="本篇配图风格" value={plan.style?.id ?? ''} onChange={value => change({ ...plan, style: styles.find(s => s.id === value) })} options={[{value:'',label:'简洁通用风格'},...styles.filter(s => !s.archived || s.id === plan.style?.id).map(s => ({value:s.id,label:s.name}))]} /></label>
         {plan.style && styles.some(s => s.id === plan.style!.id && s.versionId !== plan.style!.versionId) && <button className="button ghost" onClick={() => change({ ...plan, style: styles.find(s => s.id === plan.style!.id) })}>使用此风格的最新版本</button>}
         <div className="field"><span className="field-label">参考方式</span><Segmented<'image'|'text'> ariaLabel="参考方式" value={referenceMode} onChange={value => setReferenceMode(value)} options={[{value:'image',label:'图片参考'},{value:'text',label:'仅文字'}]} /></div>
+        <label className="studio-translate-toggle"><input type="checkbox" checked={translateToEnglish} onChange={(event) => { setTranslateToEnglish(event.target.checked); localStorage.setItem('moliu:studio-translate-en', event.target.checked ? '1' : '0') }} />最终提示词翻译为英文</label>
+        <label className="studio-translate-toggle" title="打开后进入工作台时自动清理超过 30 天未被选用且未被文章引用的候选图">
+          <input type="checkbox" checked={autoPrune} onChange={(event) => { setAutoPrune(event.target.checked); localStorage.setItem('moliu:studio-auto-prune', event.target.checked ? '1' : '0') }} />自动清理 30 天前未选用候选
+        </label>
 
-        <button className="button secondary" disabled={dirty || !promptTarget} onClick={() => void run('生成提示词', async () => { const next = await api().prompts({ ...target(promptTarget), planId: plan.id, expectedRevision: plan.revision }); setPlan(next);setStage('images'); setNotice('提示词已生成，已锁定的提示词保持原内容') })}>生成／更新提示词</button>
+        <button className="button secondary" disabled={dirty || !promptTarget} onClick={() => void run('生成提示词', async () => { const next = await api().prompts({ ...target(promptTarget), planId: plan.id, expectedRevision: plan.revision, translateToEnglish }); setPlan(next);setStage('images'); setNotice(`提示词已生成${translateToEnglish ? '（英文）' : ''}，已锁定的提示词保持原内容`) })}>生成／更新提示词</button>
         <button className="button ghost" disabled={dirty || !promptTarget || !plan.pictures.some(p => p.prompt.trim())} title="用提示词模型回看每张图与挂载位置的匹配度，只给结论不自动重生成" onClick={() => void run('匹配度回看', async () => { const next = await api().review({ ...target(promptTarget), planId: plan.id, expectedRevision: plan.revision }); setPlan(next); const bad = next.pictures.filter(p => p.review && p.review.verdict !== 'match').length; setNotice(bad ? `回看完成：${bad} 张图匹配度存疑，见各图标注` : '回看完成：所有配图与位置匹配') })}>匹配度回看</button>
         <button className="button ghost" disabled={plan.pictures.length >= 12} onClick={() => { const slot = Math.max(plan.nextSlot,...plan.pictures.map(p => p.slot + 1),...assets.map(a => a.slot + 1)); change({ ...plan, pictures: [...plan.pictures, { id: crypto.randomUUID(), kind: 'inline', slot, subject: '新增配图', purpose: '', ratio: '16:9', alt: '', caption: '', priority: 'optional', anchor: { block: '', occurrence: 0, placement: 'top' }, prompt: '', promptLocked: false }] }) }}>新增正文图</button>
       </fieldset>

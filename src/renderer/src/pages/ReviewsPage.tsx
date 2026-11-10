@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Check, CircleCheckBig, FileText, FileUp, Plus, RotateCcw, Settings2, Sparkles, X
+  Check, CircleCheckBig, FileDown, FileText, FileUp, Plus, RotateCcw, Settings2, Sparkles, X
 } from 'lucide-react'
 import type { ArticleSummary, ProviderSummary, ReviewFailure, ReviewRole, ReviewTask, ReviewTaskStatus } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
@@ -227,6 +227,29 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
     })
   }
 
+  /** 角色集导出/导入（PRD §5.1：备份与跨机迁移） */
+  const exportRoles = async (): Promise<void> => {
+    try {
+      const result = await window.moliu.reviews.exportRoles()
+      showToast(result.path
+        ? { type: 'success', message: `已导出 ${result.count} 个评审角色到 ${result.path}` }
+        : { type: 'info', message: '已取消导出' })
+    } catch (error) {
+      showToast({ type: 'error', message: `导出失败：${errorMessage(error)}` })
+    }
+  }
+
+  const importRoles = async (): Promise<void> => {
+    try {
+      const result = await window.moliu.reviews.importRoles()
+      if (result.canceled) return showToast({ type: 'info', message: '已取消导入' })
+      await refresh()
+      showToast({ type: 'success', message: `已导入 ${result.imported} 个评审角色${result.renamed ? `（其中 ${result.renamed} 个与现有角色同名，已加「（导入）」后缀并排保留）` : ''}` })
+    } catch (error) {
+      showToast({ type: 'error', message: `导入失败：${errorMessage(error)}` })
+    }
+  }
+
   const allAdoptedCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.filter((problem) => problem.adopted).length, 0)
   const highSeverityCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.filter((problem) => problem.severity === 'high').length, 0)
   const allProblemsCount = (task: ReviewTask): number => task.opinions.reduce((sum, opinion) => sum + opinion.problems.length, 0)
@@ -252,6 +275,8 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
         <button className="button secondary" disabled={!selectedArticle} onClick={() => void openManualProblem()} title={selectedArticle ? undefined : '先选择一篇文章'}><Plus size={16} />手动加问题</button>
         <button className="button secondary" disabled={!selectedArticle} onClick={() => setImportOpen(true)} title={selectedArticle ? undefined : '先选择一篇文章'}><FileUp size={16} />导入评审</button>
         <button className="button secondary" onClick={() => setRoleDialogOpen(true)}><Settings2 size={16} />评审角色</button>
+        <button className="button secondary" disabled={!roles.length} onClick={() => void exportRoles()} title={!roles.length ? '还没有评审角色' : '导出全部角色为 JSON，可跨机导入'}><FileDown size={16} />导出角色</button>
+        <button className="button secondary" onClick={() => void importRoles()} title="导入角色集 JSON，同名角色并排保留"><FileUp size={16} />导入角色</button>
       </div>}
     />
     {selectionError && <p className="inline-alert" role="alert">{selectionError}</p>}
@@ -422,18 +447,45 @@ export function ReviewsPage({ providers, onNavigate, focusArticleId, showToast }
   </div>
 }
 
+/** 新建角色的引导模板（可全删重写，PRD §5.1） */
+const ROLE_PROMPT_TEMPLATE = [
+  '你是严格的内容评审员，只从一个维度评审文章并给出可执行的问题清单。',
+  '例如（事实核查员）：核查文中数据、引述与事实性结论，标注无依据的部分。',
+  '输出约定：仅输出一个 <评审意见> XML 块，每项问题用「位置：…｜严重程度：高/中/低｜问题：…｜建议：…」，最后给一句总体建议。'
+].join('\n')
+
 function RoleDialog({ roles, providers, onClose, onSaved, showToast }: { roles: ReviewRole[]; providers: ProviderSummary[]; onClose(): void; onSaved(): Promise<void>; showToast(toast: ToastState): void }): React.JSX.Element {
   const [name, setName] = useState('')
-  const [prompt, setPrompt] = useState('请评审文章，并返回一个 <评审意见> 区块。')
+  const [prompt, setPrompt] = useState(ROLE_PROMPT_TEMPLATE)
   const [saving, setSaving] = useState(false)
   const [roleId, setRoleId] = useState('')
   const [modelTarget, setModelTarget] = useState('')
+  const [extractionTag, setExtractionTag] = useState('评审意见')
+  const [extractionOccurrence, setExtractionOccurrence] = useState<'first' | 'last'>('last')
   const models = availableModels(providers)
   const selectedRole = roles.find(role => role.id === roleId)
   const selectRole = (id: string): void => {
     const role = roles.find(item => item.id === id)
-    setRoleId(id); setName(role?.name ?? ''); setPrompt(role?.systemPrompt ?? '请评审文章，并返回一个 <评审意见> 区块。')
+    setRoleId(id); setName(role?.name ?? ''); setPrompt(role?.systemPrompt ?? ROLE_PROMPT_TEMPLATE)
     setModelTarget(role?.providerId && role.model ? encodeModelTarget(role.providerId, role.model) : '')
+    setExtractionTag(role?.extractionTag ?? '评审意见'); setExtractionOccurrence(role?.extractionOccurrence ?? 'last')
+  }
+  /** 上移/下移：交换相邻角色 sortOrder（PRD §5.1 排序；等价于拖拽且零依赖） */
+  const moveRole = async (direction: -1 | 1): Promise<void> => {
+    if (!selectedRole) return
+    const index = roles.findIndex((role) => role.id === selectedRole.id)
+    const other = roles[index + direction]
+    if (!other) return
+    setSaving(true)
+    try {
+      await window.moliu.reviews.saveRole({ ...selectedRole, sortOrder: other.sortOrder })
+      await window.moliu.reviews.saveRole({ ...other, sortOrder: selectedRole.sortOrder })
+      await onSaved()
+    } catch (error) {
+      showToast({ type: 'error', message: `调整顺序失败：${errorMessage(error)}` })
+    } finally {
+      setSaving(false)
+    }
   }
   return (
     <ModalBase open onClose={onClose} titleId="role-dialog-title" scrollBody bare className="review-role-dialog">
@@ -443,20 +495,38 @@ function RoleDialog({ roles, providers, onClose, onSaved, showToast }: { roles: 
         </div>
         <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
       </header>
-      <label className="field"><span>管理角色</span><Select ariaLabel="管理评审角色" value={roleId} onChange={selectRole} options={[{value:'',label:'新建角色'},...roles.map(role=>({value:role.id,label:role.name}))]} /></label>
+      <div className="field"><span>管理角色</span>
+        <div className="role-manage-row">
+          <Select ariaLabel="管理评审角色" value={roleId} onChange={selectRole} options={[{value:'',label:'新建角色'},...roles.map(role=>({value:role.id,label:role.name}))]} />
+          {selectedRole && (
+            <span className="role-move-controls">
+              <button className="button ghost compact" disabled={saving || roles[0]?.id === selectedRole.id} onClick={() => void moveRole(-1)} title="上移">↑</button>
+              <button className="button ghost compact" disabled={saving || roles.at(-1)?.id === selectedRole.id} onClick={() => void moveRole(1)} title="下移">↓</button>
+            </span>
+          )}
+        </div>
+      </div>
       <label className="field"><span>名称</span><input name="roleName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：标题党猎人" /></label>
       <label className="field"><span>角色模型</span><Select ariaLabel="评审角色模型" value={modelTarget} onChange={setModelTarget} options={[{value:'',label:'沿用本次评审模型'},...models.map(({provider,model})=>({value:encodeModelTarget(provider.id,model.modelId),label:model.displayName,hint:provider.displayName})),...(modelTarget&&!models.some(({provider,model})=>encodeModelTarget(provider.id,model.modelId)===modelTarget)?[{value:modelTarget,label:'原模型已不可用，请重新选择'}]:[])]} /></label>
-      <label className="field"><span>角色指令</span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
+      <label className="field"><span>角色指令<em>下方模板可全删重写</em></span><textarea name="systemPrompt" autoComplete="off" rows={6} value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
+      <details className="role-extraction-rule">
+        <summary>解析规则<span>模型输出用哪个标签块解析</span></summary>
+        <div className="role-extraction-fields">
+          <label className="field"><span>标签名</span><input name="extractionTag" autoComplete="off" value={extractionTag} onChange={(event) => setExtractionTag(event.target.value)} placeholder="评审意见" maxLength={50} /></label>
+          <label className="field"><span>取第几块</span><Select ariaLabel="取第几块" value={extractionOccurrence} onChange={(value) => setExtractionOccurrence(value as 'first' | 'last')} options={[{value:'first',label:'第一个'},{value:'last',label:'最后一个'}]} /></label>
+        </div>
+        <p className="micro-copy">默认取输出中最后一个「评审意见」块，抗模型先写思考再写结论。仅当角色指令改用了别的输出标签时才需要调整。</p>
+      </details>
       <footer>
         <span className="micro-copy">现有 {roles.length} 个角色</span>
         <span style={{ flex: 1 }} />
         <button className="button secondary" onClick={onClose}>取消</button>
-        <button className="button primary" disabled={saving || !name.trim() || !prompt.trim()} onClick={async () => {
+        <button className="button primary" disabled={saving || !name.trim() || !prompt.trim() || !extractionTag.trim()} onClick={async () => {
           setSaving(true)
           try {
             const target = modelTarget ? decodeModelTarget(modelTarget) : null
             if (modelTarget && (!target || !models.some(({provider,model}) => provider.id === target.providerId && model.modelId === target.modelId))) throw new Error('请选择可用的角色模型')
-            await window.moliu.reviews.saveRole({ id:selectedRole?.id, name, systemPrompt: prompt, providerId:target?.providerId, model:target?.modelId, extractionTag: selectedRole?.extractionTag ?? '评审意见', extractionOccurrence: selectedRole?.extractionOccurrence ?? 'last', dimensions: selectedRole?.dimensions ?? [], sortOrder: selectedRole?.sortOrder ?? roles.length })
+            await window.moliu.reviews.saveRole({ id:selectedRole?.id, name, systemPrompt: prompt, providerId:target?.providerId, model:target?.modelId, extractionTag: extractionTag.trim() || '评审意见', extractionOccurrence, dimensions: selectedRole?.dimensions ?? [], sortOrder: selectedRole?.sortOrder ?? roles.length })
             await onSaved()
             showToast({ type: 'success', message: '角色已保存' })
           } catch (error) {

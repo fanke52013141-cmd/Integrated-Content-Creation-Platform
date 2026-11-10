@@ -713,6 +713,8 @@ export type FrameworkStatus = 'draft' | 'locked'
 export interface FrameworkTemplate { id: string; name: string; sections: string[]; isDefault: boolean; isSystem: boolean; createdAt: string; updatedAt: string }
 export interface FrameworkSection { name: string; content: string }
 export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; references: ArtifactReference[] }
+/** 框架历史版本快照（倒序；载入后保存即成为新版本） */
+export interface FrameworkVersion { id: string; versionNumber: number; providerId?: string; model?: string; sections: FrameworkSection[]; createdAt: string }
 export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number; /** 深度预研：先用搜索模型抓取选题相关公开资料注入框架生成（借鉴 STORM 多视角提问），无搜索配置时自动跳过 */ research?: boolean }
 export interface FrameworkResearchStatus {
   status: 'used' | 'skipped' | 'disabled' | 'empty' | 'failed'
@@ -1208,10 +1210,12 @@ export interface MoliuApi {
     bootstrap(): Promise<HotspotBootstrap>
     saveSourcePreferences(input: SaveHotSourcePreferencesInput): Promise<HotSourcePreference[]>
     refresh(sourceIds?: string[]): Promise<HotSourceResult[]>
-    listFavorites(): Promise<HotFavorite[]>
+    listFavorites(includeArchived?: boolean): Promise<HotFavorite[]>
     addFavorite(input: AddHotFavoriteInput): Promise<AddHotFavoriteResult>
     updateFavoriteTags(input: UpdateHotFavoriteTagsInput): Promise<HotFavorite>
     removeFavorite(id: string): Promise<void>
+    /** 收藏归档/恢复（归档不删除，默认列表只显示 active） */
+    setFavoriteStatus(id: string, status: 'active' | 'archived'): Promise<HotFavorite>
     filter(input: FilterHotspotsInput): Promise<FilterHotspotsResult>
     getWeiboStatus(): Promise<WeiboSessionStatus>
     saveWeiboCookie(cookie: string): Promise<WeiboSessionStatus>
@@ -1255,6 +1259,10 @@ export interface MoliuApi {
     generate(input: GenerateFrameworksInput): Promise<GenerateFrameworksResult>
     /** 重跑单个失败候选（count=1） */
     retryOne(input: RetryFrameworkInput): Promise<Framework>
+    /** 框架版本历史（倒序），供编辑器回滚载入 */
+    versions(id: string): Promise<FrameworkVersion[]>
+    /** 恢复系统内置默认模板（仅 is_system 模板可调用） */
+    resetTemplate(id: string): Promise<FrameworkTemplate>
     save(input: SaveFrameworkInput): Promise<Framework>
     setLocked(id: string, locked: boolean): Promise<Framework>
     remove(id: string): Promise<void>
@@ -1291,6 +1299,10 @@ export interface MoliuApi {
     listRoles(): Promise<ReviewRole[]>
     saveRole(input: SaveReviewRoleInput): Promise<ReviewRole>
     removeRole(id: string): Promise<void>
+    /** 导出全部角色为 JSON 文件（备份/跨机迁移）；取消时无 path */
+    exportRoles(): Promise<{ path?: string; count: number }>
+    /** 导入角色集 JSON：同名并排保留（加「（导入）」后缀），模型绑定仅保留本机存在的供应商 */
+    importRoles(): Promise<{ imported: number; renamed: number; canceled?: boolean }>
     listTasks(articleId?: string): Promise<ReviewTask[]>
     /** 不跑 AI，创建一个空评审任务，供“手动添加问题/导入评审”使用 */
     createManualTask(articleId: string): Promise<ReviewTask>

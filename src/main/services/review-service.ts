@@ -1,7 +1,8 @@
+import { readFile, writeFile } from 'node:fs/promises'
 import { buildMaterialContext, contextBudget, modelOutputTokens } from './material-context.js'
 import type { MaterialContext } from '../../shared/contracts.js'
 import { escapeXml } from '../../shared/domain.js'
-import type { ReviewFailure, ReviewProblem, ReviewRole, StartReviewInput, StartReviewResult, StreamEvent } from '../../shared/contracts.js'
+import type { ReviewFailure, ReviewProblem, ReviewRole, SaveReviewRoleInput, StartReviewInput, StartReviewResult, StreamEvent } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
 import type { ModelGateway } from '../gateway/model-gateway.js'
 import { callModelWithFallback } from '../gateway/stream-helper.js'
@@ -9,12 +10,55 @@ import type { UnifiedRequest } from '../gateway/types.js'
 import { runArticleChecks } from './article-checker.js'
 import type { ArticleGenerator } from './article-generator.js'
 
+/** 角色集导出包格式：与内容导入的 bundle 约定一致，带格式哨兵与版本 */
+const ROLES_EXPORT_FORMAT = 'moliu-review-roles'
+
 export class ReviewService {
   constructor(
     private readonly database: AppDatabase,
     private readonly gateway: ModelGateway,
     private readonly articles: ArticleGenerator
   ) {}
+
+  /** 导出全部评审角色为 JSON（PRD §5.1：备份与跨机迁移）；用户取消返回无 path */
+  async exportRoles(): Promise<{ path?: string; count: number }> {
+    const roles = this.database.listReviewRoles()
+    const { dialog } = await import('electron')
+    const result = await dialog.showSaveDialog({
+      title: '导出评审角色集',
+      defaultPath: '评审角色集.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePath) return { count: roles.length }
+    const payload = {
+      format: ROLES_EXPORT_FORMAT,
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      roles: roles.map((role) => ({
+        name: role.name, systemPrompt: role.systemPrompt,
+        providerId: role.providerId, model: role.model,
+        extractionTag: role.extractionTag, extractionOccurrence: role.extractionOccurrence,
+        dimensions: role.dimensions, sortOrder: role.sortOrder
+      }))
+    }
+    await writeFile(result.filePath, JSON.stringify(payload, null, 2) + '\n', 'utf-8')
+    return { path: result.filePath, count: roles.length }
+  }
+
+  /** 导入角色集：同名角色并排保留（名称加「（导入）」后缀），不覆盖现有配置 */
+  async importRoles(): Promise<{ imported: number; renamed: number; canceled?: boolean }> {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      title: '导入评审角色集',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePaths[0]) return { imported: 0, renamed: 0, canceled: true }
+    const raw: unknown = JSON.parse(await readFile(result.filePaths[0], 'utf-8'))
+    const parsed = parseRolesImportPayload(raw, this.database.listProviders().map((provider) => provider.id), this.database.listReviewRoles().map((role) => role.name))
+    for (const save of parsed.saves) this.database.saveReviewRole(save)
+    return { imported: parsed.imported, renamed: parsed.renamed }
+  }
 
   async start(
     input: StartReviewInput,
@@ -175,8 +219,7 @@ export class ReviewService {
   }
 }
 
-function parseOpinion(raw: string): { problems: Omit<ReviewProblem, 'id'>[]; overall: string } {
-  const problems = [...raw.matchAll(/位置[：:]\s*([^｜|\n]+)[｜|]\s*严重程度[：:]\s*(高|中|低|high|medium|low)[｜|]\s*问题[：:]\s*([^｜|\n]+)[｜|]\s*建议[：:]\s*([^\n<]+)/g)].map((m): Omit<ReviewProblem, 'id'> => ({
+function parseOpinion(raw: string): { problems: Omit<ReviewProblem, 'id'>[]; overall: string } {  const problems = [...raw.matchAll(/位置[：:]\s*([^｜|\n]+)[｜|]\s*严重程度[：:]\s*(高|中|低|high|medium|low)[｜|]\s*问题[：:]\s*([^｜|\n]+)[｜|]\s*建议[：:]\s*([^\n<]+)/g)].map((m): Omit<ReviewProblem, 'id'> => ({
     position: m[1].trim(),
     severity: ({ 高: 'high', 中: 'medium', 低: 'low', high: 'high', medium: 'medium', low: 'low' } as any)[m[2].trim()] ?? 'medium',
     issue: m[3].trim(),
@@ -186,4 +229,52 @@ function parseOpinion(raw: string): { problems: Omit<ReviewProblem, 'id'>[]; ove
     isManual: false
   }))
   return { problems, overall: raw.match(/总体建议[：:]\s*([^<\n]+)/)?.[1]?.trim() ?? '' }
+}
+
+/**
+ * 角色集导入包解析（纯函数，供单测）：校验格式哨兵、逐项清洗字段。
+ * 同名角色加「（导入）」后缀并排保留；模型绑定只保留本机存在的供应商。
+ */
+export function parseRolesImportPayload(
+  raw: unknown,
+  knownProviderIds: string[],
+  existingRoleNames: string[]
+): { saves: SaveReviewRoleInput[]; imported: number; renamed: number } {
+  if (!raw || typeof raw !== 'object' || (raw as Record<string, unknown>).format !== ROLES_EXPORT_FORMAT || !Array.isArray((raw as Record<string, unknown>).roles)) {
+    throw new Error('不是有效的评审角色集文件（缺少格式标记）')
+  }
+  const providerIds = new Set(knownProviderIds)
+  const existing = new Set(existingRoleNames)
+  const saves: SaveReviewRoleInput[] = []
+  let renamed = 0
+  for (const [index, item] of ((raw as { roles: unknown[] }).roles).entries()) {
+    if (!item || typeof item !== 'object') continue
+    const record = item as Record<string, unknown>
+    const name = typeof record.name === 'string' ? record.name.trim().slice(0, 80) : ''
+    const systemPrompt = typeof record.systemPrompt === 'string' ? record.systemPrompt.trim().slice(0, 12_000) : ''
+    if (!name || !systemPrompt) continue
+    const boundProvider = typeof record.providerId === 'string' && providerIds.has(record.providerId) ? record.providerId : undefined
+    // 同名冲突循环加后缀：包内第二个同名导入追加序号，避免产出两个一模一样的名字
+    let finalName = name
+    let suffix = 0
+    while (existing.has(finalName)) {
+      suffix += 1
+      finalName = `${name}（导入${suffix > 1 ? suffix : ''}）`
+    }
+    const save: SaveReviewRoleInput = {
+      name: finalName,
+      systemPrompt,
+      providerId: boundProvider,
+      model: boundProvider && typeof record.model === 'string' && record.model ? record.model.slice(0, 160) : undefined,
+      extractionTag: typeof record.extractionTag === 'string' && record.extractionTag.trim() ? record.extractionTag.trim().slice(0, 50) : '评审意见',
+      extractionOccurrence: record.extractionOccurrence === 'first' ? 'first' : 'last',
+      dimensions: Array.isArray(record.dimensions) ? record.dimensions.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).slice(0, 10) : [],
+      sortOrder: typeof record.sortOrder === 'number' ? record.sortOrder : existingRoleNames.length + index
+    }
+    if (existing.has(name)) renamed += 1
+    existing.add(save.name)
+    saves.push(save)
+  }
+  if (!saves.length) throw new Error('文件中没有可导入的角色（每项需要名称与角色指令）')
+  return { saves, imported: saves.length, renamed }
 }

@@ -343,6 +343,35 @@ export class VisualAssetService {
     const safe = basename(fileName)
     return readFile(join(this.imagesDir, safe))
   }
+
+  /**
+   * 清理超期未选用的候选图（PRD-配图三件套 §7：定稿后 30 天自动清理，可开关）。
+   * 只删「创建超过 N 天、未被文章/草稿/排版引用、且没有被任何方案选中」的候选；
+   * 已选用（selectedAssetId）与被引用的资产绝不触碰。返回清理数量供 UI 提示。
+   */
+  async pruneStaleCandidates(days = 30): Promise<{ removed: number }> {
+    const cutoff = Date.now() - days * 86_400_000
+    const selected = new Set<string>()
+    for (const pack of this.database.listVisualPacks()) {
+      for (const plan of this.database.visualStudio.plans(pack.articleId)) {
+        for (const picture of plan.pictures) if (picture.selectedAssetId) selected.add(picture.selectedAssetId)
+      }
+    }
+    let removed = 0
+    for (const asset of this.database.listVisualAssets()) {
+      if (new Date(asset.createdAt).getTime() >= cutoff) continue
+      if (selected.has(asset.id)) continue
+      if (this.database.workflow.isAssetReferenced(asset.fileName)) continue
+      this.database.removeVisualAsset(asset.id)
+      try {
+        await unlink(join(this.imagesDir, asset.fileName))
+      } catch {
+        // 文件可能已被手动清理，记录不受影响
+      }
+      removed += 1
+    }
+    return { removed }
+  }
 }
 
 export type { VisualAssetKind }

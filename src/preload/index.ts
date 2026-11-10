@@ -121,12 +121,13 @@ const api: MoliuApi = {
     saveSourcePreferences: (input: SaveHotSourcePreferencesInput) =>
       ipcRenderer.invoke('hotspots:preferences:save', input),
     refresh: (sourceIds?: string[]) => ipcRenderer.invoke('hotspots:refresh', sourceIds),
-    listFavorites: () => ipcRenderer.invoke('hotspots:favorites:list'),
+    listFavorites: (includeArchived?: boolean) => ipcRenderer.invoke('hotspots:favorites:list', includeArchived),
     addFavorite: (input: AddHotFavoriteInput) =>
       ipcRenderer.invoke('hotspots:favorites:add', input),
     updateFavoriteTags: (input: UpdateHotFavoriteTagsInput) =>
       ipcRenderer.invoke('hotspots:favorites:update-tags', input),
     removeFavorite: (id: string) => ipcRenderer.invoke('hotspots:favorites:remove', id),
+    setFavoriteStatus: (id: string, status: 'active' | 'archived') => ipcRenderer.invoke('hotspots:favorites:set-status', { id, status }),
     filter: (input: FilterHotspotsInput) => ipcRenderer.invoke('hotspots:filter', input),
     getWeiboStatus: () => ipcRenderer.invoke('hotspots:weibo:status'),
     saveWeiboCookie: (cookie: string) => ipcRenderer.invoke('hotspots:weibo:save', cookie),
@@ -174,6 +175,8 @@ const api: MoliuApi = {
     list: () => ipcRenderer.invoke('frameworks:list'),
     generate: (input: GenerateFrameworksInput) => ipcRenderer.invoke('frameworks:generate', input),
     retryOne: (input: RetryFrameworkInput) => ipcRenderer.invoke('frameworks:retry-one', input),
+    versions: (id: string) => ipcRenderer.invoke('frameworks:versions', id),
+    resetTemplate: (id: string) => ipcRenderer.invoke('frameworks:templates:reset', id),
     save: (input: SaveFrameworkInput) => ipcRenderer.invoke('frameworks:save', input),
     setLocked: (id: string, locked: boolean) => ipcRenderer.invoke('frameworks:set-locked', id, locked),
     remove: (id: string) => ipcRenderer.invoke('frameworks:remove', id),
@@ -216,6 +219,8 @@ const api: MoliuApi = {
     listRoles: () => ipcRenderer.invoke('reviews:roles:list'),
     saveRole: (input: SaveReviewRoleInput) => ipcRenderer.invoke('reviews:roles:save', input),
     removeRole: (id: string) => ipcRenderer.invoke('reviews:roles:remove', id),
+    exportRoles: () => ipcRenderer.invoke('reviews:roles:export'),
+    importRoles: () => ipcRenderer.invoke('reviews:roles:import'),
     listTasks: (articleId?: string) => ipcRenderer.invoke('reviews:tasks:list', articleId),
     createManualTask: (articleId: string) => ipcRenderer.invoke('reviews:manual-task', articleId),
     start: (input: StartReviewInput) => ipcRenderer.invoke('reviews:start', input),
@@ -259,7 +264,8 @@ const api: MoliuApi = {
       review: input => ipcRenderer.invoke('visual-studio:review', input),
       preview: id => ipcRenderer.invoke('visual-studio:preview', id),
       apply: input => ipcRenderer.invoke('visual-studio:apply', input),
-      undo: input => ipcRenderer.invoke('visual-studio:undo', input)
+      undo: input => ipcRenderer.invoke('visual-studio:undo', input),
+      pruneStale: input => ipcRenderer.invoke('visual-studio:prune-stale', input ?? {})
     },
     createManualPack: (id) => ipcRenderer.invoke('visuals:manual-pack', id),
     list: (articleId?: string) => ipcRenderer.invoke('visuals:list', articleId),

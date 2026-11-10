@@ -58,10 +58,12 @@ export function registerVisualStudioIpc(database: AppDatabase, gateway: ModelGat
   const generateInput=target.extend({...planRevision,pictureId:id,referenceMode:z.enum(['image','text']),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),resolution:z.enum(['1k','2k','4k']).optional()})
   handle('enqueue',raw=>queue.enqueue(generateInput.parse(raw)))
   handle('control-job',raw=>{const input=z.object({id,action:z.enum(['pause','resume','retry','check-result','confirm-not-submitted'])}).parse(raw);return queue.control(input.id,input.action)})
-  handle('prompts', raw => { const input = target.extend(planRevision).parse(raw); return run(signal => service.prompts(input, signal)) })
+  // 注意：ZodObject.extend 只接受 shape 对象；传入 z.object(...) 实例会静默产出错误 schema
+  handle('prompts', raw => { const input = target.extend({ ...planRevision, translateToEnglish: z.boolean().optional() }).parse(raw); return run(signal => service.prompts(input, signal)) })
   handle('review', raw => { const input = target.extend(planRevision).parse(raw); return run(signal => service.review(input, signal)) })
   handle('generate', raw => { const input = generateInput.parse(raw); return run(signal => service.generate(input, signal)) })
   handle('select', raw => service.select(z.object({ ...planRevision, pictureId: id, assetId: id, allowOutdated:z.boolean().optional() }).parse(raw)))
+  handle('prune-stale', raw => { const input = z.object({ days: z.number().int().min(7).max(365).optional() }).parse(raw ?? {}); return assets.pruneStaleCandidates(input.days) })
   handle('preview', raw => service.preview(id.parse(raw)))
   handle('apply', raw => service.apply(z.object({ ...planRevision, baseVersionId: id }).parse(raw)))
   handle('undo', raw => service.undo(z.object({ planId: id, expectedVersionId: id }).parse(raw)))

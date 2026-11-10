@@ -35,8 +35,17 @@ import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 import { errorMessage, formatDate, isSafeUrl } from '../lib'
 
-interface MaterialsPageProps {
-  searchService: SearchServiceSummary
+/** 素材的来源站点聚合键：优先来源名，其次来源 URL 域名；都没有则不参与站点筛选 */
+function sourceSiteOf(material: Material): string {
+  if (material.sourceName?.trim()) return material.sourceName.trim()
+  try {
+    return material.sourceUrl ? new URL(material.sourceUrl).hostname.replace(/^www\./, '') : ''
+  } catch {
+    return ''
+  }
+}
+
+interface MaterialsPageProps {  searchService: SearchServiceSummary
   onNavigate(route: RouteId): void
   showToast(toast: ToastState): void
   /** 上一步来源路由：提供时显示「返回上一步」，否则沿用默认返回行为 */
@@ -75,6 +84,10 @@ export function MaterialsPage({
   const [usage, setUsage] = useState<Record<string, Array<{ id: string; title: string }>>>({})
   const [usageReady, setUsageReady] = useState(false)
   const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all')
+  // PRD §2.2 集合筛选扩展：来源站点 / 关联选题 / 加入时间
+  const [siteFilter, setSiteFilter] = useState('all')
+  const [topicFilter, setTopicFilter] = useState('all')
+  const [timeRange, setTimeRange] = useState<'all' | '7d' | '30d'>('all')
 
   async function refresh(): Promise<void> {
     const [nextMaterials, nextTopics] = await Promise.all([
@@ -114,6 +127,8 @@ export function MaterialsPage({
     .map((material) => `${material.origin}:${material.externalId}`)), [materials])
   const filteredMaterials = useMemo(() => {
     const needle = collectionQuery.trim().toLocaleLowerCase('zh-CN')
+    // 时间范围档（PRD §2.2：按加入时间筛选）
+    const rangeStart = timeRange === '7d' ? Date.now() - 7 * 86_400_000 : timeRange === '30d' ? Date.now() - 30 * 86_400_000 : 0
     return materials.filter((material) => {
       if (collectionKind !== 'all' && material.kind !== collectionKind) return false
       if (usageFilter !== 'all') {
@@ -121,11 +136,25 @@ export function MaterialsPage({
         if (usageFilter === 'used' && !used) return false
         if (usageFilter === 'unused' && used) return false
       }
+      if (siteFilter !== 'all' && sourceSiteOf(material) !== siteFilter) return false
+      if (topicFilter !== 'all' && material.relatedTopicId !== topicFilter) return false
+      if (rangeStart && new Date(material.createdAt).getTime() < rangeStart) return false
       if (!needle) return true
       return [material.title, material.summary, material.sourceName, material.sourceNote]
         .filter(Boolean).some((value) => value!.toLocaleLowerCase('zh-CN').includes(needle))
     })
-  }, [collectionKind, collectionQuery, materials, usage, usageFilter])
+  }, [collectionKind, collectionQuery, materials, usage, usageFilter, siteFilter, topicFilter, timeRange])
+
+  // 来源站点聚合（按素材的 sourceName / 来源 URL 域名），供站点筛选下拉
+  const siteOptions = useMemo(() => {
+    const names = new Map<string, number>()
+    for (const material of materials) {
+      const site = sourceSiteOf(material)
+      if (!site) continue
+      names.set(site, (names.get(site) ?? 0) + 1)
+    }
+    return [...names.entries()].sort((left, right) => right[1] - left[1]).map(([site]) => site)
+  }, [materials])
 
   async function search(): Promise<void> {
     if (!query.trim()) return showToast({ type: 'error', message: '请输入搜索词' })
@@ -204,9 +233,14 @@ export function MaterialsPage({
   }
 
   async function remove(material: Material): Promise<void> {
+    // PRD §2.2：删除前提示下游引用；删除后下游产物中的该素材引用视为已失效
+    const referring = usage[material.id] ?? []
+    const usageNote = referring.length
+      ? `该素材正被 ${referring.length} 篇文章引用（${referring.slice(0, 3).map((item) => item.title).join('、')}${referring.length > 3 ? ' 等' : ''}）。删除后这些文章中的素材引用将标记为已失效，文章本身不受影响。`
+      : '当前没有文章引用它。'
     if (!(await confirm({
       title: `删除素材「${material.title}」？`,
-      message: '此操作不可撤销。',
+      message: `${usageNote}此操作不可撤销。`,
       danger: true,
       confirmLabel: '删除'
     }))) return
@@ -311,7 +345,15 @@ export function MaterialsPage({
         </section>
       ) : (
         <section className="material-collection-workspace">
-          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input type="search" inputMode="search" name="collectionQuery" autoComplete="off" value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源…" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div>{usageReady && <div>{([['all', '全部引用'], ['used', '已引用'], ['unused', '未引用']] as const).map(([value, label]) => <button key={value} className={usageFilter === value ? 'active' : ''} onClick={() => setUsageFilter(value)}>{label}</button>)}</div>}<button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={16} />添加文字</button></header>
+          <header className="material-collection-toolbar"><label className="search-field"><Search size={16} /><input type="search" inputMode="search" name="collectionQuery" autoComplete="off" value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="筛选标题、摘要或来源…" /></label><div>{(['all', 'web', 'image', 'text'] as const).map((kind) => <button key={kind} className={collectionKind === kind ? 'active' : ''} onClick={() => setCollectionKind(kind)}>{kind === 'all' ? '全部' : kind === 'web' ? '网页' : kind === 'image' ? '图片' : '文字'}</button>)}</div>{usageReady && <div>{([['all', '全部引用'], ['used', '已引用'], ['unused', '未引用']] as const).map(([value, label]) => <button key={value} className={usageFilter === value ? 'active' : ''} onClick={() => setUsageFilter(value)}>{label}</button>)}</div>}
+            {(siteOptions.length > 1 || topics.length > 0) && <details className="material-filter-more"><summary>更多筛选</summary>
+              <div className="material-filter-panel">
+                {siteOptions.length > 1 && <Select ariaLabel="来源站点" value={siteFilter} onChange={setSiteFilter} options={[{ value: 'all', label: '全部来源站点' }, ...siteOptions.map((site) => ({ value: site, label: site }))]} />}
+                {topics.length > 0 && <Select ariaLabel="关联选题" value={topicFilter} onChange={setTopicFilter} options={[{ value: 'all', label: '全部关联选题' }, ...topics.filter((topic) => materials.some((material) => material.relatedTopicId === topic.id)).map((topic) => ({ value: topic.id, label: topic.fields['选题主题'] || topic.seedKeyword || '未命名选题' }))]} />}
+                <Select ariaLabel="加入时间" value={timeRange} onChange={(value) => setTimeRange(value as typeof timeRange)} options={[{ value: 'all', label: '全部时间' }, { value: '7d', label: '近 7 天' }, { value: '30d', label: '近 30 天' }]} />
+              </div>
+            </details>}
+            <button className="button primary compact" onClick={() => setManualOpen(true)}><Plus size={16} />添加文字</button></header>
           {filteredMaterials.length ? <div className="material-collection-list"><VirtualList items={filteredMaterials} estimateSize={() => 100} renderItem={(material) => <MaterialRow key={material.id} material={material} refs={usage[material.id] ?? []} onOpen={(url) => void openSource(url)} onRemove={() => void remove(material)} />} /></div> : <div className="large-empty"><h3>{materials.length ? '没有匹配的素材' : '暂无素材'}</h3></div>}
         </section>
       )}

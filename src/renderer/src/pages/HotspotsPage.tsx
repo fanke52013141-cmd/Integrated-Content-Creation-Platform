@@ -22,6 +22,7 @@ import {
   Rss,
   RefreshCw,
   RotateCcw,
+  Archive,
   Search,
   Settings2,
   SlidersHorizontal,
@@ -99,6 +100,7 @@ export function HotspotsPage({
   const [manualHotOpen, setManualHotOpen] = useState(false)
   const [hotImportOpen, setHotImportOpen] = useState(false)
   const [favoriteFilter, setFavoriteFilter] = useState<'all' | HotFavoriteTag>('all')
+  const [showArchived, setShowArchived] = useState(false)
   const [favoriteSourceFilter, setFavoriteSourceFilter] = useState('all')
   const [favoriteSearch, setFavoriteSearch] = useState('')
   const [savingFavoriteKeys, setSavingFavoriteKeys] = useState<Set<string>>(new Set())
@@ -157,6 +159,8 @@ export function HotspotsPage({
   const filteredFavorites = useMemo(() => {
     const query = favoriteSearch.trim().toLocaleLowerCase('zh-CN')
     return favorites.filter((favorite) => {
+      // 归档默认不进列表（PRD §4.2 status: archived）；「含归档」开关显式放开
+      if (!showArchived && favorite.status === 'archived') return false
       if (favoriteFilter !== 'all' && !favorite.tags.includes(favoriteFilter)) return false
       if (favoriteSourceFilter !== 'all' && favorite.hotItem.source !== favoriteSourceFilter) {
         return false
@@ -168,7 +172,7 @@ export function HotspotsPage({
         favorite.hotItem.desc
       ].some((value) => value.toLocaleLowerCase('zh-CN').includes(query))
     })
-  }, [favoriteFilter, favoriteSearch, favoriteSourceFilter, favorites])
+  }, [favoriteFilter, favoriteSearch, favoriteSourceFilter, favorites, showArchived])
   const filterCandidates = useMemo(
     () => [...filterSourceIds].flatMap((sourceId) => {
       if (filterScope === 'favorites') {
@@ -288,6 +292,11 @@ export function HotspotsPage({
       setRefreshingAll(false)
     }
   }, [failedSourceIds, refreshBatch, showToast])
+
+  // 「含归档」开关切换时重拉收藏列表（服务端按 includeArchived 过滤）
+  useEffect(() => {
+    void window.moliu.hotspots.listFavorites(showArchived).then(setFavorites).catch(() => undefined)
+  }, [showArchived])
 
   useEffect(() => {
     let disposed = false
@@ -428,6 +437,17 @@ export function HotspotsPage({
       await window.moliu.hotspots.removeFavorite(favorite.id)
       setFavorites((current) => current.filter((item) => item.id !== favorite.id))
       showToast({ type: 'success', message: '已取消收藏' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  /** 收藏归档/恢复（PRD §4.2）：归档不删除，默认列表隐藏，可随时恢复 */
+  async function setFavoriteArchived(favorite: HotFavorite, archived: boolean): Promise<void> {
+    try {
+      const updated = await window.moliu.hotspots.setFavoriteStatus(favorite.id, archived ? 'archived' : 'active')
+      setFavorites((current) => current.map((item) => item.id === favorite.id ? updated : item))
+      showToast({ type: 'success', message: archived ? '已归档，收藏夹默认不再显示；勾选「含归档」可查看' : '已恢复为活跃收藏' })
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     }
@@ -830,6 +850,10 @@ export function HotspotsPage({
                   options={[{ value: 'all', label: '全部平台' }, ...favoritePlatforms.map((platform) => ({ value: platform.id, label: platform.name }))]}
                 />
               </label>
+              <label className="favorite-archived-toggle">
+                <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+                含归档
+              </label>
             </div>
             <div className="favorite-actions">
               <span className="favorite-count">{filteredFavorites.length} 条</span>
@@ -856,7 +880,7 @@ export function HotspotsPage({
                 items={filteredFavorites}
                 estimateSize={() => 80}
                 renderItem={(favorite) => (
-                  <article className="favorite-row" key={favorite.id}>
+                  <article className={`favorite-row ${favorite.status === 'archived' ? 'archived' : ''}`} key={favorite.id}>
                     <span className="favorite-source-mark">
                       {favorite.hotItem.sourceTitle.slice(0, 1).toUpperCase()}
                     </span>
@@ -875,6 +899,7 @@ export function HotspotsPage({
                         <span>收藏于 {formatDateTime(favorite.createdAt)}</span>
                         <SourceBadge source={favorite.importSource} />
                         <span className="locked-snapshot"><BookmarkCheck size={16} />源快照已锁定</span>
+                        {favorite.status === 'archived' && <span className="badge neutral">已归档</span>}
                       </div>
                     </div>
                     <div className="favorite-tags">
@@ -889,6 +914,14 @@ export function HotspotsPage({
                         </button>
                       ))}
                     </div>
+                    <button
+                      className="icon-button favorite-remove"
+                      title={favorite.status === 'archived' ? '恢复归档' : '归档（不删除）'}
+                      aria-label={favorite.status === 'archived' ? '恢复归档' : '归档收藏'}
+                      onClick={() => void setFavoriteArchived(favorite, favorite.status !== 'archived')}
+                    >
+                      {favorite.status === 'archived' ? <RotateCcw size={16} /> : <Archive size={16} />}
+                    </button>
                     <button
                       className="icon-button favorite-remove"
                       title="取消收藏"

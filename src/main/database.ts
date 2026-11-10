@@ -44,6 +44,7 @@ import type {
   SearchServiceSummary,
   Framework,
   FrameworkSection,
+  FrameworkVersion,
   FrameworkStatus,
   FrameworkTemplate,
   SaveFrameworkInput,
@@ -1753,10 +1754,11 @@ export class AppDatabase {
     this.db.prepare('DELETE FROM account_memories WHERE id = ?').run(id)
   }
 
-  listHotFavorites(): HotFavorite[] {
+  /** 收藏列表：默认只取 active（PRD §4.2）；includeArchived 时连归档项一起返回，供「含归档」视图 */
+  listHotFavorites(includeArchived = false): HotFavorite[] {
     const rows = this.db.prepare(`
       SELECT * FROM hot_favorites
-      WHERE status = 'active'
+      ${includeArchived ? '' : "WHERE status = 'active'"}
       ORDER BY created_at DESC
     `).all() as unknown as HotFavoriteRow[]
     return rows.map((row) => ({ ...this.mapHotFavorite(row), importSource: this.getArtifactImportSource('hot-favorite', row.id) }))
@@ -1888,6 +1890,14 @@ export class AppDatabase {
     const updated = this.getHotFavorite(id)
     if (!updated) throw new Error('收藏标签更新失败')
     return updated
+  }
+
+  /** 收藏归档/恢复（PRD §4.2 status: active/archived；归档不删除，可随时恢复） */
+  setHotFavoriteStatus(id: string, status: 'active' | 'archived'): HotFavorite {
+    const favorite = this.getHotFavorite(id)
+    if (!favorite) throw new Error('收藏不存在')
+    this.db.prepare('UPDATE hot_favorites SET status = ? WHERE id = ?').run(status, id)
+    return this.getHotFavorite(id)!
   }
 
   removeHotFavorite(id: string): void {
@@ -2159,6 +2169,20 @@ export class AppDatabase {
   }
   setFrameworkLocked(id: string, locked: boolean): Framework { this.db.prepare('UPDATE frameworks SET status=?,updated_at=? WHERE id=?').run(locked?'locked':'draft',new Date().toISOString(),id); return this.getFramework(id)! }
   removeFramework(id: string): void { this.db.prepare('DELETE FROM frameworks WHERE id=?').run(id) }
+  /** 框架版本历史（PRD §4.7：换模型/重生成→旧版本进历史可回滚）；倒序，含各版本章节快照 */
+  listFrameworkVersions(frameworkId: string): FrameworkVersion[] {
+    return (this.db.prepare('SELECT id,version_number,provider_id,model,sections_json,created_at FROM framework_versions WHERE framework_id=? ORDER BY version_number DESC').all(frameworkId) as unknown as Array<{ id: string; version_number: number; provider_id: string | null; model: string | null; sections_json: string; created_at: string }>)
+      .map((row) => ({ id: row.id, versionNumber: Number(row.version_number), providerId: row.provider_id ?? undefined, model: row.model ?? undefined, sections: parseJson<FrameworkSection[]>(row.sections_json, []), createdAt: row.created_at }))
+  }
+  /** 系统默认模板重置（PRD §4.2「恢复系统默认」）：仅 is_system 行可重置，章节恢复内置定义 */
+  resetFrameworkTemplate(id: string): FrameworkTemplate {
+    const row = this.db.prepare('SELECT * FROM framework_templates WHERE id=? AND is_system=1').get(id) as unknown as FrameworkTemplateRow | undefined
+    if (!row) throw new Error('只有系统内置模板可以恢复默认')
+    const now = new Date().toISOString()
+    this.db.prepare(`INSERT INTO framework_templates(id,name,sections_json,is_default,is_system,created_at,updated_at) VALUES('system-default','默认三论点框架',?,1,1,?,?) ON CONFLICT(id) DO UPDATE SET name='默认三论点框架',sections_json=excluded.sections_json,is_default=1,updated_at=excluded.updated_at`)
+      .run(JSON.stringify(['标题', '开头', '论点一', '论点二', '论点三', '结尾']), row.created_at, now)
+    return mapFrameworkTemplate(this.db.prepare('SELECT * FROM framework_templates WHERE id=?').get(id) as unknown as FrameworkTemplateRow)
+  }
 
   listArticles(): Article[] {
     const rows = this.db.prepare(`SELECT a.*,v.raw_markdown,v.provider_id,v.model,(SELECT COUNT(*) FROM article_versions x WHERE x.article_id=a.id) version_count FROM articles a JOIN article_versions v ON v.id=a.current_version_id ORDER BY a.updated_at DESC`).all() as unknown as ArticleRow[]

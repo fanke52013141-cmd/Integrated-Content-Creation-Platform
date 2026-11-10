@@ -58,3 +58,25 @@ describe('热榜快照与黑马基线', () => {
     expect(surging).toEqual(['a'])
   })
 })
+
+describe('收藏归档（PRD §4.2 status: active/archived）', () => {
+  it('归档后默认列表隐藏、includeArchived 可见且可恢复', () => {
+    const db = new AppDatabase(':memory:')
+    try {
+      const { favorite } = db.addHotFavorite({
+        hotItem: { id: 'h1', title: '测试热点', desc: '', url: 'https://example.com/a', source: 'weibo', sourceTitle: '微博', subtitle: '', updateTime: '2026-11-01T00:00:00.000Z', rank: 1, rawJson: '{}' },
+        tags: ['待选题']
+      })
+      expect(favorite.status).toBe('active')
+      const archived = db.setHotFavoriteStatus(favorite.id, 'archived')
+      expect(archived.status).toBe('archived')
+      // 归档收藏仍在库中（不删除）：默认列表隐藏，includeArchived 才可见
+      expect(db.listHotFavorites().map((item) => item.id)).not.toContain(favorite.id)
+      expect(db.listHotFavorites(true).map((item) => item.id)).toContain(favorite.id)
+      const restored = db.setHotFavoriteStatus(favorite.id, 'active')
+      expect(restored.status).toBe('active')
+      expect(db.listHotFavorites().map((item) => item.id)).toContain(favorite.id)
+      expect(() => db.setHotFavoriteStatus('missing-id', 'archived')).toThrow('收藏不存在')
+    } finally { db.close() }
+  })
+})

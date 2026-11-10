@@ -632,7 +632,7 @@ export function registerIpc(options: {
     }
     return hotspotService.refresh(sourceIds)
   })
-  handle('hotspots:favorites:list', () => database.listHotFavorites())
+  handle('hotspots:favorites:list', (_event, includeArchived?: boolean) => database.listHotFavorites(includeArchived === true))
   handle('hotspots:favorites:add', (_event, raw: AddHotFavoriteInput) => {
     const input = z.object({
       hotItem: hotItemSchema,
@@ -650,6 +650,10 @@ export function registerIpc(options: {
   })
   handle('hotspots:favorites:remove', (_event, id: string) => {
     database.removeHotFavorite(requireId(id))
+  })
+  handle('hotspots:favorites:set-status', (_event, raw: unknown) => {
+    const input = z.object({ id: z.string().uuid(), status: z.enum(['active', 'archived']) }).parse(raw)
+    return database.setHotFavoriteStatus(input.id, input.status)
   })
   handle('hotspots:weibo:status', () => {
     const meta = database.getWeiboSessionMeta()
@@ -860,6 +864,8 @@ export function registerIpc(options: {
     return runGeneration(event, 'frameworks', (signal) =>
       frameworkGenerator.retryOne(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
   })
+  handle('frameworks:versions', (_e, id: string) => database.listFrameworkVersions(requireId(id)))
+  handle('frameworks:templates:reset', (_e, id: string) => database.resetFrameworkTemplate(id))
   handle('frameworks:save', (_event, raw: SaveFrameworkInput) => {
     const input = z.object({
       id: z.string().uuid().optional(), topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
@@ -984,6 +990,8 @@ export function registerIpc(options: {
   handle('reviews:roles:list',()=>database.listReviewRoles())
   handle('reviews:roles:save',(_e,raw:SaveReviewRoleInput)=>database.saveReviewRole(z.object({id:z.string().optional(),name:z.string().trim().min(1).max(80),systemPrompt:z.string().trim().min(1).max(12000),providerId:z.string().uuid().optional(),model:z.string().trim().max(160).optional(),extractionTag:z.string().trim().min(1).max(50),extractionOccurrence:z.enum(['first','last']),dimensions:z.array(z.string().trim().min(1).max(50)).max(10),sortOrder:z.number().int().min(0)}).parse(raw)))
   handle('reviews:roles:remove',(_e,id:string)=>database.removeReviewRole(requireId(id)))
+  handle('reviews:roles:export',()=>reviewService.exportRoles())
+  handle('reviews:roles:import',()=>reviewService.importRoles())
   handle('reviews:tasks:list',(_e,articleId?:string)=>database.listReviewTasks(articleId))
   handle('reviews:manual-task',(_e,articleId:string)=>{const id=z.string().uuid().parse(articleId);const article=database.getArticle(id);if(!article)throw new Error('文章不存在');return database.createReviewTask({articleId:article.id,articleVersionId:article.currentVersionId,articleVersionNumber:article.versionCount,roleIds:[]})})
   handle('reviews:start',(event,raw:StartReviewInput)=>{const input=z.object({articleId:z.string().uuid(),roleIds:z.array(z.string().uuid()).min(1).max(10),fallbackProviderId:z.string().uuid(),fallbackModel:z.string().min(1).max(160)}).parse(raw);return runGeneration(event,'reviews',(signal)=>reviewService.start(input,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal))})

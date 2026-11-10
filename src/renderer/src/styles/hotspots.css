@@ -24,6 +24,8 @@
 .hotspots-page .hot-favorite-button { opacity: 1; min-width: 32px; min-height: 32px; }
 .hotspots-page .favorite-toolbar { gap: 20px; padding: 20px; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 12px; }
 .hotspots-page .favorite-row { padding: 24px; gap: 20px; background: var(--surface); box-shadow: none; }
+.hotspots-page .favorite-row.archived { opacity: 0.62; }
+.hotspots-page .favorite-archived-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
 .hotspots-page .favorite-title { font-size: 16px; line-height: 1.6; }
 .hotspots-page .filter-results-toolbar { flex-wrap: wrap; gap: 20px; padding-bottom: 20px; }
 .hotspots-page .filter-assessment-row { padding: 24px; gap: 20px; box-shadow: none; }

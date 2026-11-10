@@ -66,8 +66,11 @@ try {
   window.setDefaultTimeout(60_000)
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
-  // 搜索已并入供应商体系：直接建一个「搜索」类型模型的供应商（端点指向本脚本 mock）
+  // 搜索已并入供应商体系：直接建一个「搜索」类型模型的供应商（端点指向本脚本 mock）。
+  // 同时标记首启引导已完成：本冒烟不建文章（articles=0 会触发首页引导弹窗），
+  // reload 后引导遮罩会盖住侧栏导航导致点击超时——真实用户完成过引导即等价于此标记。
   await window.evaluate(async port => {
+    localStorage.setItem('moliu:first-creation-guide:v1', 'done')
     await window.moliu.providers.save({
       id: 'doubao-search', displayName: '豆包搜索', protocol: 'openai-compatible',
       baseUrl: `http://127.0.0.1:${port}/search`, defaultModel: 'web-search', enabled: true, isRelay: false,

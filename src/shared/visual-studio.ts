@@ -86,10 +86,12 @@ export interface VisualStudioApi {
   jobs(planId: string): Promise<VisualImageJob[]>
   enqueue(input: GeneratePictureInput): Promise<VisualImageJob>
   controlJob(input: { id: string; action: 'pause' | 'resume' | 'retry' | 'check-result' | 'confirm-not-submitted' }): Promise<void>
-  prompts(input: VisualModelTarget & { planId: string; expectedRevision: number }): Promise<VisualPlan>
+  prompts(input: VisualModelTarget & { planId: string; expectedRevision: number; /** 最终提示词翻译为英文（默认关，PRD 开放问题2） */ translateToEnglish?: boolean }): Promise<VisualPlan>
   review(input: VisualModelTarget & { planId: string; expectedRevision: number }): Promise<VisualPlan>
   generate(input: GeneratePictureInput): Promise<VisualAsset>
   select(input: { planId: string; pictureId: string; assetId: string; expectedRevision: number; allowOutdated?: boolean }): Promise<VisualPlan>
+  /** 清理超期（默认 30 天）未被选用且未被引用的候选图；返回清理数量 */
+  pruneStale(input?: { days?: number }): Promise<{ removed: number }>
   preview(planId: string): Promise<ApplyVisualPreview>
   apply(input: { planId: string; expectedRevision: number; baseVersionId: string }): Promise<Article>
   undo(input: { planId: string; expectedVersionId: string }): Promise<Article>

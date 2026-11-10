@@ -414,7 +414,7 @@ function createMockBridge(): MoliuApi {
         return Promise.resolve(DEMO_SOURCE_RESULTS.filter((r) => sourceIds.includes(r.source.id)))
       },
       onStream: () => () => undefined,
-      listFavorites: () => emptyArray(),
+      listFavorites: (_includeArchived?: boolean) => emptyArray(),
       addFavorite: (input: { hotItem: { id: string; title: string; source: string; sourceTitle: string } }) =>
         Promise.resolve({
           favorite: {
@@ -429,6 +429,7 @@ function createMockBridge(): MoliuApi {
       updateFavoriteTags: (input: { id: string }) =>
         Promise.resolve({ id: input.id, hotItem: {}, tags: [], status: 'active', createdAt: new Date().toISOString() }),
       removeFavorite: () => void_(),
+      setFavoriteStatus: (_id: string, status: 'active' | 'archived') => Promise.resolve({ status } as never),
       filter: () => Promise.resolve({ assessments: [], latencyMs: 0, model: 'demo-model' }),
       getWeiboStatus: () => Promise.resolve({ configured: false, updatedAt: undefined }),
       saveWeiboCookie: (cookie: string) => Promise.resolve({ configured: !!cookie, updatedAt: new Date().toISOString() }),
@@ -465,6 +466,8 @@ function createMockBridge(): MoliuApi {
       list: () => fixtures ? Promise.resolve(fixtures.frameworks) : emptyArray(),
       generate: () => Promise.resolve({ frameworks: [], failed: [] }),
       retryOne: () => Promise.reject(new Error('请在桌面应用中重试生成')),
+      versions: () => emptyArray(),
+      resetTemplate: () => Promise.reject(new Error('请在桌面应用中恢复默认模板')),
       save: (input: unknown) => Promise.resolve(input),
       setLocked: () => void_(),
       remove: () => void_(),
@@ -498,6 +501,8 @@ function createMockBridge(): MoliuApi {
       listRoles: () => fixtures ? Promise.resolve(fixtures.reviewRoles) : emptyArray(),
       saveRole: (input: unknown) => Promise.resolve(input),
       removeRole: () => void_(),
+      exportRoles: () => Promise.resolve({ count: 0 }),
+      importRoles: () => Promise.reject(new Error('请在桌面应用中导入角色集')),
       listTasks: (articleId: string) => fixtures ? Promise.resolve(fixtures.reviewTasks.filter(task => task.articleId === articleId)) : emptyArray(),
       createManualTask: (articleId: string) => Promise.resolve({ id: `manual-task-${Date.now()}`, articleId, articleVersionId: '', articleVersionNumber: 1, roleIds: [], failures: [], status: 'running' as const, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), opinions: [] }),
       start: () => void_(),
@@ -517,7 +522,8 @@ function createMockBridge(): MoliuApi {
         archiveStyle: () => void_(), styleHistory: () => emptyArray(),
         importReference: () => void_(), referenceFromAsset: () => void_(), sampleStyle: () => void_(), analyzeReference: () => void_(),
         bindStyle: () => void_(), plan: () => void_(), savePlan: () => void_(), prompts: () => void_(),
-        generate: () => void_(), select: () => void_(), preview: () => void_(), apply: () => void_(), undo: () => void_()
+        generate: () => void_(), select: () => void_(), preview: () => void_(), apply: () => void_(), undo: () => void_(),
+        pruneStale: () => Promise.resolve({ removed: 0 })
       },
       createManualPack: () => Promise.reject(new Error('请在桌面应用中导入图片')),
       list: (articleId?: string) => fixtures ? Promise.resolve(fixtures.visualPacks.filter(pack => !articleId || pack.articleId === articleId)) : emptyArray(),

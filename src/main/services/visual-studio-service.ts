@@ -150,13 +150,18 @@ export class VisualStudioService {
     if (pictures.filter(p => p.kind === 'cover').length > 1 || pictures.filter(p => p.kind === 'header').length > 1) throw new Error('封面和顶部图各只能有一张')
     return this.store.save({ ...current, pictures, nextSlot: Math.max(current.nextSlot,...pictures.map(p => p.slot + 1)), style: styleSnapshot(input.style), promptsStale: pictures.some(p => p.promptStale) })
   }
-  async prompts(input: VisualModelTarget & { planId: string; expectedRevision: number }, signal?: AbortSignal): Promise<VisualPlan> {
+  async prompts(input: VisualModelTarget & { planId: string; expectedRevision: number; translateToEnglish?: boolean }, signal?: AbortSignal): Promise<VisualPlan> {
     const plan = this.checked(input.planId, input.expectedRevision)
     const stale = plan.pictures.filter(p => !p.prompt || (p.promptStale ?? plan.promptsStale))
     const unlocked = (stale.length ? stale : plan.pictures).filter(p => !p.promptLocked)
     if (!unlocked.length) return this.store.save({ ...plan,promptsStale:false,pictures:plan.pictures.map(p=>({...p,promptStale:false})) })
+    // PRD-配图三件套：中文→英文翻译开关（默认关）。翻译只影响最终提示词文本，不改图片规划与结构
+    const basePrompt = new PromptRegistry(this.database).render('visual-studio.prompts')
+    const systemPrompt = input.translateToEnglish
+      ? `${basePrompt}\n追加要求：每条 prompt 字段的最终内容用英文输出（对生图模型更友好），其余字段与 JSON 结构保持不变。`
+      : basePrompt
     const result = z.object({ pictures: z.array(z.object({ id: z.string().uuid(), prompt: z.string().trim().min(1).max(6000) })).max(12) }).parse(await this.json(input,
-      new PromptRegistry(this.database).render('visual-studio.prompts'),
+      systemPrompt,
       { title: plan.title, article: plan.sourceMarkdown, pictures: unlocked.map(p => ({ id: p.id, subject: p.subject, purpose: p.purpose, ratio: p.ratio, style: styleDescription(p.style ?? plan.style) })) }, signal))
     const prompts = new Map(result.pictures.map(p => [p.id, p.prompt]))
     if (prompts.size !== unlocked.length || unlocked.some(p => !prompts.has(p.id))) throw new Error('模型返回的提示词数量或标识不完整，请重试')
