@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../database.js'
 import type { KeyStore } from '../security/key-store.js'
 import type { ImageQuality, ImageResolution } from '../../shared/contracts.js'
-import { dreaminaGenerateImage, dreaminaStatus, downloadReferenceImage } from './dreamina-cli.js'
+import { dreaminaGenerateImage, dreaminaPollResult, dreaminaStatus, downloadReferenceImage } from './dreamina-cli.js'
 import { doubaoSearchErrorMessage, resolveSearchEndpoint } from '../services/material-search-service.js'
 import { extractTaggedBlock } from './extract-block.js'
 import {
@@ -847,7 +847,33 @@ export class ModelGateway {
     const provider = this.database.getProvider(input.providerId)
     if (!provider || !provider.enabled) throw new GatewayError('ProviderConfigError', '供应商不存在或已停用')
     if (!provider.capabilities.image) throw new GatewayError('ProviderConfigError', '该供应商未启用图片生成能力')
-    if (provider.accessMode === 'dreamina-cli') throw new GatewayError('ProviderConfigError', '即梦任务暂不支持应用重启后续查，请在即梦 App 查看任务结果')
+    // 即梦 CLI 支持 query_result --submit_id 独立续查（批次 7 收口：重启后 pending 任务可恢复）
+    if (provider.accessMode === 'dreamina-cli') {
+      const startedAt = performance.now()
+      try {
+        const result = await dreaminaPollResult({ submitId: input.taskId, model: input.model, signal: input.signal, onProgress: input.onProgress })
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs: Math.round(performance.now() - startedAt),
+          success: true,
+          taskId: result.submitId
+        })
+        return { base64: result.base64, taskId: result.submitId, remoteUrl: result.remoteUrl }
+      } catch (error) {
+        const normalized = normalizeError(error, 'dreamina-cli', input.signal)
+        this.database.recordModelCall({
+          providerId: provider.id,
+          model: input.model,
+          latencyMs: Math.round(performance.now() - startedAt),
+          success: false,
+          errorKind: normalized.kind,
+          errorMessage: normalized.message,
+          taskId: input.taskId
+        })
+        throw normalized
+      }
+    }
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildImageEndpoint(provider.baseUrl)
     const startedAt = performance.now()

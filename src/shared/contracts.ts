@@ -937,7 +937,7 @@ export interface AccountLayoutDraft { accountId: string; platform: LayoutPlatfor
 export interface SaveAccountLayoutDraftInput { accountId: string; platform: LayoutPlatform; themeId: string; styleConfig: LayoutStyleConfig; customCss?: string; baseVersionId: string | null; expectedRevision: number }
 export interface LayoutPreviewSampleInput { platform: LayoutPlatform; themeId?: string; styleConfig?: LayoutStyleConfig; customCss?: string }
 export interface LayoutPreviewResult { title: string; html: string; plainText: string; themeId: string }
-export interface LayoutPresetPackage { format: 'moliu-layout-preset'; schemaVersion: 1; exportedAt: string; themeId: string; styleConfig: LayoutStyleConfig }
+export interface LayoutPresetPackage { format: 'moliu-layout-preset'; schemaVersion: 1; exportedAt: string; themeId: string; styleConfig: LayoutStyleConfig; /** 高级自定义 CSS（themeId='custom' 或含覆盖规则时随包导出，批次 7 起完整支持） */ customCss?: string }
 /** 文章类型的一键排版预设：选中类型即装配主题 + 样式 + 推荐组件 */
 export interface LayoutGenrePreset {
   /** 推荐主题（与 recommendThemeForGenre 同源） */

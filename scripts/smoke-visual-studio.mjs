@@ -37,6 +37,8 @@ try{
   app=await electron.launch({executablePath:resolve('node_modules/electron/dist/electron.exe'),args:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root}})
   let page=await app.firstWindow()
   page.setDefaultTimeout(12000)
+  // 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航（与 smoke-materials 同因）
+  await page.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   await page.waitForLoadState('domcontentloaded')
   const rendererErrors=[];page.on('pageerror',e=>rendererErrors.push(e.message))
   const ids=await page.evaluate(async port=>{

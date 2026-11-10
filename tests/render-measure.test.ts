@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRenderCheckDocument, MEASURE_SCRIPT, MOCK_CONTAINER_ID, WECHAT_BASE_MOCK_CSS } from '../src/shared/render-measure.js'
+import { buildRenderCheckDocument, contrastRatio, ensureDarkSafeAccent, MEASURE_SCRIPT, MOCK_CONTAINER_ID, replaceAccentInHtml, WECHAT_BASE_MOCK_CSS } from '../src/shared/render-measure.js'
 
 /**
  * 渲染测量共享层测试（阶段四）。
@@ -33,5 +33,35 @@ describe('渲染测量共享层', () => {
 
   it('每类问题最多报 5 条（防超长文章刷屏）', () => {
     expect(MEASURE_SCRIPT).toContain('MAX_PER_RULE = 5')
+  })
+})
+
+describe('暗色安全强调色兜底（批次 7）', () => {
+  it('深色/中间调 accent 在暗底对比不足时自动提亮到达标', () => {
+    // 深棕 #7a5c00 在 #191919 上 ≈2.4:1 → 提亮后 ≥3:1
+    const result = ensureDarkSafeAccent('#7a5c00')
+    expect(result.adjusted).toBe(true)
+    expect(result.contrast).toBeGreaterThanOrEqual(3)
+    expect(result.color.toLowerCase()).not.toBe('#7a5c00')
+  })
+
+  it('已达标或非法色值原样返回', () => {
+    // 浅色 accent 在暗底对比充足（13:1 量级），无需调整
+    expect(ensureDarkSafeAccent('#ffe082').adjusted).toBe(false)
+    expect(ensureDarkSafeAccent('#4285f4').adjusted).toBe(false)
+    expect(ensureDarkSafeAccent('not-a-color').adjusted).toBe(false)
+  })
+
+  it('replaceAccentInHtml 只替换目标色值', () => {
+    const html = '<span style="color: #FFE082">a</span><span style="color:#4285f4">b</span>'
+    const replaced = replaceAccentInHtml(html, '#ffe082', '#8d6e00')
+    expect(replaced).toContain('#8d6e00')
+    expect(replaced).toContain('#4285f4')
+    expect(replaced).not.toContain('FFE082')
+  })
+
+  it('对比度公式符合已知锚点（黑/白 = 21:1）', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 0)
+    expect(contrastRatio('#191919', '#ffffff')).toBeGreaterThan(15)
   })
 })

@@ -30,6 +30,8 @@ function inside(root, candidate) {
 let backupBundle = ''
 try {
   const window = await application.firstWindow()
+// 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航
+  await window.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
 

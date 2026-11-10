@@ -2,9 +2,8 @@
  * 渲染级检测的真机验证（阶段四验收）。
  *
  * 用本机 Chrome headless 跑测量脚本，证明它真能抓到"固定宽度溢出"与"行高叠字"，
- * 且对 golden 基线（合规产物）零误报。测量逻辑与 src/shared/render-measure.ts
- * 的 MEASURE_SCRIPT 保持同一实现——两端各自携带一份（TS 侧给 Electron，
- * 本文件给 Chrome），改动任一侧必须重跑本脚本并同步另一侧。
+ * 且对 golden 基线（合规产物）零误报。测量脚本直接编译自 src/shared/render-measure.ts
+ * 的 MEASURE_SCRIPT（批次 7 起单一事实源，不再各自维护副本）。
  *
  * 用法：node scripts/verify-render-check.mjs
  * 环境变量 CHROME_PATH 可指定浏览器路径，默认探测常见安装位置。
@@ -26,40 +25,27 @@ if (!chromePath) {
 }
 
 // 与 src/shared/render-measure.ts 的 MEASURE_SCRIPT 同步（见文件头说明）
-const MEASURE_SCRIPT = `(() => {
-  const issues = []
-  const MAX_PER_RULE = 5
-  const container = document.getElementById('mly-wx-base')
-  if (!container) return issues
-  // 溢出往往发生在"固定宽子元素的父级"（子元素自身 scrollWidth == clientWidth），
-  // 所以把容器自身也纳入扫描（与 src/shared/render-measure.ts 同步）
-  const all = [container, ...Array.from(container.querySelectorAll('*'))]
-  let overflowCount = 0
-  for (const el of all) {
-    if (overflowCount >= MAX_PER_RULE) break
-    const overflowX = getComputedStyle(el).overflowX
-    if (overflowX === 'auto' || overflowX === 'scroll') continue
-    if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) {
-      issues.push({ rule: 'render-overflow', message: '内容横向溢出：内容宽 ' + el.scrollWidth + 'px 超出容器 ' + el.clientWidth + 'px（<' + el.tagName.toLowerCase() + '>）', hint: '固定宽度改 max-width:100% + margin:0 auto 居中' })
-      overflowCount += 1
-    }
+// 测量脚本单一事实源（批次 7 收口双份维护）：从 src/shared/render-measure.ts
+// 提取 MEASURE_SCRIPT 模板字面量并在运行时求值——插值只引用 MOCK_CONTAINER_ID。
+{
+  const source = readFileSync(resolve('src/shared/render-measure.ts'), 'utf-8')
+  const marker = 'export const MEASURE_SCRIPT = `'
+  const start = source.indexOf(marker)
+  if (start < 0) throw new Error('render-measure.ts 中找不到 MEASURE_SCRIPT')
+  const bodyStart = start + marker.length
+  let end = -1
+  for (let i = bodyStart; i < source.length; i++) {
+    if (source[i] === '`') { end = i; break }
   }
-  let overlapCount = 0
-  for (const el of all) {
-    if (overlapCount >= MAX_PER_RULE) break
-    let ownText = ''
-    for (const node of el.childNodes) { if (node.nodeType === 3) ownText += node.textContent ?? '' }
-    if (ownText.trim().length < 10) continue
-    const style = getComputedStyle(el)
-    const lineHeight = Number.parseFloat(style.lineHeight)
-    const fontSize = Number.parseFloat(style.fontSize)
-    if (Number.isFinite(lineHeight) && Number.isFinite(fontSize) && fontSize > 0 && lineHeight < fontSize) {
-      issues.push({ rule: 'render-line-overlap', message: '实际渲染行高 ' + Math.round(lineHeight) + 'px 小于字号 ' + Math.round(fontSize) + 'px，多行文字会叠字（<' + el.tagName.toLowerCase() + '>）', hint: '调大 line-height' })
-      overlapCount += 1
-    }
-  }
-  return issues
-})()`
+  if (end < 0) throw new Error('MEASURE_SCRIPT 模板未闭合')
+  const literal = source.slice(start + 'export const '.length, end + 1)
+  const compiled = join(mkdtempSync(join(tmpdir(), 'moliu-measure-')), 'measure.mjs')
+  writeFileSync(compiled, `const MOCK_CONTAINER_ID = 'mly-wx-base'
+export const ${literal}
+`)
+  var { MEASURE_SCRIPT } = await import(pathToFileURL(compiled).href)
+}
+import { pathToFileURL } from 'node:url'
 
 const BASE_CSS = '#mly-wx-base{font-size:17px;line-height:1.75;letter-spacing:0.5px;color:#333;word-break:break-word}#mly-wx-base p{margin:0 0 1em}#mly-wx-base section{margin:0}'
 

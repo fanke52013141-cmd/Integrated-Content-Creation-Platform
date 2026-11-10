@@ -8,6 +8,8 @@ const root=await mkdtemp(resolve(tmpdir(),'moliu-import-bindings-'))
 const app=await electron.launch({executablePath:resolve(process.env.MOLIU_EXECUTABLE||'node_modules/electron/dist/electron.exe'),args:process.env.MOLIU_EXECUTABLE?[]:['.'],env:{...process.env,MOLIU_USER_DATA_DIR:root}})
 try {
   const page=await app.firstWindow()
+// 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航
+  await page.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   await page.waitForLoadState('domcontentloaded')
   await page.waitForFunction(()=>!!window.moliu)
   const result=await page.evaluate(async()=> {

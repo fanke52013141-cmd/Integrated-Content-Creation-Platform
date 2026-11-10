@@ -15,6 +15,8 @@ const app = await electron.launch({
 })
 try {
   const page = await app.firstWindow()
+// 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航
+  await page.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   page.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await page.waitForLoadState('domcontentloaded')
   const data = await page.evaluate(async () => {

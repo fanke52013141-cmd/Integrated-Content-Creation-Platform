@@ -230,6 +230,23 @@ export async function dreaminaGenerateImage(input: DreaminaGenerateInput): Promi
   if (!submitId) throw new GatewayError('ProviderError', `即梦提交失败：${submitOutput.slice(0, 200) || '未返回任务号'}`)
   input.onTaskCreated?.(submitId)
 
+  return dreaminaPollResult({ submitId, model: input.model, signal: input.signal, onProgress: input.onProgress, startedAt })
+}
+
+/**
+ * 按 submit_id 轮询即梦任务到终态（生成与重启后续查共用同一实现）。
+ * CLI 支持 query_result --submit_id 独立查询，因此应用重启后 pending 任务可恢复续查（批次 7）。
+ */
+export async function dreaminaPollResult(input: {
+  submitId: string
+  model: string
+  signal?: AbortSignal
+  onProgress?: (progress: number) => void
+  startedAt?: number
+}): Promise<DreaminaGenerateResult> {
+  const cliPath = requireCliPath()
+  const submitId = input.submitId
+  const startedAt = input.startedAt ?? Date.now()
   const deadline = Date.now() + 10 * 60_000
   let lastProgress = -1
   while (Date.now() < deadline) {

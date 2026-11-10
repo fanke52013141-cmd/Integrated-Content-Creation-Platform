@@ -21,6 +21,7 @@ import { LayoutStyleFields } from '../components/layout/LayoutStyleFields'
 import { ThemeGallery } from '../components/layout/ThemeGallery'
 import { layoutPreviewDocument } from '../components/layout/preview-document'
 import { DEFAULT_STYLE_CONFIG, normalizeStyleConfig, sameStyleConfig } from '../../../shared/layout-config'
+import { contrastRatio, ensureDarkSafeAccent } from '../../../shared/render-measure'
 import { availableModels, decodeModelTarget, encodeModelTarget, useModelTarget } from '../lib/models'
 
 const platformNames: Record<LayoutPlatform, string> = { wechat: '微信公众号', xiaohongshu: '小红书', web: '通用网页' }
@@ -77,6 +78,12 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const effectiveSelectedId = useMemo(() => resolveLayoutSelection(layouts, articleId, selectedId), [layouts, articleId, selectedId])
   const selected = layouts.find((item) => item.id === effectiveSelectedId)
   const articleLayouts = useMemo(() => layouts.filter((item) => item.articleId === articleId), [layouts, articleId])
+  // 暗色安全兜底（批次 7）：暗色预览时若用户强调色在 #191919 上对比不足，计算安全变体仅用于预览并提示；正式排版稿不变
+  const darkAccent = useMemo(() => {
+    if (!darkPreview || !styleConfig.accentColor) return null
+    const safe = ensureDarkSafeAccent(styleConfig.accentColor)
+    return safe.adjusted ? { from: styleConfig.accentColor, to: safe.color, contrast: safe.contrast, original: contrastRatio(styleConfig.accentColor, '#191919') } : null
+  }, [darkPreview, styleConfig.accentColor])
   const { article, error: selectionError } = useSelectedArticle(articleId, articles)
   const accountName = accounts.find((item) => item.id === article?.accountId)?.name
   const selectedThemeName = themes.find((item) => item.id === themeId)?.name ?? themeId
@@ -281,7 +288,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const exportLayoutPreset = async (): Promise<void> => {
     setBusy(true)
     try {
-      const result = await window.moliu.app.exportLayoutPreset({ themeId, styleConfig })
+      const result = await window.moliu.app.exportLayoutPreset({ themeId, styleConfig, ...(customCss ? { customCss } : {}) })
       showToast(result.path
         ? { type: 'success', message: `版式包已导出：${result.path}` }
         : { type: 'info', message: '已取消导出版式包' })
@@ -302,7 +309,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
       }
       setThemeId(bundle.themeId)
       setStyleConfig(normalizeStyleConfig(bundle.styleConfig))
-      setCustomCss('')
+      setCustomCss(bundle.customCss ?? '')
       setSamplePreview(null)
       setShowingSamplePreview(true)
       showToast({ type: 'success', message: '版式包已载入编辑区；检查样稿后保存为账号新版式即可启用' })
@@ -540,7 +547,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                 <p className="micro-copy">{article?.accountId && accountLayout ? `当前默认：${themes.find((theme) => theme.id === accountLayout.themeId)?.name ?? accountLayout.themeId} · V${accountLayout.versionNumber}` : ''}</p>
                 <div className="layout-style-actions">
                   <button className="button ghost compact" disabled={busy || accountLayoutLoading} onClick={() => void importLayoutPreset()}>导入版式包</button>
-                  <button className="button ghost compact" disabled={busy || accountLayoutLoading || Boolean(customCss) || themeId === 'custom'} title={customCss ? '当前含高级 CSS，暂不支持完整导出' : undefined} onClick={() => void exportLayoutPreset()}>导出当前参数</button>
+                  <button className="button ghost compact" disabled={busy || accountLayoutLoading} title={customCss ? '自定义 CSS 会随版式包一并导出' : undefined} onClick={() => void exportLayoutPreset()}>导出当前参数</button>
                   <button className="button secondary compact" disabled={accountLayoutLoading || samplePreviewLoading} onClick={() => {
                   if (showingSamplePreview) setShowingSamplePreview(false)
                   else { setSamplePreview(null); setShowingSamplePreview(true) }
@@ -606,13 +613,14 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <button className="button ghost compact" onClick={() => setShowingSamplePreview(false)}>返回文章</button>
                 </header>
                 <div className="layout-device-wrap">
+                  {darkAccent && <p className="inline-alert" role="status">强调色 {darkAccent.from} 在微信暗色模式下对比度不足（≈{darkAccent.original.toFixed(1)}:1），预览已自动换用更亮的 {darkAccent.to}（≈{darkAccent.contrast.toFixed(1)}:1）；正式排版稿保持原色，微信端按自己的算法转换。</p>}
                   <p className="layout-device-hint micro-copy"><Smartphone size={13} />样稿会随当前参数自动更新；品牌首尾文字也会同步展示
                     <button type="button" className="text-button" onClick={() => setDarkPreview(value => !value)}>
                       <Moon size={13} />{darkPreview ? '切回浅色' : '预览暗色'}
                     </button>
                   </p>
                   <div className={`layout-device${darkPreview ? ' layout-device-dark' : ''}`}>
-                    <iframe className="layout-preview-frame" title="固定版式组件样稿预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(samplePreview.html, { dark: darkPreview })} />
+                    <iframe className="layout-preview-frame" title="固定版式组件样稿预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(samplePreview.html, { dark: darkPreview, accentOverride: darkAccent ? { from: darkAccent.from, to: darkAccent.to } : undefined })} />
                   </div>
                 </div>
               </div>
@@ -658,7 +666,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                       </button>
                     </p>
                     <div className={`layout-device${darkPreview ? ' layout-device-dark' : ''}`}>
-                      <iframe className="layout-preview-frame" title="公众号排版预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(selected.html, { dark: darkPreview })} />
+                      <iframe className="layout-preview-frame" title="公众号排版预览" sandbox="allow-same-origin" srcDoc={layoutPreviewDocument(selected.html, { dark: darkPreview, accentOverride: darkAccent ? { from: darkAccent.from, to: darkAccent.to } : undefined })} />
                     </div>
                   </div>
                 ) : selected.platform === 'xiaohongshu' ? (

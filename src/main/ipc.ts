@@ -170,7 +170,8 @@ const layoutPresetPackageSchema = z.object({
   schemaVersion: z.literal(1),
   exportedAt: z.string().datetime(),
   themeId: z.string().trim().min(1).max(60),
-  styleConfig: layoutStyleConfigSchema
+  styleConfig: layoutStyleConfigSchema,
+  customCss: z.string().max(20_000).optional()
 }).strict()
 
 /** AI 排版方案的入参校验：结构来自渲染层编辑后的 plan，锚点字段按约定收紧 */
@@ -324,7 +325,7 @@ export function registerIpc(options: {
     return workspace.exportLayoutLongImage(input)
   })
   handle('app:export-layout-preset', (_event, raw: unknown) => {
-    const input = z.object({ themeId: z.string().trim().min(1).max(60), styleConfig: layoutStyleConfigSchema }).strict().parse(raw)
+    const input = z.object({ themeId: z.string().trim().min(1).max(60), styleConfig: layoutStyleConfigSchema, customCss: z.string().max(20_000).optional() }).strict().parse(raw)
     if (!listLayoutThemes().some((theme) => theme.id === input.themeId)) throw new Error('版式包只能导出内置主题')
     const bundle: LayoutPresetPackage = { format: 'moliu-layout-preset', schemaVersion: 1, exportedAt: new Date().toISOString(), ...input }
     return workspace.exportLayoutPreset(bundle)
@@ -511,6 +512,17 @@ export function registerIpc(options: {
         } else throw chatError
       }
       const latencyMs = Math.round(performance.now() - startedAt)
+      // 双能力供应商补测生图端点（HANDOFF-2026-11-03 已知限制 2 收口）：
+      // 文本成功不等于生图配置可用；生图失败只附注不判死——文本端点仍是主要可用性依据
+      const imageModel = provider.models.find((model) => model.enabled && model.kind === 'image')
+      if (provider.capabilities.image && imageModel) {
+        try {
+          await gateway.testDraft({ providerId, baseUrl: provider.baseUrl, model: imageModel.modelId, mode: 'image' })
+          message += '；生图端点正常'
+        } catch (imageError) {
+          message += `；生图端点测试失败：${imageError instanceof Error ? imageError.message : '未知错误'}`
+        }
+      }
       database.recordProviderTest(providerId, 'success')
       return {
         ok: true,

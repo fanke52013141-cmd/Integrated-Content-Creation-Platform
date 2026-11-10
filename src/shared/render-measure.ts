@@ -87,3 +87,63 @@ export const MEASURE_SCRIPT = `(() => {
 export function buildRenderCheckDocument(html: string): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:375px}body{overflow-wrap:anywhere}${WECHAT_BASE_MOCK_CSS}</style></head><body><div id="${MOCK_CONTAINER_ID}">${html}</div></body></html>`
 }
+
+/**
+ * WCAG 相对亮度与对比度（1~21）。用于暗色模式兜底计算。
+ */
+export function relativeLuminance(hex: string): number {
+  const value = hex.replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return 0
+  const channels = [0, 2, 4].map(offset => parseInt(value.slice(offset, offset + 2), 16) / 255)
+    .map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!
+}
+
+export function contrastRatio(foreground: string, background: string): number {
+  const l1 = relativeLuminance(foreground)
+  const l2 = relativeLuminance(background)
+  const [lighter, darker] = l1 >= l2 ? [l1, l2] : [l2, l1]
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/**
+ * 暗色安全强调色兜底（批次 7）：
+ * 微信暗黑模式以 #191919 为正文底色，深色/中间调的 accent 文字在暗底上对比不足（走查报告「深色正文色压暗底」）。
+ * 保持色相/饱和度、逐级提高亮度（HSL 的 L 每步 +6%）直到对比度达标。
+ * 只调整预览与预警，不改正式排版稿——微信端按自己的算法转换。
+ */
+export function ensureDarkSafeAccent(color: string, background = '#191919', minContrast = 3): { color: string; contrast: number; adjusted: boolean } {
+  const value = color.replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return { color, contrast: contrastRatio(color, background), adjusted: false }
+  const contrast = contrastRatio(color, background)
+  if (contrast >= minContrast) return { color, contrast, adjusted: false }
+  const r = parseInt(value.slice(0, 2), 16) / 255, g = parseInt(value.slice(2, 4), 16) / 255, b = parseInt(value.slice(4, 6), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  const hue = l === max && l === min ? 0
+    : max === r ? 60 * (((g - b) / (max - min)) % 6)
+    : max === g ? 60 * ((b - r) / (max - min) + 2)
+    : 60 * ((r - g) / (max - min) + 4)
+  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1))
+  const hslToHex = (h: number, s: number, light: number): string => {
+    const k = (n: number) => (n + h / 30) % 12
+    const a = s * Math.min(light, 1 - light)
+    const channel = (n: number) => Math.round(255 * (light - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))))
+    return `#${[channel(0), channel(8), channel(4)].map(v => v.toString(16).padStart(2, '0')).join('')}`
+  }
+  let lightness = l
+  let candidate = color
+  for (let step = 0; step < 14; step += 1) {
+    lightness = Math.min(0.94, lightness + 0.06)
+    candidate = hslToHex(((hue % 360) + 360) % 360, saturation, lightness)
+    if (contrastRatio(candidate, background) >= minContrast) break
+  }
+  return { color: candidate, contrast: contrastRatio(candidate, background), adjusted: true }
+}
+
+/** 把排版稿 HTML 中出现的旧强调色替换为暗色安全色（精确匹配 6 位 hex，大小写不敏感） */
+export function replaceAccentInHtml(html: string, from: string, to: string): string {
+  const fromValue = from.replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(fromValue)) return html
+  return html.replace(new RegExp(`#(${fromValue})`, 'gi'), to)
+}

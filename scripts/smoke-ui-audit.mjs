@@ -30,6 +30,8 @@ function check(condition, severity, route, message) {
 
 try {
   window = await application.firstWindow()
+// 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航
+  await window.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   const consoleErrors = []
   window.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())

@@ -45,6 +45,8 @@ const application = await electron.launch({ executablePath, args: applicationArg
 const editorSelector = 'textarea.article-markdown-editor'
 try {
   const window = await application.firstWindow()
+// 本冒烟不依赖首启引导：预先标记完成，避免 reload 后引导遮罩挡住导航
+  await window.evaluate(() => localStorage.setItem('moliu:first-creation-guide:v1', 'done'))
   window.on('pageerror', (error) => console.error(`renderer:error: ${error.message}`))
   await window.waitForLoadState('domcontentloaded')
   // 首启引导弹窗会拦截后续所有点击：全新 userData 环境必弹，等它挂载后关掉；没有则跳过
