@@ -589,6 +589,8 @@ function createMockBridge(): MoliuApi {
       testWechatChannel: () => Promise.resolve({ ok: false, message: '演示环境未配置' }),
       list: () => emptyArray(),
       pushWechatDraft: () => void_(),
+      publish: () => Promise.reject(new Error('发表请在桌面应用中连接公众号后使用')),
+      checkPublish: () => Promise.reject(new Error('核对发表请在桌面应用中连接公众号后使用')),
       update: () => void_(),
       saveRetro: () => void_(),
       uploadWechatCover: () => void_()

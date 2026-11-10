@@ -44,6 +44,8 @@ export interface VisualModelTarget { providerId: string; model: string }
 export interface GeneratePictureInput extends VisualModelTarget {
   planId: string; pictureId: string; expectedRevision: number; referenceMode: 'image' | 'text'
   quality?: ImageQuality; resolution?: ImageResolution
+  /** 一次生成的候选张数（1~4，默认 1，PRD §4.2「数量」）；队列串行依次产出同图多候选 */
+  count?: number
 }
 export interface VisualPlanDraft { planId: string; revision: number; baseRevision: number; plan: VisualPlan | null; updatedAt: string }
 export interface VisualImageJob {

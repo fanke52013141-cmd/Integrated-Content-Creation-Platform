@@ -49,6 +49,8 @@ export function registerPublishingIpc(handle: RegisterHandler, database: AppData
     digest: z.string().trim().max(120).optional()
   }).parse(raw)))
   handle('publishing:wechat:upload-cover', (_event, raw: unknown) => service.uploadAsset(z.object({ assetId: id }).parse(raw).assetId))
+  handle('publishing:wechat:publish', (_event, raw: unknown) => service.freepublish(z.object({ publicationId: id }).parse(raw)))
+  handle('publishing:wechat:check-publish', (_event, raw: unknown) => service.checkFreepublish(z.object({ publicationId: id }).parse(raw)))
   handle('publishing:update', (_event, raw: unknown) => {
     const input = z.object({ id, status: z.literal('published'), publishedUrl: z.string().url().refine(value => /^https?:\/\//i.test(value), '仅支持网页链接') }).parse(raw)
     return database.markPublicationPublished(input.id, input.publishedUrl)

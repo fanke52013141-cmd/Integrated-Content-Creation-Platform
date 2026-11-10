@@ -136,6 +136,20 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   }
   const push = () => perform(async () => { await draft.flush(); await report(await window.moliu.publishing.pushWechatDraft(input)) })
   const retry = (publication: Publication) => perform(async () => { await report(await window.moliu.publishing.retry(publication.id)) })
+  /** 发表（freepublish）：不可撤回且占用当日次数，HITL 确认先行 */
+  const publishNow = (publication: Publication) => {
+    if (!window.confirm(`确认把「${publication.title}」从草稿箱发表？\n\n· 发表不可撤回，并占用公众号当日发表次数\n· 发表成功后会自动登记正式链接并解锁阅读统计回填`)) return
+    void perform(async () => {
+      const result = await window.moliu.publishing.publish({ publicationId: publication.id })
+      await refresh()
+      showToast({ type: 'success', message: `已发表成功${result.publishedUrl ? `：${result.publishedUrl}` : ''}；阅读统计可稍后在复盘中回填` })
+    })
+  }
+  const checkPublish = (publication: Publication) => perform(async () => {
+    const result = await window.moliu.publishing.checkPublish({ publicationId: publication.id })
+    await refresh()
+    showToast({ type: result.status === 'published' ? 'success' : 'warning', message: result.status === 'published' ? `核对完成：已发表${result.publishedUrl ? ` ${result.publishedUrl}` : ''}` : result.errorMessage ?? '发表仍在公众号侧处理，稍后可再核对' })
+  })
   /** 小绿书：文章配图直接推送为图片消息草稿（无正文，≤20 张，首张为封面） */
   const pushNewsPic = async (): Promise<void> => {
     if (!article || !channelReady) return
@@ -230,6 +244,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
     </header>
       {publications.length ? publications.map(item => <PublicationRow key={item.id} item={item} url={urls[item.id] ?? ''} canRemember={true}
         onUrl={value => setUrls(current => ({ ...current, [item.id]: value }))} onPublished={() => markPublished(item)} onRetry={() => retry(item)} onOpen={openUrl}
+        onPublish={() => publishNow(item)} onCheckPublish={() => checkPublish(item)}
         onResolve={(decision, note, remoteId) => perform(async () => { await window.moliu.publishing.resolveUnknown({ id: item.id, decision, note, remoteId: remoteId || undefined, expectedUpdatedAt: item.updatedAt }); await refresh() })}
         onSaveRetro={retro => saveRetro(item, retro)} onRemember={lesson => rememberLesson(item, lesson)} busy={busy} />)
         : <EmptyState icon={Send} title="暂无交付记录" />}
@@ -263,7 +278,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   </div>
 }
 
-function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, onOpen, onSaveRetro, onRemember, onResolve, busy }: {
+function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, onOpen, onPublish, onCheckPublish, onSaveRetro, onRemember, onResolve, busy }: {
   item: Publication
   url: string
   canRemember: boolean
@@ -271,6 +286,8 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
   onPublished(): Promise<void>
   onRetry(): Promise<void>
   onOpen(url: string): void
+  onPublish(): void
+  onCheckPublish(): Promise<void>
   onSaveRetro(retro: { goal: string; result: string; lesson: string; metrics?: import('../../../shared/contracts').PublicationMetrics }): Promise<void>
   onResolve(decision: 'received' | 'not-received' | 'unresolved', note: string, remoteId: string): Promise<void>
   onRemember(lesson: string): Promise<void>
@@ -293,10 +310,12 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         </div>
         <small>{formatDate(item.updatedAt)} · 封面 {item.thumbMediaId ? '已设置' : '未设置'}</small>
         {item.errorMessage && <em>{item.errorMessage}</em>}
-        {item.resolution && <small>人工核对：{formatDate(item.resolution.checkedAt)} · {item.resolution.note}</small>}
+        {item.resolution?.publishTask && <small>发表任务已登记（{formatDate(item.resolution.publishTask.checkedAt)}），等待公众号侧出结果后可点「核对发表结果」</small>}
+        {item.resolution && !item.resolution.publishTask && <small>人工核对：{formatDate(item.resolution.checkedAt)} · {item.resolution.note}</small>}
         {item.retryOf && <small>本次重推源自记录 {item.retryOf.slice(0, 8)}</small>}
       </div>
       {item.status === 'unknown' ? <div className="publication-actions">
+        {item.resolution?.publishTask && <button className="button secondary compact" disabled={busy} onClick={() => void onCheckPublish()}><RotateCcw size={16} />核对发表结果</button>}
         <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>打开草稿箱核对</button>
         <label className="field"><span>核对结果</span><Segmented ariaLabel="核对结果" value={decision} onChange={value => setDecision(value)} options={[{value:'unresolved',label:'仍不确定'},{value:'received',label:'确认已收到'},{value:'not-received',label:'确认未收到，允许重推'}]} /></label>
         <input aria-label="核对说明" value={resolutionNote} onChange={event => setResolutionNote(event.target.value)} placeholder="核对时间、公众号及判断依据" maxLength={2000} />
@@ -306,6 +325,7 @@ function PublicationRow({ item, url, canRemember, onUrl, onPublished, onRetry, o
         <div className="publication-actions">
           <input type="url" inputMode="url" name="publishedUrl" autoComplete="off" spellCheck={false} autoCapitalize="off" autoCorrect="off" value={url} onChange={(event) => onUrl(event.target.value)} placeholder="粘贴正式文章链接…" />
           <button className="button ghost compact" onClick={() => onOpen('https://mp.weixin.qq.com/')}>公众号后台</button>
+          <button className="button secondary compact" disabled={busy} onClick={onPublish} title="通过 freepublish 接口直接发表这篇草稿：不可撤回，成功后自动登记链接并解锁阅读统计回填"><Send size={16} />发表</button>
           <button className="button secondary compact" disabled={busy || !url.trim()} onClick={() => void onPublished()}><CheckCircle2 size={16} />标记已发布</button>
         </div>
       ) : item.status === 'failed' ? (

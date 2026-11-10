@@ -66,13 +66,19 @@ export class VisualStudioQueue {
       return live
     }
     const now = new Date().toISOString()
-    const job: VisualImageJob = { id: randomUUID(),planId:plan.id,pictureId:picture.id,signature,input,status:'queued',createdAt:now,updatedAt:now }
-    this.database.atomic(() => {
-      this.store.saveJob(job)
-      this.database.beginGenerationTask({ id:job.id,domain:'visuals',label:`配图：${picture.subject.slice(0,60)}` })
-    })
+    // 多候选（PRD §4.2「数量」）：同参数串行入队 N 个任务，drain 按 FIFO 依次产出；重复点击（参数一致）仍幂等返回首个任务
+    const count = Math.min(Math.max(input.count ?? 1, 1), 4)
+    let first: VisualImageJob | null = null
+    for (let index = 0; index < count; index += 1) {
+      const job: VisualImageJob = { id: randomUUID(),planId:plan.id,pictureId:picture.id,signature,input,status:'queued',createdAt:now,updatedAt:now }
+      this.database.atomic(() => {
+        this.store.saveJob(job)
+        this.database.beginGenerationTask({ id:job.id,domain:'visuals',label:`配图：${picture.subject.slice(0,60)}` })
+      })
+      if (!first) first = job
+    }
     void this.drain()
-    return job
+    return first!
   }
   async control(id: string, action: 'pause' | 'resume' | 'retry' | 'check-result' | 'confirm-not-submitted'): Promise<void> {
     const job = this.store.job(id)

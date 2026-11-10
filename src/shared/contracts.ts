@@ -953,7 +953,8 @@ export const CUSTOM_LAYOUT_THEME_ID = 'custom'
 export interface WechatPublishChannel { id: 'wechat-official'; displayName: string; appId: string; enabled: boolean; hasAppSecret: boolean; updatedAt: string; lastTestStatus?: 'success' | 'failure'; lastTestAt?: string; lastTestError?: string }
 export interface SaveWechatPublishChannelInput { appId: string; appSecret?: string; enabled: boolean }
 export type PublicationStatus = 'draft' | 'published' | 'failed' | 'unknown'
-export interface PublicationResolution { decision: 'received' | 'not-received' | 'unresolved'; note: string; checkedAt: string; remoteId?: string }
+/** 人工核对结论（resolveUnknown）；publishTask 是 freepublish 进行中任务的登记（publishId 供续查） */
+export interface PublicationResolution { decision: 'received' | 'not-received' | 'unresolved'; note: string; checkedAt: string; remoteId?: string; kind?: 'manual'; publishTask?: { publishId: string; checkedAt: string } }
 export interface PublicationSnapshot { retryOf?: string; appId: string; html: string; input: PushWechatDraftInput }
 export interface Publication { id: string; articleId: string; articleVersionId: string; layoutId: string; channelId: 'wechat-official'; externalDraftId?: string; status: PublicationStatus; title: string; thumbMediaId: string; publishedUrl?: string; errorMessage?: string; retro?: PublicationRetro; /** 发表态消息 ID（msgid）：数据统计的键；当前链路只到草稿箱，待「发表」能力上线后回填 */ publishMsgid?: string; createdAt: string; updatedAt: string; snapshot?: PublicationSnapshot; resolution?: PublicationResolution; retryOf?: string }
 export interface PushWechatDraftInput { articleId: string; layoutId: string; thumbMediaId?: string; coverAssetId?: string; author?: string; digest?: string; contentSourceUrl?: string; appId?: string }
@@ -1370,6 +1371,10 @@ export interface MoliuApi {
     resolveUnknown(input: { id: string; decision: 'received' | 'not-received' | 'unresolved'; note: string; expectedUpdatedAt: string; remoteId?: string }): Promise<Publication>
     list(): Promise<Publication[]>
     pushWechatDraft(input: PushWechatDraftInput): Promise<Publication>
+    /** 发表（freepublish）：把已推送草稿箱的记录提交发布，成功回填 msgid/URL；发表不可撤回，UI 需先确认 */
+    publish(input: { publicationId: string }): Promise<Publication>
+    /** 续查进行中的发表任务（unknown 记录的「核对发表结果」） */
+    checkPublish(input: { publicationId: string }): Promise<Publication>
     /** 小绿书（图片消息 newspic）草稿：≤20 张图，走永久素材，不产生排版稿快照 */
     pushNewsPicDraft(input: { title: string; imageAssetIds: string[]; digest?: string }): Promise<{ mediaId: string; count: number }>
     /** 上传公众号正文图片并返回可用于粘贴的 HTML；不创建草稿 */

@@ -146,3 +146,35 @@ describe('配图可靠性和增量更新',()=>{
     expect(s.generate).not.toHaveBeenCalled()
   })
 })
+
+describe('多候选队列（PRD §4.2「数量」）', () => {
+  it('count=3 串行入队 3 个同参数任务，依次产出 3 张候选', async () => {
+    const s = setup()
+    // drain 只在 initialize（含恢复续查）完成后启动；生产环境注册时即调用
+    await s.queue.initialize()
+    const first = s.queue.enqueue({ ...s.input(), count: 3 })
+    const jobs = s.db.visualStudio.jobs(s.plan.id).filter(j => j.pictureId === s.plan.pictures[0]!.id)
+    expect(jobs).toHaveLength(3)
+    expect(new Set(jobs.map(job => job.id)).size).toBe(3)
+    expect(jobs.map(job => job.signature).every(sig => sig === jobs[0]!.signature)).toBe(true)
+    // 队列排空后三张候选都落库（串行 FIFO 产出）
+    await vi.waitFor(() => {
+      const drained = s.db.visualStudio.jobs(s.plan.id).filter(j => j.pictureId === s.plan.pictures[0]!.id)
+      expect(drained.every(job => job.status === 'completed' || job.status === 'failed')).toBe(true)
+    }, { timeout: 10_000, interval: 50 })
+    const produced = s.db.listVisualAssets(s.plan.id).filter(a => a.slot === s.plan.pictures[0]!.slot)
+    expect(produced.length).toBeGreaterThanOrEqual(3)
+    void first
+  })
+
+  it('重复点击（同参数）幂等返回首个活跃任务，不叠加任务', async () => {
+    const s = setup()
+    vi.useFakeTimers()
+    try {
+      const a = s.queue.enqueue(s.input())
+      const b = s.queue.enqueue(s.input())
+      expect(b.id).toBe(a.id)
+      expect(s.db.visualStudio.jobs(s.plan.id)).toHaveLength(1)
+    } finally { vi.useRealTimers() }
+  })
+})

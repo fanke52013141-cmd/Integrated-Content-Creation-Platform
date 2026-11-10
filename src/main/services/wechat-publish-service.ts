@@ -7,8 +7,10 @@ import type { VisualAssetService } from './visual-asset-service.js'
 import { localAssetNames, localAssetName } from './local-assets.js'
 import { formatViolations, validateWechatLayout } from './layout-validator.js'
 
-interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number; list?: Array<Record<string, unknown>> }
+interface WechatResponse { media_id?: string; url?: string; errcode?: number; errmsg?: string; access_token?: string; expires_in?: number; list?: Array<Record<string, unknown>>; publish_id?: string; publish_status?: number; article_id?: string; fail_idx?: number; article_detail?: { item?: Array<{ article_url?: string }> } }
 class WechatRejectedError extends Error {}
+/** 轮询窗口内公众号侧还没出结果：记录已落 unknown（可续查），外层不得覆盖为 failed */
+class PublishPendingError extends Error {}
 const MIME_BY_EXT: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }
 
 /**
@@ -209,6 +211,97 @@ export class WechatPublishService {
     } finally {
       this.pushing = false
     }
+  }
+
+  /**
+   * 发表（freepublish，PRD 批次 6）：把已推送草稿箱的记录提交发布，成功后回填
+   * publishMsgid 与 publishedUrl——这两个字段就绪后 refreshMetrics（阅读统计回填）
+   * 与小绿书交付记录两条被阻塞的链路随之打通。
+   *
+   * 状态机：submit（草稿 media_id → publish_id）→ 轮询 get（0 成功 / 1 推送中 /
+   * 2 原创审核中 / 3 失败）。publish_id 存进 resolution JSON（不加表列，零迁移），
+   * 轮询窗口内未出结果落 unknown，用户可用「核对发表结果」续查。
+   * 发表不可撤回且占用公众号当日次数：HITL 确认在渲染层弹窗完成，本方法只管链路。
+   */
+  async freepublish(input: { publicationId: string }, pollOptions?: { attempts?: number; pollIntervalMs?: number }): Promise<Publication> {
+    const publication = this.database.getPublication(input.publicationId)
+    if (!publication) throw new Error('发布记录不存在')
+    if (publication.status === 'published') throw new Error('该记录已发表成功')
+    if (publication.status !== 'draft' || !publication.externalDraftId) throw new Error('只有已成功推送草稿箱的记录才能发表；请先推送草稿')
+    if (this.pushing || this.configurationBusy) throw new Error('已有公众号操作进行中，请稍后再发表')
+    this.pushing = true
+    try {
+      const submit = (accessToken: string) => this.request(`/cgi-bin/freepublish/submit?access_token=${encodeURIComponent(accessToken)}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ media_id: publication.externalDraftId })
+      })
+      let payload = await submit(await this.token())
+      if (payload.errcode === 40001 || payload.errcode === 42001) payload = await submit(await this.token(true))
+      if (payload.errcode) throw new WechatRejectedError(wechatErrorMessage(payload.errcode, payload.errmsg))
+      const publishId = payload.publish_id
+      if (!publishId) throw new Error('公众号未返回发表任务标识，请稍后到公众号后台核对结果')
+      return await this.pollFreepublish(publication.id, publishId, pollOptions)
+    } catch (error) {
+      // 窗口未出结果时记录已由 pollFreepublish 落 unknown（可续查），此处不得覆盖为 failed
+      if (!(error instanceof PublishPendingError)) this.database.updatePublicationOutcome(publication.id, 'failed', publication.thumbMediaId, errorMessage(error))
+      throw error
+    } finally {
+      this.pushing = false
+    }
+  }
+
+  /** 续查已提交的发表任务（unknown 记录的「核对发表结果」入口） */
+  async checkFreepublish(input: { publicationId: string }, pollOptions?: { attempts?: number; pollIntervalMs?: number }): Promise<Publication> {
+    const publication = this.database.getPublication(input.publicationId)
+    if (!publication) throw new Error('发布记录不存在')
+    const resolution = this.database.workflow.getResolution(publication.id)
+    const publishId = resolution?.publishTask?.publishId
+    if (!publishId) throw new Error('该记录没有进行中的发表任务（缺少 publish_id），请重新从草稿记录发起发表')
+    if (this.pushing || this.configurationBusy) throw new Error('已有公众号操作进行中，请稍后再核对')
+    this.pushing = true
+    try { return await this.pollFreepublish(publication.id, publishId, pollOptions) }
+    finally { this.pushing = false }
+  }
+
+  /** 轮询发表状态：0 成功回填 msgid/URL；3 失败落错误；窗口内未出结果落 unknown（可续查）。轮询节奏可注入（测试用） */
+  private async pollFreepublish(publicationId: string, publishId: string, options?: { attempts?: number; pollIntervalMs?: number }): Promise<Publication> {
+    this.database.workflow.saveResolution(publicationId, { publishTask: { publishId, checkedAt: new Date().toISOString() } })
+    const poll = (accessToken: string) => this.request(`/cgi-bin/freepublish/get?access_token=${encodeURIComponent(accessToken)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ publish_id: publishId })
+    })
+    const attempts = options?.attempts ?? 10
+    const pollIntervalMs = options?.pollIntervalMs ?? 2000
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+      let payload
+      try {
+        payload = await poll(await this.token())
+        if (payload.errcode === 40001 || payload.errcode === 42001) payload = await poll(await this.token(true))
+        if (payload.errcode) throw new WechatRejectedError(wechatErrorMessage(payload.errcode, payload.errmsg))
+      } catch (error) {
+        // 轮询中的网络/拒绝错误不覆盖记录：保持 unknown 可续查，错误信息带给调用方
+        if (attempt === attempts - 1) {
+          this.database.updatePublicationOutcome(publicationId, 'unknown', this.database.getPublication(publicationId)?.thumbMediaId ?? '', `核对发表状态失败，可稍后重试：${errorMessage(error)}`)
+          throw error
+        }
+        continue
+      }
+      const publishStatus = Number(payload.publish_status ?? -1)
+      if (publishStatus === 0) {
+        const article = Array.isArray(payload.article_detail?.item) ? payload.article_detail.item[0] : undefined
+        const msgid = String(payload.article_id ?? publishId)
+        const url = article?.article_url ?? payload.url ?? undefined
+        return this.database.setPublicationPublished(publicationId, msgid, url)
+      }
+      if (publishStatus === 3) {
+        const failIdx = Number(payload.fail_idx ?? 0)
+        throw new Error(`公众号发表失败（第 ${failIdx || 1} 篇未通过），原因见公众号后台通知；可修改后重新推送草稿`)
+      }
+      // 1=推送中 2=原创审核中：窗口内继续等待
+    }
+    this.database.updatePublicationOutcome(publicationId, 'unknown', this.database.getPublication(publicationId)?.thumbMediaId ?? '', '发表提交成功但窗口内未出结果（推送/审核中），可稍后点「核对发表结果」')
+    throw new PublishPendingError('发表仍在公众号侧处理（推送或审核中），已登记任务；稍后可用「核对发表结果」续查')
   }
 
   async prepareClipboard(layoutId: string, mode: 'wechat' | 'placeholders'): Promise<{ html: string; text: string; imageCount: number }> {
@@ -416,6 +509,6 @@ export class WechatPublishService {
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : '公众号请求失败' }
 function wechatErrorMessage(code?: number, message?: string): string {
-  const hints: Record<number, string> = { 40001: '凭证无效，请核对后重试', 40125: 'AppSecret 无效，请重新填写', 40164: '请在公众号后台将当前公网 IP 加入白名单', 42001: '凭证已过期，请重新验证', 45009: '接口调用次数超限，请稍后再试', 53401: '封面尺寸或大小不符合要求', 53404: '封面过大，请压缩后重试' }
+  const hints: Record<number, string> = { 40001: '凭证无效，请核对后重试', 40125: 'AppSecret 无效，请重新填写', 40164: '请在公众号后台将当前公网 IP 加入白名单', 42001: '凭证已过期，请重新验证', 45009: '接口调用次数超限，请稍后再试', 48001: '当前账号未经认证（或接口未授权），没有「发表」权限；可继续推送草稿并在公众号后台手动发表', 53401: '封面尺寸或大小不符合要求', 53404: '封面过大，请压缩后重试' }
   return `${code !== undefined ? hints[code] ?? message ?? '公众号请求被拒绝' : message ?? '公众号未返回有效凭证'}${code !== undefined ? `（错误码 ${code}）` : ''}`
 }

@@ -2377,6 +2377,11 @@ export class AppDatabase {
     if (!publication) throw new Error('交付记录不存在')
     return publication
   }
+  /** freepublish 发表成功：回填发表态 msgid（阅读统计键 refreshMetrics 依赖）与文章 URL */
+  setPublicationPublished(id: string, publishMsgid: string, publishedUrl?: string): Publication {
+    this.db.prepare("UPDATE publications SET status='published',publish_msgid=?,published_url=COALESCE(?,published_url),error_message=NULL,updated_at=? WHERE id=?").run(publishMsgid, publishedUrl ?? null, new Date().toISOString(), id)
+    return this.getPublication(id)!
+  }
 
   /** 发布记录列表（批量取快照/决议，消除逐行 3N+1 查询；数量上限防全表膨胀） */
   listPublications():Publication[] {
