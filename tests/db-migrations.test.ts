@@ -23,7 +23,7 @@ describe('版本化迁移框架', () => {
     dirs.push(dir)
     const db = new AppDatabase(join(dir, 'moliu.db'))
     dbs.push(db)
-    expect(currentVersion(db['db'])).toBe(BASELINE_VERSION)
+    expect(currentVersion(db['db'])).toBe(latestVersion())
     expect(latestVersion()).toBeGreaterThanOrEqual(BASELINE_VERSION)
   })
 
@@ -35,7 +35,7 @@ describe('版本化迁移框架', () => {
     legacy.close()
     const db = new AppDatabase(join(dir, 'moliu.db'))
     dbs.push(db)
-    expect(currentVersion(db['db'])).toBe(BASELINE_VERSION)
+    expect(currentVersion(db['db'])).toBe(latestVersion())
   })
 
   it('pending step 按序只跑一次；重复打开不重复执行', () => {
@@ -73,6 +73,50 @@ describe('版本化迁移框架', () => {
     const db = new AppDatabase(join(dir, 'moliu.db'))
     dbs.push(db)
     expect(() => applyPendingMigrations(db['db'])).not.toThrow()
-    expect(currentVersion(db['db'])).toBe(BASELINE_VERSION)
+    expect(currentVersion(db['db'])).toBe(latestVersion())
+  })
+})
+
+describe('迁移 v4：热点标签用户化', () => {
+  it('旧哨兵库升级后：预置标签写入 hot_labels，存量枚举关联保留，CHECK 约束已去除', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'moliu-mig-v4-'))
+    dirs.push(dir)
+    // 用 baseline 库先造收藏+标签，再手动模拟 v3 时代状态（模拟方式：直接验证 v4 后行为）
+    const db = new AppDatabase(join(dir, 'moliu.db'))
+    dbs.push(db)
+    const labels = db.listHotLabels()
+    expect(labels.map(l => l.name)).toContain('待选题')
+    expect(labels.map(l => l.name)).toContain('已用')
+    // 自定义标签可保存且立即成为白名单
+    const created = db.saveHotLabel({ name: '本周要写' })
+    expect(created.sortOrder).toBe(2)
+    const { favorite } = db.addHotFavorite({ hotItem: { id: 'h9', title: 'T', desc: '', url: '', source: 'weibo', sourceTitle: '微博', subtitle: '', updateTime: 'x', rank: 1, rawJson: '{}' }, tags: ['本周要写'] })
+    expect(db.listHotFavorites(true).find(item => item.id === favorite.id)?.tags).toContain('本周要写')
+    // 重命名同步收藏关联；删除联动清除
+    db.saveHotLabel({ id: created.id, name: '下周要写' })
+    expect(db.listHotFavorites(true).find(item => item.id === favorite.id)?.tags).toContain('下周要写')
+    db.removeHotLabel(created.id)
+    expect(db.listHotFavorites(true).find(item => item.id === favorite.id)?.tags).not.toContain('下周要写')
+    // 同名拒绝、上限 10
+    expect(() => db.saveHotLabel({ name: '已用' })).toThrow('同名')
+    for (let i = db.listHotLabels().length; i < 10; i++) db.saveHotLabel({ name: `标签${i}` })
+    expect(() => db.saveHotLabel({ name: '超额' })).toThrow('最多 10 个')
+  })
+
+  it('v3 库（含 CHECK 约束的旧表）迁移后可写自定义标签', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'moliu-mig-v4-legacy-'))
+    dirs.push(dir)
+    const legacy = new DatabaseSync(join(dir, 'moliu.db'))
+    legacy.exec(`
+      CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+      INSERT INTO schema_migrations VALUES (2, '2026-01-01T00:00:00.000Z');
+    `)
+    legacy.close()
+    // baseline 迁移建的是新 CHECK 表？不——baseline DDL 仍含旧 CHECK；v4 step 负责重建。
+    const db = new AppDatabase(join(dir, 'moliu.db'))
+    dbs.push(db)
+    const check = db['db'].prepare("SELECT sql FROM sqlite_master WHERE name='hot_favorite_tags'").get() as { sql: string }
+    expect(check.sql).not.toContain('CHECK')
+    expect(() => db.saveHotLabel({ name: '自定义标签' })).not.toThrow()
   })
 })

@@ -38,6 +38,7 @@ import type {
   HotFavorite,
   HotFavoriteTag,
   HotItem,
+  HotLabel,
   HotSource,
   HotSourcePreference,
   HotSourceResult,
@@ -101,6 +102,9 @@ export function HotspotsPage({
   const [hotImportOpen, setHotImportOpen] = useState(false)
   const [favoriteFilter, setFavoriteFilter] = useState<'all' | HotFavoriteTag>('all')
   const [showArchived, setShowArchived] = useState(false)
+  // 用户自定义标签（迁移 v4 起）：预置两项可重命名/删除，可新增
+  const [labels, setLabels] = useState<HotLabel[]>([])
+  const [labelsOpen, setLabelsOpen] = useState(false)
   const [favoriteSourceFilter, setFavoriteSourceFilter] = useState('all')
   const [favoriteSearch, setFavoriteSearch] = useState('')
   const [savingFavoriteKeys, setSavingFavoriteKeys] = useState<Set<string>>(new Set())
@@ -297,6 +301,11 @@ export function HotspotsPage({
   useEffect(() => {
     void window.moliu.hotspots.listFavorites(showArchived).then(setFavorites).catch(() => undefined)
   }, [showArchived])
+
+  const refreshLabels = useCallback(async (): Promise<void> => {
+    try { setLabels(await window.moliu.hotspots.listLabels()) } catch { /* 标签读取失败时用兜底渲染，不阻塞收藏夹 */ }
+  }, [])
+  useEffect(() => { void refreshLabels() }, [refreshLabels])
 
   useEffect(() => {
     let disposed = false
@@ -827,19 +836,22 @@ export function HotspotsPage({
                 />
               </label>
               <div className="favorite-tag-filters" role="group" aria-label="标签筛选">
-                {([
-                  ['all', '全部'],
-                  ['待选题', '待选题'],
-                  ['已用', '已用']
-                ] as const).map(([value, label]) => (
+                <button
+                  className={favoriteFilter === 'all' ? 'active' : ''}
+                  onClick={() => setFavoriteFilter('all')}
+                >
+                  全部
+                </button>
+                {labels.map((label) => (
                   <button
-                    key={value}
-                    className={favoriteFilter === value ? 'active' : ''}
-                    onClick={() => setFavoriteFilter(value)}
+                    key={label.id}
+                    className={favoriteFilter === label.name ? 'active' : ''}
+                    onClick={() => setFavoriteFilter(label.name)}
                   >
-                    {label}
+                    {label.name}
                   </button>
                 ))}
+                <button className="button ghost compact" onClick={() => setLabelsOpen(true)} title="管理标签（重命名 / 删除 / 新增）"><Settings2 size={14} /></button>
               </div>
               <label className="favorite-platform-filter">
                 <span>平台</span>
@@ -904,13 +916,13 @@ export function HotspotsPage({
                     </div>
                     <div className="favorite-tags">
                       <span><Tags size={16} />标签</span>
-                      {(['待选题', '已用'] as HotFavoriteTag[]).map((tag) => (
+                      {labels.map((label) => (
                         <button
-                          key={tag}
-                          className={favorite.tags.includes(tag) ? 'active' : ''}
-                          onClick={() => void toggleFavoriteTag(favorite, tag)}
+                          key={label.id}
+                          className={favorite.tags.includes(label.name) ? 'active' : ''}
+                          onClick={() => void toggleFavoriteTag(favorite, label.name)}
                         >
-                          {tag}
+                          {label.name}
                         </button>
                       ))}
                     </div>
@@ -1308,6 +1320,7 @@ export function HotspotsPage({
         </ModalBase>
       )}
       {ConfirmPortal}
+      {labelsOpen && <LabelsManagerDialog labels={labels} onClose={() => setLabelsOpen(false)} onChanged={() => { void refreshLabels(); void window.moliu.hotspots.listFavorites(showArchived).then(setFavorites).catch(() => undefined) }} showToast={showToast} />}
       <ManualHotDialog open={manualHotOpen} onClose={() => setManualHotOpen(false)} onSave={saveManualHot} />
       <ImportDialog
         open={hotImportOpen}
@@ -1400,4 +1413,69 @@ function moveSource(sources: HotSource[], movingId: string, targetId: string): H
   const [moving] = next.splice(fromIndex, 1)
   next.splice(targetIndex, 0, moving)
   return next
+}
+
+/** 标签管理弹窗：重命名 / 删除 / 新增（迁移 v4 起标签为用户数据） */
+function LabelsManagerDialog({ labels, onClose, onChanged, showToast }: {
+  labels: HotLabel[]
+  onClose(): void
+  onChanged(): void
+  showToast(toast: ToastState): void
+}): React.JSX.Element {
+  const [draft, setDraft] = useState('')
+  const [editingId, setEditingId] = useState('')
+  const [editingName, setEditingName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const run = async (operation: () => Promise<void>): Promise<void> => {
+    setBusy(true)
+    try { await operation(); onChanged() } catch (error) { showToast({ type: 'error', message: errorMessage(error) }) } finally { setBusy(false) }
+  }
+
+  return (
+    <ModalBase open onClose={onClose} titleId="labels-manager-title" bare className="source-manager-dialog labels-manager-dialog">
+      <header>
+        <div><h2 id="labels-manager-title">管理标签</h2></div>
+        <button className="icon-button" aria-label="关闭" onClick={onClose}><X size={20} /></button>
+      </header>
+      <p className="micro-copy">标签用于收藏夹分类与筛选；删除标签不会删除收藏本体。预置的「待选题 / 已用」也可重命名或删除。</p>
+      <div className="labels-manager-list">
+        {labels.map((label) => (
+          <div className="labels-manager-row" key={label.id}>
+            {editingId === label.id ? (
+              <>
+                <input
+                  aria-label="标签名称"
+                  value={editingName}
+                  maxLength={10}
+                  autoFocus
+                  onChange={(event) => setEditingName(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter' && editingName.trim()) void run(async () => { await window.moliu.hotspots.saveLabel({ id: label.id, name: editingName.trim() }); setEditingId('') }) }}
+                />
+                <button className="button secondary compact" disabled={busy || !editingName.trim()} onClick={() => void run(async () => { await window.moliu.hotspots.saveLabel({ id: label.id, name: editingName.trim() }); setEditingId('') })}>保存</button>
+                <button className="button ghost compact" onClick={() => setEditingId('')}>取消</button>
+              </>
+            ) : (
+              <>
+                <strong>{label.name}</strong>
+                <button className="button ghost compact" disabled={busy} onClick={() => { setEditingId(label.id); setEditingName(label.name) }}>重命名</button>
+                <button className="button ghost compact danger-text" disabled={busy || labels.length <= 1} title={labels.length <= 1 ? '至少保留一个标签' : undefined} onClick={() => void run(async () => { await window.moliu.hotspots.removeLabel(label.id) })}>删除</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+      <footer className="labels-manager-add">
+        <input
+          aria-label="新标签名称"
+          placeholder="新标签名称（≤10 字）"
+          value={draft}
+          maxLength={10}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter' && draft.trim()) void run(async () => { await window.moliu.hotspots.saveLabel({ name: draft.trim() }); setDraft('') }) }}
+        />
+        <button className="button secondary compact" disabled={busy || !draft.trim() || labels.length >= 10} onClick={() => void run(async () => { await window.moliu.hotspots.saveLabel({ name: draft.trim() }); setDraft('') })}>新增</button>
+      </footer>
+    </ModalBase>
+  )
 }

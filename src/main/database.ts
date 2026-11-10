@@ -29,6 +29,7 @@ import type {
   GenerationTask,
   HotFavorite,
   HotFavoriteTag,
+  HotLabel,
   HotItem,
   HotSourcePreference,
   Material,
@@ -1798,7 +1799,7 @@ export class AppDatabase {
 
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    const tags = normalizeFavoriteTags(input.tags?.length ? input.tags : ['待选题'])
+    const tags = this.normalizeFavoriteTags(input.tags?.length ? input.tags : ['待选题'])
     this.transaction(() => {
       this.db.prepare(`
         INSERT INTO hot_favorites (
@@ -1834,7 +1835,7 @@ export class AppDatabase {
     const favorite = this.getHotFavorite(id)
     if (!favorite) throw new Error('收藏不存在')
     this.transaction(() => {
-      this.replaceFavoriteTags(id, normalizeFavoriteTags(tags), new Date().toISOString())
+      this.replaceFavoriteTags(id, this.normalizeFavoriteTags(tags), new Date().toISOString())
     })
     const updated = this.getHotFavorite(id)
     if (!updated) throw new Error('收藏标签更新失败')
@@ -1847,6 +1848,49 @@ export class AppDatabase {
     if (!favorite) throw new Error('收藏不存在')
     this.db.prepare('UPDATE hot_favorites SET status = ? WHERE id = ?').run(status, id)
     return this.getHotFavorite(id)!
+  }
+
+  /** 用户标签清单（迁移 v4 起：预置「待选题/已用」可重命名/删除，可新增，上限 10 个） */
+  listHotLabels(): HotLabel[] {
+    return (this.db.prepare('SELECT id,name,sort_order FROM hot_labels ORDER BY sort_order,created_at').all() as unknown as Array<{ id: string; name: string; sort_order: number }>)
+      .map(row => ({ id: row.id, name: row.name, sortOrder: Number(row.sort_order) }))
+  }
+
+  private normalizeFavoriteTags(tags: HotFavoriteTag[]): HotFavoriteTag[] {
+    const allowed = new Set(this.listHotLabels().map(label => label.name))
+    return [...new Set(tags)].filter((tag) => allowed.has(tag))
+  }
+
+  /** 新增/重命名标签：名称唯一，1~10 字，总数上限 10 */
+  saveHotLabel(input: { id?: string; name: string }): HotLabel {
+    const name = input.name.trim()
+    if (!name) throw new Error('标签名称不能为空')
+    if (name.length > 10) throw new Error('标签名称不超过 10 个字')
+    const existing = this.listHotLabels()
+    if (existing.some(label => label.name === name && label.id !== input.id)) throw new Error('已存在同名标签')
+    if (!input.id && existing.length >= 10) throw new Error('标签最多 10 个')
+    const now = new Date().toISOString()
+    if (input.id) {
+      const target = existing.find(label => label.id === input.id)
+      if (!target) throw new Error('标签不存在')
+      // 重命名同步收藏关联（favorite_id+tag 是主键，跟随改名）
+      const sync = this.db.prepare('UPDATE hot_favorite_tags SET tag=? WHERE tag=?').run(name, target.name)
+      this.db.prepare('UPDATE hot_labels SET name=?,sort_order=? WHERE id=?').run(name, target.sortOrder, input.id)
+      void sync
+      return { id: input.id, name, sortOrder: target.sortOrder }
+    }
+    const id = `label-${crypto.randomUUID()}`
+    const maxOrder = existing.reduce((max, label) => Math.max(max, label.sortOrder), -1)
+    this.db.prepare('INSERT INTO hot_labels(id,name,sort_order,created_at) VALUES(?,?,?,?)').run(id, name, maxOrder + 1, now)
+    return { id, name, sortOrder: maxOrder + 1 }
+  }
+
+  /** 删除标签：收藏关联一并清除（收藏本体不动） */
+  removeHotLabel(id: string): void {
+    const target = this.listHotLabels().find(label => label.id === id)
+    if (!target) throw new Error('标签不存在')
+    this.db.prepare('DELETE FROM hot_favorite_tags WHERE tag=?').run(target.name)
+    this.db.prepare('DELETE FROM hot_labels WHERE id=?').run(id)
   }
 
   removeHotFavorite(id: string): void {
@@ -2917,10 +2961,10 @@ function positiveNumberOrUndefined(value: number | undefined): number | undefine
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-function normalizeFavoriteTags(tags: HotFavoriteTag[]): HotFavoriteTag[] {
-  const allowed = new Set<HotFavoriteTag>(['待选题', '已用'])
-  return [...new Set(tags)].filter((tag) => allowed.has(tag))
-}
+/**
+ * 标签白名单校验：只接受 hot_labels 表里存在的标签（迁移 v4 后用户可自定义）。
+ * 函数在 AppDatabase 闭包外无法访问 db，改为类方法（见 normalizeFavoriteTagsOnDb）。
+ */
 
 function mapFrameworkTemplate(row: FrameworkTemplateRow): FrameworkTemplate {
   return {

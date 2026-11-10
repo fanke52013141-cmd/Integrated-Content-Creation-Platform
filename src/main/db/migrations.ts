@@ -29,7 +29,45 @@ export interface MigrationStep {
  * 示例（热点自定义标签，等本框架落地后第一个接入）：
  *   { version: 4, description: '热点标签从固定枚举改为用户标签表', up(db) { …重建 hot_favorite_tags… } }
  */
-export const MIGRATIONS: MigrationStep[] = []
+export const MIGRATIONS: MigrationStep[] = [
+  {
+    version: 4,
+    description: '热点收藏标签从固定枚举（待选题/已用）升级为用户标签表 hot_labels；重建 hot_favorite_tags 去掉 CHECK 枚举约束，存量标签值原样迁入',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS hot_labels (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          sort_order INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        );
+      `)
+      const now = new Date().toISOString()
+      db.prepare('INSERT OR IGNORE INTO hot_labels(id,name,sort_order,created_at) VALUES(?,?,?,?)').run('label-default-0', '待选题', 0, now)
+      db.prepare('INSERT OR IGNORE INTO hot_labels(id,name,sort_order,created_at) VALUES(?,?,?,?)').run('label-default-1', '已用', 1, now)
+      // CHECK 约束只在新写入时生效：旧表的固定枚举 CHECK 会拒绝自定义标签，必须重建
+      db.exec(`
+        ALTER TABLE hot_favorite_tags RENAME TO hot_favorite_tags_v3;
+        CREATE TABLE hot_favorite_tags (
+          favorite_id TEXT NOT NULL REFERENCES hot_favorites(id) ON DELETE CASCADE,
+          tag TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY(favorite_id, tag)
+        );
+        INSERT INTO hot_favorite_tags(favorite_id, tag, created_at) SELECT favorite_id, tag, created_at FROM hot_favorite_tags_v3;
+        DROP TABLE hot_favorite_tags_v3;
+      `)
+      // 存量数据里若出现预置两枚举之外的值，同步补进标签表，保证引用完整
+      for (const row of db.prepare('SELECT DISTINCT tag FROM hot_favorite_tags').all() as unknown as Array<{ tag: string }>) {
+        db.prepare('INSERT OR IGNORE INTO hot_labels(id,name,sort_order,created_at) VALUES(?,?,?,?)')
+          .run(`label-${row.tag}`, row.tag, 100, now)
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_hot_labels_name ON hot_labels(name);')
+      // 旧表 RENAME 时把旧索引一并带走了，这里按原定义补回
+      db.exec('CREATE INDEX IF NOT EXISTS idx_hot_favorite_tags_tag ON hot_favorite_tags(tag, favorite_id);')
+    }
+  }
+]
 
 /** baseline 版本号：与现有幂等管线绑定，演进时递增 MIGRATIONS 的最后一项 version */
 export const BASELINE_VERSION = 3

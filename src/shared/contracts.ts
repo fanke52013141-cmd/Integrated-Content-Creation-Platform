@@ -465,7 +465,9 @@ export interface SaveHotSourcePreferencesInput {
   }>
 }
 
-export type HotFavoriteTag = '待选题' | '已用'
+/** 热点收藏标签：用户自定义（预置「待选题/已用」，可重命名/删除/新增，见 hot_labels 表与 v4 迁移） */
+export type HotFavoriteTag = string
+export interface HotLabel { id: string; name: string; sortOrder: number }
 export type HotFavoriteStatus = 'active' | 'archived'
 
 export interface HotFavorite {
@@ -1217,6 +1219,10 @@ export interface MoliuApi {
     removeFavorite(id: string): Promise<void>
     /** 收藏归档/恢复（归档不删除，默认列表只显示 active） */
     setFavoriteStatus(id: string, status: 'active' | 'archived'): Promise<HotFavorite>
+    /** 用户标签清单（v4 迁移后可自定义） */
+    listLabels(): Promise<HotLabel[]>
+    saveLabel(input: { id?: string; name: string }): Promise<HotLabel>
+    removeLabel(id: string): Promise<void>
     filter(input: FilterHotspotsInput): Promise<FilterHotspotsResult>
     getWeiboStatus(): Promise<WeiboSessionStatus>
     saveWeiboCookie(cookie: string): Promise<WeiboSessionStatus>

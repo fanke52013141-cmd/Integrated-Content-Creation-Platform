@@ -204,7 +204,8 @@ const hotItemSchema = z.object({
   rawJson: z.string().max(200_000)
 })
 
-const favoriteTagsSchema = z.array(z.enum(['待选题', '已用'])).max(2)
+// 迁移 v4 后标签为用户自定义（hot_labels 白名单），这里只做形态校验，白名单在数据库层收紧
+const favoriteTagsSchema = z.array(z.string().trim().min(1).max(10)).max(10)
 
 export function registerIpc(options: {
   database: AppDatabase
@@ -654,6 +655,12 @@ export function registerIpc(options: {
     const input = z.object({ id: z.string().uuid(), status: z.enum(['active', 'archived']) }).parse(raw)
     return database.setHotFavoriteStatus(input.id, input.status)
   })
+  handle('hotspots:labels:list', () => database.listHotLabels())
+  handle('hotspots:labels:save', (_event, raw: unknown) => {
+    const input = z.object({ id: z.string().max(200).optional(), name: z.string().trim().min(1).max(10) }).parse(raw)
+    return database.saveHotLabel(input)
+  })
+  handle('hotspots:labels:remove', (_event, id: string) => database.removeHotLabel(id))
   handle('hotspots:weibo:status', () => {
     const meta = database.getWeiboSessionMeta()
     return { configured: keyStore.hasWeiboCookie(), updatedAt: meta?.updatedAt }
