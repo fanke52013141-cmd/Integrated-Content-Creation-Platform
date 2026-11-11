@@ -1,0 +1,4 @@
+# 逐字节比对的 golden 基线固定为 LF，避免 Windows autocrlf 检出成 CRLF 导致误报
+tests/fixtures/** text eol=lf
+# 二进制夹具不做任何换行转换
+tests/fixtures/**/*.docx binary

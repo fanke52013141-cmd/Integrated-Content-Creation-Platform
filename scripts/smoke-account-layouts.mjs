@@ -116,7 +116,7 @@ try {
   if (oldLayout[0]?.html !== delivery.layout.html) throw new Error('Old article output changed after template activation')
 
   await frame.getByText('保留本窗口编辑', { exact: true }).waitFor()
-  await page.getByText('预览不保存正式排版稿；实际微信效果仍需粘贴和实机验收。', { exact: true }).waitFor()
+  await page.getByText('预览仅供参考；实际微信效果仍需实机验收。', { exact: true }).waitFor()
   while (await page.getByRole('button', { name: '关闭通知', exact: true }).count()) await page.getByRole('button', { name: '关闭通知', exact: true }).first().click()
   await mkdir(resolve('artifacts'), { recursive: true })
   await capture(page, { path: resolve('artifacts/account-layout-designer.png') })
