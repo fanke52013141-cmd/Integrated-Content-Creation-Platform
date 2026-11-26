@@ -487,21 +487,6 @@ export function HotspotsPage({
     setSourceManagerOpen(true)
   }
 
-  async function refreshWeiboStatus(): Promise<void> {
-    try {
-      const status = await window.moliu.hotspots.getWeiboStatus()
-      setWeiboConfigured(status.configured)
-      setWeiboUpdatedAt(status.updatedAt)
-    } catch (error) {
-      showToast({ type: 'error', message: errorMessage(error) })
-    }
-  }
-
-  function openWeiboDialog(): void {
-    void refreshWeiboStatus()
-    setWeiboDialogOpen(true)
-  }
-
   /** 打开微博官方登录窗口（扫码 / 手机号均可），成功后自动提取并加密保存 Cookie */
   async function startWeiboLogin(): Promise<void> {
     setSavingWeibo(true)
