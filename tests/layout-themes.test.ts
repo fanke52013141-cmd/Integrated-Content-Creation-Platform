@@ -69,19 +69,20 @@ describe('按文章类型推荐主题', () => {
     }
   })
 
-  it('教程类推荐 wechat-green（百搭安全的选择）', () => {
-    expect(recommendThemeForGenre('tutorial')).toBe('wechat-green')
+  it('教程类推荐 modern（清晰轻快的现代主题）', () => {
+    expect(recommendThemeForGenre('tutorial')).toBe('modern')
   })
 
-  it('专业科技类推荐克制的主题', () => {
+  it('专业科技类推荐现代极简主题', () => {
     const id = recommendThemeForGenre('professional')
     const theme = LAYOUT_THEMES.find((item) => item.id === id)
-    expect(['tech-blue', 'minimal']).toContain(id)
+    expect(['modern', 'tech-blue', 'minimal']).toContain(id)
+    expect(theme?.suitedFor).toContain('professional')
   })
 
-  it('深度分析与叙事类推荐 magazine（衬线长文排版）', () => {
-    expect(recommendThemeForGenre('analysis')).toBe('magazine')
-    expect(recommendThemeForGenre('narrative')).toBe('magazine')
+  it('深度分析与叙事类推荐 editorial（编辑部式长文排版）', () => {
+    expect(recommendThemeForGenre('analysis')).toBe('editorial')
+    expect(recommendThemeForGenre('narrative')).toBe('editorial')
   })
 
   it('未指定类型时回落到默认主题', () => {

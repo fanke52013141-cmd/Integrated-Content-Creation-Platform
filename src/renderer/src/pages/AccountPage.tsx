@@ -11,6 +11,7 @@ import {
   Copy,
   FileClock,
   FileUp,
+  Flame,
   GitCompare,
   Globe,
   KeyRound,
@@ -48,6 +49,7 @@ import type { RouteId } from '../components/Layout'
 import { ImportDialog } from '../components/ImportDialog'
 import { ModalBase } from '../components/ModalBase'
 import { PageHeader } from '../components/PageHeader'
+import { NextStepBar } from '../components/PageHeader'
 import { SourceBadge } from '../components/SourceBadge'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
@@ -144,6 +146,7 @@ export function AccountPage({
           setAccount(null)
           void onRefresh()
         }}
+        onNavigate={onNavigate}
         showToast={showToast}
       />
     )
@@ -604,6 +607,7 @@ function AccountEditor({
   onBack,
   onChanged,
   onDeleted,
+  onNavigate,
   showToast
 }: {
   account: AccountProfile | null
@@ -611,6 +615,7 @@ function AccountEditor({
   onBack(): void
   onChanged(account: AccountProfile): void
   onDeleted(): void
+  onNavigate(route: RouteId): void
   showToast(toast: ToastState): void
 }): React.JSX.Element {
   const { confirm, ConfirmPortal } = useConfirm()
@@ -763,6 +768,15 @@ function AccountEditor({
           )}
         </div>
       </div>
+
+      {locked && (
+        <NextStepBar
+          text="账号定位已锁定，可以开始寻找内容方向"
+          actionLabel="下一步：找热点"
+          icon={<Flame size={16} />}
+          onAction={() => onNavigate('hotspots')}
+        />
+      )}
 
       <div className="segmented account-dimension-tabs" role="tablist" aria-label="账号维度">
         {dimensionTabs.map((tab) => (

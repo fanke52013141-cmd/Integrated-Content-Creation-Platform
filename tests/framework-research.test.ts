@@ -72,27 +72,42 @@ describe('框架生成深度预研', () => {
     expect(userContent).toContain('<预研资料>')
     expect(userContent).toContain('资料一')
     expect(userContent).toContain('仅用于开阔角度')
+    expect(result.research).toEqual({ status: 'used', count: 1, message: '已使用 1 条公开资料进行深度预研' })
   })
 
-  it('未配置搜索模型：静默跳过，框架生成不受影响', async () => {
+  it('未配置搜索模型：明确跳过，框架生成不受影响', async () => {
     const { generator, captured, templateId } = await setup(undefined)
     const result = await generator.generate({ ...baseInput, templateId, research: true })
     expect(result.frameworks).toHaveLength(1)
     expect(String(captured[0]!.messages[1]!.content)).not.toContain('<预研资料>')
+    expect(result.research?.status).toBe('skipped')
+    expect(result.research?.message).toContain('未配置搜索模型')
   })
 
-  it('搜索失败：静默跳过，绝不阻塞框架生成', async () => {
+  it('搜索失败：明确失败并跳过，绝不阻塞框架生成', async () => {
     const search = makeSearchService({ error: new Error('网络中断') })
     const { generator, captured, templateId } = await setup(search)
     const result = await generator.generate({ ...baseInput, templateId, research: true })
     expect(result.frameworks).toHaveLength(1)
     expect(String(captured[0]!.messages[1]!.content)).not.toContain('<预研资料>')
+    expect(result.research?.status).toBe('failed')
+    expect(result.research?.message).toContain('网络中断')
+  })
+
+  it('搜索无结果：明确标记为空结果，框架生成不受影响', async () => {
+    const search = makeSearchService({ results: [] })
+    const { generator, captured, templateId } = await setup(search)
+    const result = await generator.generate({ ...baseInput, templateId, research: true })
+    expect(result.frameworks).toHaveLength(1)
+    expect(String(captured[0]!.messages[1]!.content)).not.toContain('<预研资料>')
+    expect(result.research?.status).toBe('empty')
   })
 
   it('显式关闭（research=false）：不调用搜索', async () => {
     const search = makeSearchService()
     const { generator, templateId } = await setup(search)
-    await generator.generate({ ...baseInput, templateId, research: false })
+    const result = await generator.generate({ ...baseInput, templateId, research: false })
     expect(search.search).not.toHaveBeenCalled()
+    expect(result.research?.status).toBe('disabled')
   })
 })

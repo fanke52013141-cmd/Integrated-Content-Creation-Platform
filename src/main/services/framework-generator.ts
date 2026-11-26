@@ -6,6 +6,7 @@ import type {
   FrameworkTemplate,
   GenerateFrameworksInput,
   GenerateFrameworksResult,
+  FrameworkResearchStatus,
   Material,
   StreamEvent,
   Topic
@@ -45,10 +46,11 @@ export class FrameworkGenerator {
       throw new Error('部分素材不存在，或图片素材不能作为正文依据')
     }
 
-    // 深度预研（借鉴 STORM 多视角提问）：整批候选共用一次搜索，失败静默跳过
-    const researchXml = input.research !== false
+    // 深度预研（借鉴 STORM 多视角提问）：整批候选共用一次搜索，失败不阻塞框架生成
+    const researchResult = input.research !== false
       ? await this.researchContext(topic, manualTopic)
-      : ''
+      : { xml: '', status: { status: 'disabled', count: 0, message: '本次生成已关闭深度预研' } satisfies FrameworkResearchStatus }
+    const researchXml = researchResult.xml
 
     const work = Array.from({ length: input.count }, (_, index) => this.generateOne({
       template,
@@ -70,24 +72,34 @@ export class FrameworkGenerator {
       if (result.status === 'fulfilled') frameworks.push(result.value)
       else failed.push({ index: index + 1, message: readableError(result.reason) })
     })
-    return { frameworks, failed }
+    return { frameworks, failed, research: researchResult.status }
   }
 
-  /** 抓取选题相关公开资料摘要作为预研上下文；未配置搜索模型或搜索失败时返回空串，绝不阻塞框架生成 */
-  private async researchContext(topic: Topic | null, manualTopic: string): Promise<string> {
-    if (!this.materialSearch) return ''
+  /** 抓取选题相关公开资料摘要作为预研上下文；失败时返回明确状态，不阻塞框架生成 */
+  private async researchContext(topic: Topic | null, manualTopic: string): Promise<{ xml: string; status: FrameworkResearchStatus }> {
+    if (!this.materialSearch) {
+      return { xml: '', status: { status: 'skipped', count: 0, message: '未配置搜索模型，已跳过深度预研' } }
+    }
     const query = (topic?.fields['选题主题'] || Object.values(topic?.fields ?? {})[0] || manualTopic).trim()
-    if (!query) return ''
+    if (!query) {
+      return { xml: '', status: { status: 'skipped', count: 0, message: '没有可用于预研的选题主题' } }
+    }
     try {
       const result = await this.materialSearch.search({ type: 'web', query, count: 8 })
       const webResults = result.results.filter((item): item is import('../../shared/contracts.js').MaterialSearchWebResult => 'summary' in item)
-      if (!webResults.length) return ''
+      if (!webResults.length) {
+        return { xml: '', status: { status: 'empty', count: 0, message: '预研搜索未返回可用资料，本次按原始选题生成' } }
+      }
       const body = webResults.slice(0, 8)
         .map((item, index) => `${index + 1}. ${item.title}（${item.sourceName ?? '公开网页'}）：${item.summary || item.snippet || ''}`.trim())
         .join('\n')
-      return `<预研资料>以下是与选题相关的公开资料摘要，可能不完整或过时，仅用于开阔角度与交叉核对；事实以 <素材> 为准，不得把预研资料当作已证实事实：\n${escapeXml(body)}\n</预研资料>`
-    } catch {
-      return ''
+      return {
+        xml: `<预研资料>以下是与选题相关的公开资料摘要，可能不完整或过时，仅用于开阔角度与交叉核对；事实以 <素材> 为准，不得把预研资料当作已证实事实：\n${escapeXml(body)}\n</预研资料>`,
+        status: { status: 'used', count: Math.min(webResults.length, 8), message: `已使用 ${Math.min(webResults.length, 8)} 条公开资料进行深度预研` }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message.slice(0, 120) : '未知错误'
+      return { xml: '', status: { status: 'failed', count: 0, message: `深度预研失败，已跳过：${message}` } }
     }
   }
 

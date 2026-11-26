@@ -70,6 +70,10 @@ function demo() {
 收尾段落观察分割线后的留白。`
 
 const CASES: Array<{ name: string; themeId: string; styleConfig: Record<string, unknown> }> = [
+  { name: 'editorial', themeId: 'editorial', styleConfig: {} },
+  { name: 'modern', themeId: 'modern', styleConfig: {} },
+  { name: 'forest', themeId: 'forest', styleConfig: {} },
+  { name: 'ink', themeId: 'ink', styleConfig: {} },
   { name: 'wechat-green', themeId: 'wechat-green', styleConfig: {} },
   { name: 'magazine', themeId: 'magazine', styleConfig: {} },
   { name: 'tech-blue', themeId: 'tech-blue', styleConfig: {} },

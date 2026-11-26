@@ -18,6 +18,7 @@ import { useReportWork } from '../active-work'
 import { useWorkDraft } from '../hooks/useWorkDraft'
 import { SavedVersionGate } from '../components/SavedVersionGate'
 import { LayoutStyleFields } from '../components/layout/LayoutStyleFields'
+import { ThemeGallery } from '../components/layout/ThemeGallery'
 import { layoutPreviewDocument } from '../components/layout/preview-document'
 import { DEFAULT_STYLE_CONFIG, normalizeStyleConfig, sameStyleConfig } from '../../../shared/layout-config'
 
@@ -55,7 +56,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [platform, setPlatform] = useState<LayoutPlatform>('wechat')
   /** 暗色预览：模拟微信暗黑模式的底色，检查主题在暗色下的可读性（近似模拟） */
   const [darkPreview, setDarkPreview] = useState(false)
-  const [themeId, setThemeId] = useState('wechat-green')
+  const [themeId, setThemeId] = useState('editorial')
   /** 文章类型。选中后自动推荐主题，把"选色块"变成"选内容类型" */
   const [genre, setGenre] = useState<ArticleGenre | ''>('')
   const [genres, setGenres] = useState<LayoutGenreInfo[]>([])
@@ -153,7 +154,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
     if (!article?.accountId) {
       setAccountLayoutLoading(false)
       setAccountLayoutVersions([])
-      setThemeId('wechat-green')
+      setThemeId('editorial')
       setStyleConfig(DEFAULT_STYLE_CONFIG)
       setCustomCss('')
       return () => { cancelled = true }
@@ -167,7 +168,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
         if (cancelled) return
         setAccountLayout(binding)
         setAccountLayoutVersions(versions)
-        setThemeId(binding?.themeId ?? 'wechat-green')
+        setThemeId(binding?.themeId ?? 'editorial')
         setStyleConfig(normalizeStyleConfig(binding?.styleConfig))
         setCustomCss(binding?.customCss ?? '')
       })
@@ -439,6 +440,10 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
             </details>
           )}
         </section>
+
+        {platform !== 'xiaohongshu' && (
+          <ThemeGallery themes={orderedThemes} value={themeId} onChange={setThemeId} disabled={accountLayoutLoading} />
+        )}
 
         {articleLayouts.length > 0 && platform === 'wechat' && (
           <NextStepBar text="排版稿就绪" actionLabel="去发布" onAction={() => onNavigate('publishing', { articleId })} />

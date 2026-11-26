@@ -28,6 +28,7 @@ const HotspotsPage = lazy(() => import('./pages/HotspotsPage').then(m => ({ defa
 const TopicsPage = lazy(() => import('./pages/TopicsPage').then(m => ({ default: m.TopicsPage })))
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage').then(m => ({ default: m.MaterialsPage })))
 const ProvidersPage = lazy(() => import('./pages/ProvidersPage').then(m => ({ default: m.ProvidersPage })))
+const PlatformsPage = lazy(() => import('./pages/PlatformsPage').then(m => ({ default: m.PlatformsPage })))
 const FrameworksPage = lazy(() => import('./pages/FrameworksPage').then(m => ({ default: m.FrameworksPage })))
 const ArticlesPage = lazy(() => import('./pages/ArticlesPage').then(m => ({ default: m.ArticlesPage })))
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage').then(m => ({ default: m.ReviewsPage })))
@@ -268,6 +269,7 @@ function AppShell(): React.JSX.Element {
               showToast={showToast}
             />
           )}
+          {route === 'platforms' && <PlatformsPage onNavigate={navigate} showToast={showToast} />}
           {route === 'hotspots' && (
             <HotspotsPage
               accounts={data.accounts}

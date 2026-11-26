@@ -14,7 +14,7 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import markdownLang from 'highlight.js/lib/languages/markdown'
 import type { LayoutPreviewSampleInput, LayoutStyleConfig, CreateArticleLayoutInput, CreateArticleLayoutResult, LayoutPlatform } from '../../shared/contracts.js'
 import type { AppDatabase } from '../database.js'
-import { buildLayoutThemeCss, buildCustomThemeCss, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
+import { buildLayoutThemeCss, buildCustomThemeCss, DEFAULT_LAYOUT_THEME_ID, getLayoutTheme, listLayoutThemes } from './layout-themes.js'
 import { validateWechatLayout } from './layout-validator.js'
 import { decorateDivider, injectSectionNumbers, injectToc, renderSlots, stripCustomTags, transformComponents } from './layout-components.js'
 import { annotateWideTables, markNumericCells } from './layout-table.js'
@@ -187,7 +187,7 @@ export function renderLayoutMarkdown(
   styleConfig: LayoutStyleConfig = {}
 ): { title: string; html: string; plainText: string; themeId: string } {
   const { title, body } = extractArticleTitle(markdown)
-  const resolvedThemeId = themeId || 'wechat-green'
+  const resolvedThemeId = themeId || DEFAULT_LAYOUT_THEME_ID
 
   const showTitle = platform === 'web' || (platform === 'wechat' && styleConfig.showTitleInBody === true)
   const brandHeader = platform !== 'xiaohongshu' ? normalizeBrandText(styleConfig.brandHeaderText) : ''

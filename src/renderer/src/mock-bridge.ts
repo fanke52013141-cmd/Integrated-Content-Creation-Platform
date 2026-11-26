@@ -241,13 +241,17 @@ function createMockBridge(): MoliuApi {
   // 主题与文章类型：与主进程 layout-themes.ts 保持一致。
   // mock 提供真实数据是必要的——主题下拉若为空，界面改动无法在浏览器里验证。
   const MOCK_ARTICLE_GENRES: LayoutGenreInfo[] = [
-    { id: 'tutorial', label: '教程 / 攻略', hint: '步骤清晰、代码与列表多', preset: { themeId: 'wechat-green', styleConfig: {}, components: ['引言卡', '目录', '章节编号'], reason: '目录与编号帮读者定位步骤' } },
-    { id: 'analysis', label: '深度分析', hint: '长文、观点鲜明、需要目录', preset: { themeId: 'magazine', styleConfig: {}, components: ['引言卡', '金句卡', '目录'], reason: '衬线质感压得住长文' } },
-    { id: 'professional', label: '专业 / 科技', hint: '克制、理性、信息密度高', preset: { themeId: 'tech-blue', styleConfig: {}, components: ['引言卡', '结论块'], reason: '冷色克制、锚点少而准' } },
-    { id: 'narrative', label: '叙事 / 随笔', hint: '阅读体验优先、氛围感', preset: { themeId: 'magazine', styleConfig: {}, components: ['金句卡', '分割线'], reason: '氛围优先、装饰轻盈' } },
-    { id: 'listicle', label: '清单 / 盘点', hint: '条目式、轻快', preset: { themeId: 'wechat-green', styleConfig: {}, components: ['章节编号', '分割线'], reason: '编号与分割线就够了' } }
+    { id: 'tutorial', label: '教程 / 攻略', hint: '步骤清晰、代码与列表多', preset: { themeId: 'modern', styleConfig: {}, components: ['引言卡', '目录', '章节编号'], reason: '轻卡片标题与目录帮助读者定位步骤' } },
+    { id: 'analysis', label: '深度分析', hint: '长文、观点鲜明、需要目录', preset: { themeId: 'editorial', styleConfig: {}, components: ['引言卡', '金句卡', '目录'], reason: '编辑部式层级更适合深度阅读' } },
+    { id: 'professional', label: '专业 / 科技', hint: '克制、理性、信息密度高', preset: { themeId: 'modern', styleConfig: {}, components: ['引言卡', '结论块'], reason: '现代极简主题用清晰层级承载专业内容' } },
+    { id: 'narrative', label: '叙事 / 随笔', hint: '阅读体验优先、氛围感', preset: { themeId: 'editorial', styleConfig: {}, components: ['金句卡', '分割线'], reason: '舒适行距与引用更适合长叙事' } },
+    { id: 'listicle', label: '清单 / 盘点', hint: '条目式、轻快', preset: { themeId: 'modern', styleConfig: {}, components: ['章节编号', '分割线'], reason: '轻卡片标题与编号让扫读更轻松' } }
   ]
   const MOCK_LAYOUT_THEMES: LayoutThemeInfo[] = [
+    { id: 'editorial', name: '编辑部', description: '杂志式层级、暖铜强调与舒适长文行距', accent: '#b45309', surface: '#ffffff', suitedFor: ['analysis', 'narrative'], personality: '有编辑感但不端着，适合观点、长文与品牌内容' },
+    { id: 'modern', name: '现代极简', description: '清晰蓝调、轻卡片与利落标题', accent: '#2563eb', surface: '#ffffff', suitedFor: ['tutorial', 'listicle', 'professional'], personality: '干净、轻快、信息层级明确' },
+    { id: 'forest', name: '森林 calm', description: '低饱和绿、柔和底色与宽松留白', accent: '#166534', surface: '#fbfdfb', suitedFor: ['narrative', 'professional', 'analysis'], personality: '温和、安静、有呼吸感' },
+    { id: 'ink', name: '墨色书房', description: '宣纸暖底、墨棕强调与书卷气引用', accent: '#7c2d12', surface: '#fffcf7', suitedFor: ['narrative', 'analysis'], personality: '安静、有书卷气，适合人文与书评' },
     { id: 'wechat-green', name: '微信经典', description: '品牌绿点缀，百搭安全', accent: '#07c160', suitedFor: ['tutorial', 'listicle'], personality: '清晰友好，最不容易出错的选择' },
     { id: 'magazine', name: '杂志衬线', description: '衬线标题，编辑部质感', accent: '#1a1a1a', suitedFor: ['analysis', 'narrative'], personality: '端庄有分量，适合长文与观点内容' },
     { id: 'tech-blue', name: '科技蓝', description: '冷色理性，适合科技与干货', accent: '#2b6cb0', suitedFor: ['tutorial', 'professional'], personality: '理性克制，代码与数据密集时最稳' },
@@ -548,10 +552,10 @@ function createMockBridge(): MoliuApi {
           id: 'mock-preview', articleId: 'mock', articleVersionId: 'mock',
           articleStatusSnapshot: 'draft', platform: 'wechat',
           title: input.title ?? '预览', html: `<p>${input.markdown}</p>`,
-          plainText: input.markdown, themeId: 'wechat-green',
+          plainText: input.markdown, themeId: 'editorial',
           createdAt: new Date().toISOString(), violations: []
         }),
-      previewSample: () => Promise.resolve({ title: '固定版式标准样稿', html: '', plainText: '', themeId: 'wechat-green' }),
+      previewSample: () => Promise.resolve({ title: '固定版式标准样稿', html: '', plainText: '', themeId: 'editorial' }),
       previewArticle: () => Promise.reject(new Error('请在桌面应用中预览文章版式')),
       getAccountDefault: () => Promise.resolve(null),
       getAccountDraft: () => Promise.resolve(null),

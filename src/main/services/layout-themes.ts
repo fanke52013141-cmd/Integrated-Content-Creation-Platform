@@ -180,6 +180,7 @@ function buildTheme(def: {
   suitedFor: ArticleGenre[]
   personality: string
   text?: string
+  surface?: string
   extra?: string
 }): LayoutThemeDef {
   const tokens: LayoutThemeTokens = { accent: def.accent, text: def.text ?? '#2b2b2b' }
@@ -190,12 +191,171 @@ function buildTheme(def: {
     accent: def.accent,
     suitedFor: def.suitedFor,
     personality: def.personality,
+    surface: def.surface,
     tokens,
     css: baseCss(tokens) + (def.extra ?? '') + HLJS_CSS
   }
 }
 
 export const LAYOUT_THEMES: LayoutThemeDef[] = [
+  buildTheme({
+    id: 'editorial',
+    name: '编辑部',
+    description: '杂志式层级、暖铜强调与舒适长文行距',
+    accent: '#b45309',
+    suitedFor: ['analysis', 'narrative'],
+    personality: '有编辑感但不端着，适合观点、长文与品牌内容',
+    text: '#1f2937',
+    surface: '#ffffff',
+    extra: `
+.mly-body { color: #1f2937; font-size: 16px; line-height: 1.92; letter-spacing: 0.35px; }
+.mly-title { color: #111827; font-size: 24px; font-weight: 800; line-height: 1.42; letter-spacing: -0.4px; margin: 0 0 26px; }
+.mly-body h2 { color: #111827; font-size: 21px; font-weight: 750; line-height: 1.5; margin: 38px 0 16px; padding: 0 0 10px; border-left: none; border-bottom: 2px solid #d1d5db; }
+.mly-body h3 { color: #374151; font-size: 18px; font-weight: 700; line-height: 1.55; margin: 28px 0 12px; }
+.mly-body h4 { color: #4b5563; font-size: 16px; margin: 22px 0 10px; }
+.mly-body p { color: #374151; font-size: 16px; line-height: 1.95; margin: 0 0 20px; }
+.mly-body strong { color: #b45309; font-weight: 750; }
+.mly-body em { color: #9a3412; }
+.mly-body a { color: #b45309; border-bottom: 1px solid #d6b28a; }
+.mly-body ul, .mly-body ol { margin: 0 0 22px; padding-left: 25px; }
+.mly-body li { margin: 10px 0; line-height: 1.85; }
+.mly-body li::marker { color: #b45309; }
+.mly-body blockquote { margin: 26px 0; padding: 18px 20px; color: #4b5563; background: #f9fafb; border-left: 4px solid #b45309; border-radius: 0 10px 10px 0; font-size: 15px; line-height: 1.85; }
+.mly-body blockquote p { color: #4b5563; font-size: 15px; line-height: 1.85; }
+.mly-body img { margin: 26px auto; border-radius: 12px; }
+.mly-body .mly-image-caption, .mly-body figcaption { margin-top: 10px; color: #6b7280; font-size: 13px; line-height: 1.65; }
+.mly-body th { color: #ffffff; background: #374151; border-color: #374151; padding: 10px 12px; }
+.mly-body td { color: #374151; border-color: #e5e7eb; padding: 10px 12px; }
+.mly-body tr:nth-child(2n) td { background: #f9fafb; }
+.mly-lead { margin: 0 0 26px; padding: 20px 22px; background: #f9fafb; border-left: 4px solid #b45309; border-radius: 0 12px 12px 0; }
+.mly-lead p { color: #374151; font-size: 15.5px; line-height: 1.9; }
+.mly-hero { margin: 30px 0; padding: 24px 14px; border-top: 2px solid #b45309; border-bottom: 2px solid #b45309; }
+.mly-hero p { color: #111827; font-size: 18px; line-height: 1.85; }
+.mly-quote, .mly-callout { margin: 0 0 26px; padding: 18px 20px; background: #f9fafb; border-left: 4px solid #b45309; border-radius: 0 10px 10px 0; }
+.mly-callout { background: #fff7ed; }
+.mly-callout-tag { background: #b45309; }
+.mly-callout-body { color: #57534e; }
+.mly-toc { margin: 0 0 30px; padding: 18px 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; }
+.mly-toc-title { color: #111827; }
+.mly-toc-item { color: #4b5563; line-height: 1.8; }
+.mly-step-badge { background: #b45309; }
+.mly-brand-header { color: #6b7280; background: #f9fafb; border-left: 3px solid #b45309; }
+.mly-brand-footer { color: #6b7280; border-top-color: #e5e7eb; }
+.mly-refs { color: #4b5563; background: #f9fafb; border-radius: 10px; }
+.mly-refs h3 { color: #111827; }
+`
+  }),
+  buildTheme({
+    id: 'modern',
+    name: '现代极简',
+    description: '清晰蓝调、轻卡片与利落标题，适合干货与产品内容',
+    accent: '#2563eb',
+    suitedFor: ['tutorial', 'listicle', 'professional'],
+    personality: '干净、轻快、信息层级明确，适合教程与清单',
+    text: '#0f172a',
+    surface: '#ffffff',
+    extra: `
+.mly-body { color: #0f172a; font-size: 16px; line-height: 1.85; letter-spacing: 0.2px; }
+.mly-title { color: #0f172a; font-size: 24px; font-weight: 800; line-height: 1.4; margin: 0 0 24px; }
+.mly-body h2 { color: #0f172a; font-size: 20px; font-weight: 750; line-height: 1.45; margin: 32px 0 14px; padding: 10px 14px; border-left: none; border-bottom: none; border-radius: 8px; background: #eff6ff; }
+.mly-body h3 { color: #1e3a8a; font-size: 17px; font-weight: 700; margin: 24px 0 10px; }
+.mly-body h4 { color: #334155; font-size: 15px; }
+.mly-body p { color: #334155; line-height: 1.9; margin: 0 0 18px; }
+.mly-body strong { color: #2563eb; font-weight: 750; }
+.mly-body em { color: #1d4ed8; }
+.mly-body a { color: #2563eb; border-bottom: 1px solid #93c5fd; }
+.mly-body li { margin: 8px 0; line-height: 1.8; }
+.mly-body li::marker { color: #2563eb; }
+.mly-body blockquote { margin: 22px 0; padding: 16px 18px; color: #475569; background: #f8fafc; border-left: none; border-radius: 10px; font-size: 15px; }
+.mly-body blockquote p { color: #475569; font-size: 15px; }
+.mly-body img { margin: 24px auto; border-radius: 14px; }
+.mly-body .mly-image-caption, .mly-body figcaption { color: #64748b; font-size: 12.5px; }
+.mly-body th { color: #ffffff; background: #2563eb; border-color: #2563eb; }
+.mly-body td { color: #334155; border-color: #e2e8f0; }
+.mly-body tr:nth-child(2n) td { background: #f8fafc; }
+.mly-lead { margin: 0 0 24px; padding: 18px 20px; background: #eff6ff; border-left: 4px solid #2563eb; border-radius: 0 10px 10px 0; }
+.mly-hero { margin: 26px 0; padding: 22px 14px; border-top: 1px solid #bfdbfe; border-bottom: 1px solid #bfdbfe; }
+.mly-hero p { color: #0f172a; }
+.mly-quote, .mly-callout { margin: 0 0 24px; padding: 16px 18px; background: #f8fafc; border-left: 4px solid #2563eb; border-radius: 0 10px 10px 0; }
+.mly-callout { background: #eff6ff; }
+.mly-callout-tag { background: #2563eb; }
+.mly-toc { background: #f8fafc; border-color: #e2e8f0; border-radius: 10px; }
+.mly-step-badge { background: #2563eb; }
+.mly-brand-header { background: #f8fafc; border-left-color: #2563eb; }
+.mly-refs { background: #f8fafc; border-radius: 10px; }
+`
+  }),
+  buildTheme({
+    id: 'forest',
+    name: '森林 calm',
+    description: '低饱和绿、柔和底色与宽松留白，适合品牌与深度阅读',
+    accent: '#166534',
+    suitedFor: ['narrative', 'professional', 'analysis'],
+    personality: '温和、安静、有呼吸感，适合品牌故事与深度分析',
+    text: '#1f2937',
+    surface: '#fbfdfb',
+    extra: `
+.mly-body { color: #1f2937; background: #fbfdfb; font-size: 16px; line-height: 1.95; letter-spacing: 0.3px; }
+.mly-title { color: #14532d; font-size: 24px; font-weight: 750; line-height: 1.45; margin: 0 0 26px; }
+.mly-body h2 { color: #14532d; font-size: 20px; font-weight: 700; line-height: 1.5; margin: 36px 0 15px; padding: 0 0 9px; border-left: none; border-bottom: 1px solid #bbf7d0; }
+.mly-body h3 { color: #166534; font-size: 17px; font-weight: 700; margin: 26px 0 11px; }
+.mly-body p { color: #374151; line-height: 1.95; margin: 0 0 20px; }
+.mly-body strong { color: #166534; font-weight: 750; }
+.mly-body a { color: #166534; border-bottom: 1px solid #86efac; }
+.mly-body li::marker { color: #166534; }
+.mly-body blockquote { margin: 24px 0; padding: 18px 20px; color: #4b5563; background: #f0fdf4; border-left: 4px solid #166534; border-radius: 0 10px 10px 0; }
+.mly-body blockquote p { color: #4b5563; }
+.mly-body img { margin: 26px auto; border-radius: 12px; }
+.mly-body th { color: #ffffff; background: #166534; border-color: #166534; }
+.mly-body td { color: #374151; border-color: #dcfce7; }
+.mly-body tr:nth-child(2n) td { background: #f0fdf4; }
+.mly-lead { background: #f0fdf4; border-left-color: #166534; }
+.mly-hero { border-top-color: #86efac; border-bottom-color: #86efac; }
+.mly-quote, .mly-callout { background: #f0fdf4; border-left-color: #166534; }
+.mly-callout-tag { background: #166534; }
+.mly-toc { background: #f0fdf4; border-color: #dcfce7; }
+.mly-step-badge { background: #166534; }
+.mly-brand-header { background: #f0fdf4; border-left-color: #166534; }
+.mly-refs { background: #f0fdf4; }
+`
+  }),
+  buildTheme({
+    id: 'ink',
+    name: '墨色书房',
+    description: '宣纸暖底、墨棕强调与书卷气引用，适合人文与随笔',
+    accent: '#7c2d12',
+    suitedFor: ['narrative', 'analysis'],
+    personality: '安静、有书卷气，适合人文、书评与长叙事',
+    text: '#292524',
+    surface: '#fffcf7',
+    extra: `
+.mly-body { color: #292524; background: #fffcf7; font-size: 16px; line-height: 2; letter-spacing: 0.45px; }
+.mly-title { color: #1c1917; font-size: 25px; font-weight: 700; line-height: 1.5; margin: 0 0 28px; letter-spacing: 0.02em; }
+.mly-body h2 { color: #1c1917; font-size: 20px; font-weight: 700; line-height: 1.55; margin: 38px 0 16px; padding: 0 0 10px; border-left: none; border-bottom: 1px solid #d6c7b5; }
+.mly-body h3 { color: #57534e; font-size: 17px; font-weight: 700; margin: 28px 0 12px; }
+.mly-body p { color: #44403c; line-height: 2.05; margin: 0 0 22px; }
+.mly-body strong { color: #7c2d12; font-weight: 750; }
+.mly-body em { color: #92400e; }
+.mly-body a { color: #7c2d12; border-bottom: 1px dashed #b45309; }
+.mly-body li { margin: 10px 0; line-height: 1.95; }
+.mly-body li::marker { color: #7c2d12; }
+.mly-body blockquote { margin: 28px 0; padding: 16px 22px; color: #57534e; background: transparent; border-left: 3px solid #b45309; border-radius: 0; font-size: 15px; line-height: 2; }
+.mly-body blockquote p { color: #57534e; font-size: 15px; line-height: 2; }
+.mly-body img { margin: 28px auto; padding: 4px; border: 1px solid #e7dccb; border-radius: 4px; }
+.mly-body .mly-image-caption, .mly-body figcaption { color: #78716c; font-size: 12.5px; letter-spacing: 0.08em; }
+.mly-body th { color: #ffffff; background: #57534e; border-color: #57534e; }
+.mly-body td { color: #44403c; border-color: #e7dccb; }
+.mly-body tr:nth-child(2n) td { background: #faf5eb; }
+.mly-lead { background: #faf5eb; border-left-color: #7c2d12; }
+.mly-hero { border-top-color: #b45309; border-bottom-color: #b45309; }
+.mly-quote, .mly-callout { background: #faf5eb; border-left-color: #7c2d12; }
+.mly-callout-tag { background: #7c2d12; }
+.mly-toc { background: #faf5eb; border-color: #e7dccb; }
+.mly-step-badge { background: #7c2d12; }
+.mly-brand-header { background: #faf5eb; border-left-color: #7c2d12; }
+.mly-refs { background: #faf5eb; }
+`
+  }),
   buildTheme({
     id: 'wechat-green',
     name: '微信经典',
@@ -260,7 +420,7 @@ export const LAYOUT_THEMES: LayoutThemeDef[] = [
   })
 ]
 
-export const DEFAULT_LAYOUT_THEME_ID = 'wechat-green'
+export const DEFAULT_LAYOUT_THEME_ID = 'editorial'
 
 export function getLayoutTheme(id?: string): LayoutThemeDef {
   return LAYOUT_THEMES.find((theme) => theme.id === id) ?? LAYOUT_THEMES[0]
@@ -268,8 +428,8 @@ export function getLayoutTheme(id?: string): LayoutThemeDef {
 
 /** 面向界面的主题清单。含文章类型与视觉性格，供「按类型选主题」使用 */
 export function listLayoutThemes(): LayoutThemeInfo[] {
-  return LAYOUT_THEMES.map(({ id, name, description, accent, suitedFor, personality }) => ({
-    id, name, description, accent, suitedFor, personality
+  return LAYOUT_THEMES.map(({ id, name, description, accent, suitedFor, personality, surface }) => ({
+    id, name, description, accent, suitedFor, personality, surface
   }))
 }
 
@@ -302,34 +462,34 @@ export function themesForGenre(genre?: ArticleGenre): string[] {
  */
 export const GENRE_LAYOUT_PRESETS: Record<ArticleGenre, LayoutGenrePreset> = {
   tutorial: {
-    themeId: 'wechat-green',
-    styleConfig: { heading2Variant: 'accent-bar' },
+    themeId: 'modern',
+    styleConfig: { heading2Variant: 'filled' },
     components: ['引言卡', '目录', '章节编号', '结论块'],
-    reason: '步骤清晰，目录与章节编号帮读者随时定位步骤'
+    reason: '步骤清晰，轻卡片标题与目录帮助读者快速定位'
   },
   analysis: {
-    themeId: 'magazine',
+    themeId: 'editorial',
     styleConfig: { heading2Variant: 'underline' },
     components: ['引言卡', '金句卡', '目录', '章节编号', '重点块'],
-    reason: '长文观点鲜明，衬线质感配下划线层级压得住场'
+    reason: '长文观点鲜明，编辑部式层级与舒适行距更适合深度阅读'
   },
   professional: {
-    themeId: 'tech-blue',
-    styleConfig: { heading2Variant: 'accent-bar' },
+    themeId: 'modern',
+    styleConfig: { heading2Variant: 'filled' },
     components: ['引言卡', '结论块', '提示块'],
-    reason: '信息密度高，冷色克制、锚点少而准'
+    reason: '信息密度高，现代极简主题用清晰层级承载专业内容'
   },
   narrative: {
-    themeId: 'magazine',
+    themeId: 'editorial',
     styleConfig: { quoteVariant: 'plain' },
     components: ['金句卡', '分割线', '旁注'],
-    reason: '氛围优先，去底色引用与装饰分割线更轻盈'
+    reason: '氛围优先，编辑部主题的留白与引用更适合长叙事'
   },
   listicle: {
-    themeId: 'wechat-green',
+    themeId: 'modern',
     styleConfig: {},
     components: ['章节编号', '分割线', '结论块'],
-    reason: '条目式轻快，编号与分割线就够了'
+    reason: '条目式内容用轻卡片标题与编号，扫读更轻松'
   }
 }
 

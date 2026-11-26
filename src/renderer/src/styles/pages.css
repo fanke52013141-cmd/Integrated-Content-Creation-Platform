@@ -3940,6 +3940,7 @@
 .file-pick input[type="file"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
 
 .inline-alert.danger { background: var(--red-50); color: var(--red-600); }
+.inline-alert.success { background: color-mix(in srgb, var(--success) 9%, transparent); color: var(--success); }
 
 /* ── 模型网关视图切换（.provider-tabs）
    此前该类名在样式表中缺失，导致这两个按钮渲染为无样式的裸按钮、

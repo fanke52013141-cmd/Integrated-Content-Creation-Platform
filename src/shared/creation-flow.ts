@@ -24,6 +24,7 @@ export type RouteId =
   | 'publishing'
   | 'materials'
   | 'providers'
+  | 'platforms'
   | 'prompts'
   | 'data'
 
@@ -106,6 +107,7 @@ export const ALL_ROUTE_IDS: readonly RouteId[] = [
   ...CREATION_FLOW.map((stage) => stage.id),
   ...RESOURCE_ROUTES,
   'providers',
+  'platforms',
   'prompts',
   'data'
 ] as const
@@ -118,6 +120,7 @@ const EXTRA_ROUTES = {
   materials: { label: '素材库', group: '资源' },
   data: { label: '数据与备份', group: SYSTEM_GROUP },
   providers: { label: 'AI 服务', group: SYSTEM_GROUP },
+  platforms: { label: '平台授权', group: SYSTEM_GROUP },
   prompts: { label: '提示词', group: SYSTEM_GROUP }
 } as const satisfies Record<string, { label: string; group: string }>
 

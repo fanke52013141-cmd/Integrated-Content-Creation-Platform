@@ -23,6 +23,7 @@ import './styles/layout-workspace.css'
 import './styles/publishing.css'
 import './styles/materials.css'
 import './styles/providers.css'
+import './styles/platforms.css'
 import './styles/dialogs.css'
 import './styles/polish.css'
 

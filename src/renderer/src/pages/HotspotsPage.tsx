@@ -53,11 +53,10 @@ import { useConfirm } from '../components/useConfirm'
 import { useGenerationStream, isCancelError } from '../hooks/useGenerationStream'
 import { useModelTarget } from '../lib/models'
 import { ModalBase } from '../components/ModalBase'
-import { NextStepBar } from '../components/PageHeader'
 import { Select } from '../components/Select'
 import { VirtualList } from '../components/VirtualList'
 
-const BATCH_SIZE = 8
+const REFRESH_CONCURRENCY = 6
 
 export function HotspotsPage({
   accounts,
@@ -230,6 +229,10 @@ export function HotspotsPage({
     () => Object.values(results).filter((result) => result.status === 'error').length,
     [results]
   )
+  const failedSourceIds = useMemo(
+    () => Object.values(results).filter((result) => result.status === 'error').map((result) => result.source.id),
+    [results]
+  )
 
   const refreshBatch = useCallback(async (batch: string[]): Promise<void> => {
     setLoadingIds((current) => new Set([...current, ...batch]))
@@ -256,16 +259,33 @@ export function HotspotsPage({
     if (!sourceList.length) return
     setRefreshingAll(true)
     const ids = sourceList.map((source) => source.id)
-    try {
-      for (let index = 0; index < ids.length; index += BATCH_SIZE) {
-        await refreshBatch(ids.slice(index, index + BATCH_SIZE))
+    let cursor = 0
+    const worker = async (): Promise<void> => {
+      while (cursor < ids.length) {
+        const id = ids[cursor++]
+        await refreshBatch([id])
       }
+    }
+    try {
+      await Promise.all(Array.from({ length: Math.min(REFRESH_CONCURRENCY, ids.length) }, () => worker()))
     } catch (error) {
       showToast({ type: 'error', message: errorMessage(error) })
     } finally {
       setRefreshingAll(false)
     }
   }, [refreshBatch, showToast])
+
+  const retryFailedSources = useCallback(async (): Promise<void> => {
+    if (!failedSourceIds.length) return
+    setRefreshingAll(true)
+    try {
+      await refreshBatch(failedSourceIds)
+      const remaining = failedSourceIds.length
+      showToast({ type: 'info', message: `已重试 ${remaining} 个失败平台，结果以页面状态为准` })
+    } finally {
+      setRefreshingAll(false)
+    }
+  }, [failedSourceIds, refreshBatch, showToast])
 
   useEffect(() => {
     let disposed = false
@@ -288,7 +308,8 @@ export function HotspotsPage({
         ))
         setFavorites(savedFavorites)
         setBootError(undefined)
-        await refreshAll(orderedSources)
+        const initiallyVisible = orderedSources.filter((source) => !bootstrap.preferences.find((preference) => preference.sourceId === source.id)?.hidden)
+        await refreshAll(initiallyVisible)
       } catch (error) {
         if (!disposed) setBootError(errorMessage(error))
       }
@@ -627,10 +648,18 @@ export function HotspotsPage({
               </button>
               <button
                 className={`button secondary ${weiboConfigured ? '' : 'weibo-login-need'}`}
-                onClick={openWeiboDialog}
-                title="微博热榜需要登录态才能访问"
+                onClick={() => onNavigate('platforms')}
+                title="在平台授权页统一管理微博登录态"
               >
-                <MessageCircleMore size={16} />微博登录{weiboConfigured ? '' : ' · 未配置'}
+                <MessageCircleMore size={16} />微博授权{weiboConfigured ? ' · 已授权' : ' · 未配置'}
+              </button>
+              <button
+                className="button secondary"
+                disabled={refreshingAll || failedSourceIds.length === 0}
+                onClick={() => void retryFailedSources()}
+                title={failedSourceIds.length ? `重试 ${failedSourceIds.length} 个失败平台` : '当前没有失败平台'}
+              >
+                <RotateCcw size={16} className={refreshingAll ? 'spin' : ''} />重试失败平台{failedSourceIds.length ? `（${failedSourceIds.length}）` : ''}
               </button>
               <button
                 className="button primary"
@@ -650,16 +679,6 @@ export function HotspotsPage({
         <button role="tab" aria-selected={view === 'favorites'} onClick={() => setView('favorites')}>收藏夹 <span>{favorites.length}</span></button>
         <button role="tab" aria-selected={view === 'filter'} onClick={() => setView('filter')}>筛选结果 {filterResult && <span>{filterResult.assessments.length}</span>}</button>
       </div>
-
-      {/* 链路引导：收藏热点后可直接带着关键词去生成选题 */}
-      {favorites.length > 0 && (
-        <NextStepBar
-          text={`已收藏 ${favorites.length} 条热点`}
-          actionLabel="去生成选题"
-          icon={<Sparkles size={16} />}
-          onAction={() => onNavigate('topics')}
-        />
-      )}
 
       {view === 'wall' ? (
         <>

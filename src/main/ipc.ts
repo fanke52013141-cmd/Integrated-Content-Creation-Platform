@@ -635,9 +635,9 @@ export function registerIpc(options: {
     return { configured: keyStore.hasWeiboCookie(), updatedAt: meta?.updatedAt }
   })
   handle('hotspots:weibo:save', (_event, raw: unknown) => {
-    const { cookie } = z.object({
-      cookie: z.string().trim().min(1).max(8_000)
-    }).parse(raw)
+    const cookie = typeof raw === 'string'
+      ? z.string().trim().min(1).max(8_000).parse(raw)
+      : z.object({ cookie: z.string().trim().min(1).max(8_000) }).parse(raw).cookie
     keyStore.saveWeiboCookie(cookie)
     const meta = database.getWeiboSessionMeta()
     return { configured: true, updatedAt: meta?.updatedAt }

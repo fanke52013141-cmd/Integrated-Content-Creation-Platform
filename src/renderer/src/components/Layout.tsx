@@ -12,6 +12,7 @@ import {
   Image,
   LoaderCircle,
   LockKeyhole,
+  KeyRound,
   Newspaper,
   PenLine,
   Send,
@@ -50,7 +51,8 @@ const NAV_ICONS: Partial<Record<RouteId, typeof CircleUserRound>> = {
   visuals: Image,
   layouts: Palette,
   publishing: Send,
-  materials: Newspaper
+  materials: Newspaper,
+  platforms: KeyRound
 }
 
 /** 总览入口 */
@@ -66,7 +68,7 @@ const resourceItems = RESOURCE_ROUTES.map((id) => ({
 }))
 
 /** 系统组在侧边栏底部独立渲染，与创作链路分隔 */
-const SYSTEM_ITEMS: RouteId[] = ['data', 'providers', 'prompts']
+const SYSTEM_ITEMS: RouteId[] = ['data', 'providers', 'platforms', 'prompts']
 
 export type { RouteId }
 
@@ -264,6 +266,13 @@ export function Layout({
             {gatewayState && (
               <span className={`gateway-status-dot ${gatewayState.state}`} title={gatewayState.label} aria-label={gatewayState.label} />
             )}
+          </button>
+          <button
+            className={`nav-item ${route === 'platforms' ? 'active' : ''}`}
+            onClick={() => onNavigate('platforms')}
+          >
+            <span className="nav-icon"><KeyRound size={16} /></span>
+            <span>平台授权</span>
           </button>
           <button
             className={`nav-item ${route === 'prompts' ? 'active' : ''}`}

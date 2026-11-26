@@ -51,7 +51,7 @@ describe('排版交付边界', () => {
   it('图片的替代文本和可见图注保留可读内容，不把 Markdown 强调符号当文字', () => {
     const result = renderLayoutMarkdown('# 图片\n\n![**可读图注**](https://example.com/img.png)', 'wechat')
     expect(result.html).toContain('alt="可读图注"')
-    expect(result.html).toMatch(/<span style="[^"]*font-size: 12px[^"]*"><span leaf="">可读图注<\/span><\/span>/)
+    expect(result.html).toMatch(/<span style="[^"]*font-size: 13px[^"]*"><span leaf="">可读图注<\/span><\/span>/)
     expect(result.html).not.toContain('**可读图注**')
   })
 })

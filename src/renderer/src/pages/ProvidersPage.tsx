@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Trash2,
   Unplug,
+  WandSparkles,
   X,
   Zap
 } from 'lucide-react'
@@ -34,6 +35,7 @@ import { useConfirm } from '../components/useConfirm'
 import { Segmented } from '../components/Segmented'
 import { ModalBase } from '../components/ModalBase'
 import { FieldError, useFormErrors } from '../components/useFormErrors'
+import { ProviderSetupWizard } from '../components/ProviderSetupWizard'
 import type { RouteId } from '../components/Layout'
 import { errorMessage, formatDate, formatFullDate, isSafeUrl } from '../lib'
 
@@ -136,6 +138,7 @@ export function ProvidersPage({
   const [draftTesting, setDraftTesting] = useState(false)
   const [draftStatus, setDraftStatus] = useState<{ ok: boolean; message: string }>()
   const [logsOpen, setLogsOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [logsTarget, setLogsTarget] = useState<{ id?: string; name: string }>()
   const [logs, setLogs] = useState<ModelCallLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
@@ -592,19 +595,30 @@ export function ProvidersPage({
         <div>
           <h1>AI 服务</h1>
         </div>
-        <button
-          className="button secondary"
-          onClick={() => void (async () => {
-            if (!(await guardUnsavedForm('新建空白配置'))) return
-            setSelectedId(undefined)
-            const next = emptyForm()
-            setForm(next)
-            setParamsDrafts({})
-            formBaseline.current = JSON.stringify(next)
-          })()}
-        >
-          <Plus size={16} />空白配置
-        </button>
+        <div className="page-intro-actions">
+          <button
+            className="button primary"
+            onClick={() => void (async () => {
+              if (!(await guardUnsavedForm('打开场景式配置'))) return
+              setWizardOpen(true)
+            })()}
+          >
+            <WandSparkles size={16} />场景式配置
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => void (async () => {
+              if (!(await guardUnsavedForm('新建空白配置'))) return
+              setSelectedId(undefined)
+              const next = emptyForm()
+              setForm(next)
+              setParamsDrafts({})
+              formBaseline.current = JSON.stringify(next)
+            })()}
+          >
+            <Plus size={16} />空白配置
+          </button>
+        </div>
       </section>
 
       <section className="provider-layout">
@@ -1080,6 +1094,7 @@ export function ProvidersPage({
           </div>
         </ModalBase>
       )}
+      <ProviderSetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onSaved={onRefresh} showToast={showToast} />
       {ConfirmPortal}
     </div>
   )

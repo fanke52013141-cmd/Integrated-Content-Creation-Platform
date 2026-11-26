@@ -706,7 +706,12 @@ export interface FrameworkTemplate { id: string; name: string; sections: string[
 export interface FrameworkSection { name: string; content: string }
 export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; references: ArtifactReference[] }
 export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number; /** 深度预研：先用搜索模型抓取选题相关公开资料注入框架生成（借鉴 STORM 多视角提问），无搜索配置时自动跳过 */ research?: boolean }
-export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }> }
+export interface FrameworkResearchStatus {
+  status: 'used' | 'skipped' | 'disabled' | 'empty' | 'failed'
+  count: number
+  message: string
+}
+export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }>; research?: FrameworkResearchStatus }
 export interface SaveFrameworkInput { id?: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; sections: FrameworkSection[]; providerId?: string; model?: string }
 export interface SaveFrameworkTemplateInput { id?: string; name: string; sections: string[]; isDefault: boolean }
 
@@ -850,6 +855,8 @@ export interface LayoutThemeInfo {
   suitedFor: ArticleGenre[]
   /** 视觉性格一句话，帮助用户在相似主题间区分 */
   personality: string
+  /** 主题预览底色；仅用于主题画廊，不参与最终排版 */
+  surface?: string
 }
 export interface LayoutStyleConfig {
   bodyFontSize?: number

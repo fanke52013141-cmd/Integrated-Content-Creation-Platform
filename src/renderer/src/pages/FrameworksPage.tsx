@@ -1,11 +1,11 @@
 import { MaterialContextPreview } from '../components/MaterialContextPreview'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Check, ChevronDown, ChevronUp, FilePenLine, FileUp, Layers3, LoaderCircle,
+  AlertTriangle, Check, ChevronDown, ChevronUp, FilePenLine, FileUp, Layers3, LoaderCircle,
   Lock, LockOpen, Pencil, PenLine, Plus, Save, Sparkles, Trash2, WandSparkles, X
 } from 'lucide-react'
 import type {
-  AccountProfileSummary, Framework, FrameworkSection, FrameworkTemplate, Material, ProviderSummary, Topic
+  AccountProfileSummary, Framework, FrameworkResearchStatus, FrameworkSection, FrameworkTemplate, Material, ProviderSummary, Topic
 } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
@@ -54,6 +54,7 @@ export function FrameworksPage({
   // 深度预研默认开启：已配搜索模型时先抓取选题相关公开资料再生成框架，未配置则自动跳过
   const [research, setResearch] = useState(true)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
+  const [lastResearch, setLastResearch] = useState<FrameworkResearchStatus>()
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
   const [manualCreating, setManualCreating] = useState(false)
@@ -64,6 +65,7 @@ export function FrameworksPage({
 
   const models = useMemo(() => availableModels(providers), [providers])
   const accountInitialized = useRef(false)
+  const topicInitialized = useRef(false)
   const [modelTarget, setModelTarget] = useModelTarget(models, undefined, 'framework.generate')
   const usableMaterials = useMemo(() => materials.filter((material) => material.kind !== 'image'), [materials])
   const selectedTemplate = templates.find((template) => template.id === templateId)
@@ -74,7 +76,15 @@ export function FrameworksPage({
       window.moliu.topics.list(), window.moliu.materials.list()
     ])
     setTemplates(nextTemplates); setFrameworks(nextFrameworks); setTopics(nextTopics); setMaterials(nextMaterials)
-    if (focusTopicId && nextTopics.some((t) => t.id === focusTopicId)) setTopicId(focusTopicId)
+    if (focusTopicId && nextTopics.some((t) => t.id === focusTopicId)) {
+      topicInitialized.current = true
+      setTopicId(focusTopicId)
+    } else if (!topicInitialized.current) {
+      const lockedTopic = nextTopics.find((topic) => topic.status === 'locked' && (!currentAccountId || topic.accountIds.includes(currentAccountId)))
+        ?? nextTopics.find((topic) => topic.status === 'locked')
+      topicInitialized.current = true
+      if (lockedTopic) setTopicId(lockedTopic.id)
+    }
     setTemplateId((current) => nextTemplates.some((item) => item.id === current)
       ? current : nextTemplates.find((item) => item.isDefault)?.id ?? nextTemplates[0]?.id ?? '')
     setMaterialIds((current) => new Set([...current].filter((id) => nextMaterials.some((item) => item.id === id && item.kind !== 'image'))))
@@ -110,6 +120,7 @@ export function FrameworksPage({
     if (!templateId) return showToast({ type: 'error', message: '请选择框架模板' })
     if (!topicId && !manualTopic.trim()) return showToast({ type: 'error', message: '请选择选题，或填写框架主题' })
     if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
+    setLastResearch(undefined)
     try {
       const result = await stream.run(() => window.moliu.frameworks.generate({
         templateId, topicId: topicId || undefined, accountId: accountId || undefined,
@@ -118,6 +129,7 @@ export function FrameworksPage({
       }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
       setLastFailed(result.failed)
+      setLastResearch(result.research)
       if (result.failed.length) showToast({ type: 'warning', message: `已生成 ${result.frameworks.length}\u00A0个框架；${result.failed.length}\u00A0个失败` })
       else showToast({ type: 'success', message: `已生成 ${result.frameworks.length}\u00A0个可编辑框架` })
     } catch (error) {
@@ -208,6 +220,12 @@ export function FrameworksPage({
 
     <section className="framework-wall">
       {stream.active && <StreamingPreview progress={stream.progress} content={stream.content} label="正在生成框架…" />}
+      {lastResearch && (
+        <p className={`inline-alert ${lastResearch.status === 'used' ? 'success' : ''}`} role="status">
+          {lastResearch.status === 'used' ? <Check size={16} /> : <AlertTriangle size={16} />}
+          {lastResearch.message}
+        </p>
+      )}
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">上批有 {lastFailed.length} 个未成功：{lastFailed.map((item) => `第 ${item.index} 个 ${item.message.slice(0, 50)}`).join('；')}</p>
       )}

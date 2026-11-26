@@ -6,6 +6,7 @@ import type { ToastState } from '../Toast'
 import { useConfirm } from '../useConfirm'
 import { Select } from '../Select'
 import { LayoutStyleFields } from './LayoutStyleFields'
+import { ThemeGallery } from './ThemeGallery'
 import { layoutPreviewDocument } from './preview-document'
 
 interface EditingLayout {
@@ -48,7 +49,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
   const [active, setActive] = useState<AccountLayoutVersion | null>(null)
   const [versions, setVersions] = useState<AccountLayoutVersion[]>([])
   const [draft, setDraft] = useState<AccountLayoutDraft | null>(null)
-  const [themeId, setThemeId] = useState('wechat-green')
+  const [themeId, setThemeId] = useState('editorial')
   const [styleConfig, setStyleConfig] = useState<LayoutStyleConfig>(DEFAULT_STYLE_CONFIG)
   const [customCss, setCustomCss] = useState('')
   const [baseVersionId, setBaseVersionId] = useState<string | null>(null)
@@ -91,7 +92,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
       setDraft(nextDraft)
       setArticles(nextArticles.filter((article) => article.accountId === accountId))
       const source = nextDraft ?? current
-      const initial: EditingLayout = { themeId: source?.themeId ?? 'wechat-green', styleConfig: normalizeStyleConfig(source?.styleConfig), customCss: source?.customCss ?? '', baseVersionId: nextDraft ? nextDraft.baseVersionId : current?.id ?? null }
+      const initial: EditingLayout = { themeId: source?.themeId ?? 'editorial', styleConfig: normalizeStyleConfig(source?.styleConfig), customCss: source?.customCss ?? '', baseVersionId: nextDraft ? nextDraft.baseVersionId : current?.id ?? null }
       setSaved(initial)
       const local = readWorkingCopy(storageKey)
       if (local && local.revision === (nextDraft?.revision ?? 0)) {
@@ -233,6 +234,7 @@ export function AccountLayoutPanel({ accountId, accountName, showToast, onDirtyC
     <div className="account-layout-designer">
       <div className="panel account-layout-controls">
         <label className="field"><span>基础主题</span><Select ariaLabel="基础主题" value={themeId} disabled={busy} onChange={setThemeId} options={[...(themeId === 'custom' ? [{value:'custom',label:'已有高级 CSS 主题'}] : []), ...themes.map(theme => ({value:theme.id,label:theme.name}))]} /></label>
+        <ThemeGallery themes={themes} value={themeId} onChange={setThemeId} disabled={busy} />
         {customCss && <p className="micro-copy">已保留此版本的高级 CSS；结构化版式包暂不包含这部分规则。</p>}
         <LayoutStyleFields value={styleConfig} onChange={setStyleConfig} disabled={busy} platform="wechat" themes={themes} themeId={themeId} />
         <div className="layout-style-actions"><button className="button ghost compact" disabled={busy} onClick={() => void importPreset()}>导入版式包</button><button className="button ghost compact" disabled={busy || Boolean(customCss) || themeId === 'custom'} title={customCss ? '当前含高级 CSS，暂不支持完整导出' : undefined} onClick={() => void exportPreset()}>导出当前参数</button></div>
