@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "matrixVersion": "1.0.0",
+  "capturedAt": "2026-11-26",
+  "basedOn": {
+    "officialChecker": "verify-article-structure@0.2.30",
+    "spec": "verify-article-structure-spec/verify_article_structure.md",
+    "policy": "Conservative project profile; it does not claim to be a complete official allowlist."
+  },
+  "defaultTarget": "editor-paste",
+  "targets": {
+    "preview": {
+      "description": "Local preview only; external/local images degrade but do not block.",
+      "localImageSeverity": "degrade",
+      "externalImageSeverity": "degrade",
+      "insecureImageSeverity": "degrade"
+    },
+    "editor-paste": {
+      "description": "Paste into the editor; unresolved images degrade so they can be repaired before draft creation.",
+      "localImageSeverity": "degrade",
+      "externalImageSeverity": "degrade",
+      "insecureImageSeverity": "degrade"
+    },
+    "draft": {
+      "description": "Remote draft input; every image URL must be HTTPS and on an explicit host allowlist.",
+      "localImageSeverity": "block",
+      "externalImageSeverity": "block",
+      "insecureImageSeverity": "block"
+    }
+  },
+  "allowedImageHosts": [
+    "mmbiz.qpic.cn",
+    "mmbiz.qlogo.cn",
+    "res.wx.qq.com"
+  ],
+  "dangerousTags": [
+    "script",
+    "iframe",
+    "frame",
+    "frameset",
+    "object",
+    "embed",
+    "applet",
+    "link",
+    "meta",
+    "base",
+    "style",
+    "template",
+    "noscript",
+    "form",
+    "input",
+    "textarea",
+    "select",
+    "option",
+    "button",
+    "foreignobject"
+  ],
+  "dangerousAttributes": [
+    "srcdoc",
+    "formaction"
+  ],
+  "blockLevelTags": [
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "div",
+    "dl",
+    "fieldset",
+    "figure",
+    "figcaption",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "li",
+    "main",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "table",
+    "ul"
+  ],
+  "nodeleafAllowedTags": [
+    "img"
+  ],
+  "urlAttributes": {
+    "href": "link",
+    "xlink:href": "link",
+    "action": "link",
+    "src": "image",
+    "data-src": "image",
+    "data-original": "image",
+    "data-lazy-bgimg": "image",
+    "poster": "image",
+    "background": "image",
+    "srcset": "srcset",
+    "imagesrcset": "srcset"
+  },
+  "officialCheckerGaps": [
+    {
+      "id": "spec-chapter-3-fonts",
+      "status": "implemented-as-degrade",
+      "ruleIds": [
+        "css.font-family"
+      ]
+    },
+    {
+      "id": "spec-2.2-span-leaf",
+      "status": "implemented",
+      "ruleIds": [
+        "structure.leaf-block"
+      ]
+    },
+    {
+      "id": "spec-2.3-section-nodeleaf",
+      "status": "implemented-with-explicit-allowlist",
+      "ruleIds": [
+        "structure.nodeleaf-content"
+      ]
+    },
+    {
+      "id": "redundant-node",
+      "status": "deferred",
+      "reason": "Upstream reserves text and skipped cases only; it is not in the specification or implemented, so v1 does not invent a verdict."
+    }
+  ],
+  "rules": [
+    {
+      "id": "html.dangerous-tag",
+      "category": "html",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Dangerous or non-article tag",
+      "recommendation": "Remove the tag and replace it with article-safe markup."
+    },
+    {
+      "id": "html.event-handler-attribute",
+      "category": "html",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Inline event handlers can execute script",
+      "recommendation": "Remove every on* attribute; interactivity must not rely on JavaScript."
+    },
+    {
+      "id": "html.dangerous-attribute",
+      "category": "html",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Attribute enables embedded or form-controlled content",
+      "recommendation": "Remove the attribute."
+    },
+    {
+      "id": "url.unsafe-scheme",
+      "category": "url",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Unsafe or non-deliverable URL scheme",
+      "recommendation": "Use an HTTPS URL, an anchor, or a project-managed relative link as appropriate."
+    },
+    {
+      "id": "url.degraded-scheme",
+      "category": "url",
+      "severity": "degrade",
+      "officialCoverage": "supplement",
+      "message": "Link scheme may be stripped or behave inconsistently",
+      "recommendation": "Prefer an explicit HTTPS link or a plain-text citation."
+    },
+    {
+      "id": "css.position",
+      "category": "css",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Absolute, fixed, or sticky positioning is disabled by this profile",
+      "recommendation": "Reflow the component with normal document flow and spacing."
+    },
+    {
+      "id": "css.layout",
+      "category": "css",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Grid layout or floated content is disabled by this profile",
+      "recommendation": "Use normal flow, inline-block, flex, or a table where appropriate."
+    },
+    {
+      "id": "css.animation",
+      "category": "css",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Animation, transition, or smooth-scroll motion is disabled by this profile",
+      "recommendation": "Remove motion declarations and provide a stable static presentation."
+    },
+    {
+      "id": "css.variable",
+      "category": "css",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "CSS custom properties or var() are disabled by this profile",
+      "recommendation": "Compile tokens to literal CSS values before delivery."
+    },
+    {
+      "id": "css.dangerous",
+      "category": "css",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Executable or external CSS construct",
+      "recommendation": "Remove expression(), behavior, -moz-binding, and at-rule constructs from inline styles."
+    },
+    {
+      "id": "css.modern-function",
+      "category": "css",
+      "severity": "degrade",
+      "officialCoverage": "supplement",
+      "message": "Modern CSS color function may not survive every WeChat WebView",
+      "recommendation": "Compile to rgb()/rgba() and verify light/dark mode rendering."
+    },
+    {
+      "id": "css.font-family",
+      "category": "css",
+      "severity": "degrade",
+      "officialCoverage": "official-gap",
+      "message": "Custom font-family is discouraged by specification chapter 3",
+      "recommendation": "Remove font-family and inherit the official default font stack."
+    },
+    {
+      "id": "structure.leaf-block",
+      "category": "structure",
+      "severity": "block",
+      "officialCoverage": "official-gap",
+      "message": "span[leaf] contains a block-level descendant",
+      "recommendation": "Keep only text and inline elements such as span, strong, em, a, code, br, and img inside span[leaf]."
+    },
+    {
+      "id": "structure.nodeleaf-content",
+      "category": "structure",
+      "severity": "block",
+      "officialCoverage": "official-gap",
+      "message": "section[nodeleaf] contains content outside the explicit component allowlist",
+      "recommendation": "By default keep only img children; other official components must be explicitly configured after verification."
+    },
+    {
+      "id": "image.data-w",
+      "category": "image",
+      "severity": "degrade",
+      "officialCoverage": "partial-overlap",
+      "message": "Image data-w must be its intrinsic width as a finite positive number",
+      "recommendation": "Set data-w to the source image pixel width, for example data-w=1080."
+    },
+    {
+      "id": "image.source-required",
+      "category": "image",
+      "severity": "block",
+      "officialCoverage": "supplement",
+      "message": "Image has no usable src or data-src",
+      "recommendation": "Provide a real image URL before delivery."
+    },
+    {
+      "id": "image.nonremote",
+      "category": "image",
+      "severity": "degrade",
+      "targetSeverity": {
+        "draft": "block"
+      },
+      "officialCoverage": "supplement",
+      "message": "Local, relative, or otherwise non-remote image source",
+      "recommendation": "Upload the image to WeChat and replace src with the returned HTTPS URL."
+    },
+    {
+      "id": "image.insecure",
+      "category": "image",
+      "severity": "degrade",
+      "targetSeverity": {
+        "draft": "block"
+      },
+      "officialCoverage": "supplement",
+      "message": "Image URL is HTTP or protocol-relative instead of explicit HTTPS",
+      "recommendation": "Use an explicit HTTPS image URL."
+    },
+    {
+      "id": "image.external-host",
+      "category": "image",
+      "severity": "degrade",
+      "targetSeverity": {
+        "draft": "block"
+      },
+      "officialCoverage": "supplement",
+      "message": "Image host is not in the delivery allowlist",
+      "recommendation": "Transfer the image to an allowed WeChat host and replace every src/srcset/CSS url reference."
+    }
+  ]
+}

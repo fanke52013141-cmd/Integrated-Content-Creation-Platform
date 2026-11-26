@@ -1,0 +1,22 @@
+{
+  "name": "@integrated-content/wechat-theme",
+  "version": "1.0.0",
+  "description": "Versioned, deterministic and WeChat-safe original theme compiler",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./tokens/*": "./tokens/*",
+    "./dist/*": "./dist/*"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "devDependencies": {
+    "juice": "12.2.6"
+  }
+}

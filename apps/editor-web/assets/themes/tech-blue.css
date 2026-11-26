@@ -1,0 +1,279 @@
+/*
+ * 科技蓝 (tech-blue)
+ * Theme 1.0.0 · Schema 1.0.0
+ * 以深海军蓝标题、青色信号线、浅蓝信息卡和深色代码台构成清晰的科技叙事。
+ * Original token-driven WeChat theme; deterministic build; no external assets.
+ */
+#output {
+  background-color: #F4F8FF;
+  color: #15253D;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  line-height: 1.85;
+  padding: 4px 0;
+}
+#output h1 {
+  background-color: #0B3B75;
+  border-bottom: 4px solid #08A8C7;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(23, 92, 211, 0.10);
+  color: #FFFFFF;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  margin: 26px 8px;
+  padding: 18px;
+  text-align: left;
+}
+#output h2 {
+  background-color: #175CD3;
+  border-bottom: 2px solid #0B3B75;
+  border-left: 6px solid #08A8C7;
+  border-radius: 4px;
+  color: #FFFFFF;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 26px 8px 12px;
+  padding: 12px 18px;
+}
+#output h3 {
+  background-color: #E8F1FF;
+  border-left: 4px solid #175CD3;
+  color: #0B3B75;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 26px 8px 12px;
+  padding: 10px 12px;
+}
+#output h4,
+#output h5,
+#output h6 {
+  border-bottom: 1px solid #B9D2F5;
+  color: #175CD3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 26px 8px 12px;
+  padding-bottom: 6px;
+}
+#output p {
+  color: #15253D;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1.85;
+  margin: 0 8px 26px;
+}
+#output a {
+  color: #0B3B75;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: #08A8C7;
+  text-underline-offset: 3px;
+}
+#output strong {
+  background-color: #E8F1FF;
+  color: #0B3B75;
+  font-weight: 700;
+  padding: 0 2px;
+}
+#output em {
+  color: #52657D;
+  font-style: italic;
+}
+#output del,
+#output .del {
+  color: #52657D;
+  text-decoration: line-through;
+}
+#output blockquote {
+  background-color: #FFFFFF;
+  border: 1px solid #B9D2F5;
+  border-left: 5px solid #175CD3;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(23, 92, 211, 0.10);
+  margin: 26px 8px;
+  padding: 18px;
+}
+#output blockquote p {
+  color: #52657D;
+  line-height: 1.85;
+  margin: 0;
+}
+#output .markdown-alert,
+#output .wechat-callout {
+  background-color: #E8F1FF;
+  border-left: 4px solid #08A8C7;
+  border-radius: 4px;
+  display: block;
+  margin: 26px 8px;
+  padding: 18px;
+}
+#output .alert-title,
+#output .markdown-alert-title,
+#output .wechat-card-title {
+  color: #0B3B75;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+#output ul,
+#output ol {
+  color: #15253D;
+  line-height: 1.85;
+  margin: 0 8px 26px;
+  padding-left: 26px;
+}
+#output li {
+  margin: 6px 0;
+  padding-left: 4px;
+}
+#output table {
+  background-color: #FFFFFF;
+  border: 1px solid #B9D2F5;
+  border-collapse: collapse;
+  color: #15253D;
+  font-size: 13px;
+  margin: 26px 0;
+  width: 100%;
+}
+#output thead {
+  background-color: #0B3B75;
+  color: #FFFFFF;
+}
+#output th {
+  background-color: #0B3B75;
+  border: 1px solid #0B3B75;
+  color: #FFFFFF;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 12px;
+  text-align: left;
+}
+#output td {
+  background-color: #FFFFFF;
+  border: 1px solid #B9D2F5;
+  line-height: 1.6;
+  padding: 12px;
+  vertical-align: top;
+}
+#output tbody tr:nth-child(even) td {
+  background-color: #E8F1FF;
+}
+#output pre,
+#output pre.code__pre,
+#output .code-block {
+  background-color: #0B1F3A;
+  border-left: 5px solid #08A8C7;
+  border-radius: 8px;
+  color: #DCEBFF;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 26px 8px;
+  overflow-wrap: anywhere;
+  padding: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#output pre code,
+#output pre.code__pre code {
+  background-color: transparent;
+  border: 0;
+  color: inherit;
+  display: block;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  margin: 0;
+  padding: 0;
+  white-space: inherit;
+}
+#output code,
+#output .codespan,
+#output .code-inline {
+  background-color: #E8F1FF;
+  border: 1px solid #B9D2F5;
+  border-radius: 4px;
+  color: #0B3B75;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  padding: 2px 5px;
+}
+#output img {
+  border: 1px solid #B9D2F5;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(23, 92, 211, 0.10);
+  display: block;
+  height: auto;
+  margin: 26px auto;
+  max-width: 100%;
+}
+#output figure {
+  margin: 26px 8px;
+  padding: 0;
+}
+#output figcaption,
+#output .md-figcaption {
+  color: #52657D;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+  text-align: center;
+}
+#output hr {
+  background-color: transparent;
+  border: 0;
+  border-top: 2px solid #175CD3;
+  height: 0;
+  margin: 26px 8px;
+}
+#output .wechat-card {
+  background-color: #FFFFFF;
+  border: 1px solid #B9D2F5;
+  border-radius: 14px;
+  border-top: 4px solid #08A8C7;
+  box-shadow: 0 6px 18px rgba(23, 92, 211, 0.10);
+  margin: 26px 8px;
+  padding: 18px;
+}
+#output .wechat-card-title {
+  border-bottom: 1px solid #B9D2F5;
+  color: #0B3B75;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+#output .wechat-note,
+#output .footnotes {
+  background-color: #E8F1FF;
+  border: 1px dashed #B9D2F5;
+  border-radius: 4px;
+  color: #52657D;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 26px 8px;
+  padding: 12px;
+}
+#output mark,
+#output .markup-highlight {
+  background-color: #CFF4FF;
+  border-radius: 4px;
+  color: #0B3B75;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+#output .markup-underline {
+  color: #0B3B75;
+  text-decoration: underline;
+  text-decoration-color: #175CD3;
+  text-underline-offset: 3px;
+}

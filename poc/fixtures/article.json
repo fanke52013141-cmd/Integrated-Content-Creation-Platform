@@ -1,0 +1,10 @@
+{
+  "article_type": "news",
+  "title": "公众号真实 POC：从 Markdown 到可验证草稿",
+  "author": "内容平台 POC",
+  "digest": "验证标题、列表、代码、表格、图片和链接在微信编辑器中的实际表现。",
+  "content_source_url": "https://developers.weixin.qq.com/doc/service/guide/product/plugin_spec.html",
+  "thumb": "assets/cover-thumb.jpg",
+  "need_open_comment": 0,
+  "only_fans_can_comment": 0
+}

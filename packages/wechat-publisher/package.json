@@ -1,0 +1,17 @@
+{
+  "name": "@integrated-content/wechat-publisher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Recoverable, idempotent WeChat draft delivery state machine. Draft-only; no publish or mass-send API.",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./mock": "./src/mock.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  }
+}

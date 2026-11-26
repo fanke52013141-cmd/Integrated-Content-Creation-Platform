@@ -1,0 +1,10 @@
+<section onclick="evil()" style="--brand:#fff; position:absolute; display:grid; float:left; animation:spin 1s; transition:color .2s; font-family:Roboto; color:color-mix(in srgb, red 50%, blue); background-image:url('https://example.com/bg.png')">
+  <script>alert(1)</script>
+  <a href="java&#10;script:alert(1)" srcdoc="<p>embedded</p>">危险链接</a>
+  <span leaf=""><div>块级后代</div></span>
+  <section nodeleaf=""><span>不允许的组件</span>不允许的文本</section>
+  <img src="assets/local.png" data-w="0" alt="本地图">
+  <img src="http://mmbiz.qpic.cn/a.png" data-w="NaN" alt="HTTP 图">
+  <img src="https://example.com/a.png" srcset="https://example.com/a2.png 2x" data-w="100" alt="外链图">
+  <img data-w="100" alt="缺少地址">
+</section>

@@ -1,0 +1,8 @@
+[submodule "upstream/doocs-md"]
+  path = upstream/doocs-md
+  url = https://github.com/doocs/md.git
+  branch = main
+[submodule "upstream/verify-article-structure-spec"]
+  path = upstream/verify-article-structure-spec
+  url = https://github.com/wechatjs/verify-article-structure-spec.git
+  branch = main

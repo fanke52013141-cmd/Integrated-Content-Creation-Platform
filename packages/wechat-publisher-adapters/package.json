@@ -1,0 +1,16 @@
+{
+  "name": "@integrated-content/wechat-publisher-adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Production/mock adapters for the WeChat draft DeliveryMachine",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "parse5": "7.2.1"
+  }
+}

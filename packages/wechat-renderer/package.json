@@ -1,0 +1,27 @@
+{
+  "name": "@integrated-content/wechat-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable serial Chromium renderer for doocs processClipboardContent output.",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./browser": "./src/browser-render.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:unit": "node --test test/queue.test.mjs test/service.test.mjs",
+    "test:integration": "node --test test/chromium-integration.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "peerDependencies": {
+    "puppeteer": ">=21"
+  },
+  "peerDependenciesMeta": {
+    "puppeteer": {
+      "optional": true
+    }
+  }
+}

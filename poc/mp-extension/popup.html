@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MP JSAPI 人工写入 POC</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="diff.js" defer></script>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>MP JSAPI 人工写入 POC</h1>
+    <p class="warning">真实公众号页面不会自动写入。set_content 会替换全文，请先使用测试草稿。</p>
+    <p id="tab-url" class="muted">正在读取当前标签页……</p>
+    <p id="status" role="status">请人工选择操作。</p>
+
+    <section>
+      <h2>1. 只读操作</h2>
+      <div class="button-row">
+        <button id="detect">检测 JSAPI</button>
+        <button id="backup">读取并备份</button>
+        <button id="readback">读回并比较</button>
+      </div>
+      <pre id="read-output">尚未执行</pre>
+    </section>
+
+    <section>
+      <h2>2. 人工写入</h2>
+      <label for="operation">JSAPI 方法</label>
+      <select id="operation">
+        <option value="set_content">set_content（替换全文）</option>
+        <option value="insert_html">insert_html（插入 HTML）</option>
+      </select>
+      <label for="html">HTML 内容</label>
+      <textarea id="html" rows="6"><section><h2>MP POC 人工写入</h2><p><strong>仅用于测试草稿。</strong></p></section></textarea>
+      <label for="confirmation">输入“写入”确认操作当前页面</label>
+      <input id="confirmation" type="text" autocomplete="off" placeholder="写入">
+      <button id="write" class="danger">备份后执行一次写入并读回</button>
+    </section>
+
+    <section>
+      <h2>3. 备份与差异摘要</h2>
+      <pre id="backup-output">尚无本次备份</pre>
+      <pre id="diff-output">写入或读回后显示文本/DOM 差异</pre>
+    </section>
+  </main>
+</body>
+</html>

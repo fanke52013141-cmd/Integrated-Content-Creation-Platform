@@ -1,0 +1,17 @@
+{
+  "name": "@integrated-content/content-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic Markdown, DOCX and authorized HTML imports with safe normalized documents and content inspection.",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./docx": "./src/docx.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  }
+}

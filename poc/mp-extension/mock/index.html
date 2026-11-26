@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MP JSAPI 本地 Mock</title>
+  <link rel="stylesheet" href="mock.css">
+  <script src="../page-api.js" defer></script>
+  <script src="../diff.js" defer></script>
+  <script src="mock.js" defer></script>
+</head>
+<body data-test-status="not-run">
+  <main>
+    <h1>MP JSAPI 本地 Mock</h1>
+    <p>此页模拟 <code>window.__MP_Editor_JSAPI__</code>，不会访问或写入真实公众号。</p>
+    <label for="api-mode">Mock API 形态</label>
+    <select id="api-mode">
+      <option value="direct">direct / Promise 兼容模式</option>
+      <option value="official">官方 invoke 回调模式（无 direct 方法）</option>
+    </select>
+    <div id="editor" contenteditable="true"><h1>Mock 初始文章</h1><p>这是用于备份、读回和差异比较的<strong>原始内容</strong>。</p></div>
+
+    <section>
+      <h2>人工操作</h2>
+      <div class="buttons">
+        <button id="detect">检测</button>
+        <button id="read">读取</button>
+        <button id="set">人工 set_content</button>
+        <button id="insert">人工 insert_html</button>
+      </div>
+      <label for="payload">写入 HTML</label>
+      <textarea id="payload" rows="4"><section><h2>Mock 人工写入</h2><p>可在编辑器中看到此内容。</p></section></textarea>
+      <pre id="output">尚未执行</pre>
+    </section>
+
+    <section>
+      <h2>自动化测试（只操作此 mock）</h2>
+      <button id="run-tests">运行全部测试</button>
+      <pre id="test-results">尚未运行；也可用 mock/?autorun=1 自动执行。</pre>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "kind": "verify-article-structure/probe",
+  "generatedAt": "2026-11-26T14:23:49.127Z",
+  "durationMs": 1290,
+  "tool": {
+    "name": "verify-article-structure",
+    "version": "0.2.30",
+    "source": "upstream/verify-article-structure-spec/cli",
+    "lockfileVersion": "6.0",
+    "pnpmVersion": "8.15.9"
+  },
+  "runtime": {
+    "node": "v24.21.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "chromium": {
+    "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "source": "cli-argument",
+    "exists": true
+  },
+  "input": {
+    "name": "official embedded probe HTML"
+  },
+  "command": {
+    "executable": "C:\\Users\\Administrator\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin\\node.exe",
+    "args": [
+      "D:\\Program Files (x86)\\Integrated-Content-Creation-Platform\\upstream\\verify-article-structure-spec\\cli\\node_modules\\tsx\\dist\\cli.mjs",
+      "D:\\Program Files (x86)\\Integrated-Content-Creation-Platform\\upstream\\verify-article-structure-spec\\cli\\src\\probe.ts"
+    ],
+    "display": "C:\\Users\\Administrator\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin\\node.exe \"D:\\\\Program Files (x86)\\\\Integrated-Content-Creation-Platform\\\\upstream\\\\verify-article-structure-spec\\\\cli\\\\node_modules\\\\tsx\\\\dist\\\\cli.mjs\" \"D:\\\\Program Files (x86)\\\\Integrated-Content-Creation-Platform\\\\upstream\\\\verify-article-structure-spec\\\\cli\\\\src\\\\probe.ts\"",
+    "cwd": "D:\\Program Files (x86)\\Integrated-Content-Creation-Platform\\upstream\\verify-article-structure-spec\\cli"
+  },
+  "officialExitCode": 0,
+  "exitCode": 0,
+  "outcome": "passed",
+  "spawnError": null,
+  "signal": null,
+  "stdout": "=== 探针启动：验证 puppeteer 注入 bundle 后全规则（含布局类）跑通 ===\n\n[1/3] puppeteer launch + 注入 browser bundle ...\n    ✓ 注入成功，verifyArticleStructure 已返回结果\n\n[2/3] 断言检查 ...\n    ✓ verifyArticleStructure 返回结果不抛错  →  isValid=false\n    ✓ 含 caret-color 违规（收集阶段跑通）  →  inValidKeys=[height-nodisplay, caret-color]\n    ✓ 含 height-nodisplay 违规（布局阶段跑通）  →  items=1\n    ✓ 不含「布局规则跳过」告警  →  warnMsgs=(空)\n\n[3/3] 汇总 ...\n\n✅ 探针通过：puppeteer 注入 + 全规则（含布局类 height-nodisplay）跑通。可铺开 CLI 主体。\n\n",
+  "stderr": "\u001b[1m\u001b[43m\u001b[30m\n  Puppeteer old Headless deprecation warning:\u001b[0m\u001b[33m\n    In the near future `headless: true` will default to the new Headless mode\n    for Chrome instead of the old Headless implementation. For more\n    information, please see https://developer.chrome.com/articles/new-headless/.\n    Consider opting in early by passing `headless: \"new\"` to `puppeteer.launch()`\n    If you encounter any bugs, please report them to https://github.com/puppeteer/puppeteer/issues/new/choose.\u001b[0m\n\n",
+  "knownUncoveredRules": [
+    {
+      "id": "spec-chapter-3-fonts",
+      "scope": "规范第 3 章字体检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "spec-2.2-span-leaf",
+      "scope": "规范第 2.2 节 span[leaf] 结构检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "spec-2.3-section-nodeleaf",
+      "scope": "规范第 2.3 节 section[nodeleaf] 结构检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "redundant-node",
+      "scope": "redundant-node",
+      "reason": "仅预留文案和跳过用例，尚未纳入规范或实现检测。"
+    }
+  ],
+  "recordPath": "D:\\Program Files (x86)\\Integrated-Content-Creation-Platform\\poc\\quality\\results\\official-probe.json"
+}

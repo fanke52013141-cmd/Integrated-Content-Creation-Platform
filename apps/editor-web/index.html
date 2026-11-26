@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="集成内容创作平台的一体化 Markdown 编辑器前端">
+  <title>内容创作工作台 · Integrated Content</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <span id="brand-mark" class="brand-mark">IC</span>
+        <div><strong id="brand-heading">集成内容平台</strong><span>CONTENT STUDIO · M2</span></div>
+      </div>
+      <div class="topbar-status">
+        <span id="backend-badge" class="status-badge pending">正在检测 /api</span>
+        <span id="save-status" class="save-status">尚未保存本地修改</span>
+        <button id="save-now" class="button secondary">保存本地版本</button>
+        <button id="manual-sync" class="button primary" disabled>同步到公众号草稿</button>
+      </div>
+    </header>
+
+    <div id="notice" class="notice" role="status" hidden></div>
+
+    <main class="workspace">
+      <aside class="panel settings-panel" aria-label="文章与品牌设置">
+        <section class="panel-section">
+          <div class="section-heading"><span class="eyebrow">DOCUMENT</span><h2>文章信息</h2></div>
+          <label class="field"><span>标题 <output id="title-count">0/32</output></span><input id="title" type="text" placeholder="文章标题"></label>
+          <div class="field-row">
+            <label class="field"><span>作者 <output id="author-count">0/16</output></span><input id="author" type="text" placeholder="署名"></label>
+            <button id="apply-author" class="icon-button" title="应用品牌默认署名">默认署名</button>
+          </div>
+          <label class="field"><span>摘要 <output id="summary-count">0/120</output></span><textarea id="summary" rows="3" placeholder="用于分享和草稿摘要"></textarea></label>
+          <label class="field"><span>封面 URL</span><input id="cover" type="url" placeholder="https://…（不冒充已上传）"></label>
+          <p class="field-help">此处只记录素材地址；实际上传与替换由真实交付任务处理。</p>
+          <div id="cover-preview" class="cover-preview" hidden><img alt="封面本地预览"></div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading"><span class="eyebrow">VERSIONED THEMES</span><h2>选择主题</h2></div>
+          <div id="theme-list" class="theme-list"></div>
+          <p id="theme-source" class="field-help">正在读取主题元数据…</p>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading"><span class="eyebrow">BRAND KIT</span><h2>品牌设置</h2></div>
+          <label class="field"><span>品牌名称</span><input id="brand-name" type="text"></label>
+          <div class="field-row brand-color-row">
+            <label class="field"><span>界面识别色</span><input id="brand-color" type="color" value="#175CD3"></label>
+            <label class="field"><span>默认作者</span><input id="brand-default-author" type="text"></label>
+          </div>
+          <label class="field"><span>品牌 Logo URL（可选）</span><input id="brand-logo" type="url" placeholder="https://…"></label>
+          <label class="field"><span>禁用词</span><textarea id="brand-blocked-words" rows="2" placeholder="以逗号或换行分隔"></textarea></label>
+          <p class="field-help">禁用词只做本地提醒；识别色用于工作区标识，不改动版本化主题。</p>
+        </section>
+      </aside>
+
+      <section class="editor-stage" aria-label="编辑与预览">
+        <article class="editor-card">
+          <header class="card-header">
+            <div><span class="eyebrow">SOURCE</span><h2>Markdown 源文</h2></div>
+            <span class="outline-badge">源文是唯一主数据</span>
+          </header>
+          <textarea id="markdown" class="markdown-editor" aria-label="Markdown 正文" spellcheck="false"></textarea>
+          <footer class="editor-footer">
+            <span>停止输入后自动保存到当前浏览器</span>
+            <span id="markdown-count">0 字符</span>
+          </footer>
+        </article>
+
+        <article class="preview-card">
+          <header class="card-header preview-header">
+            <div><span class="eyebrow">LIVE PREVIEW</span><h2>排版预览</h2></div>
+            <div class="segmented" role="group" aria-label="预览宽度">
+              <button data-view="mobile" class="active">手机</button>
+              <button data-view="desktop">桌面</button>
+            </div>
+          </header>
+          <p id="render-status" class="render-status">本地轻量预览 · 未执行服务端渲染/微信校验</p>
+          <div class="device-wrap">
+            <div id="device" class="device mobile">
+              <div class="device-top"><span></span><strong>公众号图文预览</strong><span></span></div>
+              <iframe id="preview" title="文章排版预览" sandbox=""></iframe>
+            </div>
+          </div>
+          <details class="quality-details">
+            <summary>渲染与质量结果</summary>
+            <pre id="quality-output">本地模式：未运行服务端渲染、官方检查或真实读回。</pre>
+          </details>
+        </article>
+      </section>
+
+      <aside class="panel ops-panel" aria-label="保存、同步与团队工作区">
+        <section class="panel-section sync-section">
+          <div class="section-heading inline-heading"><div><span class="eyebrow">DRAFT DELIVERY</span><h2>同步状态</h2></div><span id="sync-badge" class="status-badge neutral">未启用</span></div>
+          <label class="field"><span>公众号账号（由服务端返回）</span><select id="account" disabled><option value="">正在读取…</option></select></label>
+          <label class="switch-row"><input id="auto-sync" type="checkbox" disabled><span><strong>本地保存后自动提交</strong><small>终点仅为草稿任务，不发布、不群发</small></span></label>
+          <button id="sync-refresh" class="button secondary full-width" disabled>刷新当前任务状态</button>
+          <pre id="sync-detail" class="detail-box">尚未提交交付任务。只有后端返回的记录才会显示在这里。</pre>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading inline-heading"><div><span class="eyebrow">LOCAL HISTORY</span><h2>本地版本</h2></div><span id="version-count" class="count-badge">0</span></div>
+          <div id="version-list" class="version-list"><p class="empty-state">首次自动保存后生成版本快照。</p></div>
+          <button id="restore-version" class="button secondary full-width" disabled>恢复所选版本</button>
+          <p class="field-help">版本保存在 localStorage，最多 20 份；恢复会生成一个新的本地修改。</p>
+        </section>
+
+        <section class="panel-section team-section">
+          <div class="section-heading"><span class="eyebrow">WORKSPACE</span><h2>评论与审核</h2></div>
+          <p id="workspace-status" class="workspace-note">正在读取团队工作区能力…</p>
+          <label class="field"><span>评论人</span><input id="comment-author" type="text" disabled placeholder="姓名"></label>
+          <label class="field"><span>评论内容</span><textarea id="comment-body" rows="3" disabled placeholder="记录具体修改意见"></textarea></label>
+          <button id="comment-submit" class="button primary full-width" disabled>提交评论到工作区</button>
+          <div id="comment-list" class="comment-list"></div>
+          <div class="review-box"><strong>审核操作</strong><p>当前 /api 未提供审核提交/状态接口，因此不展示伪造的“通过”操作。</p><button id="review-action" class="button secondary full-width" disabled>审核能力待后端提供</button></div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="budget-bar">
+      <div class="budget-title"><strong>发布前预算</strong><span id="budget-source">本地 HTML 估算</span></div>
+      <div class="budget-item"><span>HTML 字符 <strong id="html-budget-text">0 / 20,000</strong></span><div class="meter"><i id="html-budget-meter"></i></div></div>
+      <div class="budget-item"><span>UTF-8 大小 <strong id="byte-budget-text">0 / 1 MB</strong></span><div class="meter"><i id="byte-budget-meter"></i></div></div>
+      <div id="budget-message" class="budget-message">80% 提醒 · 90% 严重提醒 · 达到上限阻断</div>
+    </footer>
+  </div>
+</body>
+</html>

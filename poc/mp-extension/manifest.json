@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "MP JSAPI 人工写入 POC",
+  "version": "0.1.0",
+  "description": "人工触发 MP 编辑器 JSAPI 检测、备份、写入、读回与差异摘要。",
+  "minimum_chrome_version": "111",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "MP JSAPI 人工写入 POC",
+    "default_popup": "popup.html"
+  }
+}

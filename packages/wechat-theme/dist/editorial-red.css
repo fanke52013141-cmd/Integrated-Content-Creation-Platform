@@ -1,0 +1,292 @@
+/*
+ * 编辑红 (editorial-red)
+ * Theme 1.0.0 · Schema 1.0.0
+ * 用朱砂刊头、暖纸底色、金色书腰线与衬线标题形成有节奏的杂志编辑风格。
+ * Original token-driven WeChat theme; deterministic build; no external assets.
+ */
+#output {
+  background-color: #FBF7F0;
+  color: #2C2421;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+  line-height: 1.9;
+  padding: 6px 0;
+}
+#output h1 {
+  background-color: #FFFEFB;
+  border-bottom: 4px double #C63C35;
+  border-top: 4px double #C63C35;
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+  margin: 28px 10px;
+  padding: 20px 12px;
+  text-align: center;
+}
+#output h2 {
+  background-color: #C63C35;
+  border-bottom: 3px solid #B8892D;
+  border-radius: 2px;
+  color: #FFFFFF;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  margin: 28px 10px 12px;
+  padding: 10px 20px;
+  text-align: center;
+}
+#output h3 {
+  background-color: #F5E9DF;
+  border-bottom: 1px solid #B8892D;
+  border-left: 6px solid #C63C35;
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 28px 10px 12px;
+  padding: 10px 12px;
+}
+#output h4,
+#output h5,
+#output h6 {
+  border-bottom: 1px dotted #C63C35;
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 28px 10px 12px;
+  padding-bottom: 7px;
+}
+#output p {
+  color: #2C2421;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0.03em;
+  line-height: 1.9;
+  margin: 0 10px 28px;
+}
+#output a {
+  border-bottom: 1px solid #B8892D;
+  color: #7D211C;
+  font-weight: 600;
+  text-decoration: none;
+}
+#output strong {
+  border-bottom: 2px solid #B8892D;
+  color: #7D211C;
+  font-weight: 700;
+  padding: 0 2px;
+}
+#output em {
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-style: italic;
+}
+#output del,
+#output .del {
+  color: #766A64;
+  text-decoration: line-through;
+}
+#output blockquote {
+  background-color: #F5E9DF;
+  border: 1px solid #E4C9C2;
+  border-left: 8px solid #C63C35;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(125, 33, 28, 0.07);
+  margin: 28px 10px;
+  padding: 20px;
+}
+#output blockquote p {
+  color: #766A64;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  line-height: 1.9;
+  margin: 0;
+}
+#output .markdown-alert,
+#output .wechat-callout {
+  background-color: #FFFEFB;
+  border: 1px solid #B8892D;
+  border-left: 4px solid #B8892D;
+  border-radius: 2px;
+  display: block;
+  margin: 28px 10px;
+  padding: 20px;
+}
+#output .alert-title,
+#output .markdown-alert-title,
+#output .wechat-card-title {
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+#output ul,
+#output ol {
+  color: #2C2421;
+  line-height: 1.9;
+  margin: 0 10px 28px;
+  padding-left: 28px;
+}
+#output li {
+  border-bottom: 1px dotted #E4C9C2;
+  margin: 5px 0;
+  padding: 0 0 5px 5px;
+}
+#output table {
+  background-color: #FFFEFB;
+  border: 2px solid #7D211C;
+  border-collapse: collapse;
+  color: #2C2421;
+  font-size: 13px;
+  margin: 28px 0;
+  width: 100%;
+}
+#output thead {
+  background-color: #7D211C;
+  color: #FFFFFF;
+}
+#output th {
+  background-color: #7D211C;
+  border: 1px solid #F5E9DF;
+  color: #FFFFFF;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  padding: 12px;
+  text-align: left;
+}
+#output td {
+  background-color: #FFFEFB;
+  border: 1px solid #E4C9C2;
+  line-height: 1.65;
+  padding: 12px;
+  vertical-align: top;
+}
+#output tbody tr:nth-child(even) td {
+  background-color: #F5E9DF;
+}
+#output pre,
+#output pre.code__pre,
+#output .code-block {
+  background-color: #2B2424;
+  border-bottom: 4px solid #B8892D;
+  border-left: 5px solid #C63C35;
+  border-radius: 4px;
+  color: #F8E8DF;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.75;
+  margin: 28px 10px;
+  overflow-wrap: anywhere;
+  padding: 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#output pre code,
+#output pre.code__pre code {
+  background-color: transparent;
+  border: 0;
+  color: inherit;
+  display: block;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  margin: 0;
+  padding: 0;
+  white-space: inherit;
+}
+#output code,
+#output .codespan,
+#output .code-inline {
+  background-color: #F5E9DF;
+  border: 1px solid #E4C9C2;
+  border-radius: 2px;
+  color: #7D211C;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+  font-size: 13px;
+  padding: 2px 5px;
+}
+#output img {
+  border: 1px solid #E4C9C2;
+  border-radius: 2px;
+  box-shadow: 0 4px 12px rgba(125, 33, 28, 0.07);
+  display: block;
+  height: auto;
+  margin: 28px auto;
+  max-width: 100%;
+  padding: 4px;
+}
+#output figure {
+  border-bottom: 1px solid #E4C9C2;
+  margin: 28px 10px;
+  padding: 0 0 12px;
+}
+#output figcaption,
+#output .md-figcaption {
+  color: #766A64;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  margin-top: 8px;
+  text-align: center;
+}
+#output hr {
+  background-color: transparent;
+  border: 0;
+  border-top: 4px double #C63C35;
+  height: 0;
+  margin: 28px 10px;
+}
+#output .wechat-card {
+  background-color: #FFFEFB;
+  border: 1px solid #C63C35;
+  border-radius: 6px;
+  border-top: 6px double #C63C35;
+  box-shadow: 0 4px 12px rgba(125, 33, 28, 0.07);
+  margin: 28px 10px;
+  padding: 20px;
+}
+#output .wechat-card-title {
+  border-bottom: 2px solid #B8892D;
+  color: #7D211C;
+  font-family: 'Songti SC', 'STSong', 'SimSun', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+#output .wechat-note,
+#output .footnotes {
+  background-color: #F5E9DF;
+  border: 1px dashed #B8892D;
+  border-radius: 2px;
+  color: #766A64;
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 28px 10px;
+  padding: 12px;
+}
+#output mark,
+#output .markup-highlight {
+  background-color: #F4DFA8;
+  border-bottom: 1px solid #B8892D;
+  border-radius: 2px;
+  color: #2C2421;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+#output .markup-underline {
+  color: #7D211C;
+  text-decoration: underline;
+  text-decoration-color: #C63C35;
+  text-underline-offset: 4px;
+}

@@ -1,0 +1,13 @@
+node_modules/
+.pnpm-store/
+poc/.runtime/
+poc/artifacts/
+upstream/*/node_modules/
+upstream/verify-article-structure-spec/cli/dist/
+poc/quality/.tools/
+apps/*/artifacts/
+packages/*/test-results/
+*.log
+.env
+.env.*
+!.env.example

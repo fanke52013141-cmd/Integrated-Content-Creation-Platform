@@ -1,0 +1,11 @@
+body { margin: 0; color: #17202a; background: #f5f7f9; font: 15px/1.6 system-ui, sans-serif; }
+main { max-width: 900px; margin: 30px auto; padding: 0 18px; }
+section { margin: 18px 0; padding: 16px; background: #fff; border: 1px solid #d8dee4; border-radius: 8px; }
+#editor { min-height: 150px; padding: 20px; background: #fff; border: 2px solid #3b82f6; border-radius: 8px; }
+.buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+button, textarea { font: inherit; }
+button { padding: 7px 12px; cursor: pointer; }
+textarea { box-sizing: border-box; width: 100%; margin: 6px 0; padding: 8px; font-family: Consolas, monospace; }
+pre { padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #101827; color: #d7e2ef; border-radius: 6px; }
+body[data-test-status="passed"] #test-results { background: #087443; color: #fff; }
+body[data-test-status="failed"] #test-results { background: #b42318; color: #fff; }

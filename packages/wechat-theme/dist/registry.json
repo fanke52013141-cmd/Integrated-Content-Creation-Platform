@@ -1,0 +1,23 @@
+[
+  {
+    "id": "editorial-red",
+    "name": "编辑红",
+    "version": "1.0.0",
+    "schemaVersion": "1.0.0",
+    "description": "用朱砂刊头、暖纸底色、金色书腰线与衬线标题形成有节奏的杂志编辑风格。"
+  },
+  {
+    "id": "jade-notes",
+    "name": "翡翠笔记",
+    "version": "1.0.0",
+    "schemaVersion": "1.0.0",
+    "description": "以翡翠边线、嫩叶色标记、圆角手账卡和琥珀注释构建温润而有层次的阅读体验。"
+  },
+  {
+    "id": "tech-blue",
+    "name": "科技蓝",
+    "version": "1.0.0",
+    "schemaVersion": "1.0.0",
+    "description": "以深海军蓝标题、青色信号线、浅蓝信息卡和深色代码台构成清晰的科技叙事。"
+  }
+]

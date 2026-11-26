@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "kind": "verify-article-structure/official-e2e-windows",
+  "generatedAt": "2026-11-26T14:25:18.000Z",
+  "tool": {
+    "name": "verify-article-structure",
+    "version": "0.2.30",
+    "source": "upstream/verify-article-structure-spec/cli",
+    "lockfileVersion": "6.0",
+    "pnpmVersion": "8.15.9"
+  },
+  "runtime": {
+    "node": "v24.21.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "chromium": {
+    "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "source": "PUPPETEER_EXECUTABLE_PATH",
+    "exists": true
+  },
+  "command": {
+    "display": "node poc/quality/.tools/node_modules/pnpm/bin/pnpm.cjs test:e2e",
+    "cwd": "D:\\Program Files (x86)\\Integrated-Content-Creation-Platform\\upstream\\verify-article-structure-spec\\cli"
+  },
+  "officialExitCode": 1,
+  "outcome": "harness-incompatible",
+  "tests": {
+    "total": 6,
+    "failed": 6,
+    "observedInnerExitCode": 2,
+    "enteredBrowser": false
+  },
+  "diagnosis": "tests/cli.test.ts 直接 execFileSync(node_modules/.bin/tsx)。pnpm 在 Windows 同时生成 tsx、tsx.CMD、tsx.ps1；无扩展名 tsx 是 #!/bin/sh POSIX shim，当前 Windows execFileSync 路径不能运行它，因此 6 个用例均在进入 CLI/Chromium 前返回 2。",
+  "notRuleFailure": true,
+  "evidence": [
+    "upstream/verify-article-structure-spec/cli/tests/cli.test.ts:17",
+    "upstream/verify-article-structure-spec/cli/node_modules/.bin/tsx:1"
+  ],
+  "note": "原始官方 probe、违规/干净 fixture 以及本目录 JSON 包装已分别通过；此记录只说明官方 Vitest 启动器的 Windows 兼容限制，不改写为规则回归失败。",
+  "knownUncoveredRules": [
+    {
+      "id": "spec-chapter-3-fonts",
+      "scope": "规范第 3 章字体检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "spec-2.2-span-leaf",
+      "scope": "规范第 2.2 节 span[leaf] 结构检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "spec-2.3-section-nodeleaf",
+      "scope": "规范第 2.3 节 section[nodeleaf] 结构检测",
+      "reason": "上游 cli/README.md 明确说明尚未接入。"
+    },
+    {
+      "id": "redundant-node",
+      "scope": "redundant-node",
+      "reason": "仅预留文案和跳过用例，尚未纳入规范或实现检测。"
+    }
+  ]
+}

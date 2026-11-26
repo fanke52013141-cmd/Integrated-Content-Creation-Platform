@@ -1,0 +1,17 @@
+{
+  "name": "@integrated-content/wechat-quality",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Versioned WeChat HTML compatibility matrix and standalone linter",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "lint": "node cli.mjs"
+  },
+  "dependencies": {
+    "parse5": "7.2.1"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "integrated-content-creation-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "dev:setup": "git submodule update --init --recursive && node scripts/setup-upstream.mjs && pnpm install && pnpm --dir upstream/doocs-md install",
+    "dev:server": "pnpm --dir upstream/doocs-md web dev --host 127.0.0.1 --port 5173",
+    "dev:platform": "node scripts/start-platform.mjs",
+    "poc:render": "node poc/scripts/render.mjs",
+    "themes:render": "node poc/scripts/render-themes.mjs",
+    "themes:capture": "node poc/scripts/capture-previews.mjs",
+    "themes:live": "node poc/scripts/validate-themes-live.mjs",
+    "poc:inspect": "node poc/server/cli.mjs inspect",
+    "poc:check": "node poc/quality/verify.mjs poc/artifacts/article-fragment.html --out=poc/quality/results/main-article.json",
+    "poc:mock-draft": "node poc/server/cli.mjs mock-draft",
+    "poc:draft": "node poc/server/cli.mjs draft",
+    "poc:mp:test": "node --test poc/mp-extension/test/background.test.js",
+    "poc:mp:detect": "node poc/scripts/mp-live.mjs detect",
+    "poc:mp:read": "node poc/scripts/mp-live.mjs read",
+    "poc:mp:write": "node poc/scripts/mp-live.mjs write",
+    "poc:test": "node --test poc/server/*.test.mjs poc/scripts/*.test.mjs",
+    "test:packages": "node scripts/test-packages.mjs",
+    "test": "pnpm test:packages && pnpm poc:test && pnpm poc:mp:test"
+  }
+}

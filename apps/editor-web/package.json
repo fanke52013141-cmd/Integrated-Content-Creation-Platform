@@ -1,0 +1,17 @@
+{
+  "name": "@integrated-content/editor-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "sync:themes": "node scripts/sync-themes.mjs",
+    "check": "node --check app.js && node --check server.mjs",
+    "test": "node scripts/sync-themes.mjs && node --test tests/*.test.js",
+    "test:browser": "node tests/browser-smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  }
+}

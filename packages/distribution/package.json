@@ -1,0 +1,18 @@
+{
+  "name": "@integrated-content/distribution",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Draft-first multi-channel distribution adapters with explicit capabilities, durable receipts and reconciliation.",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./adapters": "./src/adapters/index.mjs",
+    "./mock": "./src/adapters/contract-mock.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.22.2"
+  }
+}
