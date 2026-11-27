@@ -283,8 +283,8 @@ export function Select({
                         onClick={() => selectOption(option)}
                         onMouseMove={() => setActiveIndex(index)}
                       >
-                        <span className="select-option-label">{option.label}</span>
-                        {option.hint && <span className="select-option-hint">{option.hint}</span>}
+                        <span className="select-option-label" title={option.label}>{option.label}</span>
+                        {option.hint && <span className="select-option-hint" title={option.hint}>{option.hint}</span>}
                         {isSelected && <Check size={16} className="select-option-check" />}
                       </li>
                     )

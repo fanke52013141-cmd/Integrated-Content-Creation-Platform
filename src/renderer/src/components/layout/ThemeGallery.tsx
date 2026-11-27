@@ -18,7 +18,7 @@ export function ThemeGallery({ themes, value, onChange, disabled = false }: {
   return (
     <section className="theme-gallery" aria-label="排版主题画廊">
       <header>
-        <div><strong>主题画廊</strong><span>先看气质，再选主题；点击即可应用</span></div>
+        <div><strong>主题画廊</strong><span>点击应用</span></div>
         <label className="search-field"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索主题…" aria-label="搜索排版主题" /></label>
       </header>
       <div className="theme-gallery-list">
@@ -33,12 +33,12 @@ export function ThemeGallery({ themes, value, onChange, disabled = false }: {
             style={{ '--theme-accent': theme.accent, '--theme-surface': theme.surface ?? '#ffffff' } as React.CSSProperties}
           >
             <span className="theme-preview" aria-hidden="true">
-              <span className="theme-preview-eyebrow">FEATURE / 01</span>
-              <strong>让标题层级更清晰</strong>
+              <span className="theme-preview-eyebrow" />
+              <strong>Aa</strong>
               <span className="theme-preview-rule" />
               <span className="theme-preview-line" />
               <span className="theme-preview-line short" />
-              <span className="theme-preview-quote">引用、强调与留白</span>
+              <span className="theme-preview-quote" />
             </span>
             <span className="theme-card-copy"><strong>{theme.name}</strong><small>{theme.description}</small></span>
           </button>

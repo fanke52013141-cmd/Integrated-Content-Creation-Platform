@@ -28,6 +28,7 @@
     "test:layout-themes": "npm run build && node scripts/smoke-layout-themes.mjs",
     "test:provider-wizard": "npm run build && node scripts/smoke-provider-wizard.mjs",
     "test:ux-fixes": "npm run build && node scripts/smoke-ux-fixes.mjs",
+    "test:imports": "node node_modules/vitest/vitest.mjs run tests/content-import.test.ts tests/import-templates.test.ts",
     "test:smokes": "npm run build && node scripts/run-all-smokes.mjs",
     "test:live": "node scripts/live-provider-smoke.mjs",
     "test:live-configured": "node scripts/live-configured-services.mjs",

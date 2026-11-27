@@ -1048,7 +1048,7 @@ export function registerIpc(options: {
   // 发布相关 IPC 由独立模块注册（远端提交已重构为 registerPublishingIpc）
   registerPublishingIpc(handle, database, keyStore, wechatPublishService)
   // 外部内容导入：文件读取与解析留在主进程，renderer 只拿预览与结果
-  registerImportsIpc(handle, new ContentImportService(database))
+  registerImportsIpc(handle, new ContentImportService(database, visualAssets))
   handle('layouts:preview-sample',(_e,raw:unknown)=>{
     const input=z.object({platform:z.enum(['wechat','xiaohongshu','web']),themeId:z.string().trim().min(1).max(60).optional(),customCss:z.string().max(20_000).optional(),styleConfig:layoutStyleConfigSchema.optional()}).parse(raw)
     if(input.themeId&&input.themeId!=='custom'&&!listLayoutThemes().some((theme)=>theme.id===input.themeId))throw new Error('排版主题不存在')

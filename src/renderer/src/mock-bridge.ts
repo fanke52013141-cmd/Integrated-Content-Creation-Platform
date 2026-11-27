@@ -295,6 +295,7 @@ function createMockBridge(): MoliuApi {
       pickFile: () => Promise.resolve(null),
       preview: () => Promise.reject(new Error('浏览器预览不支持文件导入，请在桌面应用中使用')),
       commit: () => Promise.reject(new Error('浏览器预览不支持文件导入，请在桌面应用中使用')),
+      downloadTemplate: (): Promise<LocalFileResult> => Promise.resolve({ path: null }),
       export: (): Promise<LocalFileResult> => Promise.resolve({ path: null })
     },
     clipboard: {

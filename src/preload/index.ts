@@ -57,6 +57,7 @@ const api: MoliuApi = {
     pickFile: (input) => ipcRenderer.invoke('imports:pick', input),
     preview: (input) => ipcRenderer.invoke('imports:preview', input),
     commit: (input) => ipcRenderer.invoke('imports:commit', input),
+    downloadTemplate: (input) => ipcRenderer.invoke('imports:download-template', input),
     export: (input) => ipcRenderer.invoke('imports:export', input)
   },
   clipboard: {

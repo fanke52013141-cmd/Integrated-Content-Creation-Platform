@@ -1067,6 +1067,8 @@ export interface ContentImportPreviewItem {
   reviewProblems?: Array<{ position: string; severity: ReviewSeverity; issue: string; suggestion: string }>
   /** 配图：整套配图方案 */
   visualPlan?: { cover: VisualPack['cover']; inlineImages: VisualPack['inlineImages']; releaseImages: VisualPack['releaseImages'] }
+  /** 配图表格中实际待导入的图片数量（不把二进制内容传到 renderer） */
+  visualAssetCount?: number
   /** 排版：外部 HTML 排版稿 */
   layout?: { title: string; html: string; plainText: string }
   /** 同来源已存在时，指向已有条目 */
@@ -1128,6 +1130,8 @@ export interface MoliuApi {
     preview(input: { kind: ContentImportKind; filePath?: string; content?: string; fileName?: string; format?: ContentImportFormat }): Promise<ContentImportPreview>
     /** 确认预览并落库；默认新建条目，不覆盖已有内容 */
     commit(input: ContentImportCommitInput): Promise<ContentImportResult>
+    /** 下载当前阶段的标准 CSV / HTML / JSON 导入模板 */
+    downloadTemplate(input: { kind: ContentImportKind }): Promise<LocalFileResult>
     /** 导出当前阶段的 JSON / Markdown；ids 省略时导出全部 */
     export(input: { kind: ContentImportKind; format: 'json' | 'markdown'; ids?: string[] }): Promise<LocalFileResult>
   }

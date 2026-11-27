@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, stat, writeFile } from 'node:fs/promises'
-import { basename, extname, resolve } from 'node:path'
+import { basename, dirname, extname, isAbsolute, relative, resolve } from 'node:path'
+import { importTemplateDefinition } from './import-templates.js'
+import type { VisualAssetService } from './visual-asset-service.js'
 import mammoth from 'mammoth'
 import type {
   ContentImportCommitInput,
@@ -27,6 +29,14 @@ const MAX_CONTENT_CHARS = 1_000_000
 const MAX_ITEMS = 500
 const PREVIEW_TTL_MS = 15 * 60 * 1000
 
+export interface ParsedImportVisualAsset {
+  kind: 'cover' | 'inline' | 'release'
+  slot: number
+  prompt: string
+  fileName: string
+  data: Uint8Array
+}
+
 export interface ParsedImportItem {
   title: string
   fields?: Record<string, string>
@@ -35,6 +45,7 @@ export interface ParsedImportItem {
   hotItem?: HotItem
   reviewProblems?: Array<{ position: string; severity: ReviewSeverity; issue: string; suggestion: string }>
   visualPlan?: { cover: VisualPack['cover']; inlineImages: VisualPack['inlineImages']; releaseImages: VisualPack['releaseImages'] }
+  visualAssets?: ParsedImportVisualAsset[]
   layout?: { title: string; html: string; plainText: string }
   prompt?: { key: string; content: string; note: string; modelBinding?: import('../../shared/contracts.js').PromptModelBinding | null }
   warnings: string[]
@@ -57,15 +68,15 @@ interface CachedPreview {
 }
 
 const KIND_FORMATS: Record<ContentImportKind, ContentImportFormat[]> = {
-  account: ['markdown', 'json', 'text'],
+  account: ['csv', 'markdown', 'json', 'text'],
   'hot-item': ['json', 'csv', 'text'],
-  topic: ['markdown', 'json', 'csv', 'text'],
-  framework: ['markdown', 'json', 'text'],
-  article: ['markdown', 'json', 'docx', 'html', 'text'],
+  topic: ['csv', 'markdown', 'json', 'text'],
+  framework: ['csv', 'markdown', 'json', 'text'],
+  article: ['csv', 'markdown', 'json', 'docx', 'html', 'text'],
   review: ['markdown', 'json', 'csv', 'text'],
-  'visual-plan': ['json'],
+  'visual-plan': ['csv', 'json'],
   layout: ['html', 'json'],
-  'publish-form': ['json'],
+  'publish-form': ['csv', 'json'],
   prompt: ['json']
 }
 
@@ -234,6 +245,17 @@ export function parseTopicJson(content: string): ParsedImportItem[] {
   return items
 }
 
+function csvRecords(content: string): Array<Record<string, string>> {
+  const rows = parseCsv(content)
+  if (!rows.length) return []
+  const header = rows[0].map((cell) => cell.trim())
+  return rows.slice(1).slice(0, MAX_ITEMS).map((cells) => Object.fromEntries(header.map((name, index) => [name, cells[index]?.trim() ?? '']).filter(([name]) => Boolean(name))))
+}
+
+function fieldValueCsv(content: string): Record<string, string> {
+  return Object.fromEntries(csvRecords(content).map((row) => [row['字段名称'] || row['字段'] || row['名称'], row['字段内容'] || row['内容'] || row['值'] || '']).filter(([name]) => Boolean(name)))
+}
+
 export function parseTopicCsv(content: string): ParsedImportItem[] {
   const rows = parseCsv(content)
   if (!rows.length) return []
@@ -254,6 +276,20 @@ export function parseTopicCsv(content: string): ParsedImportItem[] {
     if (!fields['选题主题'] && title) fields['选题主题'] = title
     return { title: itemTitle(title, '未命名选题'), fields, warnings: [] }
   }).filter((item) => item.title)
+}
+
+export function parseFrameworkCsv(content: string): ParsedImportItem[] {
+  const groups = new Map<string, FrameworkSection[]>()
+  for (const row of csvRecords(content)) {
+    const title = (row['框架主题'] || row['主题'] || row['标题'] || '').trim()
+    const name = (row['章节名称'] || row['章节'] || '').trim()
+    const sectionContent = (row['章节内容'] || row['内容'] || row['正文'] || '').trim()
+    const key = title || name || '未命名框架'
+    const sections = groups.get(key) ?? []
+    if (name) sections.push({ name, content: sectionContent })
+    groups.set(key, sections)
+  }
+  return [...groups.entries()].filter(([, sections]) => sections.length > 0).map(([title, sections]) => ({ title, sections, warnings: [] }))
 }
 
 export function parseFrameworkJson(content: string): ParsedImportItem[] {
@@ -333,6 +369,21 @@ export function parseArticleJson(content: string): ParsedImportItem[] {
   return items
 }
 
+export function parseArticleCsv(content: string): ParsedImportItem[] {
+  const items: ParsedImportItem[] = []
+  for (const row of csvRecords(content)) {
+    const title = (row['标题'] || row['文章标题'] || '').trim()
+    const markdown = normalizeText(row['正文'] || row['文章内容'] || row['Markdown'] || row['markdown'] || row['内容'] || '')
+    if (!markdown) continue
+    items.push({
+      title: itemTitle(title || markdown.match(/^#\s+(.+)$/m)?.[1] || '未命名文章', '未命名文章'),
+      rawMarkdown: markdown.startsWith('#') || !title ? markdown : `# ${title}\n\n${markdown}`,
+      warnings: []
+    })
+  }
+  return items
+}
+
 export function parseArticleMarkdown(content: string): ParsedImportItem[] {
   const markdown = normalizeText(content)
   if (!markdown) return []
@@ -353,6 +404,8 @@ export function parseAccountContent(content: string, format: ContentImportFormat
     const nested = record.fields && typeof record.fields === 'object' ? record.fields as Record<string, unknown> : {}
     Object.assign(fields, normalizeFields(record), normalizeFields(nested))
     delete fields.fields
+  } else if (format === 'csv') {
+    Object.assign(fields, fieldValueCsv(content))
   } else {
     for (const line of normalizeText(content).split('\n')) {
       const match = line.match(/^\s*(?:[-*]\s*)?([^：:]{1,40})[：:]\s*(.+?)\s*$/)
@@ -481,7 +534,68 @@ function parseReviewContent(content: string, format: ContentImportFormat): Parse
   return [{ title: `外部评审 · ${problems.length} 条问题`, reviewProblems: problems, warnings: [] }]
 }
 
-function parseVisualPlanContent(content: string): ParsedImportItem[] {
+async function readImageReference(reference: string, baseDir?: string): Promise<{ fileName: string; data: Uint8Array }> {
+  const value = reference.trim()
+  if (!value) throw new Error('图片路径或网址为空')
+  if (/^https?:\/\//i.test(value)) {
+    const response = await fetch(value, { signal: AbortSignal.timeout(20_000), redirect: 'follow' })
+    if (!response.ok) throw new Error(`图片下载失败（HTTP ${response.status}）：${value}`)
+    const declaredSize = Number(response.headers.get('content-length') ?? 0)
+    if (declaredSize > 10 * 1024 * 1024) throw new Error('远程图片超过 10MB，请压缩后再导入')
+    const data = new Uint8Array(await response.arrayBuffer())
+    if (data.length > 10 * 1024 * 1024) throw new Error('远程图片超过 10MB，请压缩后再导入')
+    const name = basename(new URL(value).pathname) || 'remote-image.png'
+    return { fileName: name, data }
+  }
+  if (!baseDir) throw new Error('本地图片请通过「选择文件」导入 CSV 表格，并确保图片与表格位于同一目录或其子目录')
+  if (isAbsolute(value)) throw new Error('本地图片请填写相对于 CSV 表格的路径，不要填写绝对路径')
+  const root = resolve(baseDir)
+  const filePath = resolve(root, value)
+  const relation = relative(root, filePath)
+  if (relation.startsWith('..') || isAbsolute(relation)) throw new Error('本地图片只能位于 CSV 表格同目录或子目录')
+  const ext = extname(filePath).toLowerCase()
+  if (!['.png', '.jpg', '.jpeg'].includes(ext)) throw new Error('图片仅支持 PNG / JPG / JPEG')
+  const info = await stat(filePath)
+  if (info.size > 10 * 1024 * 1024) throw new Error('图片超过 10MB，请压缩后再导入')
+  return { fileName: basename(filePath), data: await readFile(filePath) }
+}
+
+function visualKind(value: string): 'cover' | 'inline' | 'release' {
+  const kind = value.trim().toLowerCase()
+  if (kind === 'cover' || value === '封面') return 'cover'
+  if (kind === 'release' || value === '发布图') return 'release'
+  return 'inline'
+}
+
+async function parseVisualPlanContent(content: string, format: ContentImportFormat, baseDir?: string): Promise<ParsedImportItem[]> {
+  if (format === 'csv') {
+    const inlineImages: VisualPack['inlineImages'] = []
+    const releaseImages: VisualPack['releaseImages'] = []
+    const visualAssets: ParsedImportVisualAsset[] = []
+    let cover: VisualPack['cover'] = { visual: '外部封面方案', prompt: '', overlayText: '' }
+    for (const row of csvRecords(content)) {
+      const kind = visualKind(row['图片类型'] || row['类型'] || '')
+      const reference = (row['图片路径或网址'] || row['图片路径'] || row['图片网址'] || '').trim()
+      const prompt = (row['提示词'] || (reference ? '外部导入图片' : '')).trim()
+      const location = (row['位置'] || '').trim()
+      const purpose = (row['用途'] || '外部导入').trim()
+      const ratio = (row['比例'] || (kind === 'cover' || kind === 'release' ? '21:9' : '16:9')).trim()
+      const alt = (row['替代文本'] || row['图注'] || '').trim()
+      if (kind === 'cover') {
+        cover = { visual: purpose || '外部封面方案', prompt, overlayText: (row['封面文案'] || '').trim() }
+      } else {
+        const image = { location: location || purpose, purpose, ratio, prompt, alt }
+        if (kind === 'release') releaseImages.push(image)
+        else inlineImages.push(image)
+      }
+      if (reference) {
+        const file = await readImageReference(reference, baseDir)
+        visualAssets.push({ kind, slot: kind === 'cover' ? 0 : kind === 'inline' ? inlineImages.length - 1 : releaseImages.length - 1, prompt, ...file })
+      }
+    }
+    if (!cover.prompt && !inlineImages.length && !releaseImages.length && !visualAssets.length) return []
+    return [{ title: '外部配图方案', visualPlan: { cover, inlineImages, releaseImages }, visualAssets, warnings: visualAssets.length ? [`将同时导入 ${visualAssets.length} 张图片到当前文章的配图资源`] : [] }]
+  }
   const parsed = JSON.parse(content) as unknown
   const root = Array.isArray(parsed) ? parsed[0] : parsed
   if (!root || typeof root !== 'object') return []
@@ -502,12 +616,15 @@ function parseVisualPlanContent(content: string): ParsedImportItem[] {
   }]
 }
 
-function parsePublishFormContent(content: string): ParsedImportItem[] {
-  const parsed = JSON.parse(content) as unknown
-  const root = Array.isArray(parsed) ? parsed[0] : parsed
-  if (!root || typeof root !== 'object') return []
-  const record = root as Record<string, unknown>
-  const fields = normalizeFields(record)
+function parsePublishFormContent(content: string, format: ContentImportFormat): ParsedImportItem[] {
+  const record = format === 'csv'
+    ? fieldValueCsv(content)
+    : (() => {
+        const parsed = JSON.parse(content) as unknown
+        const root = Array.isArray(parsed) ? parsed[0] : parsed
+        return root && typeof root === 'object' ? normalizeFields(root as Record<string, unknown>) : {}
+      })()
+  const fields = { ...record }
   delete fields.articleId
   delete fields.layoutId
   if (!fields.author && !fields.digest && !fields.contentSourceUrl) return []
@@ -591,14 +708,12 @@ export function detectPasteFormat(kind: ContentImportKind, content: string): Con
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) return 'json'
   if (kind === 'visual-plan' || kind === 'publish-form' || kind === 'prompt') return 'json'
   if (kind === 'layout') return trimmed.startsWith('<') ? 'html' : 'json'
-  if (kind === 'topic' || kind === 'hot-item' || kind === 'review') {
-    const firstLines = trimmed.split('\n').slice(0, 2)
-    if (firstLines.length === 2 && firstLines[0].includes(',') && firstLines[1].includes(',')) return 'csv'
-  }
+  const firstLines = trimmed.split('\n').slice(0, 2)
+  if (firstLines.length === 2 && firstLines[0].includes(',') && firstLines[1].includes(',')) return 'csv'
   return 'markdown'
 }
 
-function parseBatch(kind: ContentImportKind, format: ContentImportFormat, content: string, source: ContentImportSource): ParsedImportBatch {
+async function parseBatch(kind: ContentImportKind, format: ContentImportFormat, content: string, source: ContentImportSource, baseDir?: string): Promise<ParsedImportBatch> {
   try {
     let items: ParsedImportItem[] = []
     if (kind === 'account') {
@@ -611,20 +726,22 @@ function parseBatch(kind: ContentImportKind, format: ContentImportFormat, conten
       else items = markdownTopicItems(content)
     } else if (kind === 'framework') {
       if (format === 'json') items = parseFrameworkJson(content)
+      else if (format === 'csv') items = parseFrameworkCsv(content)
       else items = parseFrameworkMarkdown(content)
     } else if (kind === 'article') {
       if (format === 'json') items = parseArticleJson(content)
+      else if (format === 'csv') items = parseArticleCsv(content)
       else items = parseArticleMarkdown(content)
     } else if (kind === 'review') {
       items = parseReviewContent(content, format)
     } else if (kind === 'visual-plan') {
-      items = parseVisualPlanContent(content)
+      items = await parseVisualPlanContent(content, format, baseDir)
     } else if (kind === 'layout') {
       items = parseLayoutContent(content, format)
     } else if (kind === 'prompt') {
       items = parsePromptContent(content)
     } else {
-      items = parsePublishFormContent(content)
+      items = parsePublishFormContent(content, format)
     }
     const errors: string[] = []
     if (!items.length) errors.push(`没有解析到可导入的${KIND_LABEL[kind]}内容`)
@@ -646,7 +763,20 @@ export class ContentImportService {
   /** 只允许预览用户刚通过主进程文件框选中的路径，避免 renderer 借导入接口读任意文件。 */
   private pickedFiles = new Set<string>()
 
-  constructor(private readonly database: AppDatabase) {}
+  constructor(private readonly database: AppDatabase, private readonly visualAssets?: VisualAssetService) {}
+
+  async downloadTemplate(kind: ContentImportKind): Promise<LocalFileResult> {
+    const template = importTemplateDefinition(kind)
+    const { dialog } = await import('electron')
+    const result = await dialog.showSaveDialog({
+      title: `下载${KIND_LABEL[kind]}标准导入模板`,
+      defaultPath: template.fileName,
+      filters: [{ name: '标准导入模板', extensions: [template.fileName.split('.').pop() ?? 'csv'] }]
+    })
+    if (result.canceled || !result.filePath) return { path: null }
+    await writeFile(result.filePath, template.content, 'utf8')
+    return { path: result.filePath }
+  }
 
   private cleanup(): void {
     const now = Date.now()
@@ -716,7 +846,7 @@ export class ContentImportService {
       fileName,
       importedAt: new Date().toISOString()
     }
-    const batch = parseBatch(input.kind, format, content, source)
+    const batch = await parseBatch(input.kind, format, content, source, input.filePath ? dirname(resolve(input.filePath)) : undefined)
     if (docxWarning) batch.warnings.push(docxWarning)
     for (const item of batch.items) {
       if (!item.externalId) {
@@ -748,6 +878,7 @@ export class ContentImportService {
         hotItem: item.hotItem,
         reviewProblems: item.reviewProblems,
         visualPlan: item.visualPlan,
+        visualAssetCount: item.visualAssets?.length ?? 0,
         layout: item.layout,
         existing: item.existing,
         externalId: item.externalId,
@@ -953,6 +1084,14 @@ export class ContentImportService {
             contentHash, source: { title: item.title }
           })
           created.push({ id: saved.id, title: item.title, versionId: saved.articleVersionId })
+          if (item.visualAssets?.length) {
+            if (!this.visualAssets) throw new Error('当前环境未启用图片资产服务，无法导入实际图片')
+            for (const asset of item.visualAssets) {
+              const bytes = asset.data
+              const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+              await this.visualAssets.importFromData({ packId: saved.id, kind: asset.kind, slot: asset.slot, prompt: asset.prompt, fileName: asset.fileName, data })
+            }
+          }
         } else if (batch.kind === 'layout') {
           if (!associations.articleId) throw new Error('导入排版稿前请先选择一篇文章')
           if (!item.layout) throw new Error('没有可导入的排版稿')

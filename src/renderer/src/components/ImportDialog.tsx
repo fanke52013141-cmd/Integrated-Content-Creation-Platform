@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, FileUp, LoaderCircle, Upload, X } from 'lucide-react'
+import { AlertTriangle, FileDown, FileUp, LoaderCircle, Upload, X } from 'lucide-react'
 import type {
   ContentImportAssociations,
   ContentImportFormat,
@@ -15,39 +15,42 @@ import type { ToastState } from './Toast'
 
 const FORMAT_OPTIONS: Record<ContentImportKind, Array<{ value: ContentImportFormat; label: string }>> = {
   account: [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: '字段文本（字段：值）' },
     { value: 'json', label: 'JSON' }
   ],
   'hot-item': [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: '一行一条' },
-    { value: 'json', label: 'JSON' },
-    { value: 'csv', label: 'CSV' }
+    { value: 'json', label: 'JSON' }
   ],
   topic: [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: 'Markdown 列表' },
-    { value: 'json', label: 'JSON' },
-    { value: 'csv', label: 'CSV' }
+    { value: 'json', label: 'JSON' }
   ],
   framework: [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: 'Markdown 标题' },
     { value: 'json', label: 'JSON' }
   ],
   article: [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: 'Markdown' },
     { value: 'json', label: 'JSON' },
     { value: 'html', label: 'HTML（会转成 Markdown）' }
   ],
   review: [
+    { value: 'csv', label: 'CSV 标准表格' },
     { value: 'markdown', label: '一行一条' },
-    { value: 'json', label: 'JSON' },
-    { value: 'csv', label: 'CSV' }
+    { value: 'json', label: 'JSON' }
   ],
-  'visual-plan': [{ value: 'json', label: 'JSON 方案' }],
+  'visual-plan': [{ value: 'csv', label: 'CSV 图片与配图方案' }, { value: 'json', label: 'JSON 方案' }],
   layout: [
     { value: 'html', label: 'HTML（保留结构/内联样式）' },
     { value: 'json', label: 'JSON（title + html）' }
   ],
-  'publish-form': [{ value: 'json', label: 'JSON 交付信息' }],
+  'publish-form': [{ value: 'csv', label: 'CSV 标准表格' }, { value: 'json', label: 'JSON 交付信息' }],
   prompt: [{ value: 'json', label: 'JSON 提示词' }]
 }
 
@@ -153,6 +156,21 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
     }
   }
 
+  async function downloadTemplate(): Promise<void> {
+    setBusy(true)
+    setError('')
+    try {
+      const result = await window.moliu.imports.downloadTemplate({ kind })
+      showToast(result.path
+        ? { type: 'success', message: `标准模板已下载：${result.path}` }
+        : { type: 'info', message: '已取消下载模板' })
+    } catch (reason) {
+      setError(errorMessage(reason))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function commit(): Promise<void> {
     if (!preview) return
     if (preview.errors.length || !preview.items.length) return
@@ -187,6 +205,11 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
       </header>
 
       <div className="import-dialog-body">
+        <div className="import-template-bar">
+          <span>标准表格已带表头与示例。</span>
+          <button className="button ghost compact" disabled={busy} onClick={() => void downloadTemplate()}><FileDown size={16} />下载标准模板</button>
+        </div>
+        {kind === 'visual-plan' && <p className="form-hint">本地图片放在 CSV 表格同目录或子目录，表格中填写相对路径；也可填写公网图片地址。</p>}
         <div className="segmented import-source-tabs" role="tablist" aria-label="导入方式">
           <button role="tab" aria-selected={mode === 'file'} className={mode === 'file' ? 'active' : ''} onClick={() => { setMode('file'); setPreview(null); setError(''); setFormat(FORMAT_OPTIONS[kind][0].value) }}>选择文件</button>
           <button role="tab" aria-selected={mode === 'paste'} className={mode === 'paste' ? 'active' : ''} onClick={() => { setMode('paste'); setPreview(null); setError(''); setFormat(FORMAT_OPTIONS[kind][0].value) }}>粘贴内容</button>
@@ -270,7 +293,7 @@ export function ImportDialog({ open, kind, onClose, onImported, showToast, assoc
                     {item.rawMarkdown && <span>{item.rawMarkdown.replace(/^#.*$/gm, '').trim().slice(0, 100)}</span>}
                     {item.hotItem && <span>{item.hotItem.sourceTitle} · {item.hotItem.hotValue || '无热度'} · {item.hotItem.url || '无链接'}</span>}
                     {item.reviewProblems && <span>{item.reviewProblems.length} 条问题：{item.reviewProblems.slice(0, 3).map((problem) => problem.issue).join(' / ')}</span>}
-                    {item.visualPlan && <span>封面：{item.visualPlan.cover.prompt.slice(0, 60) || '未填写提示词'} · 文内图 {item.visualPlan.inlineImages.length} 张</span>}
+                    {item.visualPlan && <span>封面：{item.visualPlan.cover.prompt.slice(0, 60) || '未填写提示词'} · 文内图 {item.visualPlan.inlineImages.length} 张{item.visualAssetCount ? ` · 实际图片 ${item.visualAssetCount} 张` : ''}</span>}
                     {item.layout && <span>{item.layout.title} · {item.layout.plainText.length} 字 · 外部排版 HTML</span>}
                     {item.warnings.length > 0 && <em>{item.warnings.join('；')}</em>}
                   </li>

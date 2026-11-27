@@ -36,6 +36,7 @@ export function registerImportsIpc(handle: RegisterHandler, service: ContentImpo
     mode: z.enum(['create', 'new-version']).optional(),
     mapping: z.record(z.string(), z.string().max(100)).optional()
   }).parse(raw)))
+  handle('imports:download-template', (_event, raw: unknown) => service.downloadTemplate(z.object({ kind }).parse(raw).kind))
   handle('imports:export', (_event, raw: unknown) => service.export(z.object({
     kind,
     format: z.enum(['json', 'markdown']),

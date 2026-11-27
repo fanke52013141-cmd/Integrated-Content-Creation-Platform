@@ -431,7 +431,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
             {genre && (() => {
               const preset = genres.find((item) => item.id === genre)?.preset
               return preset?.reason ? (
-                <p className="micro-copy">推荐版式：{preset.reason}。建议组件：{preset.components.join('、')}；主题与参数已按此装配，可继续微调。</p>
+                <p className="micro-copy" title={`建议组件：${preset.components.join('、')}；主题与参数已按此装配，可继续微调。`}>推荐：{preset.reason}</p>
               ) : null
             })()}
           </div>

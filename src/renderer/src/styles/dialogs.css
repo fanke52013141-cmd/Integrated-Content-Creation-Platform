@@ -52,6 +52,10 @@
 .import-dialog > header p, .manual-topic-dialog > header p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
 .import-dialog > header .eyebrow, .manual-topic-dialog > header .eyebrow { display: none; }
 .import-dialog-body, .manual-topic-body { min-height: 0; overflow: auto; padding: 20px 24px; display: grid; gap: 18px; }
+.import-template-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-subtle); }
+.import-template-bar > span { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.import-template-bar > button { flex: 0 0 auto; }
+@media (max-width: 560px) { .import-template-bar { align-items: flex-start; flex-direction: column; } }
 .import-source-tabs { justify-self: start; }
 .import-source-panel { display: grid; gap: 14px; }
 .import-format-help summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
