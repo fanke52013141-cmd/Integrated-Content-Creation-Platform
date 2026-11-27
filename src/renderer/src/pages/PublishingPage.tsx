@@ -228,7 +228,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <details><summary>查看正文排版</summary><article className="layout-preview-body" dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedLayout.html).replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>') }} /></details>
       </div> : <EmptyState icon={Send} title="还没有可交付的排版稿" actionLabel="去排版" onAction={() => onNavigate('layouts', article ? { articleId: article.id } : undefined)} />}
       {formError && <p className="inline-alert">{formError}</p>}
-        {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+        {check && !check.ready && <ul className="delivery-issues" role="status">{check.issues.map(issue => <li key={issue}>{issue}{article && /封面/.test(issue) && <button className="text-button" onClick={() => onNavigate('visuals', { articleId: article.id })}>去配图选封面</button>}{article && /重新排版|排版稿有/.test(issue) && <button className="text-button" onClick={() => onNavigate('layouts', { articleId: article.id })}>去重新排版</button>}</li>)}</ul>}
         {renderIssues.length > 0 && <ul className="delivery-issues" role="status">{renderIssues.map(issue => <li key={`${issue.rule}:${issue.message}`}>{issue.message}{issue.hint && <span className="micro-copy">（{issue.hint}）</span>}</li>)}</ul>}
       <footer className="publish-section-foot"><span className="micro-copy">{checking ? '正在检查交付内容…' : check?.ready ? '内容检查通过' : '请完成上方检查项目。'}</span><span style={{ flex: 1 }} />
         {article && !selectedCover && <button className="button secondary compact" onClick={() => onNavigate('visuals', { articleId: article.id })}>为这篇文章准备封面</button>}

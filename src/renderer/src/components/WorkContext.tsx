@@ -45,6 +45,8 @@ export function WorkBar({ route, accounts, onNavigate }: { route: RouteId; accou
     ? (STAGES[currentIndex].workBarLabel ?? STAGES[currentIndex].label)
     : work.title
   const nextStage = currentIndex >= 0 ? STAGES[currentIndex + 1] : undefined
+  // 下一步是可选环节（如评审）时，给出跳过它的直达入口：指向其后第一个非可选环节
+  const skipStage = nextStage?.optional ? STAGES.slice(currentIndex + 2).find((stage) => !stage.optional) : undefined
   return (
     <div className="work-bar" aria-label="当前作品">
       <Layers size={16} className="work-bar-icon" aria-hidden />
@@ -68,6 +70,15 @@ export function WorkBar({ route, accounts, onNavigate }: { route: RouteId; accou
           >
             下一步：{nextStage.workBarLabel ?? nextStage.label}
             <ArrowRight size={16} aria-hidden />
+          </button>
+        )}
+        {nextStage && skipStage && (
+          <button
+            className="work-bar-stage-skip text-button"
+            onClick={() => onNavigate(skipStage.id, { articleId: work.articleId })}
+            title={`跳过「${nextStage.workBarLabel ?? nextStage.label}」，直接前往「${skipStage.workBarLabel ?? skipStage.label}」`}
+          >
+            跳过，去{skipStage.workBarLabel ?? skipStage.label}
           </button>
         )}
       </div>
