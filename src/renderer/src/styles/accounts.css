@@ -67,6 +67,14 @@
 .account-editor-page .dimension-item { padding: 20px; align-items: center; gap: 16px; }
 .account-editor-page .dimension-item-main { gap: 8px; font-size: 14px; line-height: 1.7; }
 .account-editor-page .dimension-item-date { color: var(--text-secondary); font-size: 12px; }
+.account-editor-page .sample-excerpt-row { flex-direction: column; align-items: stretch; }
+.account-editor-page .sample-excerpt-row textarea { min-height: 120px; line-height: 1.7; resize: vertical; }
+.account-editor-page .sample-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.account-editor-page .sample-form-actions .micro-copy { margin: 0 auto 0 0; }
+.account-editor-page .sample-item { align-items: flex-start; }
+.account-editor-page .sample-item.sample-disabled { opacity: 0.62; }
+.account-editor-page .sample-excerpt-preview { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+.account-editor-page .sample-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 /* 顶栏「退出向导」与「已回答 n/7」分居两端，此前无样式时挤成一句话 */
 .wizard-page .wizard-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .wizard-page .wizard-topline span { color: var(--text-secondary); font-size: 13px; }

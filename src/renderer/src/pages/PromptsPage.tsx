@@ -199,6 +199,13 @@ export function PromptsPage({ showToast }: { showToast(toast: ToastState): void 
                 <span>版本说明（可选）</span>
                 <input name="promptNote" autoComplete="off" value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录本次修改的原因或要点" />
               </label>
+              {selected.protocol && (
+                <details className="prompt-advanced">
+                  <summary>系统输出协议（自动拼接，受保护防解析报错）</summary>
+                  <p className="micro-copy">生成时会自动追加在上方业务要求之后，修改业务要求不会破坏 JSON/XML 解析。</p>
+                  <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: '8px 0 0', color: 'var(--text-secondary)' }}>{selected.protocol}</pre>
+                </details>
+              )}
               </div>
               <aside className="prompt-inspector">
               <details className="prompt-advanced">

@@ -56,13 +56,15 @@ interface OpenAiImageResponse {
   billing?: { status?: string; credits?: string; cost_usd?: string | number }
 }
 
-/** 非流式对话单次尝试超时 */
-const CHAT_TIMEOUT_MS = 60_000
+/** 非流式对话单次尝试超时（兼容推理型模型思考耗时） */
+const CHAT_TIMEOUT_MS = 120_000
 /**
  * 生图提交单次超时。提交接口不是幂等的（每次 POST 都会新建任务），
  * 因此只发一次、超时不重试，避免一笔点击创建多个任务、重复扣费。
  */
 const IMAGE_SUBMIT_TIMEOUT_MS = 60_000
+/** 同步像素制生图端点（如 api.999555999.com）单张耗时 60–120s，HTTP 超时需 ≥300s */
+const SYNC_IMAGE_TIMEOUT_MS = 320_000
 /** 生图任务轮询总预算：异步任务制供应商可能跑几分钟，不能沿用提交超时 */
 const IMAGE_TASK_TIMEOUT_MS = 10 * 60_000
 /** 流式请求空闲超时：超过该时长没有收到任何新数据即判定中断 */
@@ -169,10 +171,13 @@ export class ModelGateway {
     const endpoint = buildImageEndpoint(input.baseUrl)
     const startedAt = performance.now()
     try {
+      const probeBody = /api\.999555999\.com/i.test(input.baseUrl)
+        ? { model, prompt: ' ', n: 1, size: '1024x1024' }
+        : { model, prompt: ' ', n: 1, response_format: 'url' }
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, prompt: ' ', n: 1, response_format: 'url' }),
+        body: JSON.stringify(probeBody),
         signal: AbortSignal.timeout(30_000)
       })
       const text = await response.text()
@@ -548,25 +553,40 @@ export class ModelGateway {
 
     const apiKey = this.keyStore.read(provider.id)
     const endpoint = buildImageEndpoint(provider.baseUrl)
+    const modelConfig = provider.models.find((m) => m.modelId === input.model)
+    const isPixelSyncEndpoint =
+      /api\.999555999\.com/i.test(provider.baseUrl) ||
+      modelConfig?.params?.imageMode === 'pixel-sync'
 
     try {
-      // response_format 用 url 而非 b64_json：部分异步中转（gpt-image-2 等）不支持 b64 请求，
-      // 而 url 响应两条路径都能处理（下方统一下载转 base64）。
-      // gpt-image 系列是比例制：像素尺寸一律换算成比例；其它供应商保留原样，避免破坏其像素约定。
-      const isGptImageSeries = /^gpt-image-/i.test(input.model)
-      const requestedSize = normalizeImageRatio(input.ratio)
-        ?? (isGptImageSeries ? normalizeImageRatio(input.size) : input.size?.trim() || undefined)
-      // 提交只发一次：非幂等接口重试会新建任务、重复扣费
-      const payload = await this.requestJsonOnce<OpenAiImageResponse>(endpoint, apiKey, {
-        model: input.model,
-        prompt: input.prompt,
-        n: 1,
-        response_format: 'url',
-        ...(requestedSize ? { size: requestedSize } : {}),
-        ...(isGptImageSeries && input.quality ? { quality: input.quality } : {}),
-        ...(isGptImageSeries && input.resolution ? { resolution: input.resolution } : {}),
-        ...(isGptImageSeries && input.background ? { background: input.background } : {})
-      }, input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
+      let payload: OpenAiImageResponse
+      if (isPixelSyncEndpoint) {
+        const pixelSize = resolveSyncPixelImageSize(input.ratio, input.size)
+        payload = await this.requestSyncImageWithRetry(endpoint, apiKey, {
+          model: input.model,
+          prompt: input.prompt,
+          n: 1,
+          size: pixelSize
+        }, input.signal)
+      } else {
+        // response_format 用 url 而非 b64_json：部分异步中转（gpt-image-2 等）不支持 b64 请求，
+        // 而 url 响应两条路径都能处理（下方统一下载转 base64）。
+        // gpt-image 系列是比例制：像素尺寸一律换算成比例；其它供应商保留原样，避免破坏其像素约定。
+        const isGptImageSeries = /^gpt-image-/i.test(input.model)
+        const requestedSize = normalizeImageRatio(input.ratio)
+          ?? (isGptImageSeries ? normalizeImageRatio(input.size) : input.size?.trim() || undefined)
+        // 提交只发一次：非幂等接口重试会新建任务、重复扣费
+        payload = await this.requestJsonOnce<OpenAiImageResponse>(endpoint, apiKey, {
+          model: input.model,
+          prompt: input.prompt,
+          n: 1,
+          response_format: 'url',
+          ...(requestedSize ? { size: requestedSize } : {}),
+          ...(isGptImageSeries && input.quality ? { quality: input.quality } : {}),
+          ...(isGptImageSeries && input.resolution ? { resolution: input.resolution } : {}),
+          ...(isGptImageSeries && input.background ? { background: input.background } : {})
+        }, input.signal, IMAGE_SUBMIT_TIMEOUT_MS)
+      }
 
       if (!payload.data?.length && (payload.id || payload.task_id) && payload.status) {
         const taskId = payload.id ?? payload.task_id ?? ''
@@ -986,6 +1006,37 @@ export class ModelGateway {
     throw lastError ?? new GatewayError('NetworkError', '模型请求失败')
   }
 
+  /**
+   * 同步像素制生图端点调用（如 api.999555999.com/v1）：
+   * 耗时 60–120s、偶发断连，采用 320s 超时 + 断连/429/5xx 自动重试最多 2 次。
+   */
+  private async requestSyncImageWithRetry(
+    endpoint: string,
+    apiKey: string,
+    body: { model: string; prompt: string; n: number; size: string },
+    signal?: AbortSignal
+  ): Promise<OpenAiImageResponse> {
+    const maxRetries = 2
+    let lastError: unknown
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      if (signal?.aborted) throw new GatewayError('CancelledError', '生图已取消')
+      try {
+        return await this.requestJsonOnce<OpenAiImageResponse>(endpoint, apiKey, body, signal, SYNC_IMAGE_TIMEOUT_MS)
+      } catch (error) {
+        lastError = error
+        if (isCancelledError(error)) throw error
+        const normalized = normalizeError(error, endpoint, signal)
+        const retryable = normalized.kind === 'NetworkError'
+          || normalized.kind === 'TimeoutError'
+          || normalized.kind === 'RateLimitError'
+          || (normalized.status !== undefined && normalized.status >= 500)
+        if (!retryable || attempt >= maxRetries) throw normalized
+        await new Promise((resolve) => setTimeout(resolve, 3_000 * (attempt + 1)))
+      }
+    }
+    throw lastError
+  }
+
   private async requestJsonOnce<T>(
     endpoint: string,
     apiKey: string,
@@ -1326,6 +1377,33 @@ function shouldRetry(error: GatewayError): boolean {
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+/**
+ * 同步像素制生图端点尺寸归一化（如 api.999555999.com/v1）：
+ * 仅允许 1024x1024 / 1536x1024 / 1024x1536，严禁发 2048（会被上游以无关的 content_policy_violation 拒绝）。
+ */
+export function resolveSyncPixelImageSize(ratio?: string, size?: string): '1024x1024' | '1536x1024' | '1024x1536' {
+  const candidates = [size?.trim(), ratio?.trim()].filter((v): v is string => Boolean(v))
+  for (const raw of candidates) {
+    const pixel = raw.match(/^(\d{2,5})\s*[x×]\s*(\d{2,5})$/i)
+    if (pixel) {
+      const w = Number(pixel[1])
+      const h = Number(pixel[2])
+      if (w > h) return '1536x1024'
+      if (h > w) return '1024x1536'
+      return '1024x1024'
+    }
+    const r = raw.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/)
+    if (r) {
+      const w = Number(r[1])
+      const h = Number(r[2])
+      if (w > h) return '1536x1024'
+      if (h > w) return '1024x1536'
+      return '1024x1024'
+    }
+  }
+  return '1024x1024'
 }
 
 /**

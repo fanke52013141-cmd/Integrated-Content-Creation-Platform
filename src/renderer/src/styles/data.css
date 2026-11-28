@@ -54,4 +54,76 @@
 /* 窄窗口：卡片已单列，只需让备份行换行 */
 @media (max-width: 760px) {
   .data-backup-row { flex-wrap: wrap; }
+  .data-ledger-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.data-ledger-range { display: inline-flex; gap: 6px; }
+.data-ledger-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.data-kpi {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.data-kpi span { font-size: 12px; color: var(--text-secondary); }
+.data-kpi strong { font-size: 18px; color: var(--text); font-weight: 600; }
+.data-kpi small { font-size: 11px; color: var(--text-secondary); }
+
+.data-ledger-pricing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.data-ledger-pricing label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.data-ledger-pricing input {
+  width: 96px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.data-ledger-table-wrap { overflow-x: auto; margin-top: 14px; }
+.data-ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.data-ledger-table th,
+.data-ledger-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.data-ledger-table th { color: var(--text-secondary); font-weight: 500; }
+.data-ledger-table td strong { display: block; font-size: 12.5px; color: var(--text); }
+.data-ledger-table td small { display: block; color: var(--text-secondary); font-size: 11px; }
+
+.data-ledger-empty { margin: 14px 0 4px; color: var(--text-secondary); font-size: 12.5px; }
+.data-ledger-stages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+.data-ledger-stages-label { font-size: 12px; color: var(--text-secondary); }

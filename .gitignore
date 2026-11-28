@@ -15,3 +15,5 @@ artifacts/
 .DS_Store
 Thumbs.db
 .workbuddy/
+.dsh-ops/
+.stitch/

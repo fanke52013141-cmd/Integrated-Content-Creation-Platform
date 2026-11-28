@@ -10,13 +10,14 @@ import { beginGenerationChild, endGenerationChild } from './services/generation-
 import { friendlyIpcAction } from './ipc-errors.js'
 
 const id = z.string().uuid()
+const providerIdSchema = z.string().trim().min(1).max(120)
 const text = z.string().max(3000)
 const reference = z.object({ id, fileName: z.string().max(200), url: z.string().max(400) }).strict()
 export const visualStyleInputSchema = z.object({ id: id.optional(), expectedVersionId: id.optional(), name: z.string().trim().min(1).max(100), description: text, colors: text, medium: text, composition: text, avoid: text, references: z.array(reference).max(1) }).strict()
 const style = visualStyleInputSchema.extend({ id, versionId: id, version: z.number().int().positive(), archived: z.boolean(), createdAt: z.string() })
 const picture = z.object({ id, kind: z.enum(['cover','header','inline','release']), slot: z.number().int().min(0).max(1000), subject: z.string().trim().min(1).max(2000), purpose: text, ratio: z.enum(['21:9','16:9','4:3','3:4','1:1']), alt: z.string().max(500), caption: z.string().max(500), priority: z.enum(['required','optional']), anchor: z.object({ versionId: id.optional(), block: z.string().max(200000), occurrence: z.number().int().min(0), placement: z.enum(['before','after','top']) }).strict(), prompt: z.string().max(6000), promptLocked: z.boolean(), promptStale: z.boolean().optional(), approvedAssetSignature: z.string().max(20000).optional(), review: z.object({ verdict: z.enum(['match','weak','mismatch']), reason: z.string().max(300) }).optional(), style: style.optional(), selectedAssetId: id.optional() }).strict()
 const plan = z.object({ id, articleId: id, articleVersionId: id, sourceMarkdown: z.string().max(500000), revision: z.number().int().positive(), nextSlot: z.number().int().min(0).max(1001), title: text, reasoning: text, pictures: z.array(picture).max(12), style: style.optional(), promptsStale: z.boolean(), createdAt: z.string() }).strict()
-const target = z.object({ providerId: id, model: z.string().trim().min(1).max(160) })
+const target = z.object({ providerId: providerIdSchema, model: z.string().trim().min(1).max(160) })
 const planRevision = { planId: id, expectedRevision: z.number().int().positive() }
 
 export function registerVisualStudioIpc(database: AppDatabase, gateway: ModelGateway, assets: VisualAssetService, dataPath: string): void {

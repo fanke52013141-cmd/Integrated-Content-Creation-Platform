@@ -16,6 +16,7 @@ import type {
   AccountMemory,
   AccountPlatformBinding,
   AccountRedline,
+  AccountStyleSample,
   AppBootstrap,
   GenerationDomain,
   GenerationTask,
@@ -262,6 +263,7 @@ function createMockBridge(): MoliuApi {
   const demoRedlines: AccountRedline[] = []
   const demoBindings: AccountPlatformBinding[] = []
   const demoMemories: AccountMemory[] = []
+  const demoStyleSamples: AccountStyleSample[] = []
   const demoFields: AccountField[] = DEFAULT_ACCOUNT_FIELD_NAMES.map((name) => ({
     id: `demo-field-${name}`,
     name,
@@ -289,7 +291,15 @@ function createMockBridge(): MoliuApi {
       listBackups: (): Promise<string[]> => Promise.resolve(fixtures?.backups ?? []),
       inspectBackup: () => Promise.reject(new Error('演示模式无法检查本地备份')),
       exportPortableBackup: () => Promise.resolve({ path: null }),
-      selectPortableBackup: () => Promise.resolve(null)
+      selectPortableBackup: () => Promise.resolve(null),
+      getUsageLedger: (days = 30) => Promise.resolve({
+        days,
+        since: new Date(Date.now() - days * 86_400_000).toISOString(),
+        totals: { calls: 0, successCalls: 0, failedCalls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, avgLatencyMs: 0, recordedCostUsd: 0 },
+        byModel: [],
+        byStage: [],
+        daily: []
+      })
     },
     imports: {
       pickFile: () => Promise.resolve(null),
@@ -349,7 +359,8 @@ function createMockBridge(): MoliuApi {
           versions: fixtures ? [1, 2].map(versionNumber => ({ id: `demo-version-${versionNumber}`, profileId: id, versionNumber, source: 'manual', fields: demoFields.map(field => ({ ...field, value: versionNumber === 2 ? `${field.value}（演示历史版本）` : field.value })), wizardAnswers: [], createdAt: summary.createdAt })) : [],
           redlines: demoRedlines,
           platformAccounts: demoBindings,
-          memories: demoMemories
+          memories: demoMemories,
+          styleSamples: demoStyleSamples
         })
       },
       generate: () => Promise.resolve(DEMO_BOOTSTRAP.accounts[0]),
@@ -404,6 +415,45 @@ function createMockBridge(): MoliuApi {
       removeMemory: (id: string) => {
         const index = demoMemories.findIndex((item) => item.id === id)
         if (index >= 0) demoMemories.splice(index, 1)
+        return void_()
+      },
+      listStyleSamples: () => Promise.resolve(demoStyleSamples),
+      saveStyleSample: (input: { id?: string; profileId: string; title: string; excerpt: string; tag?: string; note?: string; enabled?: boolean; sortOrder?: number }) => {
+        const now = new Date().toISOString()
+        const existingIndex = input.id ? demoStyleSamples.findIndex((item) => item.id === input.id) : -1
+        if (existingIndex >= 0) {
+          const current = demoStyleSamples[existingIndex]!
+          const updated: AccountStyleSample = {
+            ...current,
+            title: input.title.trim(),
+            excerpt: input.excerpt.trim(),
+            tag: input.tag?.trim() || current.tag,
+            note: input.note !== undefined ? input.note.trim() : current.note,
+            enabled: input.enabled ?? current.enabled,
+            sortOrder: input.sortOrder ?? current.sortOrder,
+            updatedAt: now
+          }
+          demoStyleSamples[existingIndex] = updated
+          return Promise.resolve(updated)
+        }
+        const sample: AccountStyleSample = {
+          id: `demo-sample-${demoStyleSamples.length + 1}`,
+          profileId: input.profileId,
+          title: input.title.trim(),
+          excerpt: input.excerpt.trim(),
+          tag: input.tag?.trim() || '全文语感',
+          note: input.note?.trim() ?? '',
+          enabled: input.enabled ?? true,
+          sortOrder: input.sortOrder ?? demoStyleSamples.length,
+          createdAt: now,
+          updatedAt: now
+        }
+        demoStyleSamples.push(sample)
+        return Promise.resolve(sample)
+      },
+      removeStyleSample: (id: string) => {
+        const index = demoStyleSamples.findIndex((item) => item.id === id)
+        if (index >= 0) demoStyleSamples.splice(index, 1)
         return void_()
       }
     },
@@ -461,6 +511,7 @@ function createMockBridge(): MoliuApi {
       addSearchResult: () => void_(),
       addManual: () => void_(),
       addFile: () => void_(),
+      addUrl: () => Promise.reject(new Error('网页抓取请在桌面应用中使用')),
       usage: (): Promise<Record<string, Array<{ id: string; title: string }>>> => Promise.resolve({}),
       remove: () => void_()
     },
@@ -495,6 +546,20 @@ function createMockBridge(): MoliuApi {
       get: (id: string) => Promise.resolve(fixtures?.articles.find(item => item.id === id) ?? null),
       generate: () => Promise.resolve({ articles: [], failed: [] }),
       revise: () => Promise.resolve({ articles: [], failed: [] }),
+      reviseSelection: (input: { baseMarkdown?: string; selectionStart: number; selectionEnd: number }) => {
+        const text = (input.baseMarkdown ?? '').slice(input.selectionStart, input.selectionEnd)
+        return Promise.resolve({ originalText: text, revisedText: `${text}（演示改写）`, providerId: 'demo', model: 'demo-model', latencyMs: 120 })
+      },
+      generateTitles: () => Promise.resolve({
+        titles: [
+          { text: '把 AI 当写作搭档：一套更稳的公众号共创流程', style: '克制专业', reason: '清晰传达人机共创价值' },
+          { text: '为什么你用 AI 写稿总像套话？差了这三步', style: '痛点直击', reason: '切中创作者常见困扰' }
+        ],
+        digest: '拆解如何把账号定位、样文语感与局部改写串成一套稳定的公众号内容生产流程。',
+        providerId: 'demo',
+        model: 'demo-model',
+        latencyMs: 120
+      }),
       save: (input: unknown) => Promise.resolve(input),
       restore: () => Promise.reject(new Error('演示模式不支持恢复历史版本，请在桌面应用中操作')),
       setLocked: () => void_(),

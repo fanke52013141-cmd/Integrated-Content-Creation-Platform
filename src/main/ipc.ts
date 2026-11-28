@@ -46,11 +46,15 @@ import { OperationGate } from './services/operation-gate.js'
 import { registerPublishingIpc } from './ipc-publishing.js'
 import { registerImportsIpc } from './ipc-imports.js'
 import { ContentImportService } from './services/content-import-service.js'
+import { TitleDigestService } from './services/title-digest-service.js'
+import { UrlMaterialService } from './services/url-material-service.js'
+import { getBuiltinPromptProtocol } from './gateway/prompt-registry.js'
 import { resolveExternalUrl, validateAccountFields, validateTopicSchema } from '../shared/domain.js'
 import type {
   AddAccountMemoryInput,
   AddAccountPlatformInput,
   AddAccountRedlineInput,
+  SaveAccountStyleSampleInput,
   AddHotFavoriteInput,
   FilterHotspotsInput,
   GenerateAccountInput,
@@ -71,6 +75,8 @@ import type {
   SaveFrameworkTemplateInput,
   GenerateArticlesInput,
   ReviseArticleInput,
+  ReviseSelectionInput,
+  GenerateTitlesDigestInput,
   SaveArticleInput,
   RestoreArticleVersionInput,
   RenameArticleVersionInput,
@@ -86,6 +92,9 @@ function sendToStream(event: IpcMainInvokeEvent, channel: string, payload: unkno
 }
 
 /** 生成任务统一执行壳在 registerIpc 内定义，便于把结果写入任务台账 */
+
+/** 供应商 ID 允许非 UUID（如历史/预设 ID `wx-cloud-ai`、`doubao-search`） */
+const providerIdSchema = z.string().trim().min(1).max(120)
 
 const providerSchema = z.object({
   id: z.string().optional(),
@@ -349,6 +358,10 @@ export function registerIpc(options: {
   handle('app:backup-inspect', (_event, raw: unknown) => workspace.inspectBackup(z.object({ bundleDir: z.string().min(1).max(4096) }).parse(raw)))
   handle('app:backup-export-portable', () => workspace.exportPortableBackup())
   handle('app:backup-select-portable', () => workspace.selectPortableBackup())
+  handle('app:usage-ledger', (_event, rawDays?: unknown) => {
+    const days = typeof rawDays === 'number' && Number.isFinite(rawDays) ? rawDays : 30
+    return database.getUsageLedger(days)
+  })
 
   registerVisualStudioIpc(database, gateway, visualAssets, dataPath)
 
@@ -438,7 +451,7 @@ export function registerIpc(options: {
   )
 
   // ===== 提示词管理 =====
-  handle('prompts:list', () => database.listPromptDefs())
+  handle('prompts:list', () => database.listPromptDefs().map((item) => ({ ...item, protocol: getBuiltinPromptProtocol(item.key) })))
   handle('prompts:list-versions', (_event, key: string) => {
     const trimmed = typeof key === 'string' ? key.trim() : ''
     if (!trimmed) throw new Error('缺少提示词 key')
@@ -621,6 +634,29 @@ export function registerIpc(options: {
   handle('accounts:memories:remove', (_event, id: string) => {
     database.removeAccountMemory(requireId(id))
   })
+  handle('accounts:samples:list', (_event, profileId: string) =>
+    database.listAccountStyleSamples(requireId(profileId))
+  )
+  handle('accounts:samples:save', (_event, raw: SaveAccountStyleSampleInput) => {
+    const input = z.object({
+      id: z.string().min(1).optional(),
+      profileId: z.string().min(1),
+      title: z.string().trim().min(1).max(120),
+      excerpt: z.string().trim().min(1).max(8000),
+      tag: z.string().trim().max(30).optional(),
+      note: z.string().trim().max(300).optional(),
+      enabled: z.boolean().optional(),
+      sortOrder: z.number().int().min(0).max(1000).optional()
+    }).parse(raw)
+    return database.saveAccountStyleSample({
+      ...input,
+      id: input.id ? requireId(input.id) : undefined,
+      profileId: requireId(input.profileId)
+    })
+  })
+  handle('accounts:samples:remove', (_event, id: string) => {
+    database.removeAccountStyleSample(requireId(id))
+  })
 
   handle('hotspots:bootstrap', () => hotspotService.bootstrap())
   handle('hotspots:preferences:save', (_event, raw: SaveHotSourcePreferencesInput) => {
@@ -692,7 +728,7 @@ export function registerIpc(options: {
   handle('hotspots:filter', (event, raw: FilterHotspotsInput) => {
     const input = z.object({
       accountId: z.string().uuid(),
-      providerId: z.string().uuid(),
+      providerId: providerIdSchema,
       model: z.string().trim().min(1).max(160),
       items: z.array(hotItemSchema).min(1).max(200)
     }).parse(raw)
@@ -722,7 +758,7 @@ export function registerIpc(options: {
   handle('topics:generate', (event, raw: GenerateTopicsInput) => {
     const input = z.object({
       accountIds: z.array(z.string().uuid()).max(10).optional(),
-      providerId: z.string().uuid(),
+      providerId: providerIdSchema,
       model: z.string().trim().min(1).max(160),
       seedKeywords: z.array(z.string().trim().min(1).max(4_000)).min(1).max(10),
       mode: z.enum(['round-robin', 'exhaustive']).optional(),
@@ -734,7 +770,7 @@ export function registerIpc(options: {
   })
   handle('topics:retry-one', (event, raw: RetryTopicInput) => {
     const input = z.object({
-      providerId: z.string().uuid(),
+      providerId: providerIdSchema,
       model: z.string().trim().min(1).max(160),
       accountId: z.string().uuid().optional(),
       seedKeyword: z.string().trim().min(1).max(4_000),
@@ -755,7 +791,7 @@ export function registerIpc(options: {
         (fields) => Object.keys(fields).length > 0 && Object.keys(fields).length <= 30,
         '请至少填写一个选题字段'
       ),
-      providerId: z.string().uuid().optional(),
+      providerId: providerIdSchema.optional(),
       model: z.string().trim().min(1).max(160).optional()
     }).parse(raw)
     return database.saveTopic(input)
@@ -819,7 +855,7 @@ export function registerIpc(options: {
   })
   handle('materials:document', (_event, id: string) => database.workflow.getDocument(requireId(id)))
   handle('materials:preview-context', (_event, raw: unknown) => {
-    const input = z.object({ ids: z.array(z.string().uuid()).max(30), query: z.string().max(30000), providerId: z.string().uuid().optional(), model: z.string().max(160).optional(), baseText: z.string().max(200000).optional() }).parse(raw)
+    const input = z.object({ ids: z.array(z.string().uuid()).max(30), query: z.string().max(30000), providerId: providerIdSchema.optional(), model: z.string().max(160).optional(), baseText: z.string().max(200000).optional() }).parse(raw)
     const materials = database.listMaterials().filter(item => input.ids.includes(item.id) && item.kind !== 'image')
     if (materials.length !== new Set(input.ids).size) throw new Error('部分素材已删除或不是文字素材')
     const budget = input.providerId && input.model ? contextBudget(database, input.providerId, input.model, input.baseText ?? '') : 16000
@@ -835,6 +871,11 @@ export function registerIpc(options: {
   })
   handle('materials:remove', (_event, id: string) => database.removeMaterial(requireId(id)))
   handle('materials:add-file',(_e,raw:unknown)=>{const input=z.object({fileName:z.string().trim().min(1).max(300),data:z.instanceof(ArrayBuffer),relatedTopicId:z.string().uuid().optional()}).parse(raw);return fileMaterials.importFromUpload(input)})
+  const urlMaterials = new UrlMaterialService(database)
+  handle('materials:add-url', (_e, raw: unknown) => {
+    const input = z.object({ url: z.string().trim().min(1).max(4_000), relatedTopicId: z.string().uuid().optional() }).parse(raw)
+    return urlMaterials.importFromUrl(input)
+  })
 
   // content 允许为空：手动新建框架先立骨架、后填内容（AI 生成路径永远带内容，不受影响）
   const frameworkSectionsSchema = z.array(z.object({
@@ -865,9 +906,10 @@ export function registerIpc(options: {
     const input = z.object({
       topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
       materialIds: z.array(z.string().uuid()).max(30), templateId: z.string().min(1).max(100),
-      manualTopic: z.string().trim().max(2_000).optional(), providerId: z.string().uuid(),
+      manualTopic: z.string().trim().max(2_000).optional(), providerId: providerIdSchema,
       model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
-      research: z.boolean().optional()
+      research: z.boolean().optional(),
+      useSkill: z.boolean().optional()
     }).parse(raw)
     return runGeneration(event, 'frameworks', (signal) =>
       frameworkGenerator.generate(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
@@ -876,8 +918,9 @@ export function registerIpc(options: {
     const input = z.object({
       topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
       materialIds: z.array(z.string().uuid()).max(30), templateId: z.string().min(1).max(100),
-      manualTopic: z.string().trim().max(2_000).optional(), providerId: z.string().uuid(),
-      model: z.string().trim().min(1).max(160), research: z.boolean().optional()
+      manualTopic: z.string().trim().max(2_000).optional(), providerId: providerIdSchema,
+      model: z.string().trim().min(1).max(160), research: z.boolean().optional(),
+      useSkill: z.boolean().optional()
     }).parse(raw)
     return runGeneration(event, 'frameworks', (signal) =>
       frameworkGenerator.retryOne(input, (streamEvent) => sendToStream(event, 'frameworks:stream', streamEvent), signal))
@@ -889,7 +932,7 @@ export function registerIpc(options: {
       id: z.string().uuid().optional(), topicId: z.string().uuid().optional(), accountId: z.string().uuid().optional(),
       materialIds: z.array(z.string().uuid()).max(30), templateId: z.string().min(1).max(100).optional(),
       manualTopic: z.string().trim().max(2_000), status: z.enum(['draft', 'locked']),
-      sections: frameworkSectionsSchema, providerId: z.string().uuid().optional(),
+      sections: frameworkSectionsSchema, providerId: providerIdSchema.optional(),
       model: z.string().trim().min(1).max(160).optional()
     }).parse(raw)
     return database.saveFramework(input)
@@ -918,7 +961,7 @@ export function registerIpc(options: {
       frameworkId: articleIdSchema.optional(), accountId: articleIdSchema.optional(),
       accountSelection: z.discriminatedUnion('mode', [z.object({ mode: z.literal('inherit') }), z.object({ mode: z.literal('none') }), z.object({ mode: z.literal('specific'), accountId: articleIdSchema })]).optional(),
       materialIds: z.array(articleIdSchema).max(30), manualOutline: z.string().trim().min(1).max(30_000).optional(),
-      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
+      providerId: providerIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
       polish: z.boolean().optional()
     }).refine((value) => Boolean(value.frameworkId || value.manualOutline), { message: '请选择框架或填写手动框架' }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
@@ -941,11 +984,33 @@ export function registerIpc(options: {
     const input = z.object({
       revisionMode: z.enum(['new-version', 'new-candidates']),
       articleId: articleIdSchema, instruction: z.string().trim().min(1).max(8_000), alignFramework: z.boolean(),
-      providerId: articleIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
+      providerId: providerIdSchema, model: z.string().trim().min(1).max(160), count: z.number().int().min(1).max(3),
       baseMarkdown: z.string().max(200_000).optional(), expectedVersionId: articleIdSchema.optional(), draftRevision: z.number().int().nonnegative().optional()
     }).parse(raw)
     return runGeneration(event, 'articles', (signal) =>
       articleGenerator.revise(input, (streamEvent) => sendToStream(event, 'articles:stream', streamEvent), signal))
+  })
+  const titleDigestService = new TitleDigestService(database, gateway, options.prompts)
+  handle('articles:revise-selection', (_event, raw: ReviseSelectionInput) => {
+    const input = z.object({
+      articleId: articleIdSchema,
+      baseMarkdown: z.string().max(200_000).optional(),
+      selectionStart: z.number().int().nonnegative(),
+      selectionEnd: z.number().int().nonnegative(),
+      instruction: z.string().trim().min(1).max(2_000),
+      providerId: providerIdSchema,
+      model: z.string().trim().min(1).max(160)
+    }).refine((value) => value.selectionEnd > value.selectionStart, { message: '请先选中需要改写的正文片段' }).parse(raw)
+    return articleGenerator.reviseSelection(input)
+  })
+  handle('articles:generate-titles', (_event, raw: GenerateTitlesDigestInput) => {
+    const input = z.object({
+      articleId: articleIdSchema,
+      baseMarkdown: z.string().max(200_000).optional(),
+      providerId: providerIdSchema,
+      model: z.string().trim().min(1).max(160)
+    }).parse(raw)
+    return titleDigestService.generate(input)
   })
   handle('articles:requests', () => articleGenerator.listRequests())
   handle('articles:summary', (_event, id: string) => database.workflow.getSummary(requireId(id)))
@@ -979,7 +1044,7 @@ export function registerIpc(options: {
       id: articleIdSchema.optional(), frameworkId: articleIdSchema.optional(), accountId: articleIdSchema.optional(),
       materialIds: z.array(articleIdSchema).max(30), manualOutline: z.string().max(30_000), status: z.enum(['draft', 'locked']),
       rawMarkdown: z.string().trim().min(1).max(200_000), source: z.enum(['generate', 'revise', 'manual', 'restore']),
-      instruction: z.string().max(8_000).optional(), providerId: articleIdSchema.optional(),
+      instruction: z.string().max(8_000).optional(), providerId: providerIdSchema.optional(),
       model: z.string().trim().min(1).max(160).optional(), expectedVersionId: articleIdSchema.optional(), draftRevision: z.number().int().nonnegative().optional()
     }).parse(raw)
     return database.saveArticle(input)
@@ -1006,23 +1071,23 @@ export function registerIpc(options: {
   handle('articles:draft:discard', (_event, id: string) => database.workflow.discardDraft(requireId(id)))
   handle('articles:draft:commit', (_event, id: string, revision: number) => database.commitWorkDraft(requireId(id), z.number().int().positive().parse(revision)))
   handle('reviews:roles:list',()=>database.listReviewRoles())
-  handle('reviews:roles:save',(_e,raw:SaveReviewRoleInput)=>database.saveReviewRole(z.object({id:z.string().optional(),name:z.string().trim().min(1).max(80),systemPrompt:z.string().trim().min(1).max(12000),providerId:z.string().uuid().optional(),model:z.string().trim().max(160).optional(),extractionTag:z.string().trim().min(1).max(50),extractionOccurrence:z.enum(['first','last']),dimensions:z.array(z.string().trim().min(1).max(50)).max(10),sortOrder:z.number().int().min(0)}).parse(raw)))
+  handle('reviews:roles:save',(_e,raw:SaveReviewRoleInput)=>database.saveReviewRole(z.object({id:z.string().optional(),name:z.string().trim().min(1).max(80),systemPrompt:z.string().trim().min(1).max(12000),providerId:providerIdSchema.optional(),model:z.string().trim().max(160).optional(),extractionTag:z.string().trim().min(1).max(50),extractionOccurrence:z.enum(['first','last']),dimensions:z.array(z.string().trim().min(1).max(50)).max(10),sortOrder:z.number().int().min(0)}).parse(raw)))
   handle('reviews:roles:remove',(_e,id:string)=>database.removeReviewRole(requireId(id)))
   handle('reviews:roles:export',()=>reviewService.exportRoles())
   handle('reviews:roles:import',()=>reviewService.importRoles())
   handle('reviews:tasks:list',(_e,articleId?:string)=>database.listReviewTasks(articleId))
   handle('reviews:manual-task',(_e,articleId:string)=>{const id=z.string().uuid().parse(articleId);const article=database.getArticle(id);if(!article)throw new Error('文章不存在');return database.createReviewTask({articleId:article.id,articleVersionId:article.currentVersionId,articleVersionNumber:article.versionCount,roleIds:[]})})
-  handle('reviews:start',(event,raw:StartReviewInput)=>{const input=z.object({articleId:z.string().uuid(),roleIds:z.array(z.string().uuid()).min(1).max(10),fallbackProviderId:z.string().uuid(),fallbackModel:z.string().min(1).max(160)}).parse(raw);return runGeneration(event,'reviews',(signal)=>reviewService.start(input,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal))})
+  handle('reviews:start',(event,raw:StartReviewInput)=>{const input=z.object({articleId:z.string().uuid(),roleIds:z.array(z.string().uuid()).min(1).max(10),fallbackProviderId:providerIdSchema,fallbackModel:z.string().min(1).max(160)}).parse(raw);return runGeneration(event,'reviews',(signal)=>reviewService.start(input,(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal))})
   handle('reviews:problems:update',(_e,raw:UpdateReviewProblemInput)=>database.updateReviewProblem(z.object({id:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1),adopted:z.boolean()}).parse(raw)))
   handle('reviews:problems:set-adopted',(_e,raw:{taskId:string;adopted:boolean})=>{const x=z.object({taskId:z.string().uuid(),adopted:z.boolean()}).parse(raw);database.setReviewTaskProblemsAdopted(x.taskId,x.adopted)})
   handle('reviews:problems:add',(_e,raw:AddManualReviewProblemInput)=>{const x=z.object({taskId:z.string().uuid(),position:z.string().min(1),severity:z.enum(['high','medium','low']),issue:z.string().min(1),suggestion:z.string().min(1)}).parse(raw);const task=database.getReviewTask(x.taskId);const created=database.addReviewOpinion({taskId:x.taskId,dimensions:[],overallSuggestion:'',rawXml:'',extractionMatched:true,problems:[{...x,adopted:true,isManual:true}] });if(task&&task.status==='running'&&!task.roleIds.length)database.finishReviewTask(task.id,'completed',[]);return created.problems[0]})
   handle('reviews:apply',(event,taskId:string,providerId:string,model:string,force?:boolean)=>runGeneration(event,'reviews',(signal)=>reviewService.apply(requireId(taskId),requireId(providerId),model,{force:Boolean(force)},(streamEvent)=>sendToStream(event,'reviews:stream',streamEvent),signal)))
   handle('visuals:list',(_e,articleId?:string)=>database.listVisualPacks(articleId?requireId(articleId):undefined))
-  handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
+  handle('visuals:generate',(event,raw:unknown)=>{const input=z.object({articleId:z.string().uuid(),providerId:providerIdSchema,model:z.string().trim().min(1).max(160),inlineCount:z.number().int().min(1).max(6)}).parse(raw);return runGeneration(event,'visuals',(signal)=>visualPackGenerator.generate(input,(streamEvent)=>sendToStream(event,'visuals:stream',streamEvent),signal))})
   handle('visuals:remove',async(_e,id:string)=>{const packId=requireId(id);await visualAssets.removePackAssets(packId);database.removeVisualPack(packId)})
   handle('visuals:list-assets',(_e,packId:string)=>database.listVisualAssets(requireId(packId)))
-  handle('visuals:generate-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(8_000),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),size:z.string().trim().max(40).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),resolution:z.enum(['1k','2k','4k']).optional(),background:z.enum(['transparent']).optional()}).parse(raw);void event;const controller=beginGenerationChild('visuals');return visualAssets.generate(input,controller.signal).finally(()=>endGenerationChild('visuals',controller))})
-  handle('visuals:edit-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(4_000),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),imageUrl:z.string().trim().regex(/^https?:\/\/\S+$/i,'参考图必须是 http(s) 图片地址').optional(),assetId:z.string().uuid().optional(),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),background:z.enum(['transparent']).optional()}).superRefine((input,context)=>{if(!input.imageUrl&&!input.assetId)context.addIssue({code:'custom',message:'请提供参考图地址或选择本地图片',path:['imageUrl']})}).parse(raw);void event;const controller=beginGenerationChild('visuals');return visualAssets.edit(input,controller.signal).finally(()=>endGenerationChild('visuals',controller))})
+  handle('visuals:generate-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(8_000),providerId:providerIdSchema,model:z.string().trim().min(1).max(160),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),size:z.string().trim().max(40).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),resolution:z.enum(['1k','2k','4k']).optional(),background:z.enum(['transparent']).optional()}).parse(raw);void event;const controller=beginGenerationChild('visuals');return visualAssets.generate(input,controller.signal).finally(()=>endGenerationChild('visuals',controller))})
+  handle('visuals:edit-image',(event,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().min(1).max(4_000),providerId:providerIdSchema,model:z.string().trim().min(1).max(160),imageUrl:z.string().trim().regex(/^https?:\/\/\S+$/i,'参考图必须是 http(s) 图片地址').optional(),assetId:z.string().uuid().optional(),ratio:z.string().trim().regex(/^\d{1,2}:\d{1,2}$/).optional(),quality:z.enum(['auto','low','medium','high','xhigh','max']).optional(),background:z.enum(['transparent']).optional()}).superRefine((input,context)=>{if(!input.imageUrl&&!input.assetId)context.addIssue({code:'custom',message:'请提供参考图地址或选择本地图片',path:['imageUrl']})}).parse(raw);void event;const controller=beginGenerationChild('visuals');return visualAssets.edit(input,controller.signal).finally(()=>endGenerationChild('visuals',controller))})
   handle('visuals:import-image',(_e,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().max(8_000),filePath:z.string().trim().min(1).max(1_000)}).parse(raw);return visualAssets.importFromFile(input)})
   handle('visuals:import-image-data',(_e,raw:unknown)=>{const input=z.object({packId:z.string().uuid(),kind:z.enum(['cover','inline','release']),slot:z.number().int().min(0).max(30).optional(),prompt:z.string().trim().max(8_000),fileName:z.string().trim().min(1).max(300),data:z.instanceof(ArrayBuffer)}).parse(raw);return visualAssets.importFromData(input)})
   handle('visuals:remove-asset',(_e,id:string)=>visualAssets.removeAsset(requireId(id)))
@@ -1086,7 +1151,7 @@ export function registerIpc(options: {
     return articleLayoutService.create(input)
   })
   handle('layouts:plan',(event,raw:unknown)=>{
-    const input=z.object({articleId:z.string().uuid(),providerId:z.string().uuid(),model:z.string().trim().min(1).max(160),userThemeId:z.string().trim().min(1).max(60).optional()}).parse(raw)
+    const input=z.object({articleId:z.string().uuid(),providerId:providerIdSchema,model:z.string().trim().min(1).max(160),userThemeId:z.string().trim().min(1).max(60).optional(),useSkill:z.boolean().optional()}).parse(raw)
     return runGeneration(event,'layouts',(signal)=>layoutPlanService.generate(input,undefined,signal))
   })
   handle('layouts:remove',(_e,id:string)=>database.removeArticleLayout(requireId(id)))

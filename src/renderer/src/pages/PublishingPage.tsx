@@ -1,7 +1,7 @@
 import { LocalImageImport } from '../components/LocalImageImport'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ClipboardList, CloudUpload, ExternalLink, FileUp, Images, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, ScanSearch, Send, TestTube2, UploadCloud } from 'lucide-react'
-import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
+import { CheckCircle2, ClipboardList, CloudUpload, ExternalLink, FileUp, Images, KeyRound, Lightbulb, LoaderCircle, RotateCcw, Save, ScanSearch, Send, Sparkles, TestTube2, UploadCloud } from 'lucide-react'
+import type { AccountProfileSummary, ArticleSummary, ArticleLayout, DeliveryCheck, ProviderSummary, Publication, VisualAsset, WechatPublishChannel } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
@@ -16,6 +16,7 @@ import { errorMessage, formatDate, isSafeUrl, markdownTitle, sanitizeHtml } from
 import { useReportWork } from '../active-work'
 import { usePublishForm } from '../hooks/usePublishForm'
 import { useWorkDraft } from '../hooks/useWorkDraft'
+import { availableModels } from '../lib/models'
 
 const statusNames: Record<Publication['status'], { label: string; badge: string }> = {
   draft: { label: '草稿箱', badge: 'primary' }, published: { label: '已发布', badge: 'success' },
@@ -44,6 +45,30 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
   /** 渲染级检测（阶段四）：真实浏览器测量溢出/叠字；推送前主进程还会自动再跑一遍 */
   const [renderIssues, setRenderIssues] = useState<Array<{ rule: string; message: string; hint?: string }>>([])
   const [renderChecking, setRenderChecking] = useState(false)
+  const [providers, setProviders] = useState<ProviderSummary[]>([])
+  const [generatingDigest, setGeneratingDigest] = useState(false)
+  useEffect(() => { void window.moliu.providers.list().then(setProviders).catch(() => undefined) }, [])
+  const generateDigest = async (): Promise<void> => {
+    if (!article || generatingDigest) return
+    const firstModel = availableModels(providers)[0]
+    if (!firstModel) { showToast({ type: 'warning', message: '请先在 AI 服务中配置可用文本模型' }); return }
+    setGeneratingDigest(true)
+    try {
+      const result = await window.moliu.articles.generateTitles({
+        articleId: article.id,
+        providerId: firstModel.provider.id,
+        model: firstModel.model.modelId
+      })
+      if (result.digest) {
+        update({ digest: result.digest })
+        showToast({ type: 'success', message: '已生成公众号摘要' })
+      }
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setGeneratingDigest(false)
+    }
+  }
   const runRenderCheck = async (): Promise<void> => {
     if (!selectedLayout || renderChecking) return
     setRenderChecking(true)
@@ -216,7 +241,7 @@ export function PublishingPage({ onNavigate, focusArticleId, currentAccount, sho
         <label className="field"><span>排版稿</span><Select value={layoutId} disabled={busy} onChange={setLayoutId} ariaLabel="排版稿" options={wechatLayouts.map(item => ({ value: item.id, label: item.title, hint: formatDate(item.createdAt) }))} /></label>
         <label className="field"><span>封面图片</span><Select value={selectedCover?.id ?? ''} onChange={value => update({ coverAssetId: value, thumbMediaId: '' })} disabled={!loaded || busy} ariaLabel="封面图片" placeholder="选择当前文章的封面" options={coverAssets.map(asset => ({ value: asset.id, label: asset.prompt.slice(0, 40) || '封面图片' }))} /></label>
         <label className="field"><span>作者</span><input name="author" disabled={!loaded || busy} value={form.author} onChange={event => update({ author: event.target.value })} maxLength={100} /></label>
-        <label className="field"><span>摘要</span><input name="digest" disabled={!loaded || busy} value={form.digest} onChange={event => update({ digest: event.target.value })} maxLength={120} /></label>
+        <label className="field"><span>摘要 {article && <button type="button" className="text-button" disabled={busy || generatingDigest || !loaded} onClick={() => void generateDigest()}><Sparkles size={13} />{generatingDigest ? '生成中…' : 'AI 生成'}</button>}</span><input name="digest" disabled={!loaded || busy} value={form.digest} onChange={event => update({ digest: event.target.value })} maxLength={120} /></label>
         <label className="field"><span>原文链接（可选）</span><input type="url" name="sourceUrl" disabled={!loaded || busy} value={form.contentSourceUrl} onChange={event => update({ contentSourceUrl: event.target.value })} /></label>
         </div>
       {article && <LocalImageImport articleId={article.id} kind="cover" onImported={asset => { setAssets(current => ({ articleId: article.id, items: [...current.items, asset] })); update({ coverAssetId: asset.id, thumbMediaId: '' }) }} />}

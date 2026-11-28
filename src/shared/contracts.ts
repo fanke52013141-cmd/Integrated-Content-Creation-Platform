@@ -18,6 +18,8 @@ export interface PromptDefSummary {
   title: string
   description: string
   activeContent: string
+  /** 系统自动拼接的输出格式协议（只读展示） */
+  protocol?: string
   modelBinding?: PromptModelBinding | null
   activeVersion: number
   versionCount: number
@@ -40,6 +42,10 @@ export interface PromptDefBase {
   title: string
   description: string
   template: string
+  /** 系统锁定输出协议（自动拼接在业务要求尾部，用户不可破坏，防止 ParseError） */
+  protocol?: string
+  /** 兼容旧版用户自定义提示词的检测标记：若模板已含该标记则不重复拼接 protocol */
+  protocolMarker?: string
 }
 
 export interface CapabilityFlags {
@@ -219,6 +225,53 @@ export interface ModelCallLog {
   createdAt: string
 }
 
+/** 批次 D：模型用量与成本账本汇总 */
+export interface UsageLedgerModelRow {
+  providerId?: string
+  providerName: string
+  model: string
+  calls: number
+  successCalls: number
+  failedCalls: number
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  avgLatencyMs: number
+  recordedCostUsd: number
+}
+
+export interface UsageLedgerStageRow {
+  domain: GenerationDomain
+  totalTasks: number
+  completedTasks: number
+  failedTasks: number
+}
+
+export interface UsageLedgerDayRow {
+  date: string
+  calls: number
+  totalTokens: number
+  recordedCostUsd: number
+}
+
+export interface UsageLedgerSummary {
+  days: number
+  since: string
+  totals: {
+    calls: number
+    successCalls: number
+    failedCalls: number
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+    avgLatencyMs: number
+    recordedCostUsd: number
+  }
+  byModel: UsageLedgerModelRow[]
+  byStage: UsageLedgerStageRow[]
+  daily: UsageLedgerDayRow[]
+}
+
 /**
  * 搜索服务摘要：由「搜索类型」供应商派生（旧 search_services 单例已并入供应商体系），
  * 供素材页横幅判断是否已配置；id 保留 'doubao-custom' 以兼容既有展示。
@@ -286,6 +339,31 @@ export interface AddAccountMemoryResult {
   created: boolean
 }
 
+/** 账号标杆样文（Few-Shot 语感参考，仅学风格不复用事实） */
+export interface AccountStyleSample {
+  id: string
+  profileId: string
+  title: string
+  excerpt: string
+  tag: string
+  note: string
+  enabled: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SaveAccountStyleSampleInput {
+  id?: string
+  profileId: string
+  title: string
+  excerpt: string
+  tag?: string
+  note?: string
+  enabled?: boolean
+  sortOrder?: number
+}
+
 export interface WizardAnswer {
   questionId: string
   question: string
@@ -327,6 +405,7 @@ export interface AccountProfile extends AccountProfileSummary {
   redlines: AccountRedline[]
   platformAccounts: AccountPlatformBinding[]
   memories: AccountMemory[]
+  styleSamples: AccountStyleSample[]
 }
 
 export interface GenerateAccountInput {
@@ -717,15 +796,24 @@ export interface FrameworkSection { name: string; content: string }
 export interface Framework { id: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; currentVersionId: string; isCurrent: boolean; versionCount: number; sections: FrameworkSection[]; rawXml: string; providerId?: string; model?: string; importSource?: ContentImportSource; createdAt: string; updatedAt: string; references: ArtifactReference[] }
 /** 框架历史版本快照（倒序；载入后保存即成为新版本） */
 export interface FrameworkVersion { id: string; versionNumber: number; providerId?: string; model?: string; sections: FrameworkSection[]; createdAt: string }
-export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number; /** 深度预研：先用搜索模型抓取选题相关公开资料注入框架生成（借鉴 STORM 多视角提问），无搜索配置时自动跳过 */ research?: boolean }
+/** 多轮交互 Skill 单轮执行轨迹（透明展示挑刺/工具检查/自动修正过程） */
+export interface SkillRoundTrace {
+  round: number
+  phase: string
+  summary: string
+  issuesFound?: number
+  improved?: boolean
+}
+
+export interface GenerateFrameworksInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; count: number; /** 深度预研：先用搜索模型抓取选题相关公开资料注入框架生成（借鉴 STORM 多视角提问），无搜索配置时自动跳过 */ research?: boolean; /** 多轮对抗查证 Skill：初版骨架 → 质疑挑刺与素材核验 → 重构框架 */ useSkill?: boolean }
 export interface FrameworkResearchStatus {
   status: 'used' | 'skipped' | 'disabled' | 'empty' | 'failed'
   count: number
   message: string
 }
-export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }>; research?: FrameworkResearchStatus }
+export interface GenerateFrameworksResult { frameworks: Framework[]; failed: Array<{ index: number; message: string }>; research?: FrameworkResearchStatus; skillTrace?: SkillRoundTrace[] }
 /** 框架单条重试：沿用失败项当时的完整输入重新生成一个候选 */
-export interface RetryFrameworkInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; research?: boolean }
+export interface RetryFrameworkInput { topicId?: string; accountId?: string; materialIds: string[]; templateId: string; manualTopic?: string; providerId: string; model: string; research?: boolean; useSkill?: boolean }
 export interface SaveFrameworkInput { id?: string; topicId?: string; accountId?: string; materialIds: string[]; templateId?: string; manualTopic: string; status: FrameworkStatus; sections: FrameworkSection[]; providerId?: string; model?: string }
 export interface SaveFrameworkTemplateInput { id?: string; name: string; sections: string[]; isDefault: boolean }
 
@@ -738,6 +826,11 @@ export interface GenerateArticlesInput { frameworkId?: string; accountId?: strin
 export interface GenerateArticlesResult { articles: Article[]; failed: Array<{ index: number; message: string }>; requestId?: string }
 export interface ReviseArticleInput { articleId: string; revisionMode: 'new-version' | 'new-candidates'; instruction: string; alignFramework: boolean; providerId: string; model: string; count: number; baseMarkdown?: string; expectedVersionId?: string; draftRevision?: number }
 export interface ReviseArticleResult extends GenerateArticlesResult {}
+export interface ReviseSelectionInput { articleId: string; baseMarkdown?: string; selectionStart: number; selectionEnd: number; instruction: string; providerId: string; model: string }
+export interface ReviseSelectionResult { originalText: string; revisedText: string; providerId: string; model: string; latencyMs: number }
+export interface TitleCandidate { text: string; style: string; reason: string }
+export interface GenerateTitlesDigestInput { articleId: string; baseMarkdown?: string; providerId: string; model: string }
+export interface GenerateTitlesDigestResult { titles: TitleCandidate[]; digest: string; providerId: string; model: string; latencyMs: number }
 export type ContentCompletion = 'complete' | 'truncated' | 'interrupted' | 'blocked' | 'unverified' | 'invalid'
 export interface CreationResult { index: number; status: 'pending' | 'running' | 'succeeded' | 'failed'; content: string; completion?: ContentCompletion; message: string; articleId?: string }
 export interface CreationRequest { id: string; kind: 'generate' | 'revise'; articleId?: string; title: string; createdAt: string; results: CreationResult[] }
@@ -882,7 +975,7 @@ export interface LayoutPlan {
   closing?: string
 }
 
-export interface GenerateLayoutPlanInput { articleId: string; providerId: string; model: string; /** 用户已选主题时传入，AI 输出「沿用」而非另行推荐 */ userThemeId?: string }
+export interface GenerateLayoutPlanInput { articleId: string; providerId: string; model: string; /** 用户已选主题时传入，AI 输出「沿用」而非另行推荐 */ userThemeId?: string; /** 排版多轮自检自修 Skill：规划 → 渲染合规与对比度实测 → 有告警自动修正 */ useSkill?: boolean }
 /** 生成排版方案的结果：extractionMatched=false 时 plan 为空方案，界面提示人工模式 */
 export interface GenerateLayoutPlanResult {
   plan: LayoutPlan
@@ -893,6 +986,8 @@ export interface GenerateLayoutPlanResult {
   paragraphCount: number
   /** 参与本次规划的候选图片资产 */
   assetOptions: Array<{ fileName: string; kind: 'cover' | 'inline'; alt: string }>
+  /** 开启排版多轮 Skill 时的检查与修正轨迹 */
+  skillTrace?: SkillRoundTrace[]
 }
 /**
  * 文章类型。用于「按内容类型选主题」——用户不该面对 5 个色块盲选，
@@ -1154,6 +1249,7 @@ export interface MoliuApi {
     inspectBackup(input: { bundleDir: string }): Promise<{ createdAt?: string; articles?: number; images: number; credentialsIncluded: boolean }>
     exportPortableBackup(): Promise<LocalFileResult>
     selectPortableBackup(): Promise<{ bundleDir: string; summary: string } | null>
+    getUsageLedger(days?: number): Promise<UsageLedgerSummary>
   }
   /** 主进程受控剪贴板：一次写入 HTML + 纯文本，粘贴到公众号编辑器时保留样式 */
   clipboard: {
@@ -1212,6 +1308,9 @@ export interface MoliuApi {
     listMemories(profileId: string): Promise<AccountMemory[]>
     addMemory(input: AddAccountMemoryInput): Promise<AddAccountMemoryResult>
     removeMemory(id: string): Promise<void>
+    listStyleSamples(profileId: string): Promise<AccountStyleSample[]>
+    saveStyleSample(input: SaveAccountStyleSampleInput): Promise<AccountStyleSample>
+    removeStyleSample(id: string): Promise<void>
   }
   hotspots: {
     bootstrap(): Promise<HotspotBootstrap>
@@ -1259,6 +1358,8 @@ export interface MoliuApi {
     addManual(input: SaveManualMaterialInput): Promise<Material>
     /** 上传本地文档作为素材（txt/md/pdf/docx，本地解析） */
     addFile(input: AddFileMaterialInput): Promise<Material>
+    /** 粘贴网页链接抓取正文入素材库（含 SSRF 护栏，全文进文档存储供片段溯源） */
+    addUrl(input: { url: string; relatedTopicId?: string }): Promise<Material>
     remove(id: string): Promise<void>
     /** 每条素材被哪些文章引用，用于素材选择器与来源回查 */
     usage(): Promise<Record<string, Array<{ id: string; title: string }>>>
@@ -1292,6 +1393,8 @@ export interface MoliuApi {
     commitDraft(articleId: string, revision: number): Promise<Article>
     generate(input: GenerateArticlesInput): Promise<GenerateArticlesResult>
     revise(input: ReviseArticleInput): Promise<ReviseArticleResult>
+    reviseSelection(input: ReviseSelectionInput): Promise<ReviseSelectionResult>
+    generateTitles(input: GenerateTitlesDigestInput): Promise<GenerateTitlesDigestResult>
     listRequests(): Promise<CreationRequest[]>
     retryRequest(requestId: string): Promise<GenerateArticlesResult>
     continueResult(requestId: string, index: number): Promise<GenerateArticlesResult>

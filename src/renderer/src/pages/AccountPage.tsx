@@ -10,6 +10,7 @@ import {
   Clock3,
   Copy,
   FileClock,
+  FileText,
   FileUp,
   Flame,
   GitCompare,
@@ -17,6 +18,7 @@ import {
   KeyRound,
   Lock,
   LockOpen,
+  Pencil,
   Plus,
   RotateCcw,
   Save,
@@ -35,12 +37,14 @@ import {
   type AccountProfile,
   type AccountProfileSummary,
   type AccountRedlineKind,
+  type AccountStyleSample,
   type AccountVersion,
+  type ArticleSummary,
   type GenerateAccountResult,
   type ProviderSummary,
   type WizardAnswer
 } from '../../../shared/contracts'
-import { serializeAccountXml } from '../../../shared/domain'
+import { DEFAULT_STYLE_SAMPLE_CHAR_BUDGET, serializeAccountXml } from '../../../shared/domain'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { RouteId } from '../components/Layout'
 import { ImportDialog } from '../components/ImportDialog'
@@ -588,11 +592,12 @@ function AccountWizard({
   )
 }
 
-type AccountDimension = 'fields' | 'redlines' | 'platforms' | 'memories' | 'layout'
+type AccountDimension = 'fields' | 'redlines' | 'samples' | 'platforms' | 'memories' | 'layout'
 
 const dimensionTabs: Array<{ id: AccountDimension; label: string }> = [
   { id: 'fields', label: '定位字段' },
   { id: 'redlines', label: '内容红线' },
+  { id: 'samples', label: '标杆样文' },
   { id: 'platforms', label: '平台账号' },
   { id: 'layout', label: '公众号版式' },
   { id: 'memories', label: '账号记忆' }
@@ -790,11 +795,13 @@ function AccountEditor({
           >
             {tab.id === 'fields' && <CircleUserRound size={16} />}
             {tab.id === 'redlines' && <ShieldAlert size={16} />}
+            {tab.id === 'samples' && <FileText size={16} />}
             {tab.id === 'platforms' && <Globe size={16} />}
             {tab.id === 'memories' && <BookOpen size={16} />}
             {tab.id === 'layout' && <Settings2 size={16} />}
             {tab.label}
             {tab.id === 'redlines' && loadedAccount.redlines.length > 0 && <span className="count-badge">{loadedAccount.redlines.length}</span>}
+            {tab.id === 'samples' && loadedAccount.styleSamples.length > 0 && <span className="count-badge">{loadedAccount.styleSamples.length}</span>}
             {tab.id === 'platforms' && loadedAccount.platformAccounts.length > 0 && <span className="count-badge">{loadedAccount.platformAccounts.length}</span>}
             {tab.id === 'memories' && loadedAccount.memories.length > 0 && <span className="count-badge">{loadedAccount.memories.length}</span>}
           </button>
@@ -839,7 +846,10 @@ function AccountEditor({
                   title="复制"
                   aria-label="复制"
                   onClick={() => {
-                    void navigator.clipboard.writeText(serializeAccountXml(fields, loadedAccount.redlines))
+                    void navigator.clipboard.writeText(serializeAccountXml(fields, loadedAccount.redlines, {
+                      memories: loadedAccount.memories,
+                      samples: loadedAccount.styleSamples
+                    }))
                     showToast({ type: 'success', message: '结构内容已复制' })
                   }}
                 >
@@ -847,8 +857,11 @@ function AccountEditor({
                 </button>
               </div>
               <details className="xml-panel-details">
-                <summary>开发者视图（生成时传给模型的结构化资料，含红线）</summary>
-                <pre>{serializeAccountXml(fields, loadedAccount.redlines)}</pre>
+                <summary>开发者视图（生成时传给模型的结构化资料，含红线、记忆与启用样文）</summary>
+                <pre>{serializeAccountXml(fields, loadedAccount.redlines, {
+                  memories: loadedAccount.memories,
+                  samples: loadedAccount.styleSamples
+                })}</pre>
               </details>
             </section>
 
@@ -907,6 +920,9 @@ function AccountEditor({
 
       {dimension === 'redlines' && (
         <AccountRedlinesPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
+      )}
+      {dimension === 'samples' && (
+        <AccountStyleSamplesPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
       )}
       {dimension === 'platforms' && (
         <AccountPlatformsPanel account={loadedAccount} onChanged={() => void reloadDimension()} showToast={showToast} />
@@ -1269,6 +1285,240 @@ function AccountMemoriesPanel({ account, onChanged, showToast }: {
           </div>
         ))}
         {!account.memories.length && <p className="micro-copy">发布复盘的经验会记到这里</p>}
+      </div>
+      {ConfirmPortal}
+    </section>
+  )
+}
+
+/** 标杆样文面板：Few-Shot 语感参考，仅学表达风格不复用事实 */
+function AccountStyleSamplesPanel({ account, onChanged, showToast }: {
+  account: AccountProfile
+  onChanged(): void
+  showToast(toast: ToastState): void
+}): React.JSX.Element {
+  const { confirm, ConfirmPortal } = useConfirm()
+  const [editingId, setEditingId] = useState<string>()
+  const [title, setTitle] = useState('')
+  const [tag, setTag] = useState('全文语感')
+  const [note, setNote] = useState('')
+  const [excerpt, setExcerpt] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [articles, setArticles] = useState<ArticleSummary[]>([])
+  const [pickingArticleId, setPickingArticleId] = useState('')
+
+  const tagPresets = ['全文语感', '开头范本', '论证风格', '收尾节奏']
+
+  useEffect(() => {
+    let alive = true
+    void window.moliu.articles.listSummaries({ accountId: account.id, limit: 20 })
+      .then((result) => { if (alive) setArticles(result.items) })
+      .catch(() => undefined)
+    return () => { alive = false }
+  }, [account.id])
+
+  const enabledSamples = account.styleSamples.filter((sample) => sample.enabled)
+  const enabledChars = enabledSamples.reduce((sum, sample) => sum + sample.excerpt.trim().length, 0)
+  const overBudget = enabledChars > DEFAULT_STYLE_SAMPLE_CHAR_BUDGET
+
+  function resetForm(): void {
+    setEditingId(undefined)
+    setTitle('')
+    setTag('全文语感')
+    setNote('')
+    setExcerpt('')
+    setPickingArticleId('')
+  }
+
+  function startEdit(sample: AccountStyleSample): void {
+    setEditingId(sample.id)
+    setTitle(sample.title)
+    setTag(sample.tag || '全文语感')
+    setNote(sample.note)
+    setExcerpt(sample.excerpt)
+  }
+
+  async function importFromArticle(articleId: string): Promise<void> {
+    setPickingArticleId(articleId)
+    if (!articleId) return
+    try {
+      const full = await window.moliu.articles.get(articleId)
+      if (!full) return
+      const heading = full.rawMarkdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || '代表作节选'
+      const body = full.rawMarkdown.replace(/^#\s+.+\r?\n+/, '').trim()
+      setTitle(heading.slice(0, 120))
+      setExcerpt(body.slice(0, 1500))
+      showToast({ type: 'info', message: '已载入文章前 1500 字，可精简最满意的段落后保存' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  async function save(): Promise<void> {
+    if (!title.trim() || !excerpt.trim()) return
+    setBusy(true)
+    try {
+      await window.moliu.accounts.saveStyleSample({
+        id: editingId,
+        profileId: account.id,
+        title,
+        tag,
+        note,
+        excerpt,
+        enabled: true
+      })
+      resetForm()
+      onChanged()
+      showToast({ type: 'success', message: editingId ? '标杆样文已更新' : '标杆样文已加入账号风格库' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleEnabled(sample: AccountStyleSample): Promise<void> {
+    setBusy(true)
+    try {
+      await window.moliu.accounts.saveStyleSample({
+        id: sample.id,
+        profileId: account.id,
+        title: sample.title,
+        tag: sample.tag,
+        note: sample.note,
+        excerpt: sample.excerpt,
+        enabled: !sample.enabled,
+        sortOrder: sample.sortOrder
+      })
+      onChanged()
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(sample: AccountStyleSample): Promise<void> {
+    if (!(await confirm({ title: '删除标杆样文', message: `「${sample.title}」删除后，后续写作不再参考这篇样文的语感。`, danger: true, confirmLabel: '删除' }))) return
+    try {
+      await window.moliu.accounts.removeStyleSample(sample.id)
+      if (editingId === sample.id) resetForm()
+      onChanged()
+      showToast({ type: 'success', message: '标杆样文已删除' })
+    } catch (error) {
+      showToast({ type: 'error', message: errorMessage(error) })
+    }
+  }
+
+  return (
+    <section className="panel dimension-panel">
+      <div className="section-heading">
+        <div>
+          <h3>标杆样文库</h3>
+          <p className="micro-copy">放 2~3 篇最满意的代表作或经典段落，写作与框架生成时自动注入语感参考（仅学风格，不复用事实）。</p>
+        </div>
+        <span className={`badge ${overBudget ? 'warning' : 'neutral'}`}>
+          已启用 {enabledSamples.length} 篇 · {enabledChars} / {DEFAULT_STYLE_SAMPLE_CHAR_BUDGET} 字
+        </span>
+      </div>
+      {overBudget && (
+        <p className="inline-alert" role="status">
+          当前启用样文总字数超出 {DEFAULT_STYLE_SAMPLE_CHAR_BUDGET} 字注入预算，生成时将按顺序截断保留前 {DEFAULT_STYLE_SAMPLE_CHAR_BUDGET} 字；建议精简摘录或停用部分样文。
+        </p>
+      )}
+      <div className="dimension-add-column">
+        {articles.length > 0 && !editingId && (
+          <div className="dimension-add-row sample-import-row">
+            <label className="field dimension-add-main">
+              <span>从本号已有文章导入（可选）</span>
+              <Select
+                value={pickingArticleId}
+                onChange={(value) => void importFromArticle(value)}
+                ariaLabel="从本号已有文章导入样文"
+                placeholder="选择一篇代表作自动截取前 1500 字…"
+                options={[{ value: '', label: '手动粘贴样文' }, ...articles.map((article) => ({ value: article.id, label: article.title }))]}
+              />
+            </label>
+          </div>
+        )}
+        <div className="dimension-add-row">
+          <label className="field">
+            <span>类型标签</span>
+            <Select value={tag} onChange={setTag} ariaLabel="样文标签" options={tagPresets.map((name) => ({ value: name, label: name }))} />
+          </label>
+          <label className="field dimension-add-main">
+            <span>样文标题</span>
+            <input
+              name="sampleTitle"
+              autoComplete="off"
+              value={title}
+              maxLength={120}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="例：别再拿 AI 当打字机（爆款开头与结尾示范）"
+            />
+          </label>
+        </div>
+        <div className="dimension-add-row sample-excerpt-row">
+          <label className="field dimension-add-main">
+            <span>参考重点（可选）</span>
+            <input
+              name="sampleNote"
+              autoComplete="off"
+              value={note}
+              maxLength={300}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="例：学习短句收尾节奏和克制反问，不要用煽情口号"
+            />
+          </label>
+        </div>
+        <div className="dimension-add-row sample-excerpt-row">
+          <label className="field dimension-add-main">
+            <span>样文摘录（建议每篇 500~1500 字）</span>
+            <textarea
+              name="sampleExcerpt"
+              autoComplete="off"
+              rows={6}
+              maxLength={8000}
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
+              placeholder="粘贴最能代表你这个账号真实语感的文章片段…"
+            />
+          </label>
+          <div className="sample-form-actions">
+            <small className="micro-copy">当前 {excerpt.trim().length} 字</small>
+            {editingId && (
+              <button className="button ghost" disabled={busy} onClick={resetForm}>取消编辑</button>
+            )}
+            <button className="button primary" disabled={busy || !title.trim() || !excerpt.trim()} onClick={() => void save()}>
+              <Save size={16} />{editingId ? '保存修改' : '保存样文'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="dimension-list">
+        {account.styleSamples.map((sample) => (
+          <div key={sample.id} className={`dimension-item sample-item ${sample.enabled ? '' : 'sample-disabled'}`}>
+            <span className={`badge ${sample.enabled ? 'primary' : 'neutral'}`}>{sample.tag}</span>
+            <span className="dimension-item-main">
+              <strong>{sample.title}</strong>
+              {sample.note && <small>参考重点：{sample.note}</small>}
+              <p className="sample-excerpt-preview">{sample.excerpt.slice(0, 220)}{sample.excerpt.length > 220 ? '…' : ''}</p>
+              <small className="dimension-item-date">{sample.excerpt.trim().length} 字 · {sample.enabled ? '写作时自动注入' : '已停用'}</small>
+            </span>
+            <div className="sample-item-actions">
+              <button className="button ghost compact" disabled={busy} onClick={() => void toggleEnabled(sample)}>
+                {sample.enabled ? '停用' : '启用'}
+              </button>
+              <button className="icon-button" title="编辑" aria-label="编辑样文" onClick={() => startEdit(sample)}>
+                <Pencil size={16} />
+              </button>
+              <button className="icon-button danger" title="删除" aria-label="删除样文" onClick={() => void remove(sample)}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {!account.styleSamples.length && <p className="micro-copy">还没有标杆样文；放 2~3 篇你最满意的代表作片段，AI 写作会立刻更贴近你的口吻。</p>}
       </div>
       {ConfirmPortal}
     </section>

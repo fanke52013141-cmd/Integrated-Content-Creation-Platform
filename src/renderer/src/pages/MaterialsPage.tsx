@@ -79,6 +79,9 @@ export function MaterialsPage({
   const [bulkSaving, setBulkSaving] = useState(false)
   const [searchResult, setSearchResult] = useState<MaterialSearchResult>()
   const [manualOpen, setManualOpen] = useState(false)
+  const [urlOpen, setUrlOpen] = useState(false)
+  const [clipUrl, setClipUrl] = useState('')
+  const [clipping, setClipping] = useState(false)
   const [collectionQuery, setCollectionQuery] = useState('')
   const [collectionKind, setCollectionKind] = useState<'all' | Material['kind']>('all')
   const [usage, setUsage] = useState<Record<string, Array<{ id: string; title: string }>>>({})
@@ -260,7 +263,10 @@ export function MaterialsPage({
           {returnTo && <button className="button ghost compact" onClick={() => onNavigate(returnTo as RouteId)}><ArrowLeft size={16} />返回上一步</button>}
           <h2>素材库</h2>
         </div>
-        <button className="button secondary" onClick={() => setManualOpen(true)}><Upload size={16} />添加文字素材</button>
+        <div className="page-intro-actions">
+          <button className="button secondary" onClick={() => setUrlOpen(true)}><Link2 size={16} />抓取网页正文</button>
+          <button className="button secondary" onClick={() => setManualOpen(true)}><Upload size={16} />导入文字 / 研究报告</button>
+        </div>
       </section>
 
       <section className="material-tabs">
@@ -360,6 +366,69 @@ export function MaterialsPage({
 
       {manualOpen && <ManualMaterialDialog topics={topics} onClose={() => setManualOpen(false)} onSaved={async () => { setManualOpen(false); await refresh() }} showToast={showToast} />}
       {ConfirmPortal}
+      <ModalBase open={urlOpen} onClose={() => { if (!clipping) setUrlOpen(false) }} titleId="url-material-title" className="manual-material-dialog">
+        <header>
+          <div><h3 id="url-material-title">抓取网页正文入素材库</h3><p className="micro-copy">粘贴外部 Deep Research 公开页或深度参考文章链接，自动提取正文全文并保留出处。</p></div>
+          <button className="icon-button" disabled={clipping} aria-label="关闭" onClick={() => setUrlOpen(false)}><X size={18} /></button>
+        </header>
+        <label className="field">
+          <span>网页链接（http / https）</span>
+          <input
+            type="url"
+            name="clipUrl"
+            autoComplete="off"
+            value={clipUrl}
+            disabled={clipping}
+            onChange={(event) => setClipUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && clipUrl.trim() && !clipping) {
+                event.preventDefault()
+                void (async () => {
+                  setClipping(true)
+                  try {
+                    const saved = await window.moliu.materials.addUrl({ url: clipUrl.trim(), relatedTopicId: relatedTopicId || undefined })
+                    setClipUrl('')
+                    setUrlOpen(false)
+                    setView('collection')
+                    await refresh()
+                    showToast({ type: 'success', message: `已抓取「${saved.title}」入素材库` })
+                  } catch (error) {
+                    showToast({ type: 'error', message: errorMessage(error) })
+                  } finally {
+                    setClipping(false)
+                  }
+                })()
+              }
+            }}
+            placeholder="https://example.com/article"
+          />
+        </label>
+        <div className="modal-actions">
+          <button className="button ghost" disabled={clipping} onClick={() => setUrlOpen(false)}>取消</button>
+          <button
+            className="button primary"
+            disabled={clipping || !clipUrl.trim()}
+            onClick={() => void (async () => {
+              setClipping(true)
+              try {
+                const saved = await window.moliu.materials.addUrl({ url: clipUrl.trim(), relatedTopicId: relatedTopicId || undefined })
+                setClipUrl('')
+                setUrlOpen(false)
+                setView('collection')
+                await refresh()
+                showToast({ type: 'success', message: `已抓取「${saved.title}」入素材库` })
+              } catch (error) {
+                showToast({ type: 'error', message: errorMessage(error) })
+              } finally {
+                setClipping(false)
+              }
+            })()}
+          >
+            {clipping ? <LoaderCircle size={16} className="spin" /> : <Link2 size={16} />}
+            {clipping ? '正在抓取正文…' : '抓取并入库'}
+          </button>
+        </div>
+      </ModalBase>
     </div>
   )
 }

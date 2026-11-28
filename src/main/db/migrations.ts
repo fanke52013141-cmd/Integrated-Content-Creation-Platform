@@ -66,6 +66,48 @@ export const MIGRATIONS: MigrationStep[] = [
       // 旧表 RENAME 时把旧索引一并带走了，这里按原定义补回
       db.exec('CREATE INDEX IF NOT EXISTS idx_hot_favorite_tags_tag ON hot_favorite_tags(tag, favorite_id);')
     }
+  },
+  {
+    version: 5,
+    description: '新增账号标杆样文表 account_style_samples，用于按预算向框架与写作环节注入 Few-Shot 语感参考',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS account_style_samples (
+          id TEXT PRIMARY KEY,
+          profile_id TEXT NOT NULL REFERENCES account_profiles(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          excerpt TEXT NOT NULL,
+          tag TEXT NOT NULL DEFAULT '全文语感',
+          note TEXT NOT NULL DEFAULT '',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_account_style_samples_profile
+          ON account_style_samples(profile_id, enabled, sort_order, created_at);
+      `)
+    }
+  },
+  {
+    version: 6,
+    description: '新增多轮 Skill 配置表 skill_profiles，支持框架、写作、排版三大复杂环节的受控多轮修正配置持久化',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS skill_profiles (
+          id TEXT PRIMARY KEY,
+          stage TEXT NOT NULL CHECK(stage IN ('frameworks', 'articles', 'layouts')),
+          name TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          instructions TEXT NOT NULL DEFAULT '',
+          max_rounds INTEGER NOT NULL DEFAULT 2,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          is_builtin INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_profiles_stage ON skill_profiles(stage, enabled);
+      `)
+    }
   }
 ]
 

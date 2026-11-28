@@ -11,12 +11,13 @@
 
 import { runArticleChecks } from './article-checker.js'
 import type { ArticleCheckReport } from './article-checker.js'
+import { extractFactCandidates } from '../../shared/fact-candidates.js'
 
 export const POLISH_MAX_ROUNDS = 2
 
 export interface PolishRound {
   round: number
-  /** 本轮改写前的问题数（medium+high） */
+  /** 本轮改写前的问题数（medium+high + 无依据数字提示） */
   beforeCount: number
   /** 本轮改写后的问题数 */
   afterCount: number
@@ -36,44 +37,72 @@ export interface PolishOutcome {
 export interface PolishDeps {
   /** 按体检意见改写全文；实现方负责模型调用（含 provider/model/maxTokens/超时与重试） */
   callRevise(markdown: string, instruction: string): Promise<string>
+  /** 可选：本次生成送入模型的素材片段，用于联动检测无依据数字/比例 */
+  evidenceFragments?: Array<{ text: string }>
 }
 
 interface IssueSnapshot {
   report: ArticleCheckReport
+  ungroundedFacts: string[]
   count: number
 }
 
-function snapshot(markdown: string): IssueSnapshot {
-  const report = runArticleChecks(markdown)
-  return { report, count: report.findings.filter((finding) => finding.severity !== 'low').length }
+function findUngroundedNumericClaims(markdown: string, fragments?: Array<{ text: string }>): string[] {
+  if (!fragments) return []
+  const candidates = extractFactCandidates(markdown)
+  const ungrounded: string[] = []
+  const seen = new Set<string>()
+  for (const candidate of candidates) {
+    // 只挑高风险量化数字（百分比、带单位大数），避免对年份/普通序号误报
+    if (!/%|％|万|亿|倍|元|美元/.test(candidate.token)) continue
+    if (seen.has(candidate.token)) continue
+    const matched = fragments.some((fragment) => fragment.text.includes(candidate.token))
+    if (!matched) {
+      seen.add(candidate.token)
+      ungrounded.push(`${candidate.token}（上下文：${candidate.context.slice(0, 40)}）`)
+      if (ungrounded.length >= 3) break
+    }
+  }
+  return ungrounded
 }
 
-export function buildPolishInstruction(report: ArticleCheckReport): string {
+function snapshot(markdown: string, evidenceFragments?: Array<{ text: string }>): IssueSnapshot {
+  const report = runArticleChecks(markdown)
+  const ungroundedFacts = findUngroundedNumericClaims(markdown, evidenceFragments)
+  const styleCount = report.findings.filter((finding) => finding.severity !== 'low').length
+  return { report, ungroundedFacts, count: styleCount + ungroundedFacts.length }
+}
+
+export function buildPolishInstruction(report: ArticleCheckReport, ungroundedFacts: string[] = []): string {
   const items = report.findings
     .filter((finding) => finding.severity !== 'low')
     .map((finding, index) => `${index + 1}. 位置：${finding.position}｜问题：${finding.issue}｜建议：${finding.suggestion}`)
+  const factLines = ungroundedFacts.map((item, index) =>
+    `${items.length + index + 1}. 事实核对提醒：数值「${item}」未在已提供素材中找到出处；请改为审慎的一般性表达，绝不编造统计来源。`
+  )
   return [
-    '以下是确定性文风体检发现的问题，请只修正这些问题：保持内容、结构与信息完全不变，不增删事实与观点，只调整表达。',
+    '以下是确定性文风体检与事实线索自检发现的问题，请只修正这些问题：保持核心观点与结构不变，只优化表达并消除无依据的精确数字。',
     ...items,
+    ...factLines,
     '输出完整 Markdown 成稿（以一级标题开始），不要输出解释或 diff。'
   ].join('\n')
 }
 
 export async function polishMarkdown(markdown: string, deps: PolishDeps, maxRounds: number = POLISH_MAX_ROUNDS): Promise<PolishOutcome> {
   let current = markdown
-  let state = snapshot(current)
+  let state = snapshot(current, deps.evidenceFragments)
   if (!state.count) return { markdown, rounds: [], finalReport: state.report, summary: '' }
 
   const rounds: PolishRound[] = []
   for (let round = 1; round <= maxRounds; round += 1) {
     let revised: string
     try {
-      revised = normalizePolished(await deps.callRevise(current, buildPolishInstruction(state.report)), current)
+      revised = normalizePolished(await deps.callRevise(current, buildPolishInstruction(state.report, state.ungroundedFacts)), current)
     } catch {
       // 改写调用失败或产物不合法：保留当前文本，停止循环（优雅降级，绝不影响生成主流程）
       break
     }
-    const next = snapshot(revised)
+    const next = snapshot(revised, deps.evidenceFragments)
     const improved = next.count < state.count
     rounds.push({ round, beforeCount: state.count, afterCount: next.count, improved })
     if (!improved) break

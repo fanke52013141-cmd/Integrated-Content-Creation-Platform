@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Code2, Copy, FileDown, FileText, FileUp, ImageDown, Moon, Save, Send, Smartphone, Sparkles, Trash2, X } from 'lucide-react'
-import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutGenreInfo, LayoutPlan, LayoutPlatform, LayoutThemeInfo, ProviderSummary } from '../../../shared/contracts'
+import type { AccountLayoutVersion, AccountProfileSummary, LayoutPreviewResult, LayoutStyleConfig, ArticleGenre, ArticleLayout, ArticleSummary, LayoutGenreInfo, LayoutPlan, LayoutPlatform, LayoutThemeInfo, ProviderSummary, SkillRoundTrace } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
 import { useSelectedArticle } from '../hooks/useSelectedArticle'
@@ -67,9 +67,10 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
   const [busy, setBusy] = useState(false)
   const [providers, setProviders] = useState<ProviderSummary[]>([])
   const [plan, setPlan] = useState<LayoutPlan | null>(null)
-  const [planMeta, setPlanMeta] = useState<{ extractionMatched: boolean; warnings: string[]; paragraphCount: number } | null>(null)
+  const [planMeta, setPlanMeta] = useState<{ extractionMatched: boolean; warnings: string[]; paragraphCount: number; skillTrace?: SkillRoundTrace[] } | null>(null)
   const [planBusy, setPlanBusy] = useState(false)
   const [planEnabled, setPlanEnabled] = useState(true)
+  const [useLayoutSkill, setUseLayoutSkill] = useState(true)
   const [showingSamplePreview, setShowingSamplePreview] = useState(false)
   const [samplePreview, setSamplePreview] = useState<LayoutPreviewResult | null>(null)
   const [samplePreviewLoading, setSamplePreviewLoading] = useState(false)
@@ -163,10 +164,11 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
         articleId,
         providerId: target.providerId,
         model: target.modelId,
+        useSkill: useLayoutSkill,
         ...(themeId !== 'custom' && themeId ? { userThemeId: themeId } : {})
       })
       setPlan(result.plan)
-      setPlanMeta({ extractionMatched: result.extractionMatched, warnings: result.warnings, paragraphCount: result.paragraphCount })
+      setPlanMeta({ extractionMatched: result.extractionMatched, warnings: result.warnings, paragraphCount: result.paragraphCount, skillTrace: result.skillTrace })
       setPlanEnabled(true)
       if (result.plan.recommendedThemeId && result.plan.recommendedThemeId !== themeId) setThemeId(result.plan.recommendedThemeId)
       const dropped = result.warnings.length
@@ -409,6 +411,7 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
           </label>
           <div className="field"><span className="field-label">平台</span>
             <Segmented ariaLabel="平台" value={platform} onChange={(value) => { setShowingSamplePreview(false); setPlatform(value) }} options={(Object.keys(platformNames) as LayoutPlatform[]).map((key) => ({ value: key, label: platformNames[key], title: platformHints[key] }))} />
+            {platform !== 'wechat' && <small className="micro-copy">{platform === 'xiaohongshu' ? '小红书不走公众号推送，生成后可直接「复制纯文本」或「导出长图 PNG」。' : '通用网页不走公众号推送，生成后可直接「导出单文件 HTML」。'}</small>}
           </div>
           <div className="field"><span className="field-label">文章类型<em>选类型即装配版式</em></span>
             <Segmented
@@ -524,6 +527,13 @@ export function LayoutsPage({ onNavigate, focusArticleId, showToast }: {
                   <label className="field"><span>结尾互动语<em>文末段落</em></span>
                     <textarea rows={2} maxLength={300} value={plan.closing ?? ''} placeholder="留空则不加互动语" onChange={(event) => setPlan((current) => current ? { ...current, closing: event.target.value || undefined } : current)} />
                   </label>
+                  <label className="check-line"><input type="checkbox" checked={useLayoutSkill} onChange={(event) => setUseLayoutSkill(event.target.checked)} />启用排版多轮自检自修 Skill（渲染合规实测，发现告警自动修正）</label>
+                  {planMeta?.skillTrace && planMeta.skillTrace.length > 0 && (
+                    <details className="editorial-input-summary">
+                      <summary>排版自检自修轨迹（{planMeta.skillTrace.length} 步）</summary>
+                      {planMeta.skillTrace.map((step, index) => <p key={index}><strong>{step.phase}</strong>：{step.summary}</p>)}
+                    </details>
+                  )}
                 </div>
               )}
             </details>

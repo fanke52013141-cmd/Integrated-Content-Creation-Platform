@@ -7,6 +7,8 @@ import type {
   Material,
   ReviseArticleInput,
   ReviseArticleResult,
+  ReviseSelectionInput,
+  ReviseSelectionResult,
   CreationRequest,
   CreationResult,
   SaveArticleInput,
@@ -48,12 +50,18 @@ export class ArticleGenerator {
     const materials = this.resolveMaterials(input.materialIds)
     const outline = framework?.rawXml ?? `<手动框架>\n${escapeXml(manualOutline)}\n</手动框架>`
     const total = input.count
-    const baseText = this.prompts.render('article.generate') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + outline
+    const accountXml = account
+      ? serializeAccountXml(account.fields, account.redlines, {
+          memories: account.memories,
+          samples: account.styleSamples
+        })
+      : ''
+    const baseText = this.prompts.render('article.generate') + accountXml + outline
     const evidence = buildMaterialContext(this.database, materials, outline, contextBudget(this.database, input.providerId, input.model, baseText))
     const requestId = this.database.workflow.createRequest('generate', {
       maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 16_000), evidence, references: this.referenceSnapshot(framework, account, materials),
       input, save: { frameworkId: framework?.id, accountId: account?.id, materialIds: materials.map(item => item.id), manualOutline: framework ? '' : outline, status: 'draft', source: 'generate', rawMarkdown: '' },
-      messages: [{ role: 'system', content: this.prompts.render('article.generate') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', outline, evidence.text].join('\n\n') }]
+      messages: [{ role: 'system', content: this.prompts.render('article.generate') }, { role: 'user', content: [accountXml || '<账号定位>未选择</账号定位>', outline, evidence.text].join('\n\n') }]
     } satisfies PreparedArticleRequest, '按框架写作', total)
     const work = Array.from({ length: total }, (_, index) => this.executePrepared(requestId, index + 1, total, onStream, signal))
     return { ...await collect(work), requestId }
@@ -72,14 +80,86 @@ export class ArticleGenerator {
     const total = input.count
     if (input.revisionMode === 'new-version' && total !== 1) throw new Error('在当前文章生成版本时，只能生成一个结果')
     const evidence = this.database.workflow.getEvidence<import('../../shared/contracts.js').MaterialContext>(article.currentVersionId) ?? buildMaterialContext(this.database, this.resolveMaterials(article.materialIds), instruction)
-    contextBudget(this.database, input.providerId, input.model, this.prompts.render('article.revise') + (input.baseMarkdown?.trim() || article.rawMarkdown) + instruction + (framework?.rawXml ?? '') + (account ? serializeAccountXml(account.fields, account.redlines) : '') + evidence.text)
+    const accountXml = account
+      ? serializeAccountXml(account.fields, account.redlines, {
+          memories: account.memories,
+          samples: account.styleSamples
+        })
+      : ''
+    contextBudget(this.database, input.providerId, input.model, this.prompts.render('article.revise') + (input.baseMarkdown?.trim() || article.rawMarkdown) + instruction + (framework?.rawXml ?? '') + accountXml + evidence.text)
     const requestId = this.database.workflow.createRequest('revise', {
       maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 16_000), evidence, references: this.referenceSnapshot(framework, account, this.resolveMaterials(article.materialIds)),
       input, article, save: { frameworkId: article.frameworkId, accountId: article.accountId, materialIds: article.materialIds, manualOutline: article.manualOutline, status: 'draft', source: 'revise', instruction, rawMarkdown: '' },
-      messages: [{ role: 'system', content: this.prompts.render('article.revise') }, { role: 'user', content: [account ? serializeAccountXml(account.fields, account.redlines) : '<账号定位>未选择</账号定位>', `<原稿>\n${escapeXml(input.baseMarkdown?.trim() || article.rawMarkdown)}\n</原稿>`, `<修改指令>\n${escapeXml(instruction)}\n</修改指令>`, framework?.rawXml ?? '<框架>未要求对齐</框架>', evidence.text].join('\n\n') }]
+      messages: [{ role: 'system', content: this.prompts.render('article.revise') }, { role: 'user', content: [accountXml || '<账号定位>未选择</账号定位>', `<原稿>\n${escapeXml(input.baseMarkdown?.trim() || article.rawMarkdown)}\n</原稿>`, `<修改指令>\n${escapeXml(instruction)}\n</修改指令>`, framework?.rawXml ?? '<框架>未要求对齐</框架>', evidence.text].join('\n\n') }]
     } satisfies PreparedArticleRequest, article.rawMarkdown.match(/^#\s+(.+)$/m)?.[1] ?? '改稿', total, article.id)
     const work = Array.from({ length: total }, (_, index) => this.executePrepared(requestId, index + 1, total, onStream, signal))
     return { ...await collect(work), requestId }
+  }
+
+  /** 局部选区 AI 改写：仅发送选区前后文语境与账号样文，返回改写后片段供前端 Diff 确认，不直接落库 */
+  async reviseSelection(input: ReviseSelectionInput, signal?: AbortSignal): Promise<ReviseSelectionResult> {
+    const article = this.database.getArticle(input.articleId)
+    if (!article) throw new Error('待改写文章不存在')
+    const base = input.baseMarkdown ?? article.rawMarkdown
+    const start = Math.max(0, Math.min(input.selectionStart, base.length))
+    const end = Math.max(start, Math.min(input.selectionEnd, base.length))
+    const originalText = base.slice(start, end)
+    if (!originalText.trim()) throw new Error('请先选中需要改写的正文片段')
+    const instruction = input.instruction.trim()
+    if (!instruction) throw new Error('请输入改写要求')
+
+    const account = this.resolveAccount(article.accountId)
+    const accountXml = account
+      ? serializeAccountXml(account.fields, account.redlines, {
+          memories: account.memories,
+          samples: account.styleSamples
+        })
+      : '<账号定位>未选择</账号定位>'
+    const headings = base
+      .split('\n')
+      .filter((line) => /^#{1,3}\s+\S/.test(line.trim()))
+      .slice(0, 20)
+      .join('\n')
+    const beforeContext = base.slice(Math.max(0, start - 600), start).trim()
+    const afterContext = base.slice(end, Math.min(base.length, end + 400)).trim()
+    const systemPrompt = this.prompts.render('article.revise-selection')
+    const userContent = [
+      accountXml,
+      headings ? `<文章目录>\n${escapeXml(headings)}\n</文章目录>` : '',
+      beforeContext ? `<上文语境>\n${escapeXml(beforeContext)}\n</上文语境>` : '',
+      `<待改写片段>\n${escapeXml(originalText)}\n</待改写片段>`,
+      afterContext ? `<下文语境>\n${escapeXml(afterContext)}\n</下文语境>` : '',
+      `<改写要求>\n${escapeXml(instruction)}\n</改写要求>`
+    ].filter(Boolean).join('\n\n')
+
+    contextBudget(this.database, input.providerId, input.model, systemPrompt + userContent, 6000)
+    const response = await this.gateway.chat({
+      providerId: input.providerId,
+      model: input.model,
+      temperature: 0.55,
+      maxTokens: modelOutputTokens(this.database, input.providerId, input.model, 6000),
+      jsonMode: false,
+      signal,
+      extractBlock: { tag: '改写结果', occurrence: 'last' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent }
+      ]
+    }, { signal })
+
+    const raw = typeof response.extracted === 'string'
+      ? response.extracted
+      : Array.isArray(response.extracted)
+        ? response.extracted.join('\n')
+        : response.content
+    const revisedText = normalizeSelectionOutput(raw)
+    return {
+      originalText,
+      revisedText,
+      providerId: response.providerId,
+      model: response.model,
+      latencyMs: response.latencyMs
+    }
   }
 
   listRequests(): CreationRequest[] { return this.database.workflow.listCreationRequests() }
@@ -179,9 +259,10 @@ export class ArticleGenerator {
     }
   }
 
-  /** 文风体检自动修正：把确定性体检意见交给当前模型改写并复检（循环规则见 article-polisher.ts） */
+  /** 文风体检与事实线索多轮自动修正：把确定性体检 + 无依据数字提示交给当前模型改写并复检 */
   private async polishCandidate(prepared: PreparedArticleRequest, markdown: string, signal?: AbortSignal): Promise<{ markdown: string; summary: string }> {
     const outcome = await polishMarkdown(markdown, {
+      evidenceFragments: prepared.evidence?.fragments,
       callRevise: async (base, instruction) => {
         const response = await callModelWithFallback(this.gateway, {
           providerId: prepared.input.providerId,
@@ -230,6 +311,14 @@ function normalizeMarkdown(content: string): string {
   if (!markdown) throw new Error('模型未返回可用成稿')
   if (!/^#\s+\S/.test(markdown)) throw new Error('模型结果不是以一级标题开始的 Markdown 成稿，请重试或更换模型')
   return markdown
+}
+
+export function normalizeSelectionOutput(content: string): string {
+  const tagged = content.match(/<改写结果[^>]*>([\s\S]*?)<\/改写结果>/i)?.[1] ?? content
+  const fenced = tagged.trim().match(/^```(?:markdown|md)?\s*([\s\S]*?)```$/i)?.[1]
+  const text = (fenced ?? tagged).trim()
+  if (!text) throw new Error('模型未返回有效改写片段，请重试')
+  return text
 }
 
 async function collect<T>(work: Array<Promise<T>>, indices?: number[]): Promise<{ articles: T[]; failed: Array<{ index: number; message: string }> }> {

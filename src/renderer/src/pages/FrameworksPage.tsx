@@ -5,7 +5,7 @@ import {
   Lock, LockOpen, Pencil, PenLine, Plus, Save, Sparkles, Trash2, WandSparkles, X
 } from 'lucide-react'
 import type {
-  AccountProfileSummary, Framework, FrameworkResearchStatus, FrameworkSection, FrameworkTemplate, FrameworkVersion, Material, ProviderSummary, Topic
+  AccountProfileSummary, Framework, FrameworkResearchStatus, FrameworkSection, FrameworkTemplate, FrameworkVersion, Material, ProviderSummary, SkillRoundTrace, Topic
 } from '../../../shared/contracts'
 import type { RouteId } from '../components/Layout'
 import type { ToastState } from '../components/Toast'
@@ -53,8 +53,11 @@ export function FrameworksPage({
   const [count, setCount] = useState(3)
   // 深度预研默认开启：已配搜索模型时先抓取选题相关公开资料再生成框架，未配置则自动跳过
   const [research, setResearch] = useState(true)
+  // 框架多轮对抗查证 Skill：初版骨架 → 毒舌挑刺与素材核对 → 重构框架（默认关闭，重头文章按需开启）
+  const [useSkill, setUseSkill] = useState(false)
   const [lastFailed, setLastFailed] = useState<Array<{ index: number; message: string }>>([])
   const [lastResearch, setLastResearch] = useState<FrameworkResearchStatus>()
+  const [lastSkillTrace, setLastSkillTrace] = useState<SkillRoundTrace[]>()
   const [templateEditor, setTemplateEditor] = useState<FrameworkTemplate | 'new'>()
   const [editing, setEditing] = useState<Framework>()
   const [manualCreating, setManualCreating] = useState(false)
@@ -121,15 +124,17 @@ export function FrameworksPage({
     if (!topicId && !manualTopic.trim()) return showToast({ type: 'error', message: '请选择选题，或填写框架主题' })
     if (!target) return showToast({ type: 'error', message: SELECT_MODEL_MESSAGE })
     setLastResearch(undefined)
+    setLastSkillTrace(undefined)
     try {
       const result = await stream.run(() => window.moliu.frameworks.generate({
         templateId, topicId: topicId || undefined, accountId: accountId || undefined,
         materialIds: [...materialIds], manualTopic: manualTopic.trim() || undefined,
-        providerId: target.providerId, model: target.modelId, count, research
+        providerId: target.providerId, model: target.modelId, count, research, useSkill
       }), { onCandidateComplete: () => { void refresh().catch(() => undefined) } })
       await refresh()
       setLastFailed(result.failed)
       setLastResearch(result.research)
+      setLastSkillTrace(result.skillTrace)
       if (result.failed.length) showToast({ type: 'warning', message: `已生成 ${result.frameworks.length}\u00A0个框架；${result.failed.length}\u00A0个失败，可在下方逐个重试` })
       else showToast({ type: 'success', message: `已生成 ${result.frameworks.length}\u00A0个可编辑框架` })
     } catch (error) {
@@ -224,6 +229,7 @@ export function FrameworksPage({
       <footer>
         <div className="field framework-count"><span className="field-label">数量</span><Segmented ariaLabel="生成数量" value={String(count)} onChange={(value) => setCount(Number(value))} options={[1, 2, 3].map((value) => ({ value: String(value), label: `${value} 个` }))} /></div>
         <label className="field framework-research"><span className="field-label">深度预研</span><span className="check-line"><input type="checkbox" checked={research} onChange={(event) => setResearch(event.target.checked)} />先联网抓取选题相关资料再生成（未配搜索模型时自动跳过）</span></label>
+        <label className="field framework-research"><span className="field-label">多轮对抗 Skill</span><span className="check-line"><input type="checkbox" checked={useSkill} onChange={(event) => setUseSkill(event.target.checked)} />初版骨架后自动挑刺并结合素材重构（更深更锋利，多耗 1~2 次调用）</span></label>
         <button className="button ghost compact" onClick={() => setTemplateEditor('new')}><Plus size={16} />新建模板</button>
         <button
           className="button primary"
@@ -244,6 +250,12 @@ export function FrameworksPage({
           {lastResearch.status === 'used' ? <Check size={16} /> : <AlertTriangle size={16} />}
           {lastResearch.message}
         </p>
+      )}
+      {lastSkillTrace && lastSkillTrace.length > 0 && (
+        <details className="editorial-input-summary">
+          <summary>框架多轮对抗 Skill 轨迹（{lastSkillTrace.length} 步）</summary>
+          {lastSkillTrace.map((step, index) => <p key={index}><strong>{step.phase}</strong>：{step.summary}</p>)}
+        </details>
       )}
       {lastFailed.length > 0 && !stream.active && (
         <p className="inline-alert">

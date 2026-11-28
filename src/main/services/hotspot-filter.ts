@@ -59,7 +59,7 @@ export class HotspotFilter {
         },
         {
           role: 'user',
-          content: `${serializeAccountXml(account.fields)}\n\n${serializeHotListXml(items)}`
+          content: `${serializeAccountXml(account.fields, account.redlines, { memories: account.memories, memoryLimit: 8 })}\n\n${serializeHotListXml(items)}`
         }
       ]
     }, {

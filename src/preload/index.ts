@@ -3,6 +3,7 @@ import type {
   AddAccountMemoryInput,
   AddAccountPlatformInput,
   AddAccountRedlineInput,
+  SaveAccountStyleSampleInput,
   AddHotFavoriteInput,
   AddSearchMaterialInput,
   AddFileMaterialInput,
@@ -26,6 +27,8 @@ import type {
   SaveFrameworkTemplateInput,
   GenerateArticlesInput,
   ReviseArticleInput,
+  ReviseSelectionInput,
+  GenerateTitlesDigestInput,
   SaveArticleInput,
   RestoreArticleVersionInput,
   RenameArticleVersionInput,
@@ -51,7 +54,8 @@ const api: MoliuApi = {
     listBackups: () => ipcRenderer.invoke('app:backup-list'),
     inspectBackup: (input: { bundleDir: string }) => ipcRenderer.invoke('app:backup-inspect', input),
     exportPortableBackup: () => ipcRenderer.invoke('app:backup-export-portable'),
-    selectPortableBackup: () => ipcRenderer.invoke('app:backup-select-portable')
+    selectPortableBackup: () => ipcRenderer.invoke('app:backup-select-portable'),
+    getUsageLedger: (days?: number) => ipcRenderer.invoke('app:usage-ledger', days)
   },
   imports: {
     pickFile: (input) => ipcRenderer.invoke('imports:pick', input),
@@ -115,7 +119,10 @@ const api: MoliuApi = {
     removePlatformAccount: (id: string) => ipcRenderer.invoke('accounts:platforms:remove', id),
     listMemories: (profileId: string) => ipcRenderer.invoke('accounts:memories:list', profileId),
     addMemory: (input: AddAccountMemoryInput) => ipcRenderer.invoke('accounts:memories:add', input),
-    removeMemory: (id: string) => ipcRenderer.invoke('accounts:memories:remove', id)
+    removeMemory: (id: string) => ipcRenderer.invoke('accounts:memories:remove', id),
+    listStyleSamples: (profileId: string) => ipcRenderer.invoke('accounts:samples:list', profileId),
+    saveStyleSample: (input: SaveAccountStyleSampleInput) => ipcRenderer.invoke('accounts:samples:save', input),
+    removeStyleSample: (id: string) => ipcRenderer.invoke('accounts:samples:remove', id)
   },
   hotspots: {
     bootstrap: () => ipcRenderer.invoke('hotspots:bootstrap'),
@@ -170,6 +177,7 @@ const api: MoliuApi = {
       ipcRenderer.invoke('materials:add-search-result', input),
     addManual: (input: SaveManualMaterialInput) => ipcRenderer.invoke('materials:add-manual', input),
     addFile: (input: AddFileMaterialInput) => ipcRenderer.invoke('materials:add-file', input),
+    addUrl: (input: { url: string; relatedTopicId?: string }) => ipcRenderer.invoke('materials:add-url', input),
     remove: (id: string) => ipcRenderer.invoke('materials:remove', id),
     usage: () => ipcRenderer.invoke('materials:usage')
   },
@@ -203,6 +211,8 @@ const api: MoliuApi = {
     commitDraft: (id, revision) => ipcRenderer.invoke('articles:draft:commit', id, revision),
     generate: (input: GenerateArticlesInput) => ipcRenderer.invoke('articles:generate', input),
     revise: (input: ReviseArticleInput) => ipcRenderer.invoke('articles:revise', input),
+    reviseSelection: (input: ReviseSelectionInput) => ipcRenderer.invoke('articles:revise-selection', input),
+    generateTitles: (input: GenerateTitlesDigestInput) => ipcRenderer.invoke('articles:generate-titles', input),
     listRequests: () => ipcRenderer.invoke('articles:requests'),
     retryRequest: (id) => ipcRenderer.invoke('articles:retry-request', id),
     continueResult: (id, index) => ipcRenderer.invoke('articles:continue-result', { id, index }),

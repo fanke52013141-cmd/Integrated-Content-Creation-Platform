@@ -4,9 +4,9 @@ import { applyPendingMigrations, BASELINE_VERSION, latestVersion, recordVersion 
 import { VisualStudioRepository } from './repositories/visual-studio-repository.js'
 import { WorkflowRepository } from './repositories/workflow-repository.js'
 import { MaterialRepository } from './repositories/material-repository.js'
-import { createHash } from 'node:crypto'
+import { AccountRepository } from './repositories/account-repository.js'
+import { PublishingRepository } from './repositories/publishing-repository.js'
 import type {
-  AccountField,
   AccountLayoutVersion,
   AccountLayoutDraft,
   SaveAccountLayoutDraftInput,
@@ -16,12 +16,12 @@ import type {
   AccountProfile,
   AccountProfileSummary,
   AccountRedline,
-  AccountRedlineKind,
   AccountStatus,
-  AccountVersion,
+  AccountStyleSample,
   AddAccountMemoryInput,
   AddAccountPlatformInput,
   AddAccountRedlineInput,
+  SaveAccountStyleSampleInput,
   ArtifactReference,
   CapabilityFlags,
   CreateArtifactReferenceInput,
@@ -35,6 +35,10 @@ import type {
   Material,
   MaterialOrigin,
   ModelCallLog,
+  UsageLedgerSummary,
+  UsageLedgerModelRow,
+  UsageLedgerStageRow,
+  UsageLedgerDayRow,
   ProviderModel,
   ProviderModelKind,
   ProviderSummary,
@@ -57,20 +61,18 @@ import type {
   ArticleVersion,
   ArticleVersionSource,
   SaveArticleInput,
-  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationStatus, PublicationMetrics, PublicationRetro, PublicationSnapshot, PublicationResolution,
+  ReviewRole, ReviewTask, ReviewOpinion, ReviewProblem, ReviewFailure, SaveReviewRoleInput, ReviewSeverity, VisualPack, VisualAsset, ArticleLayout, LayoutPlatform, WechatPublishChannel, Publication, PublicationMetrics,
   Topic,
   TopicAssessment,
   TopicSchemaField,
   TopicStatus,
   TopicVersionSource,
-  WizardAnswer,
   PromptDefBase,
   PromptDefSummary,
   PromptVersionInfo,
   ContentImportSource
 } from '../shared/contracts.js'
 import { createDefaultTopicSchema, escapeXml } from '../shared/domain.js'
-import { DEFAULT_ACCOUNT_FIELD_NAMES } from '../shared/contracts.js'
 
 interface ProviderRow {
   connection_revision: number
@@ -108,65 +110,6 @@ interface ProviderModelRow {
   enabled: number
   created_at: string
   updated_at: string
-}
-
-interface AccountSummaryRow {
-  id: string
-  name: string
-  intro: string
-  domain: string
-  status: AccountStatus
-  is_current: number
-  version_count: number
-  created_at: string
-  updated_at: string
-  /** 当前版本字段 JSON，仅用于计算完整度；listAccounts 里 JOIN 出来 */
-  fields_json?: string
-}
-
-interface AccountRow extends AccountSummaryRow {
-  current_version_id: string
-  fields_json: string
-  wizard_answers_json: string
-}
-
-interface VersionRow {
-  id: string
-  profile_id: string
-  version_number: number
-  source: 'ai' | 'manual' | 'restore'
-  provider_id: string | null
-  model: string | null
-  fields_json: string
-  wizard_answers_json: string
-  created_at: string
-}
-
-interface AccountRedlineRow {
-  id: string
-  profile_id: string
-  kind: AccountRedlineKind
-  content: string
-  created_at: string
-}
-
-interface AccountPlatformRow {
-  id: string
-  profile_id: string
-  platform: string
-  handle: string
-  note: string
-  created_at: string
-}
-
-interface AccountMemoryRow {
-  id: string
-  profile_id: string
-  memory_date: string
-  source: string
-  insight: string
-  action: string
-  created_at: string
 }
 
 interface ArtifactReferenceRow {
@@ -270,8 +213,6 @@ export interface PendingImageTask {
   createdAt: string
 }
 interface AccountLayoutVersionRow { id:string; profile_id:string; platform:LayoutPlatform; version_number:number; theme_id:string; custom_css:string|null; style_config_json:string; created_at:string; updated_at:string }
-interface WechatChannelRow { id:'wechat-official'; display_name:string; app_id:string; enabled:number; has_app_secret:number; updated_at:string }
-interface PublicationRow { id:string; article_id:string; article_version_id:string; layout_id:string; channel_id:'wechat-official'; external_draft_id:string|null; status:PublicationStatus; title:string; thumb_media_id:string; published_url:string|null; error_message:string|null; retro_json:string|null; publish_msgid:string|null; created_at:string; updated_at:string }
 interface PromptDefRow { key: string; title: string; description: string; default_template: string; active_version: number; version_count: number; active_content: string; updated_at: string }
 interface PromptVersionRow { id: string; prompt_key: string; version: number; content: string; source: 'builtin' | 'user'; note: string; created_at: string }
 interface ArtifactImportRow { id: string; artifact_type: string; artifact_id: string | null; version_id: string | null; tool: string; format: string; external_id: string | null; file_name: string | null; content_hash: string | null; source_json: string; imported_at: string }
@@ -295,6 +236,8 @@ export class AppDatabase {
   visualStudio: VisualStudioRepository
   workflow: WorkflowRepository
   materials!: MaterialRepository
+  accounts!: AccountRepository
+  publishing!: PublishingRepository
   private readonly location: string
 
   constructor(path: string) {
@@ -302,7 +245,14 @@ export class AppDatabase {
     this.db = new DatabaseSync(path)
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db); this.materials = new MaterialRepository(this.db, this.workflow) } catch (error) { this.db.close(); throw error }
+    try {
+      this.migrate()
+      this.workflow = new WorkflowRepository(this.db)
+      this.visualStudio = new VisualStudioRepository(this.db)
+      this.materials = new MaterialRepository(this.db, this.workflow)
+      this.accounts = new AccountRepository(this.db, (op) => this.transaction(op), (type, id) => this.getArtifactImportSource(type, id))
+      this.publishing = new PublishingRepository(this.db, this.workflow, (op) => this.transaction(op))
+    } catch (error) { this.db.close(); throw error }
   }
 
   close(): void {
@@ -342,7 +292,14 @@ export class AppDatabase {
   private reopen(): void {
     this.db = new DatabaseSync(this.location)
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;')
-    try { this.migrate(); this.workflow = new WorkflowRepository(this.db); this.visualStudio = new VisualStudioRepository(this.db); this.materials = new MaterialRepository(this.db, this.workflow) } catch (error) { this.db.close(); throw error }
+    try {
+      this.migrate()
+      this.workflow = new WorkflowRepository(this.db)
+      this.visualStudio = new VisualStudioRepository(this.db)
+      this.materials = new MaterialRepository(this.db, this.workflow)
+      this.accounts = new AccountRepository(this.db, (op) => this.transaction(op), (type, id) => this.getArtifactImportSource(type, id))
+      this.publishing = new PublishingRepository(this.db, this.workflow, (op) => this.transaction(op))
+    } catch (error) { this.db.close(); throw error }
   }
 
   /** 用只读连接探测表是否存在，避免把任意文件当备份吃进去 */
@@ -1406,303 +1363,28 @@ export class AppDatabase {
     }))
   }
 
-  listAccounts(): AccountProfileSummary[] {
-    const rows = this.db.prepare(`
-      SELECT
-        p.*,
-        v.fields_json,
-        (SELECT COUNT(*) FROM account_profile_versions av WHERE av.profile_id = p.id) AS version_count
-      FROM account_profiles p
-      LEFT JOIN account_profile_versions v ON v.id = p.current_version_id
-      ORDER BY p.is_current DESC, p.updated_at DESC
-    `).all() as unknown as AccountSummaryRow[]
-    return rows.map((row) => ({ ...mapAccountSummary(row), importSource: this.getArtifactImportSource('account', row.id) }))
-  }
+  listAccounts(): AccountProfileSummary[] { return this.accounts.list() }
+  getAccount(id: string): AccountProfile | null { return this.accounts.get(id) }
+  saveAccount(input: SaveAccountInput): AccountProfile { return this.accounts.save(input) }
+  setCurrentAccount(id: string): void { this.accounts.setCurrent(id) }
+  setAccountLocked(id: string, locked: boolean): AccountProfile { return this.accounts.setLocked(id, locked) }
+  restoreAccountVersion(profileId: string, versionId: string): AccountProfile { return this.accounts.restoreVersion(profileId, versionId) }
+  removeAccount(id: string): void { this.accounts.remove(id) }
 
-  getAccount(id: string): AccountProfile | null {
-    const row = this.db.prepare(`
-      SELECT
-        p.*,
-        v.fields_json,
-        v.wizard_answers_json,
-        (SELECT COUNT(*) FROM account_profile_versions av WHERE av.profile_id = p.id) AS version_count
-      FROM account_profiles p
-      JOIN account_profile_versions v ON v.id = p.current_version_id
-      WHERE p.id = ?
-    `).get(id) as AccountRow | undefined
+  /* ── 账号六维扩展：红线 / 平台绑定 / 长期记忆 / 标杆样文（委托 AccountRepository） ── */
 
-    if (!row) return null
-
-    const versions = this.db.prepare(`
-      SELECT * FROM account_profile_versions
-      WHERE profile_id = ?
-      ORDER BY version_number DESC
-    `).all(id) as unknown as VersionRow[]
-
-    return {
-      ...mapAccountSummary(row),
-      importSource: this.getArtifactImportSource('account', row.id),
-      currentVersionId: row.current_version_id,
-      fields: parseJson<AccountField[]>(row.fields_json, []),
-      wizardAnswers: parseJson<WizardAnswer[]>(row.wizard_answers_json, []),
-      versions: versions.map(mapVersion),
-      redlines: this.listAccountRedlines(id),
-      platformAccounts: this.listAccountPlatformAccounts(id),
-      memories: this.listAccountMemories(id)
-    }
-  }
-
-  saveAccount(input: SaveAccountInput): AccountProfile {
-    const profileId = input.id ?? crypto.randomUUID()
-    const versionId = crypto.randomUUID()
-    const now = new Date().toISOString()
-    const existing = input.id ? this.getAccount(input.id) : null
-    const versionNumber = existing ? existing.versionCount + 1 : 1
-    // 字段来源缺省视为用户手填；AI/恢复来源由调用方显式标注
-    const fields = input.fields.map((field) => ({ ...field, source: field.source ?? 'user' }))
-    const fieldsJson = JSON.stringify(fields)
-    const wizardJson = JSON.stringify(input.wizardAnswers)
-    const name = fieldValue(input.fields, '账号名称') || '未命名账号'
-    const intro = fieldValue(input.fields, '简介')
-    const domain = fieldValue(input.fields, '领域')
-
-    this.transaction(() => {
-      if (!existing) {
-        const currentCount = (
-          this.db.prepare('SELECT COUNT(*) AS count FROM account_profiles WHERE is_current = 1')
-            .get() as { count: number }
-        ).count
-        this.db.prepare(`
-          INSERT INTO account_profiles (
-            id, name, intro, domain, status, current_version_id,
-            is_current, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          profileId,
-          name,
-          intro,
-          domain,
-          input.status,
-          versionId,
-          currentCount === 0 ? 1 : 0,
-          now,
-          now
-        )
-      } else {
-        this.db.prepare(`
-          UPDATE account_profiles
-          SET name = ?, intro = ?, domain = ?, status = ?,
-              current_version_id = ?, updated_at = ?
-          WHERE id = ?
-        `).run(name, intro, domain, input.status, versionId, now, profileId)
-      }
-
-      this.db.prepare(`
-        INSERT INTO account_profile_versions (
-          id, profile_id, version_number, source, provider_id,
-          model, fields_json, wizard_answers_json, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        versionId,
-        profileId,
-        versionNumber,
-        input.source,
-        input.providerId ?? null,
-        input.model ?? null,
-        fieldsJson,
-        wizardJson,
-        now
-      )
-    })
-    const saved = this.getAccount(profileId)
-    if (!saved) throw new Error('账号保存失败')
-    return saved
-  }
-
-  setCurrentAccount(id: string): void {
-    if (!this.getAccount(id)) throw new Error('账号不存在')
-    this.transaction(() => {
-      this.db.prepare('UPDATE account_profiles SET is_current = 0').run()
-      this.db.prepare('UPDATE account_profiles SET is_current = 1 WHERE id = ?').run(id)
-    })
-  }
-
-  setAccountLocked(id: string, locked: boolean): AccountProfile {
-    const account = this.getAccount(id)
-    if (!account) throw new Error('账号不存在')
-    this.db.prepare(`
-      UPDATE account_profiles SET status = ?, updated_at = ? WHERE id = ?
-    `).run(locked ? 'locked' : 'draft', new Date().toISOString(), id)
-    const updated = this.getAccount(id)
-    if (!updated) throw new Error('账号状态更新失败')
-    return updated
-  }
-
-  restoreAccountVersion(profileId: string, versionId: string): AccountProfile {
-    const version = this.db.prepare(`
-      SELECT * FROM account_profile_versions WHERE id = ? AND profile_id = ?
-    `).get(versionId, profileId) as VersionRow | undefined
-    if (!version) throw new Error('版本不存在')
-
-    return this.saveAccount({
-      id: profileId,
-      fields: parseJson<AccountField[]>(version.fields_json, []),
-      wizardAnswers: parseJson<WizardAnswer[]>(version.wizard_answers_json, []),
-      status: 'draft',
-      source: 'restore',
-      providerId: version.provider_id ?? undefined,
-      model: version.model ?? undefined
-    })
-  }
-
-  removeAccount(id: string): void {
-    this.db.prepare('DELETE FROM account_profiles WHERE id = ?').run(id)
-  }
-
-  /* ── 账号六维扩展：红线 / 平台绑定 / 长期记忆 ── */
-
-  listAccountRedlines(profileId: string): AccountRedline[] {
-    const rows = this.db.prepare(
-      'SELECT * FROM account_redlines WHERE profile_id = ? ORDER BY created_at, id'
-    ).all(profileId) as unknown as AccountRedlineRow[]
-    return rows.map((row) => ({
-      id: row.id,
-      profileId: row.profile_id,
-      kind: row.kind,
-      content: row.content,
-      createdAt: row.created_at
-    }))
-  }
-
-  addAccountRedline(input: AddAccountRedlineInput): AccountRedline {
-    const content = input.content.trim()
-    if (!content) throw new Error('红线内容不能为空')
-    if (!this.getAccount(input.profileId)) throw new Error('账号不存在')
-    const now = new Date().toISOString()
-    const row: AccountRedline = {
-      id: crypto.randomUUID(),
-      profileId: input.profileId,
-      kind: input.kind,
-      content,
-      createdAt: now
-    }
-    this.db.prepare(`
-      INSERT INTO account_redlines (id, profile_id, kind, content, created_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(row.id, row.profileId, row.kind, row.content, row.createdAt)
-    return row
-  }
-
-  removeAccountRedline(id: string): void {
-    this.db.prepare('DELETE FROM account_redlines WHERE id = ?').run(id)
-  }
-
-  listAccountPlatformAccounts(profileId: string): AccountPlatformBinding[] {
-    const rows = this.db.prepare(
-      'SELECT * FROM account_platform_accounts WHERE profile_id = ? ORDER BY created_at, id'
-    ).all(profileId) as unknown as AccountPlatformRow[]
-    return rows.map((row) => ({
-      id: row.id,
-      profileId: row.profile_id,
-      platform: row.platform,
-      handle: row.handle,
-      note: row.note,
-      createdAt: row.created_at
-    }))
-  }
-
-  addAccountPlatformAccount(input: AddAccountPlatformInput): AccountPlatformBinding {
-    const handle = input.handle.trim()
-    const platform = input.platform.trim()
-    if (!platform) throw new Error('平台名不能为空')
-    if (!handle) throw new Error('账号标识不能为空')
-    if (!this.getAccount(input.profileId)) throw new Error('账号不存在')
-    const now = new Date().toISOString()
-    const row: AccountPlatformBinding = {
-      id: crypto.randomUUID(),
-      profileId: input.profileId,
-      platform,
-      handle,
-      note: input.note?.trim() ?? '',
-      createdAt: now
-    }
-    this.db.prepare(`
-      INSERT OR IGNORE INTO account_platform_accounts (id, profile_id, platform, handle, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(row.id, row.profileId, row.platform, row.handle, row.note, row.createdAt)
-    const existing = this.db.prepare(`
-      SELECT * FROM account_platform_accounts WHERE profile_id = ? AND platform = ? AND handle = ?
-    `).get(input.profileId, platform, handle) as AccountPlatformRow | undefined
-    if (!existing) throw new Error('平台账号保存失败')
-    return {
-      id: existing.id,
-      profileId: existing.profile_id,
-      platform: existing.platform,
-      handle: existing.handle,
-      note: existing.note,
-      createdAt: existing.created_at
-    }
-  }
-
-  removeAccountPlatformAccount(id: string): void {
-    this.db.prepare('DELETE FROM account_platform_accounts WHERE id = ?').run(id)
-  }
-
-  listAccountMemories(profileId: string): AccountMemory[] {
-    const rows = this.db.prepare(
-      'SELECT * FROM account_memories WHERE profile_id = ? ORDER BY memory_date DESC, created_at DESC'
-    ).all(profileId) as unknown as AccountMemoryRow[]
-    return rows.map((row) => ({
-      id: row.id,
-      profileId: row.profile_id,
-      memoryDate: row.memory_date,
-      source: row.source,
-      insight: row.insight,
-      action: row.action,
-      createdAt: row.created_at
-    }))
-  }
-
-  /** 追加一条长期记忆；内容哈希去重，重复返回 created=false */
-  addAccountMemory(input: AddAccountMemoryInput): { memory: AccountMemory | null; created: boolean } {
-    const insight = input.insight.trim()
-    if (!insight) throw new Error('记忆内容不能为空')
-    if (!this.getAccount(input.profileId)) throw new Error('账号不存在')
-    const action = input.action?.trim() ?? ''
-    const hash = createHash('sha1').update(`${insight}\n${action}`).digest('hex')
-    const now = new Date().toISOString()
-    const id = crypto.randomUUID()
-    const result = this.db.prepare(`
-      INSERT OR IGNORE INTO account_memories (id, profile_id, memory_date, source, insight, action, content_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      input.profileId,
-      input.memoryDate?.trim() || now.slice(0, 10),
-      input.source?.trim() || '用户自述',
-      insight,
-      action,
-      hash,
-      now
-    )
-    if (result.changes === 0) return { memory: null, created: false }
-    return {
-      memory: {
-        id,
-        profileId: input.profileId,
-        memoryDate: input.memoryDate?.trim() || now.slice(0, 10),
-        source: input.source?.trim() || '用户自述',
-        insight,
-        action,
-        createdAt: now
-      },
-      created: true
-    }
-  }
-
-  removeAccountMemory(id: string): void {
-    this.db.prepare('DELETE FROM account_memories WHERE id = ?').run(id)
-  }
+  listAccountRedlines(profileId: string): AccountRedline[] { return this.accounts.listRedlines(profileId) }
+  addAccountRedline(input: AddAccountRedlineInput): AccountRedline { return this.accounts.addRedline(input) }
+  removeAccountRedline(id: string): void { this.accounts.removeRedline(id) }
+  listAccountPlatformAccounts(profileId: string): AccountPlatformBinding[] { return this.accounts.listPlatformAccounts(profileId) }
+  addAccountPlatformAccount(input: AddAccountPlatformInput): AccountPlatformBinding { return this.accounts.addPlatformAccount(input) }
+  removeAccountPlatformAccount(id: string): void { this.accounts.removePlatformAccount(id) }
+  listAccountMemories(profileId: string): AccountMemory[] { return this.accounts.listMemories(profileId) }
+  addAccountMemory(input: AddAccountMemoryInput): { memory: AccountMemory | null; created: boolean } { return this.accounts.addMemory(input) }
+  removeAccountMemory(id: string): void { this.accounts.removeMemory(id) }
+  listAccountStyleSamples(profileId: string): AccountStyleSample[] { return this.accounts.listStyleSamples(profileId) }
+  saveAccountStyleSample(input: SaveAccountStyleSampleInput): AccountStyleSample { return this.accounts.saveStyleSample(input) }
+  removeAccountStyleSample(id: string): void { this.accounts.removeStyleSample(id) }
 
   /** 收藏列表：默认只取 active（PRD §4.2）；includeArchived 时连归档项一起返回，供「含归档」视图 */
   listHotFavorites(includeArchived = false): HotFavorite[] {
@@ -2397,76 +2079,24 @@ export class AppDatabase {
   saveArticleLayout(input:Omit<ArticleLayout,'id'|'createdAt'>):ArticleLayout { const id=crypto.randomUUID(),now=new Date().toISOString();this.db.prepare('INSERT INTO article_layouts(id,article_id,article_version_id,article_status_snapshot,platform,title,html,plain_text,theme_id,layout_version_id,layout_config_snapshot_json,render_engine_version,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.articleStatusSnapshot,input.platform,input.title,input.html,input.plainText,input.themeId??null,input.layoutVersionId??null,input.layoutConfigSnapshot?JSON.stringify(input.layoutConfigSnapshot):null,input.renderEngineVersion??null,now);return mapArticleLayout(this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow) }
   removeArticleLayout(id:string):void { this.db.prepare('DELETE FROM article_layouts WHERE id=?').run(id) }
   getArticleLayout(id:string):ArticleLayout|null { const row=this.db.prepare('SELECT * FROM article_layouts WHERE id=?').get(id) as unknown as ArticleLayoutRow|undefined; return row?{...mapArticleLayout(row),importSource:this.getArtifactImportSource('layout',row.id)}:null }
-  getWechatPublishChannel():WechatPublishChannel { const row=this.db.prepare("SELECT c.id,c.display_name,c.app_id,c.enabled,EXISTS(SELECT 1 FROM publish_channel_secrets s WHERE s.channel_id=c.id) has_app_secret,c.updated_at FROM publish_channels c WHERE c.id='wechat-official'").get() as unknown as WechatChannelRow;return { ...mapWechatChannel(row), ...this.workflow.getVerification() } }
-  saveWechatPublishChannel(input:{appId:string;enabled:boolean},encryptedSecret?:Buffer):WechatPublishChannel { const previous=this.getWechatPublishChannel(); if(previous.appId && previous.appId!==input.appId && !encryptedSecret) throw new Error("更换公众号时请同时填写新的 AppSecret"); const now=new Date().toISOString();this.transaction(()=>{this.workflow.clearVerification();this.db.prepare("UPDATE publish_channels SET app_id=?,enabled=?,updated_at=? WHERE id='wechat-official'").run(input.appId,input.enabled?1:0,now);if(encryptedSecret)this.db.prepare("INSERT INTO publish_channel_secrets(channel_id,encrypted_secret,updated_at) VALUES('wechat-official',?,?) ON CONFLICT(channel_id) DO UPDATE SET encrypted_secret=excluded.encrypted_secret,updated_at=excluded.updated_at").run(encryptedSecret,now)});return this.getWechatPublishChannel() }
-  getEncryptedWechatPublishSecret():Buffer|null { const row=this.db.prepare("SELECT encrypted_secret FROM publish_channel_secrets WHERE channel_id='wechat-official'").get() as {encrypted_secret:Buffer}|undefined;return row?.encrypted_secret??null }
+  getWechatPublishChannel(): WechatPublishChannel { return this.publishing.getWechatChannel() }
+  saveWechatPublishChannel(input: { appId: string; enabled: boolean }, encryptedSecret?: Buffer): WechatPublishChannel { return this.publishing.saveWechatChannel(input, encryptedSecret) }
+  getEncryptedWechatPublishSecret(): Buffer | null { return this.publishing.getEncryptedWechatSecret() }
   saveWeiboSession(encryptedCookie:Buffer):void { const now=new Date().toISOString();this.db.prepare("INSERT INTO weibo_sessions(account,encrypted_cookie,updated_at) VALUES('weibo-hot',?,?) ON CONFLICT(account) DO UPDATE SET encrypted_cookie=excluded.encrypted_cookie,updated_at=excluded.updated_at").run(encryptedCookie,now) }
   getWeiboSessionMeta():{updatedAt?:string}|null { const row=this.db.prepare("SELECT updated_at FROM weibo_sessions WHERE account='weibo-hot'").get() as {updated_at:string}|undefined;return row?{updatedAt:row.updated_at}:null }
   getEncryptedWeiboCookie():Buffer|null { const row=this.db.prepare("SELECT encrypted_cookie FROM weibo_sessions WHERE account='weibo-hot'").get() as {encrypted_cookie:Buffer}|undefined;return row?.encrypted_cookie?Buffer.from(row.encrypted_cookie):null }
   clearWeiboSession():void { this.db.prepare("DELETE FROM weibo_sessions WHERE account='weibo-hot'").run() }
   saveKuaishouSession(encryptedCredential:Buffer):void { const now=new Date().toISOString();this.db.prepare("INSERT INTO weibo_sessions(account,encrypted_cookie,updated_at) VALUES('kuaishou-hot',?,?) ON CONFLICT(account) DO UPDATE SET encrypted_cookie=excluded.encrypted_cookie,updated_at=excluded.updated_at").run(encryptedCredential,now) }
   getEncryptedKuaishouSession():Buffer|null { const row=this.db.prepare("SELECT encrypted_cookie FROM weibo_sessions WHERE account='kuaishou-hot'").get() as {encrypted_cookie:Buffer}|undefined;return row?.encrypted_cookie?Buffer.from(row.encrypted_cookie):null }
-  createPublication(input: Omit<Publication, 'id' | 'createdAt' | 'updatedAt'>): Publication {
-    const id = crypto.randomUUID(), now = new Date().toISOString()
-    this.transaction(() => {
-      this.db.prepare('INSERT INTO publications(id,article_id,article_version_id,layout_id,channel_id,external_draft_id,status,title,thumb_media_id,published_url,error_message,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id,input.articleId,input.articleVersionId,input.layoutId,input.channelId,input.externalDraftId??null,input.status,input.title,input.thumbMediaId,input.publishedUrl??null,input.errorMessage??null,now,now)
-      if (input.snapshot) this.workflow.saveSnapshot(id, input.snapshot)
-    })
-    return this.getPublication(id)!
-  }
-
-  updatePublicationOutcome(id: string, status: Publication['status'], thumbMediaId: string, error?: string, externalDraftId?: string): Publication {
-    this.db.prepare('UPDATE publications SET status=?,thumb_media_id=?,error_message=?,external_draft_id=?,updated_at=? WHERE id=?').run(status,thumbMediaId,error??null,externalDraftId??null,new Date().toISOString(),id)
-    const publication = this.getPublication(id)
-    if (!publication) throw new Error('交付记录不存在')
-    return publication
-  }
-  /** freepublish 发表成功：回填发表态 msgid（阅读统计键 refreshMetrics 依赖）与文章 URL */
-  setPublicationPublished(id: string, publishMsgid: string, publishedUrl?: string): Publication {
-    this.db.prepare("UPDATE publications SET status='published',publish_msgid=?,published_url=COALESCE(?,published_url),error_message=NULL,updated_at=? WHERE id=?").run(publishMsgid, publishedUrl ?? null, new Date().toISOString(), id)
-    return this.getPublication(id)!
-  }
-
-  /** 发布记录列表（批量取快照/决议，消除逐行 3N+1 查询；数量上限防全表膨胀） */
-  listPublications():Publication[] {
-    const rows = this.db.prepare('SELECT * FROM publications ORDER BY created_at DESC LIMIT 300').all() as unknown as PublicationRow[]
-    const snapshots = new Map((this.db.prepare('SELECT publication_id,data_json FROM publication_snapshots').all() as unknown as Array<{ publication_id: string; data_json: string }>).map(row => [row.publication_id, JSON.parse(String(row.data_json)) as PublicationSnapshot]))
-    const resolutions = new Map((this.db.prepare('SELECT publication_id,data_json FROM publication_resolutions').all() as unknown as Array<{ publication_id: string; data_json: string }>).map(row => [row.publication_id, JSON.parse(String(row.data_json)) as PublicationResolution]))
-    return rows.map(row => {
-      const snapshot = snapshots.get(row.id)
-      return { ...mapPublication(row), snapshot, resolution: resolutions.get(row.id), retryOf: snapshot?.retryOf }
-    })
-  }
-  getPublication(id:string):Publication|null { const row=this.db.prepare('SELECT * FROM publications WHERE id=?').get(id) as unknown as PublicationRow|undefined;return row?{...mapPublication(row),snapshot:this.workflow.getSnapshot(row.id),resolution:this.workflow.getResolution(row.id),retryOf:this.workflow.getSnapshot(row.id)?.retryOf}:null }
-  markPublicationPublished(id:string,publishedUrl:string):Publication { this.db.prepare("UPDATE publications SET status='published',published_url=?,error_message=NULL,updated_at=? WHERE id=?").run(publishedUrl,new Date().toISOString(),id);const row=this.getPublication(id);if(!row)throw new Error('发布记录不存在');return row }
-
-  /** 登记发表态消息 ID（msgid）：数据统计的键，由「发表」能力或用户手动回填 */
-  setPublicationPublishMsgid(id: string, msgid: string): Publication {
-    this.db.prepare('UPDATE publications SET publish_msgid=?, updated_at=? WHERE id=?').run(msgid.trim(), new Date().toISOString(), id)
-    const publication = this.getPublication(id)
-    if (!publication) throw new Error('发布记录不存在')
-    return publication
-  }
-
-  /** H1 数据回填：只更新复盘的 metrics，保留用户手填的目标/结果/经验 */
-  updatePublicationMetrics(publicationId: string, metrics: PublicationMetrics): Publication {
-    const current = this.getPublication(publicationId)
-    if (!current) throw new Error('发布记录不存在')
-    const retro: PublicationRetro = current.retro ?? { goal: '', result: '', lesson: '', updatedAt: '' }
-    const updated: PublicationRetro = { ...retro, metrics, updatedAt: new Date().toISOString() }
-    this.db.prepare('UPDATE publications SET retro_json=?, updated_at=? WHERE id=?').run(JSON.stringify(updated), new Date().toISOString(), publicationId)
-    return this.getPublication(publicationId)!
-  }
-  /** 发布复盘：三项全空视为清除复盘 */
-  savePublicationRetro(id:string,input:{goal:string;result:string;lesson:string;metrics?:import('../shared/contracts.js').PublicationMetrics}):Publication {
-    const trimmed = { goal: input.goal.trim(), result: input.result.trim(), lesson: input.lesson.trim() }
-    const empty = !trimmed.goal && !trimmed.result && !trimmed.lesson && !Object.values(input.metrics ?? {}).some(value => value !== undefined && value !== '')
-    this.db.prepare('UPDATE publications SET retro_json=?,updated_at=? WHERE id=?')
-      .run(empty ? null : JSON.stringify({ ...trimmed, metrics: input.metrics, updatedAt: new Date().toISOString() }), new Date().toISOString(), id)
-    const row = this.getPublication(id)
-    if (!row) throw new Error('发布记录不存在')
-    return row
-  }
+  createPublication(input: Omit<Publication, 'id' | 'createdAt' | 'updatedAt'>): Publication { return this.publishing.createPublication(input) }
+  updatePublicationOutcome(id: string, status: Publication['status'], thumbMediaId: string, error?: string, externalDraftId?: string): Publication { return this.publishing.updatePublicationOutcome(id, status, thumbMediaId, error, externalDraftId) }
+  setPublicationPublished(id: string, publishMsgid: string, publishedUrl?: string): Publication { return this.publishing.setPublicationPublished(id, publishMsgid, publishedUrl) }
+  listPublications(): Publication[] { return this.publishing.listPublications() }
+  getPublication(id: string): Publication | null { return this.publishing.getPublication(id) }
+  markPublicationPublished(id: string, publishedUrl: string): Publication { return this.publishing.markPublicationPublished(id, publishedUrl) }
+  setPublicationPublishMsgid(id: string, msgid: string): Publication { return this.publishing.setPublicationPublishMsgid(id, msgid) }
+  updatePublicationMetrics(publicationId: string, metrics: PublicationMetrics): Publication { return this.publishing.updatePublicationMetrics(publicationId, metrics) }
+  savePublicationRetro(id: string, input: { goal: string; result: string; lesson: string; metrics?: PublicationMetrics }): Publication { return this.publishing.savePublicationRetro(id, input) }
 
   listReviewRoles(): ReviewRole[] { return (this.db.prepare('SELECT * FROM review_roles ORDER BY sort_order,created_at').all() as unknown as ReviewRoleRow[]).map(mapReviewRole) }
   saveReviewRole(input: SaveReviewRoleInput): ReviewRole { const id=input.id??crypto.randomUUID(), now=new Date().toISOString(); this.db.prepare(`INSERT INTO review_roles(id,name,system_prompt,provider_id,model,extraction_tag,extraction_occurrence,dimensions_json,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,system_prompt=excluded.system_prompt,provider_id=excluded.provider_id,model=excluded.model,extraction_tag=excluded.extraction_tag,extraction_occurrence=excluded.extraction_occurrence,dimensions_json=excluded.dimensions_json,sort_order=excluded.sort_order,updated_at=excluded.updated_at`).run(id,input.name,input.systemPrompt,input.providerId??null,input.model??null,input.extractionTag,input.extractionOccurrence,JSON.stringify(input.dimensions),input.sortOrder,now,now); return mapReviewRole(this.db.prepare('SELECT * FROM review_roles WHERE id=?').get(id) as unknown as ReviewRoleRow) }
@@ -2557,6 +2187,135 @@ export class AppDatabase {
       costUsd: row.cost_usd ?? undefined,
       createdAt: row.created_at
     }))
+  }
+
+  /** 模型用量与成本账本：按近 N 天汇总调用次数、Token、均耗时、已记录费用及各创作环节任务数 */
+  getUsageLedger(days = 30): UsageLedgerSummary {
+    const clampedDays = Math.min(365, Math.max(1, Math.floor(days)))
+    const since = new Date(Date.now() - clampedDays * 24 * 60 * 60 * 1000).toISOString()
+
+    const modelRows = this.db.prepare(`
+      SELECT
+        mc.provider_id AS provider_id,
+        COALESCE(p.display_name, '未关联供应商') AS provider_name,
+        mc.model AS model,
+        COUNT(*) AS calls,
+        SUM(CASE WHEN mc.success = 1 THEN 1 ELSE 0 END) AS success_calls,
+        SUM(CASE WHEN mc.success = 0 THEN 1 ELSE 0 END) AS failed_calls,
+        COALESCE(SUM(mc.prompt_tokens), 0) AS prompt_tokens,
+        COALESCE(SUM(mc.completion_tokens), 0) AS completion_tokens,
+        COALESCE(AVG(mc.latency_ms), 0) AS avg_latency_ms,
+        COALESCE(SUM(mc.cost_usd), 0) AS recorded_cost_usd
+      FROM model_calls mc
+      LEFT JOIN providers p ON p.id = mc.provider_id
+      WHERE mc.created_at >= ?
+      GROUP BY mc.provider_id, mc.model
+      ORDER BY (COALESCE(SUM(mc.prompt_tokens), 0) + COALESCE(SUM(mc.completion_tokens), 0)) DESC, calls DESC
+    `).all(since) as unknown as Array<{
+      provider_id: string | null
+      provider_name: string
+      model: string
+      calls: number
+      success_calls: number
+      failed_calls: number
+      prompt_tokens: number
+      completion_tokens: number
+      avg_latency_ms: number
+      recorded_cost_usd: number
+    }>
+
+    const byModel: UsageLedgerModelRow[] = modelRows.map((row) => {
+      const promptTokens = Number(row.prompt_tokens ?? 0)
+      const completionTokens = Number(row.completion_tokens ?? 0)
+      return {
+        providerId: row.provider_id ?? undefined,
+        providerName: row.provider_name,
+        model: row.model,
+        calls: Number(row.calls ?? 0),
+        successCalls: Number(row.success_calls ?? 0),
+        failedCalls: Number(row.failed_calls ?? 0),
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        avgLatencyMs: Math.round(Number(row.avg_latency_ms ?? 0)),
+        recordedCostUsd: Number(Number(row.recorded_cost_usd ?? 0).toFixed(6))
+      }
+    })
+
+    const stageRows = this.db.prepare(`
+      SELECT
+        domain,
+        COUNT(*) AS total_tasks,
+        SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END) AS completed_tasks,
+        SUM(CASE WHEN status IN ('failed', 'partial', 'interrupted') THEN 1 ELSE 0 END) AS failed_tasks
+      FROM generation_tasks
+      WHERE started_at >= ?
+      GROUP BY domain
+      ORDER BY total_tasks DESC
+    `).all(since) as unknown as Array<{
+      domain: GenerationDomain
+      total_tasks: number
+      completed_tasks: number
+      failed_tasks: number
+    }>
+
+    const byStage: UsageLedgerStageRow[] = stageRows.map((row) => ({
+      domain: row.domain,
+      totalTasks: Number(row.total_tasks ?? 0),
+      completedTasks: Number(row.completed_tasks ?? 0),
+      failedTasks: Number(row.failed_tasks ?? 0)
+    }))
+
+    const dailyRows = this.db.prepare(`
+      SELECT
+        substr(created_at, 1, 10) AS date,
+        COUNT(*) AS calls,
+        COALESCE(SUM(prompt_tokens), 0) + COALESCE(SUM(completion_tokens), 0) AS total_tokens,
+        COALESCE(SUM(cost_usd), 0) AS recorded_cost_usd
+      FROM model_calls
+      WHERE created_at >= ?
+      GROUP BY substr(created_at, 1, 10)
+      ORDER BY date DESC
+      LIMIT 31
+    `).all(since) as unknown as Array<{
+      date: string
+      calls: number
+      total_tokens: number
+      recorded_cost_usd: number
+    }>
+
+    const daily: UsageLedgerDayRow[] = dailyRows.map((row) => ({
+      date: row.date,
+      calls: Number(row.calls ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      recordedCostUsd: Number(Number(row.recorded_cost_usd ?? 0).toFixed(6))
+    }))
+
+    const totalCalls = byModel.reduce((sum, item) => sum + item.calls, 0)
+    const successCalls = byModel.reduce((sum, item) => sum + item.successCalls, 0)
+    const failedCalls = byModel.reduce((sum, item) => sum + item.failedCalls, 0)
+    const promptTokens = byModel.reduce((sum, item) => sum + item.promptTokens, 0)
+    const completionTokens = byModel.reduce((sum, item) => sum + item.completionTokens, 0)
+    const recordedCostUsd = Number(byModel.reduce((sum, item) => sum + item.recordedCostUsd, 0).toFixed(6))
+    const weightedLatency = byModel.reduce((sum, item) => sum + item.avgLatencyMs * item.calls, 0)
+
+    return {
+      days: clampedDays,
+      since,
+      totals: {
+        calls: totalCalls,
+        successCalls,
+        failedCalls,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        avgLatencyMs: totalCalls > 0 ? Math.round(weightedLatency / totalCalls) : 0,
+        recordedCostUsd
+      },
+      byModel,
+      byStage,
+      daily
+    }
   }
 
   createArtifactReference(input: CreateArtifactReferenceInput): ArtifactReference {
@@ -2840,50 +2599,6 @@ function providerVerification(row: ProviderRow): ProviderVerification {
   }
 }
 
-function mapAccountSummary(row: AccountSummaryRow): AccountProfileSummary {
-  const fields = row.fields_json ? parseJson<AccountField[]>(row.fields_json, []) : []
-  return {
-    id: row.id,
-    name: row.name,
-    intro: row.intro,
-    domain: row.domain,
-    status: row.status,
-    isCurrent: Boolean(row.is_current),
-    versionCount: Number(row.version_count),
-    completeness: accountCompleteness(fields),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  }
-}
-
-/** 定位完整度：默认八字段的非空占比（0-100） */
-function accountCompleteness(fields: AccountField[]): number {
-  const total = DEFAULT_ACCOUNT_FIELD_NAMES.length
-  if (!total) return 0
-  const filled = DEFAULT_ACCOUNT_FIELD_NAMES.filter((name) =>
-    fields.some((field) => field.name.trim() === name && field.value.trim().length > 0)
-  ).length
-  return Math.round((filled / total) * 100)
-}
-
-function mapVersion(row: VersionRow): AccountVersion {
-  return {
-    id: row.id,
-    profileId: row.profile_id,
-    versionNumber: row.version_number,
-    source: row.source,
-    providerId: row.provider_id ?? undefined,
-    model: row.model ?? undefined,
-    fields: parseJson<AccountField[]>(row.fields_json, []),
-    wizardAnswers: parseJson<WizardAnswer[]>(row.wizard_answers_json, []),
-    createdAt: row.created_at
-  }
-}
-
-function fieldValue(fields: AccountField[], name: string): string {
-  return fields.find((field) => field.name.trim() === name)?.value.trim() ?? ''
-}
-
 function parseJson<T>(value: string, fallback: T): T {
   try {
     return JSON.parse(value) as T
@@ -3020,18 +2735,6 @@ function mapVisualAsset(row:VisualAssetRow):VisualAsset { return {id:row.id,pack
 function visualAssetUrl(fileName:string):string { return `moliu-asset://assets/${fileName.split('/').map(encodeURIComponent).join('/')}` }
 function mapArticleLayout(row:ArticleLayoutRow):ArticleLayout { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,articleStatusSnapshot:row.article_status_snapshot,platform:row.platform,title:row.title,html:row.html,plainText:row.plain_text,themeId:row.theme_id??undefined,layoutVersionId:row.layout_version_id??undefined,layoutConfigSnapshot:row.layout_config_snapshot_json?parseJson<{themeId:string;customCss?:string;styleConfig?:AccountLayoutVersion['styleConfig']}>(row.layout_config_snapshot_json,{themeId:row.theme_id??'wechat-green'}):undefined,renderEngineVersion:row.render_engine_version??undefined,createdAt:row.created_at} }
 function mapAccountLayoutVersion(row:AccountLayoutVersionRow):AccountLayoutVersion { return {id:row.id,accountId:row.profile_id,platform:row.platform,versionNumber:row.version_number,themeId:row.theme_id,customCss:row.custom_css??undefined,styleConfig:parseJson(row.style_config_json,{}),createdAt:row.created_at,updatedAt:row.updated_at} }
-function mapWechatChannel(row:WechatChannelRow):WechatPublishChannel { return {id:row.id,displayName:row.display_name,appId:row.app_id,enabled:Boolean(row.enabled),hasAppSecret:Boolean(row.has_app_secret),updatedAt:row.updated_at} }
-function mapPublication(row:PublicationRow):Publication { return {id:row.id,articleId:row.article_id,articleVersionId:row.article_version_id,layoutId:row.layout_id,channelId:row.channel_id,externalDraftId:row.external_draft_id??undefined,status:row.status,title:row.title,thumbMediaId:row.thumb_media_id,publishedUrl:row.published_url??undefined,errorMessage:row.error_message??undefined,retro:parseRetro(row.retro_json),publishMsgid:row.publish_msgid??undefined,createdAt:row.created_at,updatedAt:row.updated_at} }
-
-function parseRetro(value: string | null): PublicationRetro | undefined {
-  if (!value) return undefined
-  try {
-    const parsed = JSON.parse(value) as Partial<PublicationRetro>
-    return { metrics: parsed.metrics, goal: parsed.goal ?? '', result: parsed.result ?? '', lesson: parsed.lesson ?? '', updatedAt: parsed.updatedAt ?? '' }
-  } catch {
-    return undefined
-  }
-}
 
 function serializeFrameworkXml(sections: FrameworkSection[]): string {
   const body = sections.map((section) => (
